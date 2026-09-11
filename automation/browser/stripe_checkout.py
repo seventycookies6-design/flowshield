@@ -65,18 +65,48 @@ class StripeCheckoutAutomator:
     SUBMIT = [
         "button[data-testid='hosted-payment-submit-button']",
         ".SubmitButton",
+        "button:has-text('Subscribe')",
+        "button:has-text('Pay')",
         "button[type='submit']",
     ]
+    # Managed Payments (default on newer accounts) renders a Link-first page
+    # where the card fields only exist after "Card" is selected. The older
+    # accordion/tab selectors are kept so both layouts work.
+    # Order matters. The radio input sits underneath an accordion button that
+    # intercepts pointer events, so clicking the radio times out — the button
+    # is the real target and must be tried first.
     CARD_TAB = [
-        "button#card-tab",
         "[data-testid='card-accordion-item-button']",
+        "button[aria-label='Pay with card']",
+        "button#card-tab",
+        "input[type='radio'][value='card']",
         "button:has-text('Card')",
     ]
+
+    # Link enrolment. Leaving it ticked makes Stripe demand a phone number and
+    # can interpose a verification step that swallows the success redirect.
     LINK_OPT_OUT = [
         "input[name='enableStripePass']",
         "#enableStripePass",
         "input[data-testid='link-opt-in-checkbox']",
+        "input[type='checkbox'][name='save-my-info']",
+        # Last resort: this page has exactly one checkbox, and it is this one.
+        "input[type='checkbox']",
     ]
+
+    # Billing address, shown as an autocomplete box until expanded.
+    ADDRESS_MANUAL = [
+        "text=Enter address manually",
+        "button:has-text('Enter address manually')",
+        "[data-testid='manual-address-entry']",
+    ]
+    ADDRESS_LINE1 = [
+        "input[placeholder='Address line 1']",
+        "input[name='billingAddressLine1']",
+        "#billingAddressLine1",
+    ]
+    CITY = ["input[placeholder='City']", "input[name='billingLocality']", "#billingLocality"]
+    STATE = ["select[name='billingAdministrativeArea']", "#billingAdministrativeArea"]
 
     def __init__(self, logger=None, headless: bool = False, slow_mo: int = 80,
                  shot_dir: Path | None = None):
@@ -136,19 +166,44 @@ class StripeCheckoutAutomator:
 
     def _fill(self, page, selectors: list[str], value: str, label: str,
               required: bool = True, timeout_ms: int = 8000) -> bool:
+        """
+        Set a field's value without synthesising a mouse click.
+
+        Stripe's layout overlaps inputs with other controls (a country <select>
+        sits over the city and postcode fields), so click() fails hit-testing
+        and times out even though the field is perfectly writable. fill() and
+        type() focus the element directly and sidestep that entirely.
+        """
         locator = self._first_visible(page, selectors, timeout_ms)
         if locator is None:
             level = "missing (required)" if required else "not present (optional)"
             self._say(f"field '{label}' {level}")
             return False
+
+        # Typed entry first — Stripe reformats card numbers and expiry as you
+        # type, and some fields ignore a value set in one shot.
         try:
-            locator.click()
-            locator.fill("")
-            locator.type(value, delay=45)
+            locator.fill("", timeout=5000)
+            locator.type(value, delay=40, timeout=10_000)
             self._say(f"filled {label}")
             return True
+        except PlaywrightError:
+            pass
+
+        try:
+            locator.fill(value, timeout=5000)
+            self._say(f"filled {label} (direct)")
+            return True
+        except PlaywrightError:
+            pass
+
+        try:
+            locator.click(force=True, timeout=5000)
+            locator.type(value, delay=40, timeout=10_000)
+            self._say(f"filled {label} (forced)")
+            return True
         except PlaywrightError as exc:
-            self._say(f"could not fill '{label}': {exc}")
+            self._say(f"could not fill '{label}': {str(exc).splitlines()[0]}")
             return False
 
     @staticmethod
@@ -193,19 +248,10 @@ class StripeCheckoutAutomator:
                         self.screenshots,
                     )
 
-                # Some layouts collapse card behind an accordion tab.
-                tab = self._first_visible(page, self.CARD_TAB, timeout_ms=2500)
-                if tab is not None:
-                    try:
-                        tab.click()
-                        self._say("expanded the Card payment section")
-                        page.wait_for_timeout(700)
-                    except PlaywrightError:
-                        pass
-
-                # Email may be pre-filled from customer_email.
+                # Email first — on the Managed Payments layout the payment
+                # method list only renders once an email is present.
                 existing = ""
-                email_field = self._first_visible(page, self.EMAIL, timeout_ms=4000)
+                email_field = self._first_visible(page, self.EMAIL, timeout_ms=6000)
                 if email_field is not None:
                     try:
                         existing = email_field.input_value()
@@ -215,27 +261,60 @@ class StripeCheckoutAutomator:
                     self._fill(page, self.EMAIL, email, "email", required=False)
                 else:
                     self._say(f"email pre-filled as {existing}")
+                page.wait_for_timeout(800)
+
+                # Under Managed Payments the card inputs do not exist in the DOM
+                # until Card is chosen, and the page opens on Link/Apple Pay.
+                if self._first_visible(page, self.CARD_NUMBER, timeout_ms=3000) is None:
+                    self._select_card_method(page)
 
                 if not self._fill(page, self.CARD_NUMBER, card_number, "card number"):
                     self._shot(page, "error-no-card-field")
                     return CheckoutResult(
                         False, None, page.url,
-                        "card number field never appeared", self.screenshots,
+                        "card number field never appeared (is the Card method selectable?)",
+                        self.screenshots,
                     )
 
                 self._fill(page, self.CARD_EXPIRY, expiry, "expiry")
                 self._fill(page, self.CARD_CVC, cvc, "CVC")
                 self._fill(page, self.CARD_NAME, cardholder, "cardholder name", required=False)
+
+                # Billing address: a postcode-only field on the classic layout,
+                # a full address block (behind a link) on the newer one.
+                if self._first_visible(page, self.POSTAL, timeout_ms=1500) is None:
+                    manual = self._first_visible(page, self.ADDRESS_MANUAL, timeout_ms=2500)
+                    if manual is not None:
+                        try:
+                            manual.click()
+                            self._say("expanded the manual address form")
+                            page.wait_for_timeout(900)
+                        except PlaywrightError:
+                            pass
+
+                self._fill(page, self.ADDRESS_LINE1, "1 Test Street", "address line 1",
+                           required=False, timeout_ms=2500)
+                self._fill(page, self.CITY, "Beverly Hills", "city",
+                           required=False, timeout_ms=2500)
                 self._fill(page, self.POSTAL, postal_code, "postal code", required=False)
 
-                # Don't enrol the test card in Link — the modal it opens after
-                # payment blocks the redirect we need to observe.
-                opt_out = self._first_visible(page, self.LINK_OPT_OUT, timeout_ms=1500)
+                state = self._first_visible(page, self.STATE, timeout_ms=2000)
+                if state is not None:
+                    try:
+                        state.select_option("CA")
+                        self._say("selected state CA")
+                    except PlaywrightError as exc:
+                        self._say(f"could not select a state: {exc}")
+
+                # Don't enrol the test card in Link — it demands a phone number
+                # and can interpose a step that swallows the success redirect.
+                opt_out = self._first_visible(page, self.LINK_OPT_OUT, timeout_ms=2000)
                 if opt_out is not None:
                     try:
                         if opt_out.is_checked():
                             opt_out.uncheck()
                             self._say("opted out of Stripe Link")
+                            page.wait_for_timeout(500)
                     except PlaywrightError:
                         pass
 
@@ -248,7 +327,11 @@ class StripeCheckoutAutomator:
                                           "submit button not found", self.screenshots)
 
                 self._say("submitting payment…")
-                submit.click()
+                if not self._click(submit, "the submit button"):
+                    self._shot(page, "error-submit-click")
+                    return CheckoutResult(False, None, page.url,
+                                          "could not click the submit button",
+                                          self.screenshots)
 
                 # Success is a redirect away from checkout.stripe.com.
                 try:
@@ -300,6 +383,78 @@ class StripeCheckoutAutomator:
             finally:
                 context.close()
                 browser.close()
+
+    def _click(self, locator, label: str) -> bool:
+        """
+        Click something, scrolling it into view first.
+
+        Order matters and the first step is not optional. Stripe's checkout
+        column is taller than the viewport, and a click(force=True) on an
+        off-screen element is dispatched at clamped coordinates — it lands on
+        whatever happens to be there, the handler never runs, and the page sits
+        silently in a half-submitted state. Scroll first, then hit-test for
+        real; only fall back to force and a synthetic DOM click.
+        """
+        try:
+            locator.scroll_into_view_if_needed(timeout=5000)
+        except PlaywrightError:
+            pass
+
+        try:
+            locator.click(timeout=8000)
+            return True
+        except PlaywrightError as exc:
+            self._say(f"hit-tested click on {label} failed: {str(exc).splitlines()[0][:70]}")
+
+        try:
+            locator.click(force=True, timeout=5000)
+            self._say(f"clicked {label} (forced)")
+            return True
+        except PlaywrightError:
+            pass
+
+        try:
+            locator.evaluate("el => el.click()")
+            self._say(f"clicked {label} (synthetic)")
+            return True
+        except PlaywrightError as exc:
+            self._say(f"could not click {label}: {str(exc).splitlines()[0][:70]}")
+            return False
+
+    def _select_card_method(self, page) -> bool:
+        """
+        Choose the Card payment method, then wait for its fields to render.
+
+        Tried in order: the accordion button, then the covered radio with a
+        forced click (bypassing the interception check), then the visible label.
+        Each attempt is confirmed by the card number field actually appearing —
+        clicking something is not the same as having selected it.
+        """
+        for selector in self.CARD_TAB:
+            locator = self._first_visible(page, [selector], timeout_ms=2500)
+            if locator is None:
+                continue
+            if not self._click(locator, f"Card ({selector})"):
+                continue
+            page.wait_for_timeout(1200)
+            if self._first_visible(page, self.CARD_NUMBER, timeout_ms=4000):
+                self._say(f"selected the Card method via {selector}")
+                return True
+
+        # Some layouts respond to the label rather than the control.
+        try:
+            label = page.get_by_text("Card", exact=True).first
+            if label.is_visible(timeout=1500):
+                label.click(force=True, timeout=5000)
+                page.wait_for_timeout(1200)
+                if self._first_visible(page, self.CARD_NUMBER, timeout_ms=4000):
+                    self._say("selected the Card method via its label")
+                    return True
+        except PlaywrightError:
+            pass
+
+        self._say("could not select the Card payment method")
+        return False
 
     @staticmethod
     def _read_error(page) -> str:
