@@ -16,8 +16,16 @@
     pwsh tools/publish_site.ps1
 #>
 
-$ErrorActionPreference = 'Stop'
+# Native commands write progress to stderr, which Windows PowerShell turns into
+# a terminating NativeCommandError under 'Stop'. Check $LASTEXITCODE instead.
+$ErrorActionPreference = 'Continue'
 Set-Location (Join-Path $PSScriptRoot '..')
+
+function Invoke-Git {
+    param([Parameter(ValueFromRemainingArguments = $true)][string[]]$Arguments)
+    $output = & git @Arguments 2>&1
+    return [pscustomobject]@{ Output = $output; ExitCode = $LASTEXITCODE }
+}
 
 Write-Host ''
 Write-Host '  Publishing Website/ to gh-pages' -ForegroundColor Cyan
@@ -35,7 +43,9 @@ if ($leaks) {
     exit 1
 }
 
-if (git ls-files --error-unmatch '.stripe_keys.json' 2>$null) {
+# `git ls-files <path>` prints the path when tracked and nothing when not,
+# exiting 0 either way — no stderr to trip over.
+if ((Invoke-Git ls-files '.stripe_keys.json').Output) {
     Write-Host '  .stripe_keys.json is tracked in git - refusing to publish.' -ForegroundColor Red
     exit 1
 }
@@ -43,27 +53,38 @@ Write-Host '  No secrets found in Website/.' -ForegroundColor DarkGray
 
 # --- uncommitted changes would be silently left behind ------------------------
 
-if (git status --porcelain -- Website) {
+if ((Invoke-Git status --porcelain -- Website).Output) {
     Write-Host '  Website/ has uncommitted changes. Commit them first:' -ForegroundColor Yellow
-    git status --short -- Website
+    (Invoke-Git status --short -- Website).Output | ForEach-Object { Write-Host "    $_" }
     exit 1
 }
 
 # --- split and push -----------------------------------------------------------
 
-$branch = git rev-parse --abbrev-ref HEAD
+$branch = (Invoke-Git rev-parse --abbrev-ref HEAD).Output | Select-Object -First 1
 Write-Host "  Splitting Website/ out of $branch ..." -ForegroundColor DarkGray
-$sha = (git subtree split --prefix Website $branch).Trim()
+
+$split = Invoke-Git subtree split --prefix Website $branch
+# subtree prints progress lines; the commit sha is the last 40-hex line.
+$sha = $split.Output | ForEach-Object { "$_".Trim() } |
+    Where-Object { $_ -match '^[0-9a-f]{40}$' } | Select-Object -Last 1
 
 if (-not $sha) {
-    Write-Host '  git subtree split produced no commit.' -ForegroundColor Red
+    Write-Host '  git subtree split produced no commit:' -ForegroundColor Red
+    $split.Output | ForEach-Object { Write-Host "    $_" }
     exit 1
 }
 
 Write-Host "  Pushing $($sha.Substring(0,8)) to gh-pages ..." -ForegroundColor DarkGray
-git push origin "$($sha):refs/heads/gh-pages" --force | Out-Null
+$push = Invoke-Git push origin "$($sha):refs/heads/gh-pages" --force
+if ($push.ExitCode -ne 0) {
+    Write-Host '  Push failed:' -ForegroundColor Red
+    $push.Output | ForEach-Object { Write-Host "    $_" }
+    exit 1
+}
 
-$remote = (git remote get-url origin) -replace '\.git$', '' -replace '^https://github\.com/', ''
+$remote = ((Invoke-Git remote get-url origin).Output | Select-Object -First 1) `
+    -replace '\.git$', '' -replace '^https://github\.com/', ''
 Write-Host ''
 Write-Host '  Published.' -ForegroundColor Green
 Write-Host "  Pages usually refreshes within a minute: https://$($remote.Split('/')[0]).github.io/$($remote.Split('/')[1])/"
