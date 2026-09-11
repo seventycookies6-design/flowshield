@@ -126,7 +126,20 @@ class DesktopController:
             time.sleep(1.2)
         return killed
 
-    def launch_app(self, clean_state: bool = True, extra_args: list[str] | None = None) -> int:
+    def launch_app(
+        self,
+        clean_state: bool = True,
+        extra_args: list[str] | None = None,
+        use_defaults: bool = False,
+    ) -> int:
+        """
+        Start the app.
+
+        `use_defaults=True` omits the --server/--website overrides so the binary
+        runs exactly as a downloaded copy would, against whatever endpoints it
+        was built with. Without it every launch is pinned to localhost, which
+        makes it impossible to test the shipped configuration.
+        """
         if not Path(APP_EXE).exists():
             raise DesktopControllerError(f"{APP_EXE} not found — build the app first.")
 
@@ -143,8 +156,9 @@ class DesktopController:
             except OSError as exc:
                 self._say(f"could not delete settings file: {exc}")
 
-        args.append(f"--server={SERVER_URL}")
-        args.append(f"--website={WEBSITE_URL}")
+        if not use_defaults:
+            args.append(f"--server={SERVER_URL}")
+            args.append(f"--website={WEBSITE_URL}")
         if extra_args:
             args.extend(extra_args)
 

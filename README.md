@@ -1,6 +1,10 @@
 # FlowShield
 
-**Live site: <https://seventycookies6-design.github.io/flowshield/>**
+**Site: <https://seventycookies6-design.github.io/flowshield/>**
+**Licence server: <https://flowshield-license-server.onrender.com>**
+
+Buying on the site issues a real licence key, and the desktop app activates Pro
+against the deployed server — no local services involved.
 
 A Windows focus timer and app blocker. Distractions go behind a shield whose
 strength you pick per sprint, and finished sprints compound into momentum.
@@ -89,11 +93,11 @@ a visitor's browser plainly cannot reach *your* `localhost:3000`. Automatic
 licence-key issuance needs the Node server hosted somewhere public; deploy it
 and set `licenseServerUrl` in `Website/config.js` to switch the live site over.
 
-## Deploying the licence server
+## The deployed licence server
 
-GitHub Pages is static, so the published site can take payments but cannot
-issue licence keys — that needs the Node server hosted somewhere public.
-`Dockerfile` and `render.yaml` are ready; **`DEPLOY.md`** has the steps.
+GitHub Pages is static, so the site alone cannot issue licence keys. The server
+runs on Render (`Dockerfile` + `render.yaml`); **`DEPLOY.md`** covers redeploys
+and the trade-offs of the free plan.
 
 The database is treated as a **cache of Stripe, not the record**. Free hosting
 tiers have ephemeral disks, so `licenses.db` is wiped on every redeploy; rather

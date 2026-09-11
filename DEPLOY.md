@@ -1,62 +1,45 @@
-# Deploying the licence server
+# The licence server — deployed
 
-The site is live and takes payments. What it can't yet do is hand a buyer their
-licence key, because issuing one needs the Node server and GitHub Pages only
-serves static files. This is the step that closes that loop.
+**Live: <https://flowshield-license-server.onrender.com>**
 
-Everything is prepared — `Dockerfile`, `render.yaml`, health check, CORS, and
-Stripe-backed recovery. The part left to you is creating the hosting account,
-which I won't do on your behalf: signing up to a service under your name and
-accepting its terms is your decision, not mine.
+| | |
+| --- | --- |
+| Host | Render, free plan, Docker, region `oregon` |
+| Config | `render.yaml` (in git) + four secrets entered in the dashboard |
+| Health | <https://flowshield-license-server.onrender.com/health> |
+| Webhook | `/webhook`, enabled, signature-verified, delivering |
+| Database | `node:sqlite` at `/data/licenses.db` — a cache of Stripe |
 
-**Roughly ten minutes.** Free tier, no card.
+The full loop is verified end to end: a purchase on the published site issues a
+licence key on the success page, and the shipped desktop binary activates Pro
+against this server with no local services running.
 
----
+## How it was connected
 
-## 1. Create the service
+Render is pointed at the **public repository URL** rather than a linked GitHub
+account, so Render holds no OAuth grant over the GitHub account. The trade-off
+is that **auto-deploy on push does not work** — after pushing, click *Manual
+Deploy → Deploy latest commit* in the Render dashboard. Connecting GitHub in
+Render's settings would enable automatic deploys if that becomes annoying.
 
-1. Sign in at <https://dashboard.render.com> with **GitHub** (you're already
-   authenticated there).
-2. **New → Blueprint**.
-3. Pick the **`flowshield`** repository. Render reads `render.yaml` and
-   proposes a service called `flowshield-license-server` — everything is
-   already configured, so don't change anything.
-4. It will prompt for four secrets, because they are deliberately not in the
-   repo. Copy them from `.stripe_keys.json`:
+## Redeploying
 
-   | Prompt | Value |
-   | --- | --- |
-   | `STRIPE_SECRET_KEY` | `sk_test_…` |
-   | `STRIPE_PUBLISHABLE_KEY` | `pk_test_…` |
-   | `STRIPE_PRICE_ID` | `price_…` |
-   | `STRIPE_WEBHOOK_SECRET` | leave blank for now — step 3 replaces it |
+```bash
+git push origin main
+```
 
-5. **Apply**. First build takes 3–5 minutes.
+then **Manual Deploy** in Render. Verify with:
 
-You'll get a URL like `https://flowshield-license-server.onrender.com`.
-Check it: `https://<your-url>/health` should report `"configured": true` and
-`"mode": "test"`.
+```bash
+curl https://flowshield-license-server.onrender.com/health
+```
 
-## 2. Tell me the URL
+```bash
+python automation/verify_deployed.py FS-XXXX-XXXX-XXXX-XXXX
+```
 
-Paste it in chat and I'll do the rest:
-
-- point `Website/config.js` at it and republish the site, so the success page
-  issues real licence keys instead of asking buyers to self-activate
-- set it as the desktop app's default `LicenseServerUrl` and rebuild
-- register the webhook and store its signing secret
-- run the suite against the deployed server to prove it end to end
-
-## 3. Webhook (I'll do this once I have the URL)
-
-Deployed, Stripe can finally reach the endpoint — which matters because it is
-what records a Payment Link purchase when the buyer closes the tab before the
-success page loads.
-
-Developers → Webhooks → Add endpoint → `https://<your-url>/webhook`, events
-`checkout.session.completed`, `customer.subscription.updated`,
-`customer.subscription.deleted`. Then put the signing secret into Render's
-`STRIPE_WEBHOOK_SECRET` environment variable.
+The last one launches the shipped binary with no overrides and activates a real
+licence over the internet — the closest thing to being a customer.
 
 ---
 

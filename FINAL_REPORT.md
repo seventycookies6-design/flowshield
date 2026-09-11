@@ -1,6 +1,6 @@
 # FlowShield — build & test report
 
-_Generated 2026-09-11 03:03_
+_Generated 2026-09-11 07:53_
 
 ---
 
@@ -53,7 +53,7 @@ month. Every sprint ends with a one-line "what moved?" journal entry.
 | Publishable key | `pk_test_51U8••••••••••••••••••` _(redacted)_ |
 | Secret key | `sk_test_51••••••••••••••••••` _(redacted)_ |
 | Price ID | `price_1UEN5uCcqk10eo83Od3c7gCq` |
-| Webhook secret | `whsec_T8••••••••••••••••••` _(redacted)_ |
+| Webhook secret | `whsec_7u••••••••••••••••••` _(redacted)_ |
 
 Secret values are redacted here by design — this file is meant to be shareable.
 The real values live only in `.stripe_keys.json`, which is git-ignored.
