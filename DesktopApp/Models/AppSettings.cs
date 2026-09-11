@@ -93,8 +93,14 @@ public class AppSettings
     public string LicenseKey { get; set; } = "";
     public string LicenseEmail { get; set; } = "";
     public bool IsPro { get; set; }
-    public string LicenseServerUrl { get; set; } = "http://localhost:3000";
-    public string WebsiteUrl { get; set; } = "http://localhost:5500";
+    /// <summary>
+    /// Where licence validation goes. Points at the deployed service so a
+    /// shipped build works without configuration; override it in Settings, or
+    /// with --server= on the command line, to test against a local server.
+    /// </summary>
+    public string LicenseServerUrl { get; set; } = "https://flowshield-license-server.onrender.com";
+
+    public string WebsiteUrl { get; set; } = "https://seventycookies6-design.github.io/flowshield";
     public DateTime? LicenseCheckedUtc { get; set; }
     public string LicenseStatus { get; set; } = "";
 

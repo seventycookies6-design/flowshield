@@ -34,10 +34,20 @@ public class LicenseService
     private readonly SettingsService _settings;
     private readonly HttpClient _http;
 
+    /// <summary>
+    /// Generous because the licence server may be on a free tier that sleeps
+    /// after inactivity; the first request then pays a cold start of roughly a
+    /// minute. A short timeout here turns "the host was asleep" into "your
+    /// licence is invalid", which is the worst possible way to be wrong.
+    /// </summary>
+    private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(35);
+
+    private const int TimeoutRetries = 2;
+
     public LicenseService(SettingsService settings, HttpClient? http = null)
     {
         _settings = settings;
-        _http = http ?? new HttpClient { Timeout = TimeSpan.FromSeconds(20) };
+        _http = http ?? new HttpClient { Timeout = RequestTimeout };
     }
 
     private sealed class ValidateResponse
@@ -69,9 +79,27 @@ public class LicenseService
         try
         {
             Log.Info($"validating license against {url}");
-            using var response = await _http.PostAsJsonAsync(url, new { licenseKey = key, email = mail });
 
-            var body = await response.Content.ReadFromJsonAsync<ValidateResponse>();
+            // Retry only on timeout, and only a couple of times: a sleeping
+            // free-tier host wakes on the first request and answers the next.
+            // Other failures are not retried — repeating a rejected licence
+            // check just makes the user wait longer for the same answer.
+            HttpResponseMessage? response = null;
+            for (var attempt = 1; ; attempt++)
+            {
+                try
+                {
+                    response = await _http.PostAsJsonAsync(url, new { licenseKey = key, email = mail });
+                    break;
+                }
+                catch (TaskCanceledException) when (attempt <= TimeoutRetries)
+                {
+                    Log.Warn($"license request timed out (attempt {attempt}); the server may be waking up");
+                }
+            }
+
+            using var _ = response;
+            var body = await response!.Content.ReadFromJsonAsync<ValidateResponse>();
             if (body is null)
                 return LicenseResult.Failure("The license server returned an unreadable response.");
 
