@@ -20,7 +20,21 @@
    *
    * An explicit ?server= always wins so the automation suite can force path 1.
    */
-  var SERVER = (params.get('server') || CONFIG.licenseServerUrl || '').replace(/\/$/, '');
+  /*
+   * Served from localhost with nothing configured? Then this is a development
+   * copy, and the license server is almost certainly running next to it. Assume
+   * so rather than falling back to the Payment Link, which would hide the
+   * licence-key flow exactly where it most needs testing. The published site is
+   * never on localhost, so it is unaffected.
+   */
+  function localDefaultServer() {
+    var host = window.location.hostname;
+    var isLocal = host === 'localhost' || host === '127.0.0.1' || host === '[::1]';
+    return isLocal ? 'http://localhost:3000' : '';
+  }
+
+  var SERVER = (params.get('server') || CONFIG.licenseServerUrl || localDefaultServer())
+    .replace(/\/$/, '');
   var PAYMENT_LINK = CONFIG.paymentLink || '';
   var HAS_SERVER = SERVER.length > 0;
 
