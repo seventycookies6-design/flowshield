@@ -1,5 +1,7 @@
 # FlowShield
 
+**Live site: <https://seventycookies6-design.github.io/flowshield/>**
+
 A Windows focus timer and app blocker. Distractions go behind a shield whose
 strength you pick per sprint, and finished sprints compound into momentum.
 
@@ -57,14 +59,49 @@ configuration), the site on `http://localhost:5500`.
 
 ### Stripe
 
-Payment routes return a `503` that names the missing fields until you add test
-credentials. **`STRIPE_SETUP.md`** walks through it — about five minutes, one
-time. Nothing else is blocked by this: the app, the site and the whole non-payment
-test suite run without any Stripe account.
+Put your test keys in `.stripe_keys.json` (see **`STRIPE_SETUP.md`**), then
+create the product, price and Payment Link in one command:
 
-Creating that account is deliberately left to a human. Registering a
-financial-services account under a generated identity breaks Stripe's terms, and
-a secret key never needs to pass through an assistant to be used.
+```bash
+node tools/setup_stripe_store.js --site https://seventycookies6-design.github.io/flowshield
+```
+
+It is idempotent — everything it creates is tagged `metadata.app=flowshield` and
+looked up before being created, so re-running never leaves duplicates behind. It
+writes the price id back to `.stripe_keys.json` and the Payment Link to
+`Website/config.js`, then refuses outright if handed a `sk_live_` key.
+
+Until that runs, the server's payment routes return a `503` naming the missing
+fields, and the site's Get Pro button says so plainly. Nothing else is blocked:
+the app, the site and the whole non-payment test suite need no Stripe account.
+
+### Two ways to check out
+
+The site picks automatically, because the published build has no backend:
+
+| Mode | When | What happens |
+| --- | --- | --- |
+| **Payment Link** | No license server configured — i.e. the public site | The button links to a Stripe-hosted checkout page. Real payments, zero backend. |
+| **License server** | `config.licenseServerUrl` is set, or `?server=http://host:port` | `POST /create-checkout` reserves a licence key first, so the success page can hand it straight over. |
+
+GitHub Pages is static hosting, so the published site uses the Payment Link —
+a visitor's browser plainly cannot reach *your* `localhost:3000`. Automatic
+licence-key issuance needs the Node server hosted somewhere public; deploy it
+and set `licenseServerUrl` in `Website/config.js` to switch the live site over.
+
+## Publishing the site
+
+```bash
+pwsh tools/publish_site.ps1
+```
+
+Splits `Website/` onto the `gh-pages` branch that Pages serves, after refusing
+to publish if any Stripe secret has crept into `Website/` or if
+`.stripe_keys.json` has become tracked.
+
+A GitHub Actions workflow would be the more modern route, but pushing one needs
+the `workflow` OAuth scope the local `gh` token doesn't carry. To switch:
+`gh auth refresh -s workflow`.
 
 ## Testing
 
