@@ -27,9 +27,19 @@ const APP_NAME = 'FlowShield';
 const keys = loadKeys();
 const keyReport = describe(keys);
 
+/**
+ * Pinned so a future SDK bump can't silently change behaviour underneath us.
+ *
+ * Must be 2025-03-31.basil or later: newer Stripe accounts have Managed
+ * Payments enabled by default, and it rejects older API versions outright.
+ * From this version on, a subscription's current_period_end lives on the
+ * subscription *item* rather than the subscription — periodEndOf() reads both.
+ */
+const STRIPE_API_VERSION = '2026-08-26.dahlia';
+
 const stripe = keys.secret_key
   ? new StripeLib(keys.secret_key, {
-      apiVersion: '2023-10-16',
+      apiVersion: STRIPE_API_VERSION,
       appInfo: { name: `${APP_NAME} License Server`, version: '1.0.0' },
     })
   : null;

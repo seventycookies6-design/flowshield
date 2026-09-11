@@ -29,6 +29,22 @@ const UNIT_AMOUNT = 499; // cents
 const CURRENCY = 'usd';
 const TAG = 'flowshield';
 
+/**
+ * Stripe tax code — required because Managed Payments is enabled by default on
+ * newer accounts, and it refuses line items whose product has no tax code.
+ *
+ * txcd_10202000 = "Downloadable Software - personal use", which is what
+ * FlowShield is: a desktop app you download and run locally, sold to
+ * individuals on a subscription. It is NOT SaaS — nothing executes on a server.
+ *
+ * This classification only affects tax calculation, and in test mode it affects
+ * nothing at all. Before going live, confirm it with whoever does your taxes —
+ * a business-use or SaaS code may fit better depending on who buys it.
+ * Alternatives: txcd_10202003 (downloadable, business use),
+ * txcd_10103000 (SaaS, personal use), txcd_10103001 (SaaS, business use).
+ */
+const TAX_CODE = process.env.FLOWSHIELD_TAX_CODE || 'txcd_10202000';
+
 // ------------------------------------------------------------------- helpers
 
 function parseArgs(argv) {
@@ -100,6 +116,13 @@ async function findProduct(stripe) {
 async function ensureProduct(stripe) {
   const existing = await findProduct(stripe);
   if (existing) {
+    // A product created before the tax code was required would break every
+    // checkout under Managed Payments, so backfill it rather than reuse as-is.
+    if (!existing.tax_code) {
+      const updated = await stripe.products.update(existing.id, { tax_code: TAX_CODE });
+      ok(`product reused and tax code set to ${TAX_CODE}: ${updated.name} (${updated.id})`);
+      return updated;
+    }
     ok(`product reused: ${existing.name} (${existing.id})`);
     return existing;
   }
@@ -109,6 +132,7 @@ async function ensureProduct(stripe) {
     description:
       'Unlimited blocked apps, Shield III Sealed mode, sleep-blocking schedules, ' +
       'hard kill mode, and unlimited history with momentum analytics.',
+    tax_code: TAX_CODE,
     metadata: { app: TAG },
   });
   ok(`product created: ${product.name} (${product.id})`);
@@ -280,7 +304,9 @@ async function main() {
     fail('The stripe package is missing. Run `npm install` inside Server/ first.');
   }
 
-  const stripe = Stripe(keys.secret_key, { apiVersion: '2023-10-16' });
+  // Managed Payments (on by default for newer accounts) rejects API versions
+  // older than 2025-03-31.basil, so this must stay current with server.js.
+  const stripe = Stripe(keys.secret_key, { apiVersion: '2026-08-26.dahlia' });
 
   let account;
   try {
