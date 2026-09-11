@@ -1,0 +1,336 @@
+"""
+Tier 1 — unit tests.
+
+Pure logic, no app and no network. These exercise the same rules the desktop app
+and the server enforce, using the Node modules directly (via a short-lived node
+process) and Python re-implementations where the rule is shared.
+"""
+
+from __future__ import annotations
+
+import json
+import subprocess
+from pathlib import Path
+
+import pytest
+
+from config import SERVER_DIR
+
+NODE = r"C:\Program Files\nodejs\node.exe"
+NODE_EXE = NODE if Path(NODE).exists() else "node"
+
+
+def node_eval(script: str) -> dict:
+    """Run a snippet inside the server package and parse its JSON output."""
+    result = subprocess.run(
+        [NODE_EXE, "-e", script],
+        cwd=str(SERVER_DIR),
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    if result.returncode != 0:
+        raise AssertionError(f"node failed: {result.stderr[:500]}")
+    return json.loads(result.stdout.strip().splitlines()[-1])
+
+
+# ======================================================= license key format
+
+class TestLicenseKeyFormat:
+    """Five checks on the key generator and its checksum."""
+
+    def test_generated_key_matches_the_documented_shape(self):
+        out = node_eval(
+            "const k=require('./licensekey');"
+            "console.log(JSON.stringify({key:k.generate()}))"
+        )
+        key = out["key"]
+        assert key.startswith("FS-"), key
+        assert len(key.split("-")) == 5, key
+        assert all(len(part) == 4 for part in key.split("-")[1:]), key
+
+    def test_generated_keys_validate(self):
+        out = node_eval(
+            "const k=require('./licensekey');"
+            "const keys=Array.from({length:200},()=>k.generate());"
+            "console.log(JSON.stringify({allValid:keys.every(k.isWellFormed),"
+            "unique:new Set(keys).size}))"
+        )
+        assert out["allValid"] is True
+        assert out["unique"] == 200, "generator produced duplicates"
+
+    def test_checksum_rejects_every_single_character_typo(self):
+        """
+        Exhaustive: for 20 keys, every position × every other alphabet symbol.
+
+        A weaker version of this test (one position, one substitution) passed
+        against a checksum that had blind spots at positions whose weight shared
+        a factor with 32. Sampling one case is not enough here.
+        """
+        out = node_eval(
+            "const k=require('./licensekey');"
+            "const alpha='0123456789ABCDEFGHJKMNPQRSTVWXYZ';"
+            "let checked=0; const escaped=[];"
+            "for (let n=0;n<20;n++){"
+            "  const key=k.generate();"
+            "  const body=key.replace(/-/g,'').slice(2);"
+            "  for (let i=0;i<body.length;i++){"
+            "    for (const c of alpha){"
+            "      if (c===body[i]) continue;"
+            "      const m=body.slice(0,i)+c+body.slice(i+1);"
+            "      const bad='FS-'+m.match(/.{1,4}/g).join('-');"
+            "      checked++;"
+            "      if (k.isWellFormed(bad)) escaped.push({pos:i, from:body[i], to:c});"
+            "    }"
+            "  }"
+            "}"
+            "console.log(JSON.stringify({checked, escaped:escaped.slice(0,10),"
+            " escapedCount:escaped.length}))"
+        )
+        assert out["checked"] > 9000, f"only checked {out['checked']} mutations"
+        assert out["escapedCount"] == 0, (
+            f"{out['escapedCount']} single-character typos passed validation, "
+            f"e.g. {out['escaped']}"
+        )
+
+    def test_normalisation_tolerates_sloppy_input(self):
+        out = node_eval(
+            "const k=require('./licensekey');"
+            "const key=k.generate();"
+            "const messy='  '+key.toLowerCase().replace(/-/g,' - ')+'  ';"
+            "console.log(JSON.stringify({"
+            "  lower:k.isWellFormed(key.toLowerCase()),"
+            "  spaced:k.isWellFormed(key.replace(/-/g,' -')),"
+            "  normalised:k.normalize(messy).replace(/-/g,'')===key.replace(/-/g,'')}))"
+        )
+        assert out["lower"] is True, "lower-case keys should validate"
+        assert out["normalised"] is True
+
+    @pytest.mark.parametrize("bad", [
+        "", "FS", "FS-", "not-a-key",
+        "FS-IIII-IIII-IIII-IIII",     # I is excluded from the alphabet
+        "FS-LLLL-OOOO-UUUU-IIII",     # so are L, O and U
+        "FS-1234-1234-1234",          # too few groups
+        "FS-1234-1234-1234-1234-1234",  # too many groups
+        "FS-123-1234-1234-12345",     # wrong group lengths
+        "XX-ABCD-ABCD-ABCD-ABCD",     # wrong prefix
+        "FS-AB!D-ABCD-ABCD-ABCD",     # punctuation
+    ])
+    def test_structurally_invalid_keys_are_rejected(self, bad):
+        out = node_eval(
+            "const k=require('./licensekey');"
+            f"console.log(JSON.stringify({{valid:k.isWellFormed({json.dumps(bad)})}}))"
+        )
+        assert out["valid"] is False, f"{bad!r} should not validate"
+
+    def test_a_key_with_the_right_shape_but_a_wrong_checksum_is_rejected(self):
+        """
+        Derived, not hardcoded.
+
+        A fixed string like FS-ZZZZ-ZZZZ-ZZZZ-ZZZZ is a poor negative fixture:
+        roughly one in 32 such strings is a checksum-valid key by chance, so the
+        test would silently start asserting the wrong thing whenever the
+        checksum changes. Mutating a real key is always a genuine failure case.
+        """
+        out = node_eval(
+            "const k=require('./licensekey');"
+            "const key=k.generate();"
+            "const body=key.replace(/-/g,'').slice(2);"
+            "const alpha='0123456789ABCDEFGHJKMNPQRSTVWXYZ';"
+            "const other=alpha[(alpha.indexOf(body[14])+1)%32];"
+            "const m=body.slice(0,14)+other;"
+            "const bad='FS-'+m.match(/.{1,4}/g).join('-');"
+            "console.log(JSON.stringify({good:k.isWellFormed(key),bad:k.isWellFormed(bad),"
+            " sample:bad}))"
+        )
+        assert out["good"] is True
+        assert out["bad"] is False, f"{out['sample']} passed with a corrupted checksum"
+
+
+# ============================================================ sleep window
+
+def within_sleep_window(now_minutes: int, start: int, end: int) -> bool:
+    """Mirror of AppBlockerService.IsWithinSleepWindow (minutes since midnight)."""
+    if start <= end:
+        return start <= now_minutes < end
+    return now_minutes >= start or now_minutes < end
+
+
+class TestSleepWindow:
+    def test_same_day_window_includes_its_middle(self):
+        assert within_sleep_window(13 * 60, 9 * 60, 17 * 60) is True
+
+    def test_same_day_window_excludes_outside(self):
+        assert within_sleep_window(8 * 60, 9 * 60, 17 * 60) is False
+        assert within_sleep_window(18 * 60, 9 * 60, 17 * 60) is False
+
+    def test_window_crossing_midnight_includes_late_evening(self):
+        assert within_sleep_window(23 * 60, 22 * 60, 6 * 60) is True
+
+    def test_window_crossing_midnight_includes_early_morning(self):
+        assert within_sleep_window(2 * 60, 22 * 60, 6 * 60) is True
+
+    def test_window_crossing_midnight_excludes_daytime(self):
+        assert within_sleep_window(12 * 60, 22 * 60, 6 * 60) is False
+
+    def test_boundaries_are_half_open(self):
+        # Start is inclusive, end exclusive — so a window can't double-count.
+        assert within_sleep_window(22 * 60, 22 * 60, 6 * 60) is True
+        assert within_sleep_window(6 * 60, 22 * 60, 6 * 60) is False
+
+
+# ======================================================== time parsing rule
+
+def parse_time(text: str) -> tuple[int, int] | None:
+    """Mirror of SleepBlockingViewModel.TryParse for the formats it accepts."""
+    import re
+
+    text = (text or "").strip().lower()
+    if not text:
+        return None
+
+    match = re.fullmatch(r"(\d{1,2}):(\d{2})\s*(am|pm)?", text)
+    if not match:
+        match = re.fullmatch(r"(\d{2})(\d{2})", text)
+        if match:
+            hour, minute, meridiem = int(match.group(1)), int(match.group(2)), None
+            return (hour, minute) if hour < 24 and minute < 60 else None
+        match = re.fullmatch(r"(\d{1,2})\s*(am|pm)", text)
+        if not match:
+            return None
+        hour, minute, meridiem = int(match.group(1)), 0, match.group(2)
+    else:
+        hour, minute, meridiem = int(match.group(1)), int(match.group(2)), match.group(3)
+
+    if meridiem == "pm" and hour < 12:
+        hour += 12
+    if meridiem == "am" and hour == 12:
+        hour = 0
+    return (hour, minute) if hour < 24 and minute < 60 else None
+
+
+class TestTimeParsing:
+    @pytest.mark.parametrize("text,expected", [
+        ("22:00", (22, 0)),
+        ("06:45", (6, 45)),
+        ("9:05", (9, 5)),
+        ("2200", (22, 0)),
+        ("10pm", (22, 0)),
+        ("12am", (0, 0)),
+    ])
+    def test_accepted_formats(self, text, expected):
+        assert parse_time(text) == expected
+
+    @pytest.mark.parametrize("text", ["", "   ", "banana", "25:00", "12:99", "::"])
+    def test_rejected_formats(self, text):
+        assert parse_time(text) is None
+
+
+# =================================================== blocked-app normalising
+
+def normalize_process_name(value: str) -> str:
+    """Mirror of BlockedAppsViewModel.NormalizeProcessName."""
+    text = (value or "").strip().strip('"')
+    if "\\" in text or "/" in text:
+        text = text.replace("/", "\\").split("\\")[-1]
+    if text.lower().endswith(".exe"):
+        text = text[:-4]
+    return text.strip()
+
+
+class TestProcessNameNormalisation:
+    @pytest.mark.parametrize("raw,expected", [
+        ("slack", "slack"),
+        ("Slack.exe", "Slack"),
+        (r"C:\Users\me\AppData\Local\slack\slack.exe", "slack"),
+        ('  "steam.EXE"  ', "steam"),
+        ("C:/Program Files/App/thing.exe", "thing"),
+    ])
+    def test_normalisation(self, raw, expected):
+        assert normalize_process_name(raw) == expected
+
+    def test_protected_processes_list_covers_the_shell_and_the_app_itself(self):
+        source = (Path(SERVER_DIR).parent / "DesktopApp" / "Services"
+                  / "AppBlockerService.cs").read_text(encoding="utf-8")
+
+        # Take the initialiser body only — splitting on the identifier alone
+        # lands inside the doc comment above it.
+        marker = "HashSet<string> CriticalProcesses"
+        start = source.index(marker)
+        block = source[source.index("{", start):source.index("};", start)].lower()
+
+        for critical in ("explorer", "csrss", "winlogon", "lsass",
+                         "flowshield", "powershell", "services", "lsass"):
+            assert f'"{critical}"' in block, f"{critical} must never be terminable"
+
+
+# ================================================================= free tier
+
+class TestFreeTierLimits:
+    FREE_APP_LIMIT = 3
+    FREE_MAX_SPRINT = 25
+
+    def test_limit_constants_match_the_app(self):
+        source = (Path(SERVER_DIR).parent / "DesktopApp" / "Models"
+                  / "AppSettings.cs").read_text(encoding="utf-8")
+        assert f"FreeBlockedAppLimit = {self.FREE_APP_LIMIT}" in source
+        assert f"FreeMaxSprintMinutes = {self.FREE_MAX_SPRINT}" in source
+
+    @pytest.mark.parametrize("count,is_pro,allowed", [
+        (0, False, True), (2, False, True), (3, False, False), (9, False, False),
+        (3, True, True), (500, True, True),
+    ])
+    def test_add_permission(self, count, is_pro, allowed):
+        at_limit = (not is_pro) and count >= self.FREE_APP_LIMIT
+        assert (not at_limit) is allowed
+
+    @pytest.mark.parametrize("minutes,is_pro,allowed", [
+        (15, False, True), (25, False, True), (45, False, False),
+        (45, True, True), (90, True, True),
+    ])
+    def test_sprint_length_permission(self, minutes, is_pro, allowed):
+        assert (is_pro or minutes <= self.FREE_MAX_SPRINT) is allowed
+
+    @pytest.mark.parametrize("shield,is_pro,allowed", [
+        ("Soft", False, True), ("Firm", False, True), ("Sealed", False, False),
+        ("Sealed", True, True),
+    ])
+    def test_shield_permission(self, shield, is_pro, allowed):
+        assert (is_pro or shield != "Sealed") is allowed
+
+
+# ================================================================== momentum
+
+def apply_momentum(score: float, completed: bool, planned_minutes: int) -> float:
+    """Mirror of TodayViewModel.ApplyMomentum."""
+    if completed:
+        weight = min(max(planned_minutes / 25.0, 0.5), 3.0)
+        return round(score + 10 * weight, 1)
+    return round(max(0.0, score * 0.85 - 2), 1)
+
+
+class TestMomentum:
+    def test_completing_a_standard_sprint_adds_ten(self):
+        assert apply_momentum(0, True, 25) == 10.0
+
+    def test_longer_sprints_are_worth_more_but_are_capped(self):
+        assert apply_momentum(0, True, 50) == 20.0
+        assert apply_momentum(0, True, 600) == 30.0, "weight should cap at 3x"
+
+    def test_short_sprints_have_a_floor(self):
+        assert apply_momentum(0, True, 1) == 5.0, "weight should floor at 0.5x"
+
+    def test_abandoning_decays_rather_than_resets(self):
+        after = apply_momentum(100, False, 25)
+        assert 0 < after < 100, f"expected decay, got {after}"
+        assert after == 83.0
+
+    def test_momentum_never_goes_negative(self):
+        assert apply_momentum(1, False, 25) == 0.0
+        assert apply_momentum(0, False, 25) == 0.0
+
+    def test_decay_is_recoverable_in_a_few_sprints(self):
+        score = apply_momentum(50, False, 25)
+        for _ in range(2):
+            score = apply_momentum(score, True, 25)
+        assert score > 50, "two good sprints should more than undo one lapse"

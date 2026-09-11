@@ -1,0 +1,17 @@
+.stripe_keys.json
+node_modules/
+*.db
+*.db-wal
+*.db-shm
+bin/
+obj/
+__pycache__/
+*.pyc
+.pytest_cache/
+logs/
+reports/
+
+# Screenshots are local run artefacts. They are deliberately not published:
+# the Blocked Apps capture lists the running processes on the machine that
+# produced it. FINAL_REPORT.md names them instead of embedding them.
+screenshots/

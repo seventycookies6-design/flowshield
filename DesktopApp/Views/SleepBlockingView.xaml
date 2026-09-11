@@ -1,0 +1,96 @@
+<UserControl x:Class="FlowShield.Views.SleepBlockingView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel MaxWidth="700" HorizontalAlignment="Stretch" Margin="0,0,8,0">
+
+            <!-- Pro gate -->
+            <Border Style="{StaticResource Card}" Padding="22" Margin="0,0,0,16"
+                    Background="#1A7C5CFF" BorderBrush="#557C5CFF"
+                    Visibility="{Binding IsPro, Converter={StaticResource InvBoolVis}}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0" Margin="0,0,18,0">
+                        <TextBlock Text="Sleep blocking is a Pro feature" Style="{StaticResource H2}"/>
+                        <TextBlock Style="{StaticResource Body}" Margin="0,5,0,0"
+                                   Text="Set a nightly window and the shield raises itself — no decision required at 1 a.m."/>
+                    </StackPanel>
+                    <Button Grid.Column="1" Style="{StaticResource BtnPrimary}" Content="★ Get Pro"
+                            VerticalAlignment="Center" Command="{Binding GetProCommand}"
+                            AutomationProperties.AutomationId="SleepGetProButton"/>
+                </Grid>
+            </Border>
+
+            <!-- schedule -->
+            <Border Style="{StaticResource Card}" Padding="24">
+                <StackPanel>
+
+                    <CheckBox Style="{StaticResource Switch}"
+                              IsChecked="{Binding IsEnabled}"
+                              IsEnabled="{Binding IsPro}"
+                              AutomationProperties.AutomationId="SleepBlockToggle"
+                              AutomationProperties.Name="Enable sleep blocking">
+                        <StackPanel>
+                            <TextBlock Text="Scheduled sleep blocking" Style="{StaticResource H2}" FontSize="14"/>
+                            <TextBlock Text="Blocks your list automatically inside the window below."
+                                       Style="{StaticResource Caption}" Margin="0,3,0,0"/>
+                        </StackPanel>
+                    </CheckBox>
+
+                    <Border Height="1" Background="{StaticResource Edge}" Margin="0,20,0,20"/>
+
+                    <TextBlock Text="WINDOW" Style="{StaticResource Eyebrow}" Margin="0,0,0,10"/>
+
+                    <StackPanel Orientation="Horizontal" IsEnabled="{Binding IsPro}">
+                        <StackPanel Margin="0,0,16,0">
+                            <TextBlock Text="Starts" Style="{StaticResource Caption}" Margin="2,0,0,6"/>
+                            <TextBox Style="{StaticResource Field}" Width="112"
+                                     Text="{Binding StartText, UpdateSourceTrigger=PropertyChanged}"
+                                     AutomationProperties.AutomationId="SleepStartInput"
+                                     AutomationProperties.Name="Sleep block start time"/>
+                        </StackPanel>
+
+                        <TextBlock Text="→" FontSize="18" Foreground="{StaticResource InkFaint}"
+                                   VerticalAlignment="Bottom" Margin="0,0,16,10"/>
+
+                        <StackPanel Margin="0,0,16,0">
+                            <TextBlock Text="Ends" Style="{StaticResource Caption}" Margin="2,0,0,6"/>
+                            <TextBox Style="{StaticResource Field}" Width="112"
+                                     Text="{Binding EndText, UpdateSourceTrigger=PropertyChanged}"
+                                     AutomationProperties.AutomationId="SleepEndInput"
+                                     AutomationProperties.Name="Sleep block end time"/>
+                        </StackPanel>
+
+                        <Button Style="{StaticResource BtnPrimary}" Content="Save window"
+                                VerticalAlignment="Bottom" Command="{Binding SaveCommand}"
+                                AutomationProperties.AutomationId="SaveSleepWindowButton"
+                                AutomationProperties.Name="Save sleep window"/>
+                    </StackPanel>
+
+                    <TextBlock Text="24-hour time, e.g. 22:00. A window that crosses midnight is fine."
+                               Style="{StaticResource Caption}" Margin="2,10,0,0"/>
+
+                    <Border Style="{StaticResource Chip}" HorizontalAlignment="Left" Margin="0,18,0,0"
+                            Padding="14,7">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="☾" Margin="0,0,9,0" FontSize="13"
+                                       Foreground="{StaticResource VioletBright}"/>
+                            <TextBlock Text="{Binding StatusText}" Style="{StaticResource Caption}"
+                                       Foreground="{StaticResource InkDim}"
+                                       AutomationProperties.AutomationId="SleepStatusText"/>
+                        </StackPanel>
+                    </Border>
+
+                    <TextBlock Style="{StaticResource Caption}" Margin="2,14,0,0"
+                               AutomationProperties.AutomationId="SleepWindowText">
+                        <Run Text="Current window:"/>
+                        <Run Text="{Binding WindowText, Mode=OneWay}" Foreground="{StaticResource Ink}"/>
+                    </TextBlock>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

@@ -1,0 +1,88 @@
+using System.Windows;
+using System.Windows.Threading;
+using FlowShield.Services;
+using FlowShield.ViewModels;
+
+namespace FlowShield;
+
+public partial class App : Application
+{
+    public static new App? Current => Application.Current as App;
+
+    public MainViewModel? ViewModel { get; private set; }
+
+    protected override void OnStartup(StartupEventArgs e)
+    {
+        base.OnStartup(e);
+
+        DispatcherUnhandledException += OnDispatcherUnhandledException;
+        AppDomain.CurrentDomain.UnhandledException += (_, args) =>
+            Log.Error($"fatal: {(args.ExceptionObject as Exception)?.Message ?? "unknown"}");
+
+        var args = e.Args ?? Array.Empty<string>();
+        Log.Info($"FlowShield starting (args: {string.Join(' ', args)})");
+
+        var settingsService = new SettingsService();
+
+        // --reset gives the automation suite a deterministic clean install.
+        if (args.Any(a => a.Equals("--reset", StringComparison.OrdinalIgnoreCase)))
+        {
+            settingsService.Reset();
+            Log.Info("settings reset by --reset flag");
+        }
+
+        var licenseService = new LicenseService(settingsService);
+        ViewModel = new MainViewModel(settingsService, licenseService);
+
+        // --server=http://host:port lets tests point at a throwaway server.
+        var serverArg = args.FirstOrDefault(a => a.StartsWith("--server=", StringComparison.OrdinalIgnoreCase));
+        if (serverArg is not null)
+        {
+            ViewModel.Settings.LicenseServerUrl = serverArg["--server=".Length..].Trim();
+            Log.Info($"license server overridden: {ViewModel.Settings.LicenseServerUrl}");
+        }
+
+        var websiteArg = args.FirstOrDefault(a => a.StartsWith("--website=", StringComparison.OrdinalIgnoreCase));
+        if (websiteArg is not null)
+        {
+            ViewModel.Settings.WebsiteUrl = websiteArg["--website=".Length..].Trim();
+        }
+
+        // Persist immediately so a settings file always exists after first run.
+        // Without this, a session where the user changes nothing leaves no file
+        // at all, and "is sleep blocking off?" becomes unanswerable from disk.
+        ViewModel.SaveSettings();
+
+        var window = new MainWindow { DataContext = ViewModel };
+        MainWindow = window;
+        window.Show();
+
+        // Re-confirm an existing license in the background; never blocks the UI.
+        _ = licenseService.RefreshAsync(ViewModel.Settings).ContinueWith(_ =>
+            Dispatcher.Invoke(() => ViewModel.OnTierChanged()));
+    }
+
+    private static void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
+    {
+        Log.Error("unhandled UI exception", e.Exception);
+        MessageBox.Show(
+            $"FlowShield hit an unexpected error:\n\n{e.Exception.Message}\n\nDetails were written to:\n{Log.Path}",
+            "FlowShield", MessageBoxButton.OK, MessageBoxImage.Error);
+        e.Handled = true;
+    }
+
+    protected override void OnExit(ExitEventArgs e)
+    {
+        try
+        {
+            ViewModel?.SaveSettings();
+            ViewModel?.Blocker.Dispose();
+        }
+        catch (Exception ex)
+        {
+            Log.Error("shutdown cleanup failed", ex);
+        }
+        Log.Info("FlowShield exited");
+        base.OnExit(e);
+    }
+}

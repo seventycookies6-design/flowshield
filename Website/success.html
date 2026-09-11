@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FlowShield Pro — your license key</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='25' font-size='26'>🛡️</text></svg>">
+</head>
+<body class="success-page">
+
+<div class="glass success-card">
+  <div class="seal waiting" id="seal">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round">
+      <path d="M21 12a9 9 0 1 1-6.2-8.6"/>
+    </svg>
+  </div>
+
+  <h1 style="font-size:clamp(1.7rem,4.6vw,2.3rem)" id="success-title">Confirming your payment…</h1>
+  <p id="success-blurb">Asking Stripe to confirm the subscription. This usually takes a second or two.</p>
+
+  <div class="keybox">
+    <div class="cap">Your FlowShield Pro license key</div>
+    <div class="val" id="license-value">••••-••••-••••-••••</div>
+  </div>
+  <p class="copy-note" id="copy-note"></p>
+
+  <div class="success-actions" id="success-actions" style="display:none">
+    <a class="btn btn-primary btn-lg btn-block" id="activate-link" href="flowshield://activate">Activate in FlowShield</a>
+    <button class="btn btn-ghost btn-block" id="copy-key">Copy license key</button>
+  </div>
+
+  <div class="steps">
+    <h3>Activating manually</h3>
+    <ol>
+      <li>Open FlowShield and go to <b>Settings</b>.</li>
+      <li>Paste the key into <b>License key</b>.</li>
+      <li>Click <b>Activate Pro</b> — the status line flips to <b>Pro Active</b>.</li>
+    </ol>
+  </div>
+</div>
+
+<!-- ?v= is a cache buster: bump it whenever these change, otherwise browsers
+     keep serving the previous build from disk cache.
+     config.js must load first — checkout.js reads its values at start-up. -->
+<script src="config.js?v=3"></script>
+<script src="checkout.js?v=3"></script>
+<script>
+  // Point the deep link at the real key once it resolves.
+  document.addEventListener('DOMContentLoaded', function () {
+    var observer = new MutationObserver(function () {
+      var key = document.body.getAttribute('data-license-key');
+      var link = document.getElementById('activate-link');
+      if (key && link) link.href = 'flowshield://activate?key=' + encodeURIComponent(key);
+    });
+    observer.observe(document.body, { attributes: true, attributeFilter: ['data-license-key'] });
+  });
+</script>
+</body>
+</html>

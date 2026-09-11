@@ -1,0 +1,407 @@
+'use strict';
+
+/**
+ * FlowShield license + subscription server.
+ *
+ *   POST /create-checkout       -> { url, licenseKey, sessionId }
+ *   POST /validate              -> { valid, isPro, status, ... }
+ *   POST /webhook               -> Stripe event sink (signature verified)
+ *   GET  /get-license           -> { licenseKey, ... } for a checkout session
+ *   POST /create-portal-session -> { url } Stripe billing portal
+ *   GET  /                      -> service descriptor
+ *   GET  /health                -> liveness + configuration report
+ */
+
+const express = require('express');
+const cors = require('cors');
+const StripeLib = require('stripe');
+
+const db = require('./db');
+const licensekey = require('./licensekey');
+const { loadKeys, describe, KEYS_PATH } = require('./keys');
+
+const PORT = Number(process.env.PORT || 3000);
+const WEBSITE_URL = (process.env.WEBSITE_URL || 'http://localhost:5500').replace(/\/$/, '');
+const APP_NAME = 'FlowShield';
+
+const keys = loadKeys();
+const keyReport = describe(keys);
+
+const stripe = keys.secret_key
+  ? new StripeLib(keys.secret_key, {
+      apiVersion: '2023-10-16',
+      appInfo: { name: `${APP_NAME} License Server`, version: '1.0.0' },
+    })
+  : null;
+
+const app = express();
+app.use(cors());
+
+// The webhook needs the untouched request body to verify the signature, so it
+// is mounted with a raw parser *before* the global JSON parser.
+app.use('/webhook', express.raw({ type: '*/*' }));
+app.use(express.json({ limit: '256kb' }));
+
+/* ------------------------------------------------------------------ helpers */
+
+const log = (...args) => console.log(`[${new Date().toISOString()}]`, ...args);
+
+function requireStripe(res) {
+  if (stripe && keys.price_id) return true;
+  res.status(503).json({
+    error: 'stripe_not_configured',
+    message:
+      `Stripe credentials are missing. Populate ${KEYS_PATH} (or the ` +
+      'STRIPE_* environment variables) with your test-mode keys and restart.',
+    missing: keyReport.missing,
+  });
+  return false;
+}
+
+/** Pull a period end off a subscription across API-version shapes. */
+function periodEndOf(subscription) {
+  if (!subscription) return null;
+  if (subscription.current_period_end) return subscription.current_period_end;
+  const item = subscription.items && subscription.items.data && subscription.items.data[0];
+  return (item && item.current_period_end) || null;
+}
+
+function publicView(row, extra = {}) {
+  if (!row) return { valid: false, isPro: false, ...extra };
+  return {
+    valid: true,
+    isPro: db.isPro(row),
+    licenseKey: row.license_key,
+    email: row.email || '',
+    status: row.status,
+    currentPeriodEnd: row.current_period_end || null,
+    plan: db.isPro(row) ? 'pro' : 'free',
+    ...extra,
+  };
+}
+
+/**
+ * Resolve a checkout session into an activated license.
+ *
+ * Webhooks cannot reach http://localhost without `stripe listen`, so this path
+ * also acts as a self-healing fallback: it asks Stripe directly for the
+ * session's true state and activates from that. The webhook and this function
+ * converge on the same row, and both are idempotent.
+ */
+async function syncFromSession(sessionId) {
+  const session = await stripe.checkout.sessions.retrieve(sessionId, {
+    expand: ['subscription', 'customer'],
+  });
+
+  const licenseKey = licensekey.normalize(session.client_reference_id || '');
+  if (!licenseKey) {
+    return { error: 'no_license_reference', session };
+  }
+
+  let row = db.findByKey(licenseKey);
+  if (!row) {
+    // Session exists at Stripe but the local row is gone (fresh DB, etc.).
+    row = db.createPending(licenseKey, session.customer_details?.email || null, sessionId);
+  }
+  if (!row.stripe_session_id) db.attachSession(licenseKey, sessionId);
+
+  const paid = session.status === 'complete' || session.payment_status === 'paid';
+  if (!paid) {
+    return { row: db.findByKey(licenseKey), session, pending: true };
+  }
+
+  const subscription =
+    session.subscription && typeof session.subscription === 'object' ? session.subscription : null;
+
+  const updated = db.activate(licenseKey, {
+    status: subscription ? subscription.status : 'active',
+    email: session.customer_details?.email || session.customer_email || row.email,
+    customerId: typeof session.customer === 'object' ? session.customer?.id : session.customer,
+    subscriptionId: subscription ? subscription.id : null,
+    currentPeriodEnd: periodEndOf(subscription),
+  });
+
+  return { row: updated, session };
+}
+
+/* ------------------------------------------------------------------- routes */
+
+app.get('/', (_req, res) => {
+  res.json({
+    service: `${APP_NAME} License Server`,
+    version: '1.0.0',
+    status: 'ok',
+    stripe: { configured: keyReport.configured, mode: keyReport.secret_key_mode },
+    endpoints: [
+      'POST /create-checkout',
+      'POST /validate',
+      'POST /webhook',
+      'GET  /get-license?session_id=',
+      'POST /create-portal-session',
+      'GET  /health',
+    ],
+  });
+});
+
+app.get('/health', (_req, res) => {
+  res.json({
+    status: 'ok',
+    uptimeSeconds: Math.round(process.uptime()),
+    database: { driver: db.driver, path: db.DB_PATH, licenses: db.statusCounts() },
+    stripe: {
+      configured: keyReport.configured,
+      mode: keyReport.secret_key_mode,
+      missing: keyReport.missing,
+      priceId: keys.price_id ? `${keys.price_id.slice(0, 10)}…` : null,
+    },
+  });
+});
+
+app.post('/create-checkout', async (req, res) => {
+  if (!requireStripe(res)) return;
+
+  const email = typeof req.body?.email === 'string' ? req.body.email.trim() : '';
+  const licenseKeyValue = licensekey.generate();
+
+  try {
+    db.createPending(licenseKeyValue, email || null, null);
+
+    const session = await stripe.checkout.sessions.create({
+      mode: 'subscription',
+      line_items: [{ price: keys.price_id, quantity: 1 }],
+      client_reference_id: licenseKeyValue,
+      ...(email ? { customer_email: email } : {}),
+      allow_promotion_codes: true,
+      success_url: `${WEBSITE_URL}/success.html?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${WEBSITE_URL}/index.html?checkout=cancelled`,
+      subscription_data: { metadata: { license_key: licenseKeyValue, app: APP_NAME } },
+      metadata: { license_key: licenseKeyValue, app: APP_NAME },
+    });
+
+    db.attachSession(licenseKeyValue, session.id);
+    log(`create-checkout -> ${licenseKeyValue} session=${session.id}`);
+
+    res.json({ url: session.url, licenseKey: licenseKeyValue, sessionId: session.id });
+  } catch (err) {
+    log(`create-checkout FAILED: ${err.message}`);
+    res.status(502).json({ error: 'stripe_error', message: err.message });
+  }
+});
+
+app.get('/get-license', async (req, res) => {
+  const sessionId = String(req.query.session_id || '').trim();
+  if (!sessionId) {
+    return res.status(400).json({ error: 'missing_session_id', message: 'session_id is required.' });
+  }
+
+  // Trust the local row first when it is already active (webhook got there).
+  const local = db.findBySession(sessionId);
+  if (local && db.isPro(local)) {
+    return res.json(publicView(local, { source: 'database' }));
+  }
+
+  if (!requireStripe(res)) return;
+
+  try {
+    const result = await syncFromSession(sessionId);
+    if (result.error) {
+      return res.status(422).json({ error: result.error, message: 'Session has no license reference.' });
+    }
+    if (result.pending) {
+      return res.status(202).json({
+        ...publicView(result.row, { source: 'stripe' }),
+        pending: true,
+        message: 'Checkout has not completed payment yet.',
+      });
+    }
+    log(`get-license -> ${result.row.license_key} status=${result.row.status}`);
+    return res.json(publicView(result.row, { source: 'stripe' }));
+  } catch (err) {
+    log(`get-license FAILED: ${err.message}`);
+    const status = err.statusCode === 404 ? 404 : 502;
+    return res.status(status).json({ error: 'stripe_error', message: err.message });
+  }
+});
+
+app.post('/validate', async (req, res) => {
+  const rawKey = req.body?.licenseKey ?? req.body?.license_key ?? '';
+  const email = typeof req.body?.email === 'string' ? req.body.email.trim() : '';
+  const key = licensekey.normalize(rawKey);
+
+  if (!key && !email) {
+    return res.status(400).json({
+      valid: false,
+      isPro: false,
+      error: 'missing_credentials',
+      message: 'Provide a license key or the email used at checkout.',
+    });
+  }
+
+  // Reject malformed keys offline — no Stripe call, no DB hit.
+  if (key && !licensekey.isWellFormed(key)) {
+    return res.status(200).json({
+      valid: false,
+      isPro: false,
+      reason: 'malformed_key',
+      message: 'That license key is not in the expected FS-XXXX-XXXX-XXXX-XXXX format.',
+    });
+  }
+
+  let row = key ? db.findByKey(key) : db.findByEmail(email);
+
+  // Key is well formed but unknown here: it may belong to another install of
+  // the server, so fall back to the email lookup before giving up.
+  if (!row && email) row = db.findByEmail(email);
+
+  if (!row) {
+    return res.json({
+      valid: false,
+      isPro: false,
+      reason: 'not_found',
+      message: 'No subscription found for those details.',
+    });
+  }
+
+  // Re-confirm against Stripe so cancellations propagate even if the webhook
+  // was missed. A Stripe outage must not revoke a known-good license, so any
+  // error here leaves the cached status untouched.
+  if (stripe && row.stripe_subscription_id) {
+    try {
+      const sub = await stripe.subscriptions.retrieve(row.stripe_subscription_id);
+      if (sub.status !== row.status) {
+        log(`validate: ${row.license_key} status ${row.status} -> ${sub.status}`);
+        row = db.setStatus(row.license_key, sub.status);
+      }
+      db.setPeriodEnd(row.license_key, periodEndOf(sub));
+      row = db.findByKey(row.license_key);
+    } catch (err) {
+      log(`validate: Stripe re-check failed (serving cached status): ${err.message}`);
+    }
+  }
+
+  db.countActivation(row.license_key);
+  const view = publicView(row);
+  log(`validate -> ${row.license_key} isPro=${view.isPro} status=${row.status}`);
+
+  if (!view.isPro) {
+    return res.json({ ...view, valid: false, reason: `subscription_${row.status}` });
+  }
+  return res.json(view);
+});
+
+app.post('/create-portal-session', async (req, res) => {
+  if (!requireStripe(res)) return;
+
+  const key = licensekey.normalize(req.body?.licenseKey ?? req.body?.license_key ?? '');
+  const email = typeof req.body?.email === 'string' ? req.body.email.trim() : '';
+  const row = key ? db.findByKey(key) : email ? db.findByEmail(email) : null;
+
+  if (!row || !row.stripe_customer_id) {
+    return res.status(404).json({
+      error: 'no_customer',
+      message: 'No Stripe customer is linked to that license yet.',
+    });
+  }
+
+  try {
+    const session = await stripe.billingPortal.sessions.create({
+      customer: row.stripe_customer_id,
+      return_url: `${WEBSITE_URL}/index.html`,
+    });
+    res.json({ url: session.url });
+  } catch (err) {
+    log(`create-portal-session FAILED: ${err.message}`);
+    res.status(502).json({ error: 'stripe_error', message: err.message });
+  }
+});
+
+app.post('/webhook', async (req, res) => {
+  if (!stripe) {
+    return res.status(503).json({ error: 'stripe_not_configured' });
+  }
+
+  const signature = req.headers['stripe-signature'];
+  let event;
+
+  try {
+    if (!keys.webhook_secret) throw new Error('webhook secret not configured');
+    event = stripe.webhooks.constructEvent(req.body, signature, keys.webhook_secret);
+  } catch (err) {
+    log(`webhook signature rejected: ${err.message}`);
+    return res.status(400).send(`Webhook Error: ${err.message}`);
+  }
+
+  if (!db.claimEvent(event.id, event.type)) {
+    log(`webhook ${event.type} ${event.id} already processed`);
+    return res.json({ received: true, duplicate: true });
+  }
+
+  try {
+    switch (event.type) {
+      case 'checkout.session.completed': {
+        const session = event.data.object;
+        await syncFromSession(session.id);
+        log(`webhook checkout.session.completed ${session.id}`);
+        break;
+      }
+
+      case 'customer.subscription.updated': {
+        const sub = event.data.object;
+        const row =
+          db.findBySubscription(sub.id) ||
+          (sub.metadata?.license_key ? db.findByKey(licensekey.normalize(sub.metadata.license_key)) : null);
+        if (row) {
+          db.setStatus(row.license_key, sub.status);
+          db.setPeriodEnd(row.license_key, periodEndOf(sub));
+          log(`webhook subscription.updated ${row.license_key} -> ${sub.status}`);
+        }
+        break;
+      }
+
+      case 'customer.subscription.deleted': {
+        const sub = event.data.object;
+        const row =
+          db.findBySubscription(sub.id) ||
+          (sub.metadata?.license_key ? db.findByKey(licensekey.normalize(sub.metadata.license_key)) : null);
+        if (row) {
+          db.setStatus(row.license_key, 'canceled');
+          log(`webhook subscription.deleted ${row.license_key} -> canceled`);
+        }
+        break;
+      }
+
+      default:
+        log(`webhook ignored event type ${event.type}`);
+    }
+  } catch (err) {
+    log(`webhook handler error for ${event.type}: ${err.message}`);
+    // 500 asks Stripe to retry; the event id guard makes that safe.
+    return res.status(500).json({ error: 'handler_failed', message: err.message });
+  }
+
+  res.json({ received: true });
+});
+
+app.use((_req, res) => res.status(404).json({ error: 'not_found' }));
+
+/* -------------------------------------------------------------------- boot */
+
+const server = app.listen(PORT, () => {
+  log(`${APP_NAME} license server listening on http://localhost:${PORT}`);
+  log(`database: ${db.driver} @ ${db.DB_PATH}`);
+  if (keyReport.configured) {
+    log(`Stripe: ${keyReport.secret_key_mode} mode, price ${keys.price_id}`);
+  } else {
+    log(`Stripe NOT configured — missing: ${keyReport.missing.join(', ')}`);
+    log(`Populate ${KEYS_PATH} and restart to enable payment routes.`);
+  }
+});
+
+for (const sig of ['SIGINT', 'SIGTERM']) {
+  process.on(sig, () => {
+    log(`${sig} received, shutting down`);
+    server.close(() => process.exit(0));
+  });
+}
+
+module.exports = app;

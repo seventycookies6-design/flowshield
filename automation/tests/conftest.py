@@ -1,0 +1,87 @@
+"""Shared pytest fixtures for the FlowShield suite."""
+
+from __future__ import annotations
+
+import sys
+import time
+from pathlib import Path
+
+import pytest
+
+AUTOMATION_DIR = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(AUTOMATION_DIR))
+
+from config import APP_EXE, SERVER_URL, stripe_configured, stripe_missing  # noqa: E402
+from core.diagnostics import DiagnosticLogger  # noqa: E402
+from core.services import ServiceGroup, port_is_open  # noqa: E402
+from desktop.app_controller import DesktopController  # noqa: E402
+
+
+def pytest_configure(config):
+    config.addinivalue_line("markers", "stripe: needs Stripe test credentials")
+    config.addinivalue_line("markers", "ui: drives the desktop app (slow)")
+    config.addinivalue_line("markers", "e2e: full end-to-end path")
+
+
+@pytest.fixture(scope="session")
+def logger():
+    return DiagnosticLogger("pytest")
+
+
+@pytest.fixture(scope="session")
+def services(logger):
+    """License + website servers, started once for the whole session."""
+    group = ServiceGroup(logger)
+    group.start_all()
+    yield group
+    group.stop_all()
+
+
+@pytest.fixture(scope="session")
+def server(services):
+    """The license server's base URL, once it is confirmed healthy."""
+    if not port_is_open(3000):
+        pytest.skip("license server is not reachable on port 3000")
+    return SERVER_URL
+
+
+@pytest.fixture(scope="session")
+def stripe_ready():
+    return stripe_configured()
+
+
+@pytest.fixture
+def needs_stripe(stripe_ready):
+    if not stripe_ready:
+        pytest.skip(f"Stripe not configured (missing: {', '.join(stripe_missing())}) "
+                    f"— see STRIPE_SETUP.md")
+
+
+@pytest.fixture
+def fresh_app(logger):
+    """
+    A throwaway FlowShield with settings wiped, torn down after each test.
+
+    Deliberately function-scoped. A session-scoped instance would be cheaper
+    (~15s per cold launch + UIA attach), but launch_app() clears stray
+    FlowShield processes so that a crashed earlier run can't poison the next —
+    which means the first per-test launch would silently kill a shared one, and
+    every later test using it would fail for reasons unrelated to the code under
+    test. Per-test isolation is worth the wall-clock.
+    """
+    if not Path(APP_EXE).exists():
+        pytest.skip(f"{APP_EXE} not built")
+
+    ctrl = DesktopController(logger)
+    ctrl.launch_app(clean_state=True)
+    ctrl.connect_window()
+    time.sleep(1.0)
+    ctrl.focus(force=True)
+    yield ctrl
+    ctrl.close_app()
+
+
+@pytest.fixture
+def app(fresh_app):
+    """Readability alias — same isolation guarantees as `fresh_app`."""
+    return fresh_app

@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <AssemblyName>FlowShield</AssemblyName>
+    <RootNamespace>FlowShield</RootNamespace>
+    <ApplicationIcon></ApplicationIcon>
+    <Version>1.0.0</Version>
+    <Product>FlowShield</Product>
+    <Company>FlowShield</Company>
+    <!-- Single-instance + tray behaviour relies on STA; default for WPF. -->
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- WinForms is referenced only for the tray icon. Its implicit global using
+         collides with WPF (Application, UserControl, MessageBox, ...), so it is
+         removed and reached through the `Forms` alias where it is actually needed. -->
+    <Using Remove="System.Windows.Forms" />
+  </ItemGroup>
+
+</Project>
