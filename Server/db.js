@@ -14,18 +14,29 @@ const path = require('path');
 const DB_PATH = process.env.FLOWSHIELD_DB || path.join(__dirname, 'licenses.db');
 
 function openDatabase() {
-  try {
-    const Database = require('better-sqlite3');
-    const db = new Database(DB_PATH);
-    db.pragma('journal_mode = WAL');
-    return { db, driver: 'better-sqlite3' };
-  } catch (err) {
-    console.warn(`[db] better-sqlite3 unavailable (${err.code || err.message}); falling back to node:sqlite`);
-    const { DatabaseSync } = require('node:sqlite');
-    const db = new DatabaseSync(DB_PATH);
-    db.exec('PRAGMA journal_mode = WAL');
-    return { db, driver: 'node:sqlite' };
+  // The container image installs dependencies with --ignore-scripts, so
+  // better-sqlite3's native binding is never built there and node:sqlite is
+  // used instead. Set FLOWSHIELD_DB_DRIVER=node-sqlite to exercise that exact
+  // path locally rather than discovering a difference after deploying.
+  const forced = (process.env.FLOWSHIELD_DB_DRIVER || '').toLowerCase();
+
+  if (forced !== 'node-sqlite') {
+    try {
+      const Database = require('better-sqlite3');
+      const db = new Database(DB_PATH);
+      db.pragma('journal_mode = WAL');
+      return { db, driver: 'better-sqlite3' };
+    } catch (err) {
+      console.warn(
+        `[db] better-sqlite3 unavailable (${err.code || err.message}); using node:sqlite`,
+      );
+    }
   }
+
+  const { DatabaseSync } = require('node:sqlite');
+  const db = new DatabaseSync(DB_PATH);
+  db.exec('PRAGMA journal_mode = WAL');
+  return { db, driver: 'node:sqlite' };
 }
 
 const { db, driver } = openDatabase();

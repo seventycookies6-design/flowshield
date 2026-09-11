@@ -207,6 +207,73 @@ class TestLicenseRevocation:
             "transport failures must be marked non-definitive"
 
 
+# ============ a lost database must not revoke anyone's subscription
+
+def _db_admin(*args) -> str:
+    result = subprocess.run(
+        [NODE_EXE, str(Path(SERVER_DIR).parent / "tools" / "db_admin.js"), *args],
+        cwd=str(Path(SERVER_DIR).parent), capture_output=True, text=True, timeout=60,
+    )
+    return (result.stdout or "").strip().splitlines()[-1] if result.stdout.strip() else ""
+
+
+@pytest.mark.stripe
+class TestSurvivesDataLoss:
+    """
+    Free hosting tiers have ephemeral disks, so licenses.db is wiped on every
+    redeploy. Treating it as the record would silently drop every paying
+    customer to "not_found" after a routine deploy — so Stripe is the record
+    and the database is a cache that rebuilds itself.
+    """
+
+    def _pick_active(self):
+        raw = _db_admin("pick-active")
+        row = json.loads(raw) if raw and raw != "null" else None
+        if not row or not row.get("email"):
+            pytest.skip("no active licence with an email to exercise recovery against")
+        return row
+
+    def test_a_wiped_row_is_rebuilt_from_stripe(self, server, needs_stripe):
+        row = self._pick_active()
+
+        wiped = json.loads(_db_admin("forget", row["license_key"]))
+        assert wiped["deleted"] is True, wiped
+
+        body = requests.post(f"{server}/validate",
+                             json={"email": row["email"]}, timeout=45).json()
+
+        assert body["isPro"] is True, (
+            f"a paying customer lost Pro when the database was wiped: {body}"
+        )
+        assert body.get("licenseKey", "").startswith("FS-")
+
+    def test_recovery_keeps_the_key_the_customer_already_has(self, server, needs_stripe):
+        """Minting a fresh key on recovery would orphan the one they wrote down."""
+        row = self._pick_active()
+        original = row["license_key"]
+
+        assert json.loads(_db_admin("forget", original))["deleted"] is True
+
+        body = requests.post(
+            f"{server}/validate",
+            json={"licenseKey": original, "email": row["email"]},
+            timeout=45,
+        ).json()
+
+        assert body["isPro"] is True, body
+        assert body["licenseKey"] == original, (
+            f"recovery issued {body.get('licenseKey')} instead of the customer's "
+            f"existing key {original}"
+        )
+
+    def test_the_server_stamps_keys_onto_stripe_for_recovery(self):
+        source = (Path(SERVER_DIR) / "server.js").read_text(encoding="utf-8")
+        assert "metadata: { ...(subscription.metadata || {}), license_key" in source, (
+            "the licence key must be written onto the Stripe subscription, or it "
+            "cannot be recovered after data loss"
+        )
+
+
 # ================== the success page promises only what it can deliver
 
 class TestSuccessPageHonesty:

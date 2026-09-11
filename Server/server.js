@@ -44,8 +44,37 @@ const stripe = keys.secret_key
     })
   : null;
 
+/*
+ * CORS.
+ *
+ * ALLOWED_ORIGINS restricts which *browsers* may call this API. Requests with
+ * no Origin header — the desktop app, curl, Stripe's webhooks — are always
+ * allowed: the header is a browser mechanism and blocking its absence would
+ * only break non-browser clients while stopping no attacker.
+ *
+ * Left unset, every origin is accepted. That is right for local development
+ * and wrong in production, which is why render.yaml sets it explicitly.
+ */
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || '')
+  .split(',')
+  .map((o) => o.trim().replace(/\/$/, ''))
+  .filter(Boolean);
+
 const app = express();
-app.use(cors());
+app.set('trust proxy', 1); // hosts terminate TLS upstream
+
+app.use(
+  cors({
+    origin(origin, callback) {
+      if (!origin || ALLOWED_ORIGINS.length === 0) return callback(null, true);
+      const normalized = origin.replace(/\/$/, '');
+      if (ALLOWED_ORIGINS.includes(normalized)) return callback(null, true);
+      // Reject by withholding the header rather than erroring: the browser
+      // blocks the response, and the log stays quiet under drive-by scans.
+      return callback(null, false);
+    },
+  }),
+);
 
 // The webhook needs the untouched request body to verify the signature, so it
 // is mounted with a raw parser *before* the global JSON parser.
@@ -66,6 +95,109 @@ function requireStripe(res) {
     missing: keyReport.missing,
   });
   return false;
+}
+
+/**
+ * Recover a licence from Stripe when the local database doesn't know it.
+ *
+ * The database is a cache, not the record. Free hosting tiers have ephemeral
+ * disks, so licenses.db is wiped on every redeploy — and without this, every
+ * existing customer would silently drop to "not_found" and lose Pro after a
+ * routine deploy. Stripe holds the real state, so rebuild the row from it.
+ *
+ * Two routes in: the licence key stamped into subscription metadata, and the
+ * customer's email address.
+ */
+async function recoverFromStripe({ key, email }) {
+  if (!stripe) return null;
+
+  // 1. By licence key, which create-checkout and the minting path both stamp
+  //    into subscription metadata.
+  if (key) {
+    try {
+      const found = await stripe.subscriptions.search({
+        query: `metadata['license_key']:'${key.replace(/'/g, '')}'`,
+        limit: 1,
+      });
+      if (found.data.length) return { subscription: found.data[0], licenseKey: key };
+    } catch (err) {
+      // Search is eventually consistent and unavailable on brand-new accounts.
+      log(`recover by key failed: ${err.message}`);
+    }
+  }
+
+  // 2. By email — the only thing a Payment Link buyer reliably has.
+  if (email) {
+    try {
+      const customers = await stripe.customers.list({ email, limit: 5 });
+      for (const customer of customers.data) {
+        const subs = await stripe.subscriptions.list({
+          customer: customer.id,
+          status: 'all',
+          limit: 10,
+        });
+        const live = subs.data.find((s) => db.PRO_STATUSES.has(s.status)) || subs.data[0];
+        if (live) {
+          return {
+            subscription: live,
+            licenseKey: licensekey.normalize(live.metadata?.license_key || '') || null,
+            customer,
+          };
+        }
+      }
+    } catch (err) {
+      log(`recover by email failed: ${err.message}`);
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Write a recovered subscription back into the local cache, minting a licence
+ * key if the subscription never carried one.
+ */
+async function rehydrate(found, fallbackEmail, preferredKey = '') {
+  let { subscription, licenseKey } = found;
+
+  // If the subscription carries no key but the caller presented a well-formed
+  // one, adopt theirs. Minting a fresh key here would silently orphan the key
+  // the customer already has written down. This grants nothing extra: whoever
+  // supplied the email could already activate with it alone.
+  if (!licenseKey && preferredKey && licensekey.isWellFormed(preferredKey)) {
+    licenseKey = licensekey.normalize(preferredKey);
+  }
+
+  if (!licenseKey) {
+    licenseKey = licensekey.generate();
+    try {
+      await stripe.subscriptions.update(subscription.id, {
+        metadata: { ...(subscription.metadata || {}), license_key: licenseKey, app: APP_NAME },
+      });
+    } catch (err) {
+      log(`could not stamp licence key onto ${subscription.id}: ${err.message}`);
+    }
+  }
+
+  const email =
+    found.customer?.email ||
+    (typeof subscription.customer === 'object' ? subscription.customer?.email : null) ||
+    fallbackEmail ||
+    null;
+
+  if (!db.findByKey(licenseKey)) db.createPending(licenseKey, email, null);
+
+  const row = db.activate(licenseKey, {
+    status: subscription.status,
+    email,
+    customerId:
+      typeof subscription.customer === 'object' ? subscription.customer?.id : subscription.customer,
+    subscriptionId: subscription.id,
+    currentPeriodEnd: periodEndOf(subscription),
+  });
+
+  log(`rehydrated ${licenseKey} from Stripe (${subscription.status})`);
+  return row;
 }
 
 /** Pull a period end off a subscription across API-version shapes. */
@@ -147,6 +279,18 @@ async function syncFromSession(sessionId) {
     subscriptionId: subscription ? subscription.id : null,
     currentPeriodEnd: periodEndOf(subscription),
   });
+
+  // Stamp the key onto the subscription so it can be recovered from Stripe if
+  // this database is ever lost. Payment Link purchases arrive without one.
+  if (subscription && subscription.metadata?.license_key !== licenseKey) {
+    try {
+      await stripe.subscriptions.update(subscription.id, {
+        metadata: { ...(subscription.metadata || {}), license_key: licenseKey, app: APP_NAME },
+      });
+    } catch (err) {
+      log(`could not stamp licence key onto ${subscription.id}: ${err.message}`);
+    }
+  }
 
   return { row: updated, session };
 }
@@ -279,6 +423,19 @@ app.post('/validate', async (req, res) => {
   // Key is well formed but unknown here: it may belong to another install of
   // the server, so fall back to the email lookup before giving up.
   if (!row && email) row = db.findByEmail(email);
+
+  // Still nothing? Ask Stripe before declaring the licence invalid. The local
+  // database is a cache and may simply have been wiped by a redeploy.
+  if (!row) {
+    const found = await recoverFromStripe({ key, email });
+    if (found) {
+      try {
+        row = await rehydrate(found, email, key);
+      } catch (err) {
+        log(`rehydrate failed: ${err.message}`);
+      }
+    }
+  }
 
   if (!row) {
     return res.json({

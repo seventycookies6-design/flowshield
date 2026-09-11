@@ -1,0 +1,51 @@
+# Render blueprint for the FlowShield license server.
+#
+# Render reads this when you point it at the repo, so the service is configured
+# from version control rather than by clicking through a form.
+#
+# Secrets are deliberately NOT here: sync:false means Render prompts for the
+# value and stores it encrypted. Nothing secret belongs in a public repo.
+
+services:
+  - type: web
+    name: flowshield-license-server
+    runtime: docker
+    plan: free
+    region: oregon
+    rootDir: Server
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    autoDeployTrigger: commit
+
+    envVars:
+      - key: NODE_ENV
+        value: production
+
+      # Where the marketing site lives. Checkout success/cancel URLs are built
+      # from this, so it must be the real published origin.
+      - key: WEBSITE_URL
+        value: https://seventycookies6-design.github.io/flowshield
+
+      # Browser origins allowed to call this API. The desktop app sends no
+      # Origin header and is unaffected.
+      - key: ALLOWED_ORIGINS
+        value: https://seventycookies6-design.github.io
+
+      # Entered once in the Render dashboard, stored encrypted, never in git.
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_PUBLISHABLE_KEY
+        sync: false
+      - key: STRIPE_PRICE_ID
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+
+    # The free plan has no persistent disk, so licenses.db is wiped on every
+    # deploy. That is survivable: the server treats the database as a cache and
+    # rebuilds rows from Stripe on demand. Uncomment to make it durable on a
+    # paid plan and skip those recovery round-trips.
+    # disk:
+    #   name: flowshield-data
+    #   mountPath: /data
+    #   sizeGB: 1

@@ -89,6 +89,19 @@ a visitor's browser plainly cannot reach *your* `localhost:3000`. Automatic
 licence-key issuance needs the Node server hosted somewhere public; deploy it
 and set `licenseServerUrl` in `Website/config.js` to switch the live site over.
 
+## Deploying the licence server
+
+GitHub Pages is static, so the published site can take payments but cannot
+issue licence keys — that needs the Node server hosted somewhere public.
+`Dockerfile` and `render.yaml` are ready; **`DEPLOY.md`** has the steps.
+
+The database is treated as a **cache of Stripe, not the record**. Free hosting
+tiers have ephemeral disks, so `licenses.db` is wiped on every redeploy; rather
+than silently revoking Pro for everyone who paid, the server rebuilds missing
+rows from Stripe — by the licence key stamped into subscription metadata, or by
+the customer's email. Tier 5 wipes a real row and asserts the customer keeps
+Pro, and keeps the key they already had.
+
 ## Publishing the site
 
 ```bash
