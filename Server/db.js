@@ -67,6 +67,15 @@ db.exec(`
   );
 `);
 
+// Migration. SQLite has no "ADD COLUMN IF NOT EXISTS", and re-running ALTER
+// throws "duplicate column name" — which is the success case on a database
+// that already has it. Swallow exactly that.
+try {
+  db.exec('ALTER TABLE licenses ADD COLUMN license_email_sent_at INTEGER');
+} catch (err) {
+  if (!/duplicate column/i.test(err.message)) throw err;
+}
+
 const now = () => Math.floor(Date.now() / 1000);
 
 /** Statuses that entitle the holder to Pro features. */
@@ -104,6 +113,8 @@ const q = {
      WHERE license_key = ?
   `),
   markValidated: db.prepare('UPDATE licenses SET last_validated_at = ? WHERE license_key = ?'),
+  markEmailed: db.prepare('UPDATE licenses SET license_email_sent_at = ? WHERE license_key = ?'),
+  clearEmailed: db.prepare('UPDATE licenses SET license_email_sent_at = NULL WHERE license_key = ?'),
   seenEvent: db.prepare('SELECT event_id FROM webhook_events WHERE event_id = ?'),
   recordEvent: db.prepare('INSERT INTO webhook_events (event_id, type, created_at) VALUES (?, ?, ?)'),
   stats: db.prepare(`
@@ -165,6 +176,31 @@ module.exports = {
 
   markValidated(licenseKey) {
     q.markValidated.run(now(), licenseKey);
+  },
+
+  /**
+   * Claim the right to email this licence key, once.
+   *
+   * Returns true only for the caller that wins. The webhook and the
+   * success-page lookup both activate a licence and both want to send, and
+   * Stripe retries webhooks — without this the buyer gets the same key three
+   * times. Marked before sending rather than after: a duplicate email is worse
+   * than a missed one, and /resend-license covers the miss.
+   */
+  claimEmailSend(licenseKey) {
+    const row = q.byKey.get(licenseKey);
+    if (!row || row.license_email_sent_at) return false;
+    q.markEmailed.run(now(), licenseKey);
+    return true;
+  },
+
+  /** Undo the claim so a failed send can be retried. */
+  releaseEmailSend(licenseKey) {
+    q.clearEmailed.run(licenseKey);
+  },
+
+  markEmailed(licenseKey) {
+    q.markEmailed.run(now(), licenseKey);
   },
 
   /** Idempotency guard: returns true the first time an event id is seen. */

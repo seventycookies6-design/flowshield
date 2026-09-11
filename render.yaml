@@ -31,6 +31,11 @@ services:
       - key: ALLOWED_ORIGINS
         value: https://seventycookies6-design.github.io
 
+      # Who licence emails come from. Must be an address on a domain the mail
+      # provider has verified, or it will be rejected.
+      - key: EMAIL_FROM
+        value: FlowShield <onboarding@resend.dev>
+
       # Entered once in the Render dashboard, stored encrypted, never in git.
       - key: STRIPE_SECRET_KEY
         sync: false
@@ -39,6 +44,18 @@ services:
       - key: STRIPE_PRICE_ID
         sync: false
       - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+
+      # Email delivery. Set ONE of these groups; leave the rest blank.
+      # With none set, licence emails are skipped and everything else still
+      # works — the key is shown on the success page regardless.
+      #   Resend:  RESEND_API_KEY
+      #   SMTP:    SMTP_URL, or SMTP_HOST + SMTP_USER + SMTP_PASS
+      - key: RESEND_API_KEY
+        sync: false
+      - key: SMTP_URL
+        sync: false
+      - key: EMAIL_REPLY_TO
         sync: false
 
     # The free plan has no persistent disk, so licenses.db is wiped on every

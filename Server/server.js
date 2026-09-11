@@ -18,6 +18,7 @@ const StripeLib = require('stripe');
 
 const db = require('./db');
 const licensekey = require('./licensekey');
+const mail = require('./email');
 const { loadKeys, describe, KEYS_PATH } = require('./keys');
 
 const PORT = Number(process.env.PORT || 3000);
@@ -130,21 +131,37 @@ async function recoverFromStripe({ key, email }) {
   if (email) {
     try {
       const customers = await stripe.customers.list({ email, limit: 5 });
+
+      // Gather every subscription across every customer with this address
+      // before choosing. One person can hold several — the same address can
+      // buy twice, and Stripe creates a separate customer each time a Payment
+      // Link is used. Returning whichever happened to be listed first made
+      // recovery non-deterministic and could hand back a licence key the
+      // customer has never seen.
+      const candidates = [];
       for (const customer of customers.data) {
         const subs = await stripe.subscriptions.list({
           customer: customer.id,
           status: 'all',
           limit: 10,
         });
-        const live = subs.data.find((s) => db.PRO_STATUSES.has(s.status)) || subs.data[0];
-        if (live) {
-          return {
-            subscription: live,
-            licenseKey: licensekey.normalize(live.metadata?.license_key || '') || null,
-            customer,
-          };
-        }
+        for (const subscription of subs.data) candidates.push({ subscription, customer });
       }
+
+      if (candidates.length === 0) return null;
+
+      const keyOf = (c) => licensekey.normalize(c.subscription.metadata?.license_key || '');
+
+      // Prefer the subscription that actually carries the presented key.
+      const exact = key ? candidates.find((c) => keyOf(c) === key) : null;
+      const live = candidates.find((c) => db.PRO_STATUSES.has(c.subscription.status));
+      const chosen = exact || live || candidates[0];
+
+      return {
+        subscription: chosen.subscription,
+        licenseKey: keyOf(chosen) || null,
+        customer: chosen.customer,
+      };
     } catch (err) {
       log(`recover by email failed: ${err.message}`);
     }
@@ -198,6 +215,45 @@ async function rehydrate(found, fallbackEmail, preferredKey = '') {
 
   log(`rehydrated ${licenseKey} from Stripe (${subscription.status})`);
   return row;
+}
+
+/**
+ * Email a licence key to its owner, at most once.
+ *
+ * Called from both the webhook and the success-page lookup because either may
+ * be the first to activate a licence — and Stripe retries webhooks. The claim
+ * in the database decides who actually sends.
+ *
+ * Never throws: the purchase has already succeeded by this point, and a mail
+ * failure must not turn a completed payment into a 500 that Stripe retries.
+ */
+async function deliverLicenseEmail(row, { force = false } = {}) {
+  if (!row || !row.email || !db.isPro(row)) return { ok: false, skipped: true };
+
+  if (!mail.isConfigured) {
+    log(`email not configured; ${row.license_key} not sent to ${row.email}`);
+    return { ok: false, skipped: true, error: 'email_not_configured' };
+  }
+
+  if (force) db.releaseEmailSend(row.license_key);
+  if (!db.claimEmailSend(row.license_key)) {
+    return { ok: false, skipped: true, error: 'already_sent' };
+  }
+
+  const result = await mail.sendLicenseEmail({
+    to: row.email,
+    licenseKey: row.license_key,
+    status: row.status,
+  });
+
+  if (result.ok) {
+    log(`emailed ${row.license_key} to ${row.email} via ${mail.providerName}`);
+  } else {
+    // Release the claim so it can be retried rather than silently lost.
+    db.releaseEmailSend(row.license_key);
+    log(`email failed for ${row.license_key}: ${result.error}`);
+  }
+  return result;
 }
 
 /** Pull a period end off a subscription across API-version shapes. */
@@ -309,6 +365,7 @@ app.get('/', (_req, res) => {
       'POST /webhook',
       'GET  /get-license?session_id=',
       'POST /create-portal-session',
+      'POST /resend-license',
       'GET  /health',
     ],
   });
@@ -325,6 +382,9 @@ app.get('/health', (_req, res) => {
       missing: keyReport.missing,
       priceId: keys.price_id ? `${keys.price_id.slice(0, 10)}…` : null,
     },
+    // Never the API key or credentials — only whether sending is possible and
+    // which backend would handle it.
+    email: { configured: mail.isConfigured, provider: mail.providerName, from: mail.FROM },
   });
 });
 
@@ -386,7 +446,19 @@ app.get('/get-license', async (req, res) => {
       });
     }
     log(`get-license -> ${result.row.license_key} status=${result.row.status}`);
-    return res.json(publicView(result.row, { source: 'stripe' }));
+
+    // The buyer is looking at the key right now, so this is a convenience copy
+    // rather than the delivery mechanism. Don't make them wait for the SMTP
+    // round-trip; the claim guard stops the webhook duplicating it.
+    const emailed = await deliverLicenseEmail(result.row);
+
+    return res.json(
+      publicView(result.row, {
+        source: 'stripe',
+        emailSent: emailed.ok === true,
+        emailConfigured: mail.isConfigured,
+      }),
+    );
   } catch (err) {
     log(`get-license FAILED: ${err.message}`);
     const status = err.statusCode === 404 ? 404 : 502;
@@ -418,24 +490,33 @@ app.post('/validate', async (req, res) => {
     });
   }
 
-  let row = key ? db.findByKey(key) : db.findByEmail(email);
-
-  // Key is well formed but unknown here: it may belong to another install of
-  // the server, so fall back to the email lookup before giving up.
-  if (!row && email) row = db.findByEmail(email);
-
-  // Still nothing? Ask Stripe before declaring the licence invalid. The local
-  // database is a cache and may simply have been wiped by a redeploy.
-  if (!row) {
-    const found = await recoverFromStripe({ key, email });
-    if (found) {
-      try {
-        row = await rehydrate(found, email, key);
-      } catch (err) {
-        log(`rehydrate failed: ${err.message}`);
-      }
+  /*
+   * Resolution order matters, most specific first.
+   *
+   * A licence key identifies one subscription; an email address may identify
+   * several — the same person can buy twice, and every Payment Link purchase
+   * creates a fresh Stripe customer. Falling back to the email before
+   * exhausting the key meant a customer presenting key K, whose cached row had
+   * been lost, was handed a *different* subscription's key.
+   *
+   * Each step also asks Stripe, because the database is only a cache and may
+   * have been wiped by a redeploy.
+   */
+  const recover = async (criteria) => {
+    const found = await recoverFromStripe(criteria);
+    if (!found) return null;
+    try {
+      return await rehydrate(found, email, key);
+    } catch (err) {
+      log(`rehydrate failed: ${err.message}`);
+      return null;
     }
-  }
+  };
+
+  let row = key ? db.findByKey(key) : null;
+  if (!row && key) row = await recover({ key });
+  if (!row && email) row = db.findByEmail(email);
+  if (!row && email) row = await recover({ key, email });
 
   if (!row) {
     return res.json({
@@ -471,6 +552,53 @@ app.post('/validate', async (req, res) => {
     return res.json({ ...view, valid: false, reason: `subscription_${row.status}` });
   }
   return res.json(view);
+});
+
+/**
+ * Re-send a licence key to the address that bought it.
+ *
+ * Always answers the same way whether or not the address has a subscription:
+ * a different response would turn this into an oracle for checking who is a
+ * customer. The email only ever goes to the address on the subscription, so
+ * asking for someone else's key tells you nothing and sends you nothing.
+ */
+app.post('/resend-license', async (req, res) => {
+  const email = typeof req.body?.email === 'string' ? req.body.email.trim() : '';
+  const generic = {
+    ok: true,
+    message: 'If that address has a subscription, the licence key is on its way.',
+  };
+
+  if (!email) {
+    return res.status(400).json({ error: 'missing_email', message: 'An email address is required.' });
+  }
+  if (!mail.isConfigured) {
+    return res.status(503).json({
+      error: 'email_not_configured',
+      message: 'This server has no email provider configured.',
+    });
+  }
+
+  let row = db.findByEmail(email);
+
+  if (!row && stripe) {
+    const found = await recoverFromStripe({ email });
+    if (found) {
+      try {
+        row = await rehydrate(found, email);
+      } catch (err) {
+        log(`resend rehydrate failed: ${err.message}`);
+      }
+    }
+  }
+
+  if (row && db.isPro(row)) {
+    await deliverLicenseEmail(row, { force: true });
+  } else {
+    log(`resend requested for ${email} with no active subscription`);
+  }
+
+  return res.json(generic);
 });
 
 app.post('/create-portal-session', async (req, res) => {
@@ -524,8 +652,12 @@ app.post('/webhook', async (req, res) => {
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data.object;
-        await syncFromSession(session.id);
+        const result = await syncFromSession(session.id);
         log(`webhook checkout.session.completed ${session.id}`);
+
+        // The reliable delivery path: this fires even when the buyer closes
+        // the tab before the success page loads.
+        if (result?.row) await deliverLicenseEmail(result.row);
         break;
       }
 

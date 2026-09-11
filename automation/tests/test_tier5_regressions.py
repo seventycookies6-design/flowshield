@@ -248,7 +248,15 @@ class TestSurvivesDataLoss:
         assert body.get("licenseKey", "").startswith("FS-")
 
     def test_recovery_keeps_the_key_the_customer_already_has(self, server, needs_stripe):
-        """Minting a fresh key on recovery would orphan the one they wrote down."""
+        """
+        Minting a fresh key on recovery would orphan the one they wrote down.
+
+        The presented key matters because one email address can hold several
+        subscriptions — buying twice, or any Payment Link purchase, creates a
+        separate Stripe customer each time. Recovery must return the key the
+        customer actually presented, not whichever subscription Stripe happened
+        to list first.
+        """
         row = self._pick_active()
         original = row["license_key"]
 
@@ -263,7 +271,54 @@ class TestSurvivesDataLoss:
         assert body["isPro"] is True, body
         assert body["licenseKey"] == original, (
             f"recovery issued {body.get('licenseKey')} instead of the customer's "
-            f"existing key {original}"
+            f"existing key {original} — is it picking an arbitrary subscription "
+            f"for this email?"
+        )
+
+    def test_recovery_is_stable_across_repeated_calls(self, server, needs_stripe):
+        """Two recoveries of the same licence must not produce two keys."""
+        row = self._pick_active()
+        original = row["license_key"]
+
+        keys = []
+        for _ in range(2):
+            _db_admin("forget", original)
+            body = requests.post(
+                f"{server}/validate",
+                json={"licenseKey": original, "email": row["email"]},
+                timeout=45,
+            ).json()
+            keys.append(body.get("licenseKey"))
+
+        assert keys[0] == keys[1] == original, f"recovery churned keys: {keys}"
+
+    def test_a_presented_key_is_not_shadowed_by_the_email(self, server, needs_stripe):
+        """
+        One address can hold several subscriptions — buying twice, and every
+        Payment Link purchase, creates a separate Stripe customer. Resolving
+        the email before exhausting the presented key handed the customer a
+        *different* subscription's licence key.
+        """
+        row = self._pick_active()
+        original = row["license_key"]
+        email = row["email"]
+
+        # Only meaningful when the address really does have more than one.
+        others = requests.post(f"{server}/validate", json={"email": email}, timeout=45).json()
+        if not others.get("isPro"):
+            pytest.skip("no active subscription for this address")
+
+        assert json.loads(_db_admin("forget", original))["deleted"] is True
+
+        body = requests.post(
+            f"{server}/validate",
+            json={"licenseKey": original, "email": email},
+            timeout=45,
+        ).json()
+
+        assert body["licenseKey"] == original, (
+            f"the email lookup shadowed the presented key: asked for {original}, "
+            f"got {body.get('licenseKey')}"
         )
 
     def test_the_server_stamps_keys_onto_stripe_for_recovery(self):

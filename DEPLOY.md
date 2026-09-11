@@ -22,6 +22,43 @@ is that **auto-deploy on push does not work** — after pushing, click *Manual
 Deploy → Deploy latest commit* in the Render dashboard. Connecting GitHub in
 Render's settings would enable automatic deploys if that becomes annoying.
 
+## Licence-key emails
+
+The server emails the key on `checkout.session.completed`, which is the path
+that fires even when the buyer closes the tab before the success page loads.
+Delivery is claimed once per licence in the database, so the webhook, a Stripe
+retry and the success-page lookup can't produce three copies.
+
+**It is off until a provider is configured**, and that is deliberate — sending
+happens after a payment has already succeeded, so a missing or broken provider
+skips rather than failing the webhook and making Stripe retry a purchase that
+worked. Check the current state at `/health` under `email`.
+
+Pick one and add it in Render → Environment:
+
+| Provider | Variables | Notes |
+| --- | --- | --- |
+| **Resend** | `RESEND_API_KEY` | Free 3,000/month. Until you verify a domain it can only send to your own account address — fine for testing, not for customers. |
+| **SMTP** (incl. Gmail) | `SMTP_URL`, e.g. `smtps://you%40gmail.com:app-password@smtp.gmail.com:465` | Gmail needs 2FA plus an App Password, and caps at ~500/day. Sends to anyone. |
+
+Also set `EMAIL_FROM` to an address on a domain the provider has verified, and
+optionally `EMAIL_REPLY_TO` for support replies. Then **Manual Deploy** and
+confirm `/health` reports `"email": {"configured": true}`.
+
+`POST /resend-license {"email":"..."}` re-sends a key. It answers identically
+whether or not the address has a subscription, so it can't be used to check who
+your customers are.
+
+### Testing without a provider
+
+```bash
+EMAIL_CAPTURE_DIR=./outbox npm start
+```
+
+Messages are written to `./outbox` as JSON instead of being sent. Capture takes
+priority over real credentials specifically so a test run can never email an
+actual customer — `tier6` relies on that.
+
 ## Redeploying
 
 ```bash

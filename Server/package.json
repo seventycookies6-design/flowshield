@@ -12,6 +12,7 @@
     "better-sqlite3": "^12.2.0",
     "cors": "^2.8.5",
     "express": "^4.21.2",
+    "nodemailer": "^10.0.5",
     "stripe": "^22.6.2"
   },
   "devDependencies": {
