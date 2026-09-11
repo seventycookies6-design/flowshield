@@ -321,6 +321,25 @@ class TestSurvivesDataLoss:
             f"got {body.get('licenseKey')}"
         )
 
+    def test_a_recovered_row_keeps_the_customer_email(self, server, needs_stripe):
+        """
+        Recovery by key returns `customer` as a bare id, so the address has to
+        be fetched. Without it the rebuilt row has no email — the customer
+        cannot activate by email and no licence email can reach them, which
+        only surfaces after a redeploy has already wiped the cache.
+        """
+        row = self._pick_active()
+        assert json.loads(_db_admin("forget", row["license_key"]))["deleted"] is True
+
+        body = requests.post(f"{server}/validate",
+                             json={"licenseKey": row["license_key"]}, timeout=60).json()
+
+        assert body["isPro"] is True, body
+        assert body.get("email"), (
+            "the recovered licence has no email address; licence emails and "
+            "email activation would both silently stop working"
+        )
+
     def test_the_server_stamps_keys_onto_stripe_for_recovery(self):
         source = (Path(SERVER_DIR) / "server.js").read_text(encoding="utf-8")
         assert "metadata: { ...(subscription.metadata || {}), license_key" in source, (

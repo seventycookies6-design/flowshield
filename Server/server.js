@@ -196,11 +196,24 @@ async function rehydrate(found, fallbackEmail, preferredKey = '') {
     }
   }
 
-  const email =
+  let email =
     found.customer?.email ||
     (typeof subscription.customer === 'object' ? subscription.customer?.email : null) ||
     fallbackEmail ||
     null;
+
+  // Recovery by licence key returns the subscription with `customer` as a bare
+  // id, so the address is missing. Fetch it: without an email on the row the
+  // customer cannot activate by email and no licence email can ever be sent to
+  // them — a silent loss that only shows up after a redeploy wipes the cache.
+  if (!email && typeof subscription.customer === 'string') {
+    try {
+      const customer = await stripe.customers.retrieve(subscription.customer);
+      if (!customer.deleted) email = customer.email || null;
+    } catch (err) {
+      log(`could not resolve customer ${subscription.customer}: ${err.message}`);
+    }
+  }
 
   if (!db.findByKey(licenseKey)) db.createPending(licenseKey, email, null);
 
