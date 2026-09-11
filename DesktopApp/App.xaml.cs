@@ -13,6 +13,8 @@ public partial class App : Application
 
     protected override void OnStartup(StartupEventArgs e)
     {
+        // Velopack's bootstrap runs in Program.Main, before this point — the
+        // install/update hooks must be handled before any window exists.
         base.OnStartup(e);
 
         DispatcherUnhandledException += OnDispatcherUnhandledException;

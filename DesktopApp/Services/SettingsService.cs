@@ -8,8 +8,13 @@ namespace FlowShield.Services;
 
 /// <summary>
 /// Persists <see cref="AppSettings"/> to
-/// <c>%LOCALAPPDATA%\FlowShield\settings.json</c>, encrypted with Windows DPAPI
+/// <c>%APPDATA%\FlowShield\settings.json</c>, encrypted with Windows DPAPI
 /// under the current user account.
+///
+/// Roaming AppData, deliberately, not Local. The installer puts the
+/// application itself in <c>%LOCALAPPDATA%\FlowShield</c>, so settings kept
+/// there would sit inside the install directory and could be wiped by an
+/// update or uninstall — taking the customer's licence key with them.
 ///
 /// The file is a small JSON envelope rather than a raw blob so it stays
 /// inspectable (version, timestamp) without being readable:
@@ -33,15 +38,48 @@ public class SettingsService
     public string SettingsDirectory { get; }
     public string SettingsPath { get; }
 
+    /// <summary>Where settings used to live, before the installer claimed that path.</summary>
+    private static string LegacyDirectory => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "FlowShield");
+
     public SettingsService(string? overrideDirectory = null)
     {
         SettingsDirectory = overrideDirectory
             ?? Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
                 "FlowShield");
 
         SettingsPath = Path.Combine(SettingsDirectory, "settings.json");
         Directory.CreateDirectory(SettingsDirectory);
+
+        if (overrideDirectory is null) MigrateFromLegacyLocation();
+    }
+
+    /// <summary>
+    /// Move settings written by a pre-installer build into the new location.
+    ///
+    /// Without this, anyone who used an earlier copy would silently appear to
+    /// be on the Free tier after updating — their licence would look lost.
+    /// Copy rather than move, so a failure leaves the original intact.
+    /// </summary>
+    private void MigrateFromLegacyLocation()
+    {
+        try
+        {
+            if (File.Exists(SettingsPath)) return;
+
+            var legacy = Path.Combine(LegacyDirectory, "settings.json");
+            if (!File.Exists(legacy)) return;
+
+            // DPAPI is scoped to the user, not the path, so the blob still
+            // decrypts after the move.
+            File.Copy(legacy, SettingsPath, overwrite: false);
+            Log.Info($"migrated settings from {legacy} to {SettingsPath}");
+        }
+        catch (Exception ex)
+        {
+            Log.Warn($"settings migration skipped: {ex.Message}");
+        }
     }
 
     private sealed class Envelope

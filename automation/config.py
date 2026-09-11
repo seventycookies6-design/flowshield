@@ -30,7 +30,9 @@ APP_WINDOW_TITLE = "FlowShield"
 APP_PROCESS_NAME = "FlowShield"
 
 # Settings written by the app (DPAPI-encrypted envelope).
-SETTINGS_PATH = Path(os.environ.get("LOCALAPPDATA", "")) / "FlowShield" / "settings.json"
+# Roaming AppData: %LOCALAPPDATA%\FlowShield is the installer's directory, so
+# user data must not live there — an update or uninstall would take it.
+SETTINGS_PATH = Path(os.environ.get("APPDATA", "")) / "FlowShield" / "settings.json"
 DPAPI_ENTROPY = b"FlowShield.v1"
 
 # ------------------------------------------------------------------ services

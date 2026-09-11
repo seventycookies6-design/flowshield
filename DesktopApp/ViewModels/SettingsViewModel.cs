@@ -13,10 +13,16 @@ public class SettingsViewModel : ViewModelBase
     private readonly MainViewModel _main;
     private readonly LicenseService _license;
 
+    private readonly UpdateService _updates = new();
+
     public SettingsViewModel(MainViewModel main, LicenseService license)
     {
         _main = main;
         _license = license;
+
+        CheckForUpdatesCommand = new AsyncRelayCommand(CheckForUpdatesAsync, () => !IsCheckingUpdates);
+        RestartForUpdateCommand = new RelayCommand(RestartForUpdate, () => UpdateReady);
+        _versionText = $"Version {_updates.CurrentVersion}";
 
         _licenseKeyInput = main.Settings.LicenseKey;
         _licenseEmailInput = main.Settings.LicenseEmail;
@@ -35,6 +41,76 @@ public class SettingsViewModel : ViewModelBase
     public AsyncRelayCommand ManageSubscriptionCommand { get; }
     public RelayCommand DeactivateCommand { get; }
     public RelayCommand OpenLogCommand { get; }
+    public AsyncRelayCommand CheckForUpdatesCommand { get; }
+    public RelayCommand RestartForUpdateCommand { get; }
+
+    // ---------------------------------------------------------------- updates
+
+    private string _versionText;
+    public string VersionText { get => _versionText; private set => Set(ref _versionText, value); }
+
+    private string _updateStatusText = "";
+    public string UpdateStatusText { get => _updateStatusText; private set => Set(ref _updateStatusText, value); }
+
+    private bool _isCheckingUpdates;
+    public bool IsCheckingUpdates
+    {
+        get => _isCheckingUpdates;
+        private set => Set(ref _isCheckingUpdates, value);
+    }
+
+    private bool _updateReady;
+    public bool UpdateReady { get => _updateReady; private set => Set(ref _updateReady, value); }
+
+    /// <summary>Updates only apply to an installed copy, not a dev build.</summary>
+    public bool UpdatesSupported => _updates.IsSupported;
+
+    private async Task CheckForUpdatesAsync()
+    {
+        if (!_updates.IsSupported)
+        {
+            UpdateStatusText = "Updates apply to installed copies only.";
+            return;
+        }
+
+        IsCheckingUpdates = true;
+        UpdateStatusText = "Checking for updates…";
+        try
+        {
+            var version = await _updates.CheckAndDownloadAsync();
+            if (version is null)
+            {
+                UpdateStatusText = "You're on the latest version.";
+                UpdateReady = false;
+            }
+            else
+            {
+                UpdateStatusText = $"Version {version} downloaded — restart to apply.";
+                UpdateReady = true;
+            }
+        }
+        finally
+        {
+            IsCheckingUpdates = false;
+        }
+    }
+
+    private void RestartForUpdate()
+    {
+        // A sealed sprint locks the blocklist precisely so it can't be escaped;
+        // restarting would drop the shield entirely, so the update waits.
+        if (_main.IsSprintRunning)
+        {
+            UpdateStatusText = "Finish your sprint first — the update will apply afterwards.";
+            _main.Toast("The update will apply once this sprint ends.");
+            return;
+        }
+
+        if (!_updates.ApplyAndRestart(sprintRunning: false))
+        {
+            UpdateStatusText = "Could not apply the update. See the diagnostic log.";
+        }
+    }
 
     // ------------------------------------------------------------- licensing
 

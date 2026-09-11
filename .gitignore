@@ -15,3 +15,5 @@ reports/
 # the Blocked Apps capture lists the running processes on the machine that
 # produced it. FINAL_REPORT.md names them instead of embedding them.
 screenshots/
+
+dist/

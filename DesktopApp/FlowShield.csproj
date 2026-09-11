@@ -15,10 +15,25 @@
     <Company>FlowShield</Company>
     <!-- Single-instance + tray behaviour relies on STA; default for WPF. -->
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+
+    <!-- Program.Main instead of the one WPF generates, so the Velopack
+         install/update/uninstall hooks run before anything else exists. -->
+    <StartupObject>FlowShield.Program</StartupObject>
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- Demote App.xaml from ApplicationDefinition to Page: an
+         ApplicationDefinition generates its own Main, which would collide with
+         Program.Main above. -->
+    <ApplicationDefinition Remove="App.xaml" />
+    <Page Include="App.xaml" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0" />
+    <!-- Installer + auto-update. Without an update channel a shipped bug is
+         permanent for everyone who already installed. -->
+    <PackageReference Include="Velopack" Version="1.2.0" />
   </ItemGroup>
 
   <ItemGroup>

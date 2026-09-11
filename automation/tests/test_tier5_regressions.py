@@ -9,6 +9,7 @@ caught the bug had it existed first.
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import time
 from pathlib import Path
@@ -205,6 +206,43 @@ class TestLicenseRevocation:
         failure = source.split("public static LicenseResult Failure")[1].split(";")[0]
         assert "Definitive: false" in failure, \
             "transport failures must be marked non-definitive"
+
+
+# ============ user data must not live inside the install directory
+
+class TestSettingsLocation:
+    """
+    The installer puts the application in %LOCALAPPDATA%\\FlowShield. Settings
+    kept there would sit inside the install directory, where an update or
+    uninstall could delete them — taking the customer's licence key with them.
+    """
+
+    def test_settings_are_not_in_the_install_directory(self):
+        from config import SETTINGS_PATH
+
+        local = os.environ.get("LOCALAPPDATA", "").lower()
+        assert local, "LOCALAPPDATA is not set"
+        assert not str(SETTINGS_PATH).lower().startswith(local), (
+            f"settings live at {SETTINGS_PATH}, inside the installer's directory"
+        )
+
+    def test_the_app_writes_to_roaming_appdata(self):
+        source = (Path(DESKTOP_DIR) / "Services" / "SettingsService.cs").read_text(
+            encoding="utf-8")
+        ctor = source.split("public SettingsService(")[1].split("\n    }")[0]
+        assert "SpecialFolder.ApplicationData" in ctor, \
+            "settings must be written to Roaming AppData, not Local"
+        assert "LocalApplicationData" not in ctor, \
+            "the constructor should no longer default to LocalAppData"
+
+    def test_old_settings_are_migrated_not_abandoned(self):
+        """An early adopter must not appear to lose their licence on upgrade."""
+        source = (Path(DESKTOP_DIR) / "Services" / "SettingsService.cs").read_text(
+            encoding="utf-8")
+        assert "MigrateFromLegacyLocation" in source
+        migrate = source.split("private void MigrateFromLegacyLocation()")[1].split("\n    }")[0]
+        assert "File.Copy" in migrate, \
+            "migration should copy, so a failure leaves the original intact"
 
 
 # ============ a lost database must not revoke anyone's subscription

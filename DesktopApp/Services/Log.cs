@@ -16,8 +16,10 @@ public static class Log
 
     private static string Init()
     {
+        // Roaming, alongside settings — %LOCALAPPDATA%\FlowShield is the
+        // install directory and its contents are not ours to keep.
         var dir = System.IO.Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "FlowShield", "logs");
         Directory.CreateDirectory(dir);
         return System.IO.Path.Combine(dir, $"flowshield-{DateTime.Now:yyyy-MM-dd}.log");

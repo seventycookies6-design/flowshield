@@ -667,7 +667,7 @@ class DesktopController:
         """Newest FlowShield diagnostic log, or None."""
         import os
 
-        log_dir = Path(os.environ.get("LOCALAPPDATA", "")) / "FlowShield" / "logs"
+        log_dir = Path(os.environ.get("APPDATA", "")) / "FlowShield" / "logs"
         if not log_dir.is_dir():
             return None
         logs = sorted(log_dir.glob("flowshield-*.log"), key=lambda p: p.stat().st_mtime)
