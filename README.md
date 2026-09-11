@@ -1,10 +1,12 @@
 # FlowShield
 
-**Site: <https://seventycookies6-design.github.io/flowshield/>**
-**Licence server: <https://flowshield-license-server.onrender.com>**
+**[Download for Windows](https://github.com/seventycookies6-design/flowshield/releases/latest/download/FlowShield-win-Setup.exe)**
+· **[Site](https://seventycookies6-design.github.io/flowshield/)**
+· **[Licence server](https://flowshield-license-server.onrender.com)**
 
-Buying on the site issues a real licence key, and the desktop app activates Pro
-against the deployed server — no local services involved.
+Buying on the site issues a real licence key, and the installed app activates
+Pro against the deployed server. Stripe is in **test mode** — see
+**[SELLING.md](SELLING.md)** for what's left before charging real customers.
 
 A Windows focus timer and app blocker. Distractions go behind a shield whose
 strength you pick per sprint, and finished sprints compound into momentum.
@@ -105,6 +107,21 @@ than silently revoking Pro for everyone who paid, the server rebuilds missing
 rows from Stripe — by the licence key stamped into subscription metadata, or by
 the customer's email. Tier 5 wipes a real row and asserts the customer keeps
 Pro, and keeps the key they already had.
+
+## Cutting a release
+
+```bash
+pwsh tools/build_release.ps1 -Version 1.0.1 -Publish
+```
+
+Builds a self-contained win-x64 copy (customers don't need the .NET runtime),
+packages it with Velopack into an installer plus an update feed, and publishes
+both to GitHub Releases. Installed copies find it via Settings → Check for
+updates; an update is never applied mid-sprint, since restarting would drop the
+shield a sealed session exists to hold.
+
+Builds are **not code signed**, so SmartScreen warns every customer.
+[SELLING.md](SELLING.md) covers that and the rest of the gap to real revenue.
 
 ## Publishing the site
 
