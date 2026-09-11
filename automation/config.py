@@ -79,17 +79,37 @@ def load_stripe_keys() -> dict:
     return out
 
 
-def stripe_configured() -> bool:
-    """True when every Stripe credential the payment flow needs is present."""
+ALL_STRIPE_FIELDS = ("publishable_key", "secret_key", "price_id", "webhook_secret")
+
+# Creating a Checkout Session needs only these two. The webhook secret is a
+# separate concern, so the two are gated separately: bundling them meant a
+# missing webhook secret silently skipped every checkout test as well.
+PAYMENT_FIELDS = ("secret_key", "price_id")
+
+
+def _have(field: str) -> bool:
     keys = load_stripe_keys()
-    if any(keys.get(f) for f in ("secret_key", "price_id")):
-        # Env vars can supply the rest.
-        pass
-    required = ("publishable_key", "secret_key", "price_id", "webhook_secret")
-    return all(keys.get(f) or os.environ.get(f"STRIPE_{f.upper()}") for f in required)
+    return bool(keys.get(field) or os.environ.get(f"STRIPE_{field.upper()}"))
+
+
+def stripe_configured() -> bool:
+    """True when the payment path can run (secret key + price)."""
+    return all(_have(f) for f in PAYMENT_FIELDS)
+
+
+def stripe_webhooks_configured() -> bool:
+    """True when webhook signature verification can be exercised."""
+    return _have("webhook_secret")
+
+
+def stripe_fully_configured() -> bool:
+    return all(_have(f) for f in ALL_STRIPE_FIELDS)
 
 
 def stripe_missing() -> list[str]:
-    keys = load_stripe_keys()
-    required = ("publishable_key", "secret_key", "price_id", "webhook_secret")
-    return [f for f in required if not (keys.get(f) or os.environ.get(f"STRIPE_{f.upper()}"))]
+    """Fields still missing for the payment path."""
+    return [f for f in PAYMENT_FIELDS if not _have(f)]
+
+
+def stripe_missing_all() -> list[str]:
+    return [f for f in ALL_STRIPE_FIELDS if not _have(f)]

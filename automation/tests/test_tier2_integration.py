@@ -163,7 +163,7 @@ class TestWebhook:
         assert response.status_code == 400, \
             "a forged signature must never be accepted"
 
-    def test_valid_signature_is_accepted(self, server, needs_stripe):
+    def test_valid_signature_is_accepted(self, server, needs_webhook_secret):
         """Sign a synthetic event exactly as Stripe would and post it."""
         keys = load_stripe_keys()
         event_id = f"evt_test_{uuid.uuid4().hex[:16]}"
@@ -194,7 +194,7 @@ class TestWebhook:
         assert response.status_code == 200, response.text[:300]
         assert response.json()["received"] is True
 
-    def test_replayed_event_is_ignored(self, server, needs_stripe):
+    def test_replayed_event_is_ignored(self, server, needs_webhook_secret):
         """The same event id twice must not be processed twice."""
         keys = load_stripe_keys()
         event_id = f"evt_replay_{uuid.uuid4().hex[:16]}"

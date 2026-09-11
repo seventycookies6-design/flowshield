@@ -11,7 +11,13 @@ import pytest
 AUTOMATION_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(AUTOMATION_DIR))
 
-from config import APP_EXE, SERVER_URL, stripe_configured, stripe_missing  # noqa: E402
+from config import (  # noqa: E402
+    APP_EXE,
+    SERVER_URL,
+    stripe_configured,
+    stripe_missing,
+    stripe_webhooks_configured,
+)
 from core.diagnostics import DiagnosticLogger  # noqa: E402
 from core.services import ServiceGroup, port_is_open  # noqa: E402
 from desktop.app_controller import DesktopController  # noqa: E402
@@ -52,9 +58,23 @@ def stripe_ready():
 
 @pytest.fixture
 def needs_stripe(stripe_ready):
+    """Gate for anything that creates a charge — needs a secret key and price."""
     if not stripe_ready:
         pytest.skip(f"Stripe not configured (missing: {', '.join(stripe_missing())}) "
                     f"— see STRIPE_SETUP.md")
+
+
+@pytest.fixture
+def needs_webhook_secret():
+    """
+    Gate for webhook signature tests only.
+
+    Deliberately separate from `needs_stripe`: the webhook secret is unrelated
+    to whether a payment can be taken, and folding the two together meant one
+    missing value silently skipped the entire payment suite.
+    """
+    if not stripe_webhooks_configured():
+        pytest.skip("no webhook secret configured — see STRIPE_SETUP.md")
 
 
 @pytest.fixture
