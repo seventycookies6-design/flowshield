@@ -438,13 +438,19 @@ class E2ERun:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="FlowShield end-to-end run")
+    # Headless by default. A visible browser is nicer to watch, but the E2E
+    # drives the desktop app at the same time, and the checkout page submits
+    # far more reliably headless — a visible window intermittently accepts the
+    # submit click without acting on it.
+    parser.add_argument("--headed", action="store_true",
+                        help="show the checkout browser instead of running it headless")
     parser.add_argument("--headless", action="store_true",
-                        help="run the checkout browser headless")
+                        help=argparse.SUPPRESS)   # accepted for compatibility
     parser.add_argument("--skip-build", action="store_true",
                         help="reuse the existing binary instead of rebuilding")
     args = parser.parse_args()
 
-    return E2ERun(headless=args.headless, skip_build=args.skip_build).run()
+    return E2ERun(headless=not args.headed, skip_build=args.skip_build).run()
 
 
 if __name__ == "__main__":

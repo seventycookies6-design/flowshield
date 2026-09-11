@@ -1,6 +1,6 @@
 # FlowShield — build & test report
 
-_Generated 2026-09-10 23:55_
+_Generated 2026-09-11 03:03_
 
 ---
 
@@ -46,49 +46,44 @@ month. Every sprint ends with a one-line "what moved?" journal entry.
 
 ## 2. Stripe configuration
 
-**Status: not configured.** Payment-path steps were skipped, not faked.
+**Status: configured (TEST mode).**
 
-Missing: `publishable_key`, `secret_key`, `price_id`, `webhook_secret`
+| Credential | Value |
+| --- | --- |
+| Publishable key | `pk_test_51U8••••••••••••••••••` _(redacted)_ |
+| Secret key | `sk_test_51••••••••••••••••••` _(redacted)_ |
+| Price ID | `price_1UEN5uCcqk10eo83Od3c7gCq` |
+| Webhook secret | `whsec_T8••••••••••••••••••` _(redacted)_ |
 
-Creating the Stripe account is the one step left to a human — registering a
-financial-services account under a generated identity breaks Stripe's terms,
-and the secret key never needs to pass through an assistant to be used.
-`STRIPE_SETUP.md` has the exact click-path; it takes about five minutes.
-
-Once `.stripe_keys.json` is populated, re-run:
-
-```
-python automation/e2e_runner.py
-```
-
-and every skipped step above becomes a real test-mode purchase.
+Secret values are redacted here by design — this file is meant to be shareable.
+The real values live only in `.stripe_keys.json`, which is git-ignored.
 
 
 ---
 
 ## 3. End-to-end run
 
-Run `20260910-230606` · 130.26s · **10 passed, 0 failed, 7 skipped**
+Run `20260911-022309` · 274.14s · **17 passed, 0 failed, 0 skipped**
 
 | # | Step | Result | Time |
 | --: | --- | --- | --: |
-| 1 | Build the desktop app | ✅ passed — FlowShield.exe built | 1.3s |
-| 2 | Start the license server | ✅ passed — db=better-sqlite3 stripe=NOT configured (unset) | 1.13s |
-| 3 | Start the website | ✅ passed — http://localhost:5500 serving 13222 bytes | 4.03s |
-| 4 | Launch FlowShield (clean state) | ✅ passed — pid 25160 | 0.04s |
-| 5 | Connect to the app window via UI Automation | ✅ passed — hwnd 6229942, title 'Today' | 17.69s |
-| 6 | Navigate to Settings | ✅ passed — status='Free plan', badge='FREE' | 15.54s |
-| 7 | Click ★ Get Pro (opens the website) | ✅ passed — upgrade page launched; toast='Opened the upgrade page in your browser.' | 11.88s |
-| 8 | Website → POST /create-checkout | ⏭️ skipped — Stripe not configured (missing: publishable_key, secret_key, price_id, webhook_secret) | 0.0s |
-| 9 | Stripe Checkout — pay with the 4242 test card | ⏭️ skipped — no checkout session to pay for | 0.0s |
-| 10 | GET /get-license → retrieve the key | ⏭️ skipped — no completed checkout session | 0.0s |
-| 11 | Activate Pro in the app | ⏭️ skipped — no license key available | 0.0s |
-| 12 | Verify the UI reports Pro | ⏭️ skipped — activation did not run | 0.0s |
-| 13 | Verify DPAPI settings.json has IsPro=true | ⏭️ skipped — activation did not run | 0.0s |
-| 14 | Blocked Apps — add an app and verify it persists | ✅ passed — 1 in list; 'flowshield-test-target' persisted (list=['flowshield-test-target']) | 30.71s |
-| 15 | Sleep Blocking — enable a schedule and verify it saves | ⏭️ skipped — no Pro licence — verified the feature stays gated instead | 15.66s |
-| 16 | Pro gating — Shield III and the app limit | ✅ passed — shield description='Blocked apps are closed on sight.' (pro=False) | 19.59s |
-| 17 | Capture final state and write the report | ✅ passed — state captured | 12.64s |
+| 1 | Build the desktop app | ✅ passed — FlowShield.exe built | 1.39s |
+| 2 | Start the license server | ✅ passed — db=better-sqlite3 stripe=configured (test) | 1.14s |
+| 3 | Start the website | ✅ passed — http://localhost:5500 serving 13352 bytes | 4.12s |
+| 4 | Launch FlowShield (clean state) | ✅ passed — pid 22604 | 0.08s |
+| 5 | Connect to the app window via UI Automation | ✅ passed — hwnd 13570134, title 'Today' | 19.8s |
+| 6 | Navigate to Settings | ✅ passed — status='Free plan', badge='FREE' | 17.05s |
+| 7 | Click ★ Get Pro (opens the website) | ✅ passed — upgrade page launched; toast='Opened the upgrade page in your browser.' | 13.39s |
+| 8 | Website → POST /create-checkout | ✅ passed — key=FS-HKC3-YRYN-HXSJ-SEXS session=cs_test_b1uVEyatJ619CYCn2jB4GAsXBK3NgalmIbj1UghKV8RIRXUuypYYK9en37 | 0.93s |
+| 9 | Stripe Checkout — pay with the 4242 test card | ✅ passed — session=cs_test_b1uVEyatJ619CYCn2jB4GAsXBK3NgalmIbj1UghKV8RIRXUuypYYK9en37 | 58.0s |
+| 10 | GET /get-license → retrieve the key | ✅ passed — key=FS-HKC3-YRYN-HXSJ-SEXS status=active email=testbuyer@example.com | 0.0s |
+| 11 | Activate Pro in the app | ✅ passed — status='✅ Pro Active' | 31.24s |
+| 12 | Verify the UI reports Pro | ✅ passed — status='✅ Pro Active', badge='PRO' | 15.22s |
+| 13 | Verify DPAPI settings.json has IsPro=true | ✅ passed — settings file is a DPAPI-protected envelope; IsPro=True, key=FS-HKC3-YRYN-HXSJ-SEXS, status=active | 0.0s |
+| 14 | Blocked Apps — add an app and verify it persists | ✅ passed — 1 in list; 'flowshield-test-target' persisted (list=['flowshield-test-target']) | 32.08s |
+| 15 | Sleep Blocking — enable a schedule and verify it saves | ✅ passed — enabled=True, window=23:15:00 → 06:45:00; ui='Active now — the shield is up until 06:45.' | 44.12s |
+| 16 | Pro gating — Shield III and the app limit | ✅ passed — shield description='Closed on sight, and the blocklist locks until the timer ends.' (pro=True) | 21.75s |
+| 17 | Capture final state and write the report | ✅ passed — state captured | 13.76s |
 
 
 ---
@@ -98,29 +93,35 @@ Run `20260910-230606` · 130.26s · **10 passed, 0 failed, 7 skipped**
 | Tier | Passed | Failed | Skipped |
 | --- | --: | --: | --: |
 | Tier 1 — unit | 62 | 0 | 0 |
-| Tier 2 — server integration | 13 | 0 | 9 |
-| Tier 3 — end-to-end UI | 22 | 0 | 2 |
-| Tier 4 — adversarial | 35 | 0 | 2 |
-| **Total** | **132** | **0** | **13** |
+| Tier 2 — server integration | 21 | 0 | 1 |
+| Tier 3 — end-to-end UI | 24 | 0 | 0 |
+| Tier 4 — adversarial | 37 | 0 | 0 |
+| Tier 5 — regressions | 14 | 0 | 0 |
+| **Total** | **158** | **0** | **1** |
 
-Duration: 1174.3s · 145 tests collected
+Duration: 1913.5s · 159 tests collected
 
 
 ---
 
 ## 5. Screenshots
 
-Captured locally in `screenshots/e2e-20260910-230606` — 7 images, not committed to the repository.
+Captured locally in `screenshots/e2e-20260911-022309` — 12 images, not committed to the repository.
 
 | Step | File |
 | --- | --- |
 | App launched | `05-app-launched.png` |
 | Settings free | `06-settings-free.png` |
 | After get pro | `07-after-get-pro.png` |
+| License key entered | `11-license-key-entered.png` |
+| Pro activated | `11-pro-activated.png` |
 | Blocked app added | `14-blocked-app-added.png` |
-| Sleep blocking gated | `15-sleep-blocking-gated.png` |
+| Sleep blocking saved | `15-sleep-blocking-saved.png` |
 | Shield selection | `16-shield-selection.png` |
 | Final settings | `17-final-settings.png` |
+| 01 loaded | `stripe-01-loaded.png` |
+| 02 filled | `stripe-02-filled.png` |
+| 03 success | `stripe-03-success.png` |
 
 Regenerate them any time with `python automation/e2e_runner.py`, or `python automation/smoke_ui.py` for a quick four-tab sweep.
 
@@ -162,9 +163,6 @@ existing binary. `python automation/smoke_ui.py` captures all four tabs in one p
 
 ## 7. Known limitations
 
-- **The payment path was not executed in this run** because Stripe has no
-  credentials configured. Those steps are reported as *skipped*, never as
-  passed. Everything else below ran for real.
 - **The Stripe account is not created by the automation.** Registering a
   financial-services account under a disposable identity violates Stripe's
   terms, and the registration flow is gated by SMS and bot detection. This is a

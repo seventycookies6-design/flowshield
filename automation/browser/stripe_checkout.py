@@ -326,20 +326,12 @@ class StripeCheckoutAutomator:
                     return CheckoutResult(False, None, page.url,
                                           "submit button not found", self.screenshots)
 
-                self._say("submitting payment…")
-                if not self._click(submit, "the submit button"):
-                    self._shot(page, "error-submit-click")
-                    return CheckoutResult(False, None, page.url,
-                                          "could not click the submit button",
-                                          self.screenshots)
+                # Give the Link opt-out and the last field a moment to commit to
+                # the form's internal state before submitting.
+                page.wait_for_timeout(1200)
 
-                # Success is a redirect away from checkout.stripe.com.
-                try:
-                    page.wait_for_url(
-                        lambda url: "checkout.stripe.com" not in url,
-                        timeout=timeout_ms,
-                    )
-                except PlaywrightTimeout:
+                self._say("submitting payment…")
+                if not self._submit_and_wait(page, submit, timeout_ms):
                     error_text = self._read_error(page)
                     self._shot(page, "error-not-redirected")
                     return CheckoutResult(
@@ -420,6 +412,55 @@ class StripeCheckoutAutomator:
         except PlaywrightError as exc:
             self._say(f"could not click {label}: {str(exc).splitlines()[0][:70]}")
             return False
+
+    def _submit_and_wait(self, page, submit, timeout_ms: int) -> bool:
+        """
+        Click submit and confirm it actually took, retrying once if not.
+
+        Clicking this button is not the same as submitting it. The page can
+        accept the click and then sit in a half-submitted state with no error
+        anywhere — no request to Stripe, no message on screen, the button still
+        enabled. So the click is treated as an attempt, not an outcome: watch
+        for either the redirect or the button entering its disabled/processing
+        state, and press it again if neither happens.
+        """
+        deadline = time.time() + timeout_ms / 1000
+
+        for attempt in (1, 2):
+            if not self._click(submit, "the submit button"):
+                return False
+
+            # Did it take? Either we leave checkout, or the button goes busy.
+            settle = time.time() + 20
+            while time.time() < settle:
+                if "checkout.stripe.com" not in page.url:
+                    return True
+                try:
+                    if not submit.is_enabled():
+                        break          # processing — stop polling, wait it out
+                except PlaywrightError:
+                    break
+                page.wait_for_timeout(500)
+            else:
+                if attempt == 1:
+                    self._say("submit did not register; pressing it once more")
+                    page.wait_for_timeout(1000)
+                    continue
+
+            try:
+                page.wait_for_url(
+                    lambda url: "checkout.stripe.com" not in url,
+                    timeout=max(5000, int((deadline - time.time()) * 1000)),
+                )
+                return True
+            except PlaywrightTimeout:
+                if attempt == 1:
+                    self._say("no redirect after submit; retrying once")
+                    page.wait_for_timeout(1000)
+                    continue
+                return False
+
+        return False
 
     def _select_card_method(self, page) -> bool:
         """

@@ -13,6 +13,15 @@ public class TodayViewModel : ViewModelBase
     private FocusSession? _current;
     private DateTime _endsAtUtc;
 
+    /// <summary>
+    /// Blocks enforced during the sprint currently running.
+    ///
+    /// Not the blocker's EnforcementCount, which counts everything since the
+    /// process started — attributing that to one sprint inflated every session
+    /// after the first.
+    /// </summary>
+    private int _blocksThisSprint;
+
     public TodayViewModel(MainViewModel main)
     {
         _main = main;
@@ -162,6 +171,7 @@ public class TodayViewModel : ViewModelBase
         };
 
         _endsAtUtc = _current.StartedUtc.AddMinutes(SelectedMinutes);
+        _blocksThisSprint = 0;
         IsRunning = true;
         SessionStateText = $"Shield {Roman(SelectedShield)} engaged";
         JournalPromptVisible = false;
@@ -200,7 +210,7 @@ public class TodayViewModel : ViewModelBase
 
         _current.EndedUtc = DateTime.UtcNow;
         _current.Completed = completed;
-        _current.BlocksEnforced = _main.Blocker.EnforcementCount;
+        _current.BlocksEnforced = _blocksThisSprint;
 
         _main.Blocker.StopEnforcing();
 
@@ -275,6 +285,12 @@ public class TodayViewModel : ViewModelBase
         Progress = 0;
     }
 
+    /// <summary>Counts one enforcement against the running sprint.</summary>
+    public void RecordBlock()
+    {
+        if (IsRunning) _blocksThisSprint++;
+    }
+
     public void RefreshStats()
     {
         var today = DateTime.Now.Date;
@@ -282,7 +298,11 @@ public class TodayViewModel : ViewModelBase
 
         SessionsToday = todays.Count(s => s.Completed);
         FocusMinutesToday = (int)Math.Round(todays.Sum(s => s.ActualMinutes));
-        BlocksToday = S.BlockedApps.Sum(a => a.BlockCount);
+
+        // Today's blocks, not every block this install has ever made — that
+        // lifetime total was being shown under a "TODAY" heading.
+        BlocksToday = S.BlocksTodayCurrent;
+
         MomentumText = S.MomentumScore.ToString("0");
         StreakText = S.CurrentStreak == 1 ? "1 day" : $"{S.CurrentStreak} days";
     }

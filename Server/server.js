@@ -103,9 +103,26 @@ async function syncFromSession(sessionId) {
     expand: ['subscription', 'customer'],
   });
 
-  const licenseKey = licensekey.normalize(session.client_reference_id || '');
+  let licenseKey = licensekey.normalize(session.client_reference_id || '');
+
   if (!licenseKey) {
-    return { error: 'no_license_reference', session };
+    /*
+     * A Payment Link purchase has no client_reference_id — nobody called
+     * /create-checkout, so no key was reserved up front. That is the published
+     * site's main path (GitHub Pages can't run this server), so refusing here
+     * would leave real paying customers with nothing.
+     *
+     * Mint a key now instead, keyed to the session id so that repeat calls,
+     * a webhook and a page refresh all converge on the same one.
+     */
+    const existing = db.findBySession(sessionId);
+    if (existing) {
+      licenseKey = existing.license_key;
+    } else {
+      licenseKey = licensekey.generate();
+      db.createPending(licenseKey, session.customer_details?.email || null, sessionId);
+      log(`minted ${licenseKey} for payment-link session ${sessionId}`);
+    }
   }
 
   let row = db.findByKey(licenseKey);

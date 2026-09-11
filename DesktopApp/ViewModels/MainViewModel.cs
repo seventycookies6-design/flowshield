@@ -166,9 +166,19 @@ public class MainViewModel : ViewModelBase
 
     private void OnBlocked(object? sender, BlockEvent e)
     {
-        App.Current?.Dispatcher.Invoke(() =>
+        // Marshalled to the dispatcher so the bound counters are mutated on the
+        // UI thread — the blocker deliberately leaves them alone.
+        var dispatcher = App.Current?.Dispatcher;
+        if (dispatcher is null) return;
+
+        dispatcher.Invoke(() =>
         {
+            e.App.BlockCount++;
+            Settings.RecordBlock();
+            Today.RecordBlock();
             Today.RefreshStats();
+            SaveSettings();
+
             Toast(e.Terminated
                 ? $"{e.DisplayName} closed by the shield."
                 : $"{e.DisplayName} is on your blocklist.");

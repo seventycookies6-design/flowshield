@@ -93,6 +93,7 @@ def pytest_section(report: dict) -> str:
         "test_tier2_integration.py": ["Tier 2 — server integration", 0, 0, 0],
         "test_tier3_e2e.py": ["Tier 3 — end-to-end UI", 0, 0, 0],
         "test_tier4_adversarial.py": ["Tier 4 — adversarial", 0, 0, 0],
+        "test_tier5_regressions.py": ["Tier 5 — regressions", 0, 0, 0],
     }
 
     for test in report.get("tests", []):

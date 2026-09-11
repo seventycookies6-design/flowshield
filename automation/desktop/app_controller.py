@@ -459,7 +459,15 @@ class DesktopController:
 
     # ------------------------------------------------------------ navigation
 
-    def navigate_to_tab(self, tab_name: str) -> str:
+    def navigate_to_tab(self, tab_name: str, attempts: int = 3) -> str:
+        """
+        Switch tabs, confirming the page actually changed.
+
+        A single click is an attempt, not an outcome: it can land while the
+        window is still taking focus, or mid re-render, and be swallowed. That
+        showed up as a rare "expected Sleep Blocking, got Today" failure with no
+        other symptom. Verify the page title and press again if it didn't move.
+        """
         key = tab_name.strip().lower()
         auto_id = TAB_IDS.get(key)
         if auto_id is None:
@@ -467,13 +475,30 @@ class DesktopController:
                 f"unknown tab '{tab_name}' (known: {sorted(set(TAB_IDS))})"
             )
 
-        self.focus()
-        self.click(auto_id, control_type="Button")
-        time.sleep(0.4)
+        expected = tab_name.strip()
+        title = ""
 
-        title = self.text_of("PageTitle")
-        self._say(f"navigated to '{title}'")
-        return title
+        for attempt in range(1, attempts + 1):
+            self.focus()
+            self.click(auto_id, control_type="Button")
+
+            # The title is bound, so it updates a frame or two after the click.
+            deadline = time.time() + 3.0
+            while time.time() < deadline:
+                title = self.text_of("PageTitle")
+                if title.strip().lower() == expected.lower():
+                    self._say(f"navigated to '{title}'")
+                    return title
+                time.sleep(0.2)
+
+            if attempt < attempts:
+                self._say(f"tab click did not take (still on '{title}'); retrying")
+                time.sleep(0.5)
+
+        raise DesktopControllerError(
+            f"could not navigate to '{expected}' after {attempts} attempts "
+            f"(page title is '{title}')"
+        )
 
     def current_page_title(self) -> str:
         return self.text_of("PageTitle")

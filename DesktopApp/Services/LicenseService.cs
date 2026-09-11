@@ -11,10 +11,18 @@ public record LicenseResult(
     string Status,
     string Message,
     string? Email = null,
-    string? LicenseKey = null)
+    string? LicenseKey = null,
+    bool Definitive = true)
 {
+    /// <summary>
+    /// A transport failure, not a verdict.
+    ///
+    /// The distinction matters: an answer from the server is authoritative and
+    /// may revoke Pro, whereas an unreachable server says nothing about the
+    /// subscription and must never cost a paying user their features.
+    /// </summary>
     public static LicenseResult Failure(string message) =>
-        new(false, false, "error", message);
+        new(false, false, "error", message, Definitive: false);
 }
 
 /// <summary>
@@ -67,6 +75,8 @@ public class LicenseService
             if (body is null)
                 return LicenseResult.Failure("The license server returned an unreadable response.");
 
+            // Anything from here on is the server's verdict, and is definitive.
+
             if (body.IsPro)
             {
                 settings.IsPro = true;
@@ -93,7 +103,7 @@ public class LicenseService
             };
 
             Log.Warn($"license rejected: {reason}");
-            return new LicenseResult(false, false, reason, message);
+            return new LicenseResult(false, false, reason, message, Definitive: true);
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
         {
@@ -118,7 +128,13 @@ public class LicenseService
         try
         {
             var result = await ValidateAsync(settings.LicenseKey, settings.LicenseEmail, settings);
-            if (!result.Ok && result.Status is "not_found" or "subscription_canceled" or "subscription_unpaid")
+
+            // Trust any definitive answer rather than matching against a list
+            // of "bad" statuses. That list was missing incomplete_expired and
+            // paused, so those subscriptions kept Pro forever; Stripe can add
+            // new statuses at any time, and an allow-list of one ("isPro")
+            // cannot fall behind in the same way.
+            if (result.Definitive && !result.IsPro && settings.IsPro)
             {
                 Log.Warn($"background refresh downgraded license: {result.Status}");
                 settings.IsPro = false;

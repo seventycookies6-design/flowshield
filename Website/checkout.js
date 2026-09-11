@@ -242,16 +242,20 @@
       }
       if (title) title.textContent = 'Payment received — thank you';
       if (blurb) {
+        // Deliberately does not promise an email. Nothing in this build sends
+        // one: issuing a key needs the licence service, and the published site
+        // is static. Saying "check your inbox" would be a promise the system
+        // cannot keep, and the buyer would wait for a message that never comes.
         blurb.innerHTML =
-          'Your FlowShield Pro subscription is active. Your licence key is on its way to the ' +
-          'email address you used at checkout' +
+          'Your FlowShield Pro subscription is active and Stripe has emailed your receipt. ' +
+          'To unlock Pro, open <b>FlowShield → Settings</b>, enter the email address you ' +
+          'used at checkout, and click <b>Activate Pro</b>.' +
           (CONFIG.supportEmail
-            ? ', normally within a few minutes. Nothing after 15? Email <b>' +
-              escapeHtml(CONFIG.supportEmail) +
-              '</b> and we\'ll sort it.'
-            : ', normally within a few minutes.');
+            ? ' Trouble activating? Email <b>' + escapeHtml(CONFIG.supportEmail) +
+              '</b> with your receipt.'
+            : '');
       }
-      if (keyVal) keyVal.textContent = 'sent by email';
+      if (keyVal) keyVal.textContent = 'activate with your email';
       document.body.setAttribute('data-license-status', 'paid-awaiting-key');
       document.body.setAttribute('data-checkout-session', sessionId);
       return;

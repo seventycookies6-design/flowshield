@@ -3,7 +3,13 @@ using FlowShield.Models;
 
 namespace FlowShield.Services;
 
-public record BlockEvent(string ProcessName, string DisplayName, ShieldLevel Shield, bool Terminated, DateTime AtUtc);
+public record BlockEvent(
+    BlockedApp App,
+    string ProcessName,
+    string DisplayName,
+    ShieldLevel Shield,
+    bool Terminated,
+    DateTime AtUtc);
 
 /// <summary>
 /// Background watcher that enforces the blocklist while a sprint is running or
@@ -39,6 +45,19 @@ public class AppBlockerService : IDisposable
     private readonly object _gate = new();
 
     private AppSettings _settings;
+
+    /// <summary>
+    /// Private snapshot of the blocklist, rebuilt whenever settings change.
+    ///
+    /// The timer thread must never enumerate <c>AppSettings.BlockedApps</c>
+    /// directly: the UI thread adds to and removes from that same List, and an
+    /// enumeration racing a mutation throws "Collection was modified" from
+    /// inside a timer callback — where there is no good place to catch it.
+    /// The copy is shallow on purpose, so the BlockedApp instances are still
+    /// the ones the UI is bound to.
+    /// </summary>
+    private List<BlockedApp> _targets = new();
+
     private readonly HashSet<int> _handled = new();
 
     public event EventHandler<BlockEvent>? Blocked;
@@ -61,15 +80,24 @@ public class AppBlockerService : IDisposable
     {
         _settingsService = settingsService;
         _settings = settings;
+        _targets = settings.BlockedApps.ToList();
 
         _timer = new System.Timers.Timer(2000) { AutoReset = true };
         _timer.Elapsed += (_, _) => Tick();
         _timer.Start();
     }
 
+    /// <summary>
+    /// Republish settings to the watcher. Must be called on the UI thread after
+    /// any change to the blocklist — it is what refreshes the private snapshot.
+    /// </summary>
     public void UpdateSettings(AppSettings settings)
     {
-        lock (_gate) _settings = settings;
+        lock (_gate)
+        {
+            _settings = settings;
+            _targets = settings.BlockedApps.ToList();
+        }
     }
 
     public void BeginEnforcing(ShieldLevel shield)
@@ -113,22 +141,30 @@ public class AppBlockerService : IDisposable
         AppSettings settings;
         bool enforcing;
         ShieldLevel shield;
+        List<BlockedApp> candidates;
 
         lock (_gate)
         {
             settings = _settings;
             enforcing = IsEnforcing;
             shield = ActiveShield;
+            candidates = _targets;          // snapshot reference; never mutated in place
         }
 
         // The sleep window enforces on its own, without a running sprint.
         var sleepActive = IsWithinSleepWindow(settings);
         if (!enforcing && !sleepActive) return;
-        if (sleepActive && !enforcing) shield = settings.HardKillModeEnabled ? ShieldLevel.Firm : ShieldLevel.Soft;
 
-        var targets = settings.BlockedApps
-            .Where(a => a.IsEnabled && !string.IsNullOrWhiteSpace(a.ProcessName))
-            .ToDictionary(a => a.ProcessName.Trim(), a => a, StringComparer.OrdinalIgnoreCase);
+        // A scheduled sleep block closes apps. Nudging at 2am helps nobody —
+        // there is no one watching the screen to be nudged.
+        if (sleepActive && !enforcing) shield = ShieldLevel.Firm;
+
+        var targets = new Dictionary<string, BlockedApp>(StringComparer.OrdinalIgnoreCase);
+        foreach (var app in candidates)
+        {
+            if (!app.IsEnabled || string.IsNullOrWhiteSpace(app.ProcessName)) continue;
+            targets[app.ProcessName.Trim()] = app;
+        }
 
         if (targets.Count == 0) return;
 
@@ -156,9 +192,11 @@ public class AppBlockerService : IDisposable
                     Log.Info($"nudged blocked process {name} (pid {process.Id}) at shield {shield}");
                 }
 
-                app.BlockCount++;
+                // BlockCount is bound to the UI, so it is incremented by the
+                // subscriber on the dispatcher rather than from this thread.
                 EnforcementCount++;
-                Blocked?.Invoke(this, new BlockEvent(name, app.DisplayName, shield, terminate, DateTime.UtcNow));
+                Blocked?.Invoke(this,
+                    new BlockEvent(app, name, app.DisplayName, shield, terminate, DateTime.UtcNow));
             }
             catch (Exception ex)
             {

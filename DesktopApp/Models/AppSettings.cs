@@ -1,3 +1,5 @@
+using System.ComponentModel;
+using System.Runtime.CompilerServices;
 using System.Text.Json.Serialization;
 
 namespace FlowShield.Models;
@@ -15,17 +17,39 @@ public enum ShieldLevel
     Sealed = 3,
 }
 
-public class BlockedApp
+/// <summary>
+/// One entry on the blocklist.
+///
+/// Implements INotifyPropertyChanged because the counts change while the list
+/// is on screen — without it the "blocked N ×" label renders once and then lies
+/// for the rest of the session.
+/// </summary>
+public class BlockedApp : INotifyPropertyChanged
 {
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    private void Raise([CallerMemberName] string? name = null) =>
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+
     public string Name { get; set; } = "";
 
     /// <summary>Process name without extension, e.g. "slack". Matched case-insensitively.</summary>
     public string ProcessName { get; set; } = "";
 
-    public bool IsEnabled { get; set; } = true;
+    private bool _isEnabled = true;
+    public bool IsEnabled
+    {
+        get => _isEnabled;
+        set { if (_isEnabled != value) { _isEnabled = value; Raise(); } }
+    }
 
+    private int _blockCount;
     /// <summary>Times this app was closed by the shield. Feeds the Today view.</summary>
-    public int BlockCount { get; set; }
+    public int BlockCount
+    {
+        get => _blockCount;
+        set { if (_blockCount != value) { _blockCount = value; Raise(); } }
+    }
 
     public DateTime AddedUtc { get; set; } = DateTime.UtcNow;
 
@@ -87,6 +111,34 @@ public class AppSettings
 
     public int CurrentStreak { get; set; }
     public DateTime? LastSessionDayLocal { get; set; }
+
+    /// <summary>
+    /// Enforcement actions taken today, with the day they belong to.
+    ///
+    /// Stored rather than derived: the Today view previously summed every
+    /// app's lifetime BlockCount and displayed it under a "TODAY" heading,
+    /// which was simply the wrong number.
+    /// </summary>
+    public int BlocksToday { get; set; }
+
+    public DateTime? BlocksTodayDateLocal { get; set; }
+
+    /// <summary>Adds one of today's blocks, rolling the counter over at midnight.</summary>
+    public void RecordBlock(DateTime? nowLocal = null)
+    {
+        var today = (nowLocal ?? DateTime.Now).Date;
+        if (BlocksTodayDateLocal?.Date != today)
+        {
+            BlocksTodayDateLocal = today;
+            BlocksToday = 0;
+        }
+        BlocksToday++;
+    }
+
+    /// <summary>Today's block count, or zero if the stored tally is stale.</summary>
+    [JsonIgnore]
+    public int BlocksTodayCurrent =>
+        BlocksTodayDateLocal?.Date == DateTime.Now.Date ? BlocksToday : 0;
 
     // ---- limits ---------------------------------------------------------
     public const int FreeBlockedAppLimit = 3;
