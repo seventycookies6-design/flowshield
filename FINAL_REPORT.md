@@ -1,6 +1,6 @@
 # FlowShield — build & test report
 
-_Generated 2026-09-11 11:43_
+_Generated 2026-09-12 01:39_
 
 ---
 
@@ -63,27 +63,27 @@ The real values live only in `.stripe_keys.json`, which is git-ignored.
 
 ## 3. End-to-end run
 
-Run `20260911-105515` · 333.66s · **17 passed, 0 failed, 0 skipped**
+Run `20260912-005956` · 276.21s · **17 passed, 0 failed, 0 skipped**
 
 | # | Step | Result | Time |
 | --: | --- | --- | --: |
-| 1 | Build the desktop app | ✅ passed — FlowShield.exe built | 2.05s |
-| 2 | Start the license server | ✅ passed — db=better-sqlite3 stripe=configured (test) | 0.01s |
-| 3 | Start the website | ✅ passed — http://localhost:5500 serving 13725 bytes | 4.09s |
-| 4 | Launch FlowShield (clean state) | ✅ passed — pid 30216 | 0.08s |
-| 5 | Connect to the app window via UI Automation | ✅ passed — hwnd 1642354, title 'Today' | 20.89s |
-| 6 | Navigate to Settings | ✅ passed — status='Free plan', badge='FREE' | 17.85s |
-| 7 | Click ★ Get Pro (opens the website) | ✅ passed — upgrade page launched; toast='Opened the upgrade page in your browser.' | 13.71s |
-| 8 | Website → POST /create-checkout | ✅ passed — key=FS-DH39-6KZ9-PQEP-K7PG session=cs_test_b1K3k7QwZqGtkI4nz9ZUUNZsgPO0gkr1l3NqJMfPgYbZLnABfSDmlROnd3 | 0.85s |
-| 9 | Stripe Checkout — pay with the 4242 test card | ✅ passed — session=cs_test_b1K3k7QwZqGtkI4nz9ZUUNZsgPO0gkr1l3NqJMfPgYbZLnABfSDmlROnd3 | 115.37s |
-| 10 | GET /get-license → retrieve the key | ✅ passed — key=FS-DH39-6KZ9-PQEP-K7PG status=active email=testbuyer@example.com | 0.38s |
-| 11 | Activate Pro in the app | ✅ passed — status='✅ Pro Active' | 32.28s |
-| 12 | Verify the UI reports Pro | ✅ passed — status='✅ Pro Active', badge='PRO' | 15.42s |
-| 13 | Verify DPAPI settings.json has IsPro=true | ✅ passed — settings file is a DPAPI-protected envelope; IsPro=True, key=FS-DH39-6KZ9-PQEP-K7PG, status=active | 0.0s |
-| 14 | Blocked Apps — add an app and verify it persists | ✅ passed — 1 in list; 'flowshield-test-target' persisted (list=['flowshield-test-target']) | 31.99s |
-| 15 | Sleep Blocking — enable a schedule and verify it saves | ✅ passed — enabled=True, window=23:15:00 → 06:45:00; ui='Armed. The shield raises itself at 23:15.' | 43.39s |
-| 16 | Pro gating — Shield III and the app limit | ✅ passed — shield description='Closed on sight, and the blocklist locks until the timer ends.' (pro=True) | 21.55s |
-| 17 | Capture final state and write the report | ✅ passed — state captured | 13.66s |
+| 1 | Build the desktop app | ✅ passed — FlowShield.exe built | 1.94s |
+| 2 | Start the license server | ✅ passed — db=better-sqlite3 stripe=configured (test) | 0.03s |
+| 3 | Start the website | ✅ passed — http://localhost:5500 serving 13725 bytes | 4.1s |
+| 4 | Launch FlowShield (clean state) | ✅ passed — pid 16272 | 0.06s |
+| 5 | Connect to the app window via UI Automation | ✅ passed — hwnd 396090, title 'Today' | 16.2s |
+| 6 | Navigate to Settings | ✅ passed — status='Free plan', badge='FREE' | 13.02s |
+| 7 | Click ★ Get Pro (opens the website) | ✅ passed — upgrade page launched; toast='Opened the upgrade page in your browser.' | 10.58s |
+| 8 | Website → POST /create-checkout | ✅ passed — key=FS-DJ9E-9XE6-AC7D-9Z04 session=cs_test_b1BdKoFNv6Ynx3hr4OX6MzuKQ7buxR4VlOIIvgnC4tvyHEJDSvgjCl2aF3 | 0.76s |
+| 9 | Stripe Checkout — pay with the 4242 test card | ✅ passed — session=cs_test_b1BdKoFNv6Ynx3hr4OX6MzuKQ7buxR4VlOIIvgnC4tvyHEJDSvgjCl2aF3 | 105.88s |
+| 10 | GET /get-license → retrieve the key | ✅ passed — key=FS-DJ9E-9XE6-AC7D-9Z04 status=active email=testbuyer@example.com | 0.45s |
+| 11 | Activate Pro in the app | ✅ passed — status='✅ Pro Active' | 24.25s |
+| 12 | Verify the UI reports Pro | ✅ passed — status='✅ Pro Active', badge='PRO' | 11.59s |
+| 13 | Verify DPAPI settings.json has IsPro=true | ✅ passed — settings file is a DPAPI-protected envelope; IsPro=True, key=FS-DJ9E-9XE6-AC7D-9Z04, status=active | 0.0s |
+| 14 | Blocked Apps — add an app and verify it persists | ✅ passed — 1 in list; 'flowshield-test-target' persisted (list=['flowshield-test-target']) | 25.1s |
+| 15 | Sleep Blocking — enable a schedule and verify it saves | ✅ passed — enabled=True, window=23:15:00 → 06:45:00; ui='Active now — the shield is up until 06:45.' | 34.62s |
+| 16 | Pro gating — Shield III and the app limit | ✅ passed — shield description='Closed on sight, and the blocklist locks until the timer ends.' (pro=True) | 16.72s |
+| 17 | Capture final state and write the report | ✅ passed — state captured | 10.83s |
 
 
 ---
@@ -98,16 +98,17 @@ Run `20260911-105515` · 333.66s · **17 passed, 0 failed, 0 skipped**
 | Tier 4 — adversarial | 37 | 0 | 0 |
 | Tier 5 — regressions | 23 | 0 | 0 |
 | Tier 6 — email delivery | 11 | 0 | 0 |
-| **Total** | **178** | **0** | **1** |
+| Tier 7 — device limit | 17 | 0 | 0 |
+| **Total** | **195** | **0** | **1** |
 
-Duration: 2024.4s · 179 tests collected
+Duration: 1661.6s · 196 tests collected
 
 
 ---
 
 ## 5. Screenshots
 
-Captured locally in `screenshots/e2e-20260911-105515` — 12 images, not committed to the repository.
+Captured locally in `screenshots/e2e-20260912-005956` — 12 images, not committed to the repository.
 
 | Step | File |
 | --- | --- |
