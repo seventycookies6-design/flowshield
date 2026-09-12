@@ -30,7 +30,7 @@ public class SettingsViewModel : ViewModelBase
         ActivateCommand = new AsyncRelayCommand(ActivateAsync, () => !IsPro || true);
         GetProCommand = new RelayCommand(() => _main.OpenUpgradePage());
         ManageSubscriptionCommand = new AsyncRelayCommand(ManageSubscriptionAsync, () => IsPro);
-        DeactivateCommand = new RelayCommand(Deactivate, () => IsPro);
+        DeactivateCommand = new AsyncRelayCommand(DeactivateAsync, () => IsPro);
         OpenLogCommand = new RelayCommand(OpenLog);
 
         RefreshLicenseStatus();
@@ -39,7 +39,7 @@ public class SettingsViewModel : ViewModelBase
     public AsyncRelayCommand ActivateCommand { get; }
     public RelayCommand GetProCommand { get; }
     public AsyncRelayCommand ManageSubscriptionCommand { get; }
-    public RelayCommand DeactivateCommand { get; }
+    public AsyncRelayCommand DeactivateCommand { get; }
     public RelayCommand OpenLogCommand { get; }
     public AsyncRelayCommand CheckForUpdatesCommand { get; }
     public RelayCommand RestartForUpdateCommand { get; }
@@ -188,37 +188,53 @@ public class SettingsViewModel : ViewModelBase
         }
     }
 
-    private void Deactivate()
+    private async Task DeactivateAsync()
     {
-        _license.Deactivate(_main.Settings);
+        await _license.DeactivateAsync(_main.Settings);
         LicenseKeyInput = "";
         LicenseEmailInput = "";
         _main.OnTierChanged();
         RefreshLicenseStatus();
-        _main.Toast("Deactivated on this device.");
+        _main.Toast("Deactivated on this device. Its seat is free for another machine.");
     }
+
+    private string _deviceText = "";
+    public string DeviceText { get => _deviceText; private set => Set(ref _deviceText, value); }
 
     public void RefreshLicenseStatus()
     {
+        var settings = _main.Settings;
+
         if (_main.IsPro)
         {
             LicenseStatusText = "✅ Pro Active";
-            var checkedAt = _main.Settings.LicenseCheckedUtc?.ToLocalTime();
+            var checkedAt = settings.LicenseCheckedUtc?.ToLocalTime();
             LicenseDetailText =
-                (string.IsNullOrWhiteSpace(_main.Settings.LicenseEmail)
+                (string.IsNullOrWhiteSpace(settings.LicenseEmail)
                     ? "Subscription active."
-                    : $"Subscribed as {_main.Settings.LicenseEmail}.")
+                    : $"Subscribed as {settings.LicenseEmail}.")
                 + (checkedAt is null ? "" : $" Last verified {checkedAt:d MMM, HH:mm}.");
+
+            // Shown while things are fine, not only once someone is locked out —
+            // a seat limit discovered at the moment it blocks you feels arbitrary.
+            DeviceText = settings.DeviceLimit > 0
+                ? $"Active on {settings.DeviceCount} of {settings.DeviceLimit} devices. "
+                  + "Deactivating here frees this one for another machine."
+                : "";
         }
         else
         {
             LicenseStatusText = "Free plan";
             LicenseDetailText = $"{Models.AppSettings.FreeBlockedAppLimit} blocked apps, shields I and II.";
+            DeviceText = "";
         }
 
         Raise(nameof(IsPro));
         Raise(nameof(IsNotPro));
+        Raise(nameof(HasDeviceInfo));
     }
+
+    public bool HasDeviceInfo => !string.IsNullOrEmpty(DeviceText);
 
     // ----------------------------------------------------------- preferences
 

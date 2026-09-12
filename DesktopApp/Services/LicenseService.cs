@@ -59,6 +59,8 @@ public class LicenseService
         [JsonPropertyName("message")] public string? Message { get; set; }
         [JsonPropertyName("email")] public string? Email { get; set; }
         [JsonPropertyName("licenseKey")] public string? LicenseKey { get; set; }
+        [JsonPropertyName("deviceCount")] public int? DeviceCount { get; set; }
+        [JsonPropertyName("deviceLimit")] public int? DeviceLimit { get; set; }
     }
 
     /// <summary>
@@ -89,7 +91,13 @@ public class LicenseService
             {
                 try
                 {
-                    response = await _http.PostAsJsonAsync(url, new { licenseKey = key, email = mail });
+                    response = await _http.PostAsJsonAsync(url, new
+                    {
+                        licenseKey = key,
+                        email = mail,
+                        deviceId = DeviceIdentity.Id,
+                        deviceName = DeviceIdentity.Name,
+                    });
                     break;
                 }
                 catch (TaskCanceledException) when (attempt <= TimeoutRetries)
@@ -112,9 +120,12 @@ public class LicenseService
                 settings.LicenseEmail = body.Email ?? mail;
                 settings.LicenseStatus = body.Status ?? "active";
                 settings.LicenseCheckedUtc = DateTime.UtcNow;
+                settings.DeviceCount = body.DeviceCount ?? 0;
+                settings.DeviceLimit = body.DeviceLimit ?? 0;
                 _settings.Save(settings);
 
-                Log.Info($"license activated: status={settings.LicenseStatus}");
+                Log.Info($"license activated: status={settings.LicenseStatus} "
+                         + $"devices={settings.DeviceCount}/{settings.DeviceLimit}");
                 return new LicenseResult(true, true, settings.LicenseStatus,
                     "Pro unlocked. Every shield level is now available.",
                     settings.LicenseEmail, settings.LicenseKey);
@@ -125,10 +136,20 @@ public class LicenseService
             {
                 "malformed_key" => "That key isn't in the FS-XXXX-XXXX-XXXX-XXXX format.",
                 "not_found" => "We couldn't find a subscription for those details.",
+                "device_limit_reached" =>
+                    "This licence is already active on the maximum number of devices.",
                 _ when reason.StartsWith("subscription_") =>
                     $"That subscription is {reason["subscription_".Length..]}.",
                 _ => "That license could not be validated.",
             };
+
+            // The subscription is fine; this machine simply has no seat. Say so,
+            // rather than letting it read as a payment failure.
+            if (reason == "device_limit_reached")
+            {
+                settings.DeviceCount = body.DeviceCount ?? 0;
+                settings.DeviceLimit = body.DeviceLimit ?? 0;
+            }
 
             Log.Warn($"license rejected: {reason}");
             return new LicenseResult(false, false, reason, message, Definitive: true);
@@ -176,13 +197,46 @@ public class LicenseService
         }
     }
 
-    public void Deactivate(AppSettings settings)
+    /// <summary>
+    /// Deactivate on this machine, releasing its seat on the server first.
+    ///
+    /// The release is attempted before the local key is cleared, because once
+    /// it is gone we no longer know which licence to free — and a seat that is
+    /// never released turns the device limit into a slow lockout for someone
+    /// who is still paying.
+    /// </summary>
+    public async Task DeactivateAsync(AppSettings settings)
     {
+        var key = settings.LicenseKey;
+        var url = settings.LicenseServerUrl.TrimEnd('/') + "/devices";
+
+        if (!string.IsNullOrWhiteSpace(key))
+        {
+            try
+            {
+                using var response = await _http.PostAsJsonAsync(url, new
+                {
+                    licenseKey = key,
+                    action = "release",
+                    deviceId = DeviceIdentity.Id,
+                });
+                Log.Info($"device seat release: HTTP {(int)response.StatusCode}");
+            }
+            catch (Exception ex)
+            {
+                // Deactivating locally must still work offline. The seat is
+                // recoverable from the website or by support.
+                Log.Warn($"could not release the device seat: {ex.Message}");
+            }
+        }
+
         settings.IsPro = false;
         settings.LicenseKey = "";
         settings.LicenseEmail = "";
         settings.LicenseStatus = "";
         settings.LicenseCheckedUtc = null;
+        settings.DeviceCount = 0;
+        settings.DeviceLimit = 0;
         _settings.Save(settings);
         Log.Info("license deactivated locally");
     }

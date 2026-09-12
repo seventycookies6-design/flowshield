@@ -65,6 +65,19 @@ db.exec(`
     type       TEXT NOT NULL,
     created_at INTEGER NOT NULL
   );
+
+  -- Machines a licence has been activated on. device_id is a salted hash
+  -- computed by the app; no hardware identifier or user name reaches here.
+  CREATE TABLE IF NOT EXISTS devices (
+    license_key TEXT NOT NULL,
+    device_id   TEXT NOT NULL,
+    device_name TEXT,
+    first_seen  INTEGER NOT NULL,
+    last_seen   INTEGER NOT NULL,
+    PRIMARY KEY (license_key, device_id)
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_devices_license ON devices(license_key);
 `);
 
 // Migration. SQLite has no "ADD COLUMN IF NOT EXISTS", and re-running ALTER
@@ -120,6 +133,20 @@ const q = {
   stats: db.prepare(`
     SELECT status, COUNT(*) AS n FROM licenses GROUP BY status
   `),
+
+  deviceGet: db.prepare('SELECT * FROM devices WHERE license_key = ? AND device_id = ?'),
+  deviceList: db.prepare('SELECT * FROM devices WHERE license_key = ? ORDER BY first_seen'),
+  deviceCount: db.prepare('SELECT COUNT(*) AS n FROM devices WHERE license_key = ?'),
+  deviceAdd: db.prepare(`
+    INSERT INTO devices (license_key, device_id, device_name, first_seen, last_seen)
+    VALUES (?, ?, ?, ?, ?)
+  `),
+  deviceTouch: db.prepare(`
+    UPDATE devices SET last_seen = ?, device_name = COALESCE(?, device_name)
+     WHERE license_key = ? AND device_id = ?
+  `),
+  deviceRemove: db.prepare('DELETE FROM devices WHERE license_key = ? AND device_id = ?'),
+  deviceRemoveAll: db.prepare('DELETE FROM devices WHERE license_key = ?'),
 };
 
 module.exports = {
@@ -215,5 +242,53 @@ module.exports = {
     const out = {};
     for (const row of q.stats.all()) out[row.status] = Number(row.n);
     return out;
+  },
+
+  /* ------------------------------------------------------------- devices */
+
+  deviceCount(licenseKey) {
+    return Number(q.deviceCount.get(licenseKey)?.n || 0);
+  },
+
+  listDevices(licenseKey) {
+    return q.deviceList.all(licenseKey);
+  },
+
+  knowsDevice(licenseKey, deviceId) {
+    return !!q.deviceGet.get(licenseKey, deviceId);
+  },
+
+  /**
+   * Record a machine against a licence, enforcing the seat limit.
+   *
+   * Returns { allowed, reason, count, limit }. A device already on the licence
+   * is always allowed and never consumes a second seat — reinstalling, or
+   * simply reopening the app, must not cost the customer a slot.
+   */
+  registerDevice(licenseKey, deviceId, deviceName, limit) {
+    const t = now();
+
+    if (q.deviceGet.get(licenseKey, deviceId)) {
+      q.deviceTouch.run(t, deviceName || null, licenseKey, deviceId);
+      return { allowed: true, reason: 'known_device', count: this.deviceCount(licenseKey), limit };
+    }
+
+    const count = this.deviceCount(licenseKey);
+    if (limit > 0 && count >= limit) {
+      return { allowed: false, reason: 'device_limit_reached', count, limit };
+    }
+
+    q.deviceAdd.run(licenseKey, deviceId, deviceName || null, t, t);
+    return { allowed: true, reason: 'registered', count: count + 1, limit };
+  },
+
+  removeDevice(licenseKey, deviceId) {
+    const existed = !!q.deviceGet.get(licenseKey, deviceId);
+    q.deviceRemove.run(licenseKey, deviceId);
+    return existed;
+  },
+
+  removeAllDevices(licenseKey) {
+    q.deviceRemoveAll.run(licenseKey);
   },
 };

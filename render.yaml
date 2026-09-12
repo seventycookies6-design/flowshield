@@ -36,6 +36,12 @@ services:
       - key: EMAIL_FROM
         value: FlowShield <onboarding@resend.dev>
 
+      # Machines one licence may be activated on. Generous enough that a
+      # desktop, laptop and spare are never a problem; low enough that a key
+      # posted publicly is useless to the fourth stranger. 0 disables the cap.
+      - key: DEVICE_LIMIT
+        value: "3"
+
       # Entered once in the Render dashboard, stored encrypted, never in git.
       - key: STRIPE_SECRET_KEY
         sync: false

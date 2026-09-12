@@ -17,6 +17,13 @@
                             <TextBlock Text="{Binding LicenseDetailText}" Style="{StaticResource Caption}"
                                        Margin="0,4,0,0"
                                        AutomationProperties.AutomationId="LicenseDetailText"/>
+
+                            <TextBlock Text="{Binding DeviceText}" Style="{StaticResource Caption}"
+                                       Margin="0,6,0,0" TextWrapping="Wrap" MaxWidth="420"
+                                       HorizontalAlignment="Left"
+                                       Foreground="{StaticResource InkFaint}"
+                                       Visibility="{Binding HasDeviceInfo, Converter={StaticResource BoolVis}}"
+                                       AutomationProperties.AutomationId="DeviceText"/>
                         </StackPanel>
 
                         <Button Style="{StaticResource BtnPrimary}" Content="★ Get Pro"

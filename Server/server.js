@@ -22,6 +22,15 @@ const mail = require('./email');
 const { loadKeys, describe, KEYS_PATH } = require('./keys');
 
 const PORT = Number(process.env.PORT || 3000);
+
+/**
+ * How many machines one licence may be activated on.
+ *
+ * Three is deliberately generous — a desktop, a laptop and a spare should not
+ * inconvenience an honest customer — while still making a key posted publicly
+ * useless to the fourth stranger who tries it. Set 0 to disable the cap.
+ */
+const DEVICE_LIMIT = Number(process.env.DEVICE_LIMIT ?? 3);
 const WEBSITE_URL = (process.env.WEBSITE_URL || 'http://localhost:5500').replace(/\/$/, '');
 const APP_NAME = 'FlowShield';
 
@@ -379,6 +388,7 @@ app.get('/', (_req, res) => {
       'GET  /get-license?session_id=',
       'POST /create-portal-session',
       'POST /resend-license',
+      'POST /devices',
       'GET  /health',
     ],
   });
@@ -484,6 +494,11 @@ app.post('/validate', async (req, res) => {
   const email = typeof req.body?.email === 'string' ? req.body.email.trim() : '';
   const key = licensekey.normalize(rawKey);
 
+  // A salted hash computed by the app; no hardware id or user name is sent.
+  const deviceId = typeof req.body?.deviceId === 'string' ? req.body.deviceId.trim().slice(0, 128) : '';
+  const deviceName =
+    typeof req.body?.deviceName === 'string' ? req.body.deviceName.trim().slice(0, 64) : '';
+
   if (!key && !email) {
     return res.status(400).json({
       valid: false,
@@ -564,7 +579,46 @@ app.post('/validate', async (req, res) => {
   if (!view.isPro) {
     return res.json({ ...view, valid: false, reason: `subscription_${row.status}` });
   }
-  return res.json(view);
+
+  /*
+   * Seat limit.
+   *
+   * Only applied once the subscription itself is known good, so a device
+   * problem can never be confused with a payment problem. A request without a
+   * device id still validates — the suite and curl have no machine identity —
+   * but claims no seat, so it cannot be used to exhaust someone's allowance.
+   *
+   * This stops casual sharing, which is what actually costs revenue. It is not
+   * DRM: anyone willing to send a fabricated device id per machine defeats it,
+   * and hardening past this point punishes honest customers first.
+   */
+  if (deviceId && DEVICE_LIMIT > 0) {
+    const seat = db.registerDevice(row.license_key, deviceId, deviceName, DEVICE_LIMIT);
+
+    if (!seat.allowed) {
+      log(`validate -> ${row.license_key} refused: ${seat.count}/${seat.limit} devices`);
+      return res.json({
+        ...view,
+        valid: false,
+        isPro: false,
+        reason: 'device_limit_reached',
+        deviceCount: seat.count,
+        deviceLimit: seat.limit,
+        message:
+          `This licence is already active on ${seat.count} devices, the maximum for ` +
+          `your plan. Deactivate FlowShield on a machine you no longer use, then try again.`,
+      });
+    }
+
+    return res.json({
+      ...view,
+      deviceCount: seat.count,
+      deviceLimit: seat.limit,
+      newDevice: seat.reason === 'registered',
+    });
+  }
+
+  return res.json({ ...view, deviceLimit: DEVICE_LIMIT });
 });
 
 /**
@@ -612,6 +666,52 @@ app.post('/resend-license', async (req, res) => {
   }
 
   return res.json(generic);
+});
+
+/**
+ * Release a device's seat, or list the seats in use.
+ *
+ * A cap without a way to release seats is a trap: replace your laptop three
+ * times and you are locked out of software you are still paying for. The app
+ * calls this when you deactivate, and it is also reachable by support.
+ */
+app.post('/devices', async (req, res) => {
+  const key = licensekey.normalize(req.body?.licenseKey ?? req.body?.license_key ?? '');
+  const email = typeof req.body?.email === 'string' ? req.body.email.trim() : '';
+  const action = String(req.body?.action || 'list').toLowerCase();
+  const deviceId = typeof req.body?.deviceId === 'string' ? req.body.deviceId.trim() : '';
+
+  const row = key ? db.findByKey(key) : email ? db.findByEmail(email) : null;
+  if (!row) {
+    return res.status(404).json({ error: 'not_found', message: 'No licence found for those details.' });
+  }
+
+  if (action === 'release') {
+    if (!deviceId) {
+      return res.status(400).json({ error: 'missing_device', message: 'deviceId is required.' });
+    }
+    const removed = db.removeDevice(row.license_key, deviceId);
+    log(`device ${removed ? 'released' : 'not found'} for ${row.license_key}`);
+  } else if (action === 'release-all') {
+    db.removeAllDevices(row.license_key);
+    log(`all devices released for ${row.license_key}`);
+  }
+
+  // Names only, never the raw ids — those are the client's to hold.
+  const devices = db.listDevices(row.license_key).map((d) => ({
+    name: d.device_name || 'Unnamed device',
+    firstSeen: d.first_seen,
+    lastSeen: d.last_seen,
+    isCurrent: !!deviceId && d.device_id === deviceId,
+  }));
+
+  res.json({
+    ok: true,
+    licenseKey: row.license_key,
+    deviceCount: devices.length,
+    deviceLimit: DEVICE_LIMIT,
+    devices,
+  });
 });
 
 app.post('/create-portal-session', async (req, res) => {

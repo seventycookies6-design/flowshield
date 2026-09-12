@@ -104,6 +104,11 @@ public class AppSettings
     public DateTime? LicenseCheckedUtc { get; set; }
     public string LicenseStatus { get; set; } = "";
 
+    /// <summary>Seats in use and allowed, as last reported by the server.</summary>
+    public int DeviceCount { get; set; }
+
+    public int DeviceLimit { get; set; }
+
     // ---- sessions & momentum -------------------------------------------
     public int DefaultSprintMinutes { get; set; } = 25;
     public ShieldLevel DefaultShield { get; set; } = ShieldLevel.Firm;
