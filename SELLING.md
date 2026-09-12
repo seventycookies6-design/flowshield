@@ -15,7 +15,8 @@ accurate rather than encouraging.
 | Site | <https://seventycookies6-design.github.io/flowshield/> |
 | Licence server | <https://flowshield-license-server.onrender.com> |
 | Legal pages | `/legal.html` — terms, privacy, refunds (drafts, see below) |
-| Payments | Stripe, **test mode** |
+| Payments | Stripe, **test mode**, account named FlowShield |
+| Device limit | 3 machines per licence, with self-service seat release |
 
 Cutting a new version:
 
@@ -26,6 +27,26 @@ pwsh tools/build_release.ps1 -Version 1.0.1 -Publish
 Existing installs pick it up from Settings → Check for updates.
 
 ---
+
+## Absolutely required before charging anyone
+
+Three things. Everything else on this page is an improvement; these are gates.
+
+| # | What | Cost | Why it is a gate |
+| --- | --- | --- | --- |
+| 1 | **Stripe account activation** | Free, but needs real business details, a bank account and tax info | Without it there is no live mode, so no real payment can be taken at all. Also where you set the statement descriptor — an unrecognised name on a bank statement is a chargeback. |
+| 2 | **Legal pages, reviewed and completed** | £0 if you do it, a few hundred for a lawyer | Stripe checks for terms, privacy and refund policies during activation. `Website/legal.html` is drafted; the operator name, address and support email are still placeholders. |
+| 3 | **A support email address** | Free with a domain, or use any address you read | Consumer law requires a way to reach you, the refund policy promises replies, and licence emails need a real reply-to. |
+
+That is the true minimum: **you can launch for the cost of a domain.**
+
+## Strongly recommended, not strictly required
+
+| What | Cost | What it buys |
+| --- | --- | --- |
+| **Code-signing certificate** | ~$200–400/yr | Removes the SmartScreen "unknown publisher" wall. Not a gate — people *can* click through — but expect to lose a large share of installs to it. The single highest-impact purchase. |
+| **Domain** | ~$15/yr | Credible site URL, sender address that reaches inboxes, and a support address. Effectively required if you want email delivery to work properly. |
+| **Paid hosting** | $7/mo | Stops the licence server sleeping. Today the first activation after an idle spell takes ~50s; the app retries so it works, but it is a poor first impression. |
 
 ## What you have to buy
 
@@ -50,9 +71,10 @@ vpk pack ... --signParams "/fd sha256 /f cert.pfx /p PASSWORD /tr http://timesta
 Three things currently look wrong to a buyer:
 
 - The site is at `github.io`, which reads as a hobby project
-- Your Stripe account is named **"Focus Unlock sandbox"** — that name appears
-  on the checkout page while someone is buying *FlowShield*. Rename it in
-  Stripe → Settings → Business details
+- ~~Your Stripe account is named "Focus Unlock sandbox"~~ — renamed to
+  **FlowShield**. An old *Focus Unlock Pro* product is still active in the
+  account with subscriptions attached; it was left alone deliberately rather
+  than archived, since those are real records from earlier work
 - Licence emails would come from `onboarding@resend.dev` or a Gmail address,
   which hurts both credibility and deliverability
 
@@ -101,11 +123,6 @@ Do this last, not first.
 so this is a deliberate trade — but anyone who knows a customer's email can
 activate with it. Closing it properly means requiring the licence key and
 treating email activation as a support action rather than a self-service one.
-
-**No device limit.** One key works on unlimited machines. `activation_count` is
-recorded but never enforced. If FlowShield ever gets posted to a forum, one key
-serves everyone. A per-licence device cap is a contained change to
-`POST /validate` plus a device identifier from the app.
 
 **Unsigned.** See above. This is the one that will cost you the most installs.
 

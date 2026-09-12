@@ -195,6 +195,44 @@ class TestAppSide:
         assert "catch" in body, "a network failure must not block local deactivation"
 
 
+@pytest.mark.stripe
+class TestSeatReleaseSurvivesDataLoss:
+    """
+    A redeploy wipes the cached database. If /devices answered 404 in that
+    window, a customer deactivating would never free their seat — losing a slot
+    permanently, on the one endpoint whose whole job is giving slots back.
+    """
+
+    def test_releasing_works_after_the_cache_is_lost(self, server, licence):
+        import json as _json
+        import subprocess as _sp
+
+        mine = device()
+        assert activate(server, licence, mine, "My PC")["isPro"] is True
+
+        # Simulate the redeploy: the licence row disappears from the cache.
+        result = _sp.run(
+            [NODE_EXE, str(Path(SERVER_DIR).parent / "tools" / "db_admin.js"),
+             "forget", licence],
+            cwd=str(Path(SERVER_DIR).parent), capture_output=True, text=True, timeout=60,
+        )
+        assert _json.loads(result.stdout.strip().splitlines()[-1])["deleted"] is True
+
+        body = requests.post(
+            f"{server}/devices",
+            json={"licenseKey": licence, "action": "release", "deviceId": mine},
+            timeout=90,
+        )
+
+        assert body.status_code == 200, (
+            f"releasing a seat after cache loss returned {body.status_code}; "
+            f"the customer's slot would be stranded"
+        )
+
+
+NODE_EXE = __import__("shutil").which("node") or r"C:\Program Files\nodejs\node.exe"
+
+
 class TestServerConfiguration:
     def test_the_limit_is_configurable(self):
         source = (Path(SERVER_DIR) / "server.js").read_text(encoding="utf-8")

@@ -681,7 +681,23 @@ app.post('/devices', async (req, res) => {
   const action = String(req.body?.action || 'list').toLowerCase();
   const deviceId = typeof req.body?.deviceId === 'string' ? req.body.deviceId.trim() : '';
 
-  const row = key ? db.findByKey(key) : email ? db.findByEmail(email) : null;
+  let row = key ? db.findByKey(key) : email ? db.findByEmail(email) : null;
+
+  // Recover from Stripe like /validate does. Without this, deactivating just
+  // after a redeploy has wiped the cache answers 404 and the seat is never
+  // released — costing the customer a slot permanently, on the one path whose
+  // whole job is giving slots back.
+  if (!row && (key || email)) {
+    const found = await recoverFromStripe({ key, email });
+    if (found) {
+      try {
+        row = await rehydrate(found, email, key);
+      } catch (err) {
+        log(`devices rehydrate failed: ${err.message}`);
+      }
+    }
+  }
+
   if (!row) {
     return res.status(404).json({ error: 'not_found', message: 'No licence found for those details.' });
   }
