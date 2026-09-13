@@ -10,15 +10,15 @@ from __future__ import annotations
 
 import json
 import os
-import re
 import subprocess
 import time
+from html.parser import HTMLParser
 from pathlib import Path
 
 import pytest
 import requests
 
-from config import DESKTOP_DIR, SERVER_DIR, TEST_BLOCK_APP
+from config import DESKTOP_DIR, SERVER_DIR, TEST_BLOCK_APP, WEBSITE_DIR
 from core import state_verifier as verify
 
 NODE = r"C:\Program Files\nodejs\node.exe"
@@ -26,6 +26,28 @@ NODE_EXE = NODE if Path(NODE).exists() else "node"
 
 
 # ====================== the site only sells implemented features
+
+class _PricingFeatureParser(HTMLParser):
+    """Collect checked pricing features without depending on attribute order."""
+
+    def __init__(self):
+        super().__init__()
+        self.current_plan = None
+        self.checked_features = []
+
+    def handle_starttag(self, tag, attrs):
+        attributes = dict(attrs)
+        if tag == "ul" and attributes.get("data-plan") in {"free", "pro"}:
+            self.current_plan = attributes["data-plan"]
+        elif tag == "li" and self.current_plan:
+            classes = set(attributes.get("class", "").split())
+            if "on" in classes:
+                self.checked_features.append(
+                    (self.current_plan, attributes.get("data-feature")))
+
+    def handle_endtag(self, tag):
+        if tag == "ul" and self.current_plan:
+            self.current_plan = None
 
 class TestWebsiteClaimsMatchTheApp:
     """Every checked pricing claim names code that implements it.
@@ -38,32 +60,37 @@ class TestWebsiteClaimsMatchTheApp:
     FEATURE_MARKERS = {
         "free-app-limit": (("Models/AppSettings.cs", "FreeBlockedAppLimit = 3"),),
         "soft-firm-shields": (("ViewModels/TodayViewModel.cs", "ShieldLevel.Soft, ShieldLevel.Firm"),),
-        "free-sprint-lengths": (("ViewModels/TodayViewModel.cs", "{ 15, 25, 45, 60, 90 }"),),
+        "free-sprint-lengths": (
+            ("ViewModels/TodayViewModel.cs", "{ 15, 25, 45, 60, 90 }"),
+            ("Models/AppSettings.cs", "FreeMaxSprintMinutes = 25"),
+        ),
         "momentum-and-streak": (
             ("Views/TodayView.xaml", 'AutomationProperties.AutomationId="MomentumValue"'),
             ("Views/TodayView.xaml", 'AutomationProperties.AutomationId="StreakText"'),
         ),
         "unlimited-blocked-apps": (("Models/AppSettings.cs", "IsPro ? int.MaxValue"),),
         "sealed-shield": (("ViewModels/TodayViewModel.cs", "ShieldLevel.Sealed && !_main.IsPro"),),
-        "extended-sprint-lengths": (("ViewModels/TodayViewModel.cs", "{ 15, 25, 45, 60, 90 }"),),
-        "sleep-blocking": (("MainWindow.xaml", 'AutomationProperties.AutomationId="Tab_SleepBlocking"'),),
+        "extended-sprint-lengths": (
+            ("ViewModels/TodayViewModel.cs", "{ 15, 25, 45, 60, 90 }"),
+            ("ViewModels/TodayViewModel.cs", "value > AppSettings.FreeMaxSprintMinutes"),
+        ),
+        "sleep-blocking": (("Services/AppBlockerService.cs", "IsWithinSleepWindow"),),
         "hard-kill-mode": (("Services/AppBlockerService.cs", "settings.HardKillModeEnabled"),),
     }
 
     def test_every_checked_pricing_feature_has_an_implementation_marker(self):
-        site = (Path(SERVER_DIR).parent / "Website" / "index.html").read_text(
-            encoding="utf-8")
-        pricing = site.split('<section id="pricing">', 1)[1].split("</section>", 1)[0]
+        site = (Path(WEBSITE_DIR) / "index.html").read_text(encoding="utf-8")
+        parser = _PricingFeatureParser()
+        parser.feed(site)
 
-        plans = re.findall(r'<ul data-plan="(free|pro)">(.*?)</ul>', pricing, re.S)
-        assert {name for name, _ in plans} == {"free", "pro"}
+        assert {plan for plan, _ in parser.checked_features} == {"free", "pro"}
+        missing_ids = [plan for plan, feature in parser.checked_features if not feature]
+        assert not missing_ids, (
+            "every checked pricing item needs a data-feature id; missing on: "
+            + ", ".join(missing_ids)
+        )
 
-        advertised = []
-        for plan, feature_list in plans:
-            features = re.findall(
-                r'<li class="on" data-feature="([a-z0-9-]+)">', feature_list)
-            assert features, f"{plan} has no documented feature claims"
-            advertised.extend(features)
+        advertised = [feature for _, feature in parser.checked_features]
 
         undocumented = sorted(set(advertised) - self.FEATURE_MARKERS.keys())
         assert not undocumented, (
@@ -79,12 +106,13 @@ class TestWebsiteClaimsMatchTheApp:
                 )
 
     def test_unshipped_claims_are_not_on_the_site(self):
-        site = (Path(SERVER_DIR).parent / "Website" / "index.html").read_text(
-            encoding="utf-8").lower()
+        site = (Path(WEBSITE_DIR) / "index.html").read_text(encoding="utf-8").lower()
         for claim in (
             "youtube.com", "custom sprint lengths", "momentum analytics",
             "journal export", "full-screen reminder", "can't unlock it early",
             "escape hatch is gone", "no three-second grace window",
+            "months later", "nothing is uploaded", "dismissible reminder",
+            "until the timer ends",
         ):
             assert claim not in site, f"the site still claims unshipped behaviour: {claim}"
 
