@@ -1,0 +1,20 @@
+# Store text with LF in the repository and let each machine check out its own
+# line endings. Without this, one editor rewriting a whole file's endings shows
+# up as a conflict on every line for the other person.
+* text=auto
+
+# Windows-only formats that some tools mis-handle with LF endings.
+*.sln   text eol=crlf
+*.bat   text eol=crlf
+*.cmd   text eol=crlf
+
+# Binary — never touch.
+*.png   binary
+*.jpg   binary
+*.ico   binary
+*.gif   binary
+*.exe   binary
+*.dll   binary
+*.nupkg binary
+*.zip   binary
+*.pfx   binary

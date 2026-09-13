@@ -39,7 +39,7 @@ One bad afternoon shouldn't erase a month. Every sprint ends with a one-line
 .NET SDK 8+ (10 works — it builds `net8.0-windows`), Node 18+, Python 3.11+.
 
 ```bash
-pip install pywinauto pyautogui playwright pillow requests psutil colorama pytest pytest-json-report
+python -m pip install -r automation/requirements.txt
 ```
 
 ```bash

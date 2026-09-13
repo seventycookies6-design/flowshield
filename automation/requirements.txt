@@ -1,0 +1,9 @@
+pywinauto
+pyautogui
+playwright
+pillow
+requests
+psutil
+colorama
+pytest
+pytest-json-report
