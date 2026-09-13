@@ -7,7 +7,7 @@ namespace FlowShield.Models;
 /// <summary>How hard FlowShield pushes back when a blocked app appears.</summary>
 public enum ShieldLevel
 {
-    /// <summary>Full-screen nudge overlay; dismissible.</summary>
+    /// <summary>Brief notice inside FlowShield; the blocked app keeps running.</summary>
     Soft = 1,
 
     /// <summary>Blocked apps are closed on sight. Blocklist stays editable.</summary>
