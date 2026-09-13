@@ -32,7 +32,7 @@ One bad afternoon shouldn't erase a month. Every sprint ends with a one-line
 | `Server/` | Express + SQLite license server, real Stripe subscriptions. |
 | `Website/` | Static marketing site and post-checkout license page. |
 | `automation/` | pywinauto + Playwright + pytest suite that drives all of it. |
-| `tools/` | Small maintenance scripts. |
+| `tools/` | Small maintenance scripts, and `doc_steward/`, which keeps the docs consistent with the code. |
 
 ## Prerequisites
 
@@ -136,6 +136,21 @@ to publish if any Stripe secret has crept into `Website/` or if
 A GitHub Actions workflow would be the more modern route, but pushing one needs
 the `workflow` OAuth scope the local `gh` token doesn't carry. To switch:
 `gh auth refresh -s workflow`.
+
+## Keeping the docs consistent
+
+`tools/doc_steward/steward.py` checks the Markdown docs against the code and
+against each other with a free model (OpenRouter, falling back to NVIDIA), and
+proposes fixes as a pull request labelled `docs-steward`. It may only edit the
+docs listed as `editable` in `tools/doc_steward/config.json`; everything else is
+report-only. See "Doc steward" in `CLAUDE.md` for how it runs and is reviewed.
+
+```bash
+python tools/doc_steward/steward.py --full --dry-run
+```
+
+Needs `OPENROUTER_API_KEY` and/or `NVIDIA_API_KEY` in the environment; writes
+its summary to `logs/doc-steward/`.
 
 ## Testing
 
