@@ -20,6 +20,7 @@ import requests
 
 from core import state_verifier as verify
 from core.diagnostics import DiagnosticLogger
+from core.settings_guard import preserve_user_settings
 from desktop.app_controller import DesktopController
 
 DEPLOYED = "https://flowshield-license-server.onrender.com"
@@ -96,4 +97,5 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    with preserve_user_settings():
+        raise SystemExit(main())

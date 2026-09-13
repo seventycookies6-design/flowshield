@@ -17,6 +17,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from config import SCREENSHOT_DIR
 from core.diagnostics import DiagnosticLogger
+from core.settings_guard import preserve_user_settings
 from desktop.app_controller import DesktopController
 
 
@@ -72,4 +73,5 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    with preserve_user_settings():
+        raise SystemExit(main())

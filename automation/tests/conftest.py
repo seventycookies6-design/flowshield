@@ -20,6 +20,7 @@ from config import (  # noqa: E402
 )
 from core.diagnostics import DiagnosticLogger  # noqa: E402
 from core.services import ServiceGroup, port_is_open  # noqa: E402
+from core.settings_guard import preserve_user_settings  # noqa: E402
 from desktop.app_controller import DesktopController  # noqa: E402
 
 
@@ -27,6 +28,13 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "stripe: needs Stripe test credentials")
     config.addinivalue_line("markers", "ui: drives the desktop app (slow)")
     config.addinivalue_line("markers", "e2e: full end-to-end path")
+
+
+@pytest.fixture(scope="session", autouse=True)
+def user_settings():
+    """The owner's real settings.json, set aside for the run and put back after."""
+    with preserve_user_settings():
+        yield
 
 
 @pytest.fixture(scope="session")

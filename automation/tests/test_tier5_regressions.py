@@ -245,6 +245,65 @@ class TestSettingsLocation:
             "migration should copy, so a failure leaves the original intact"
 
 
+# ============ a test run must not rewrite the owner's installed app
+
+class TestSuiteLeavesUserSettingsAlone:
+    """
+    The dev build and an installed FlowShield share one settings file. The
+    suite wiped and rewrote it and never put it back, so after a run on the
+    owner's machine their installed copy was pointed at http://localhost:3000.
+    """
+
+    @pytest.fixture
+    def guard(self, tmp_path, monkeypatch):
+        from core import settings_guard
+
+        settings = tmp_path / "settings.json"
+        monkeypatch.setattr(settings_guard, "SETTINGS_PATH", settings)
+        monkeypatch.setattr(settings_guard, "BACKUP_PATH",
+                            settings.with_name("settings.json.pre-tests"))
+        monkeypatch.setattr(settings_guard, "_stop_dev_build", lambda: None)
+        return settings_guard
+
+    def test_existing_settings_come_back_byte_for_byte(self, guard):
+        guard.SETTINGS_PATH.write_bytes(b"owner's envelope")
+        guard.back_up()
+        guard.SETTINGS_PATH.write_bytes(b"left behind by a test")
+        guard.restore()
+
+        assert guard.SETTINGS_PATH.read_bytes() == b"owner's envelope"
+        assert not guard.BACKUP_PATH.exists()
+
+    def test_no_settings_before_means_none_after(self, guard):
+        guard.back_up()
+        guard.SETTINGS_PATH.write_bytes(b"left behind by a test")
+        guard.restore()
+
+        assert not guard.SETTINGS_PATH.exists()
+        assert not guard.BACKUP_PATH.exists()
+
+    def test_an_interrupted_run_does_not_overwrite_the_backup(self, guard):
+        """A killed run never restored; the next run must not back up its debris."""
+        guard.SETTINGS_PATH.write_bytes(b"owner's envelope")
+        guard.back_up()
+        guard.SETTINGS_PATH.write_bytes(b"left behind by a killed run")
+
+        guard.back_up()
+        guard.restore()
+
+        assert guard.SETTINGS_PATH.read_bytes() == b"owner's envelope"
+
+    def test_every_entry_point_that_launches_the_app_is_guarded(self):
+        automation = Path(__file__).resolve().parent.parent
+        for script in ("e2e_runner.py", "smoke_ui.py", "verify_blocking.py",
+                       "verify_deployed.py"):
+            source = (automation / script).read_text(encoding="utf-8")
+            assert "with preserve_user_settings():" in source, \
+                f"{script} launches the app but doesn't preserve the owner's settings"
+        conftest = (automation / "tests" / "conftest.py").read_text(encoding="utf-8")
+        assert "autouse=True" in conftest and "preserve_user_settings()" in conftest
+
+
 # ============ a lost database must not revoke anyone's subscription
 
 def _db_admin(*args) -> str:
