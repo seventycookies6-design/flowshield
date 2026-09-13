@@ -161,6 +161,25 @@ class TestSoftShieldWording:
         assert "Firm and Sealed close it" in legal
         assert "Any unsaved work in an application FlowShield closes may be lost" in legal
 
+    def test_project_docs_describe_soft_and_sealed_accurately(self):
+        """
+        Ending a sprint early also unlocks a Sealed blocklist, so "until the timer
+        ends" overstates it; Soft has no full-screen overlay. make_report.py is
+        included because it regenerates FINAL_REPORT.md from its own template.
+        """
+        root = Path(DESKTOP_DIR).parent
+        for name in ("README.md", "HANDOFF_PROMPT.md", "FINAL_REPORT.md",
+                     "automation/make_report.py"):
+            lines = (root / name).read_text(encoding="utf-8").splitlines()
+            # FINAL_REPORT's results table quotes the app's own UI text verbatim
+            # ("shield description='...'"); that is a record of a run, not a claim.
+            prose = " ".join(" ".join(line.split()) for line in lines
+                             if "description=" not in line)
+            assert "locks until the timer ends" not in prose, \
+                f"{name} says Sealed locks until the timer ends"
+            assert "full-screen nudge" not in prose, \
+                f"{name} still describes Soft as a full-screen nudge"
+
 
 # ============================ payment-link purchases get a licence key
 
