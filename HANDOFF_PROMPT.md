@@ -24,8 +24,9 @@ automatically, and it wins over anything here), then `README.md`, `DEPLOY.md`,
 A Windows 10/11 x64 app. Pick a sprint length and a shield level, start the
 timer, and apps on your blocklist are dealt with until it ends.
 
-- **Shield levels:** Soft (a nudge), Firm (blocked apps are closed), Sealed
-  (Pro: closed, and the blocklist locks until the timer ends).
+- **Shield levels:** Soft (a brief notice inside FlowShield; the blocked app
+  keeps running), Firm (blocked apps are closed), Sealed (Pro: closed, and the
+  blocklist locks for the rest of the sprint — ending the sprint early unlocks it).
 - **Momentum score:** a finished sprint adds to it; an abandoned one decays it
   (×0.85 − 2) rather than resetting it. A day streak is shown too.
 - **Journal:** a one-line "What moved?" entry after each sprint.
@@ -181,15 +182,15 @@ Then run the tests in this order and report the counts, with the reason for
 every skip:
 
 1. `python -m pytest automation/tests -m "not ui and not stripe" -q` — fast,
-   needs nothing external. **Baseline: 139 passed, 11 skipped.**
+   needs nothing external. **Baseline: 140 passed, 11 skipped.**
 2. `python -m pytest automation/tests -m "not ui" -q` — adds the Stripe tiers if
    the keys are present.
 3. `python -m pytest automation/tests -q` — the UI tiers drive the real desktop
    app. **Warn the person first: it takes over the mouse, keyboard and screen**
    for about six minutes, and closes any running FlowShield. Baselines: the last
    full run without Stripe keys was **164 passed, 32 skipped** (every skip was
-   Stripe), before 9 more non-UI tests were added (settings backup and site
-   claims) — they pass in the fast run, so expect 173 passed. With keys, the last
+   Stripe), before 10 more non-UI tests were added (settings backup, site
+   claims and doc wording) — they pass in the fast run, so expect 174 passed. With keys, the last
    full run was 195 passed, 1 skipped, on the old computer.
 
 If something fails here but passed before, look for a machine difference first:
