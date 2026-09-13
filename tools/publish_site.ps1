@@ -7,10 +7,9 @@
     lives in Website/. Rather than duplicating it into /docs, this splits
     Website/ into its own commit history and force-pushes that to gh-pages.
 
-    A GitHub Actions workflow would be the more modern option, but pushing one
-    requires the 'workflow' OAuth scope that the local gh token does not carry.
-    This needs no extra permissions. To switch later:
-        gh auth refresh -s workflow
+    A GitHub Actions workflow could publish the site instead. It hasn't been
+    set up, so publishing stays a deliberate, one-person step run from an
+    up-to-date main (see CLAUDE.md).
 
 .EXAMPLE
     pwsh tools/publish_site.ps1

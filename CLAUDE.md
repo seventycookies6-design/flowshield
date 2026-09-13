@@ -95,8 +95,8 @@ with each other, so a doc nobody remembered to update gets caught.
   `report_only`) in the config in the same pull request.
 - **Secrets:** `OPENROUTER_API_KEY` and `NVIDIA_API_KEY` are GitHub Actions
   repo secrets that a human adds. Never commit, print or type them.
-- **Switched on?** Only once `.github/workflows/doc-steward.yml` is on `main`
-  and at least one of those secrets exists; until then nothing runs.
+- **Switched on:** yes. The workflow is on `main`, and `NVIDIA_API_KEY` is set;
+  without `OPENROUTER_API_KEY` it skips straight to NVIDIA's models.
 
 ## Shared things that exist only once
 

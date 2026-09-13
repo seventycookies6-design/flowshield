@@ -1,0 +1,70 @@
+# Builds the desktop app and runs the fast test tiers on every pull request.
+#
+# The UI tiers take over a real desktop and the Stripe tiers need secrets, so
+# neither runs here; run them locally before merging anything that touches
+# the app's behaviour. The job is named `test` because branch protection on
+# `main` requires a passing check with that name.
+
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: test
+    runs-on: windows-latest
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: Server/package-lock.json
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: automation/requirements.txt
+
+      - name: Install server dependencies
+        working-directory: Server
+        run: npm ci --no-fund --no-audit
+
+      - name: Install test dependencies
+        run: python -m pip install -r automation/requirements.txt
+
+      - name: Build desktop app
+        working-directory: DesktopApp
+        run: dotnet build -c Release -nologo
+
+      - name: Fast tests (no UI, no Stripe)
+        run: python -m pytest automation/tests -m "not ui and not stripe" -q -p no:cacheprovider --color=yes
+
+      - name: Upload logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-logs
+          path: |
+            logs/
+            reports/
+          if-no-files-found: ignore
