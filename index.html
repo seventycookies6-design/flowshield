@@ -83,17 +83,16 @@
                     stroke-linecap="round" stroke-dasharray="540" stroke-dashoffset="146"/>
           </svg>
           <div class="ring-face">
-            <div class="ring-time">18:42</div>
-            <div class="ring-label">Deep sprint</div>
+            <div class="ring-time">25:00</div>
+            <div class="ring-label">Ready when you are</div>
           </div>
         </div>
-        <div class="shield-chip">🛡️ Shield III — Sealed</div>
+        <div class="shield-chip">🛡️ Shield II · Firm</div>
       </div>
 
-      <div class="mock-rows">
-        <div class="mock-row"><span class="ic">SL</span> Slack <span class="st blocked">closed ×4</span></div>
-        <div class="mock-row"><span class="ic">YT</span> Browser — youtube.com <span class="st blocked">closed ×2</span></div>
-        <div class="mock-row"><span class="ic">ST</span> Steam <span class="st sealed">sealed</span></div>
+      <div class="mock-stats">
+        <div class="mock-stat mock-momentum"><span>MOMENTUM</span><b>48 <small>pts</small></b><em>Streak: 3 days</em></div>
+        <div class="mock-stat"><span>TODAY</span><dl><div><dt>Sprints completed</dt><dd>2</dd></div><div><dt>Focus minutes</dt><dd>50</dd></div><div><dt>Distractions blocked</dt><dd>6</dd></div></dl></div>
       </div>
     </div>
   </div>
@@ -104,26 +103,26 @@
   <div class="wrap">
     <div class="section-head">
       <h2>Built for people who<br>already know what to do</h2>
-      <p>No gamified streak confetti. Just a shield that holds, and an honest record of the work.</p>
+      <p>Momentum is the main score; a simple day streak adds context. No confetti, no all-or-nothing reset.</p>
     </div>
 
     <div class="features">
       <div class="glass feature">
         <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="#9d84ff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4 6.2v6.4c0 4.7 3.3 8.2 8 9.4 4.7-1.2 8-4.7 8-9.4V6.2L12 3Z"/></svg></div>
         <h3>Escalating shield levels</h3>
-        <p>Start with a gentle nudge overlay. Step up to hard-close. Or seal the session so even you can't unlock it early.</p>
+        <p>Start with a brief notice inside FlowShield while the distracting app keeps running. Step up to closing blocked apps. Or lock the blocklist for the sprint.</p>
       </div>
 
       <div class="glass feature">
         <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="#9d84ff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5-5 4 3 8-8"/><path d="M14 7h6v6"/></svg></div>
-        <h3>Momentum, not streaks</h3>
-        <p>Finished sprints compound into a momentum score. Abandon one and it decays — gradually, not catastrophically.</p>
+        <h3>Momentum first</h3>
+        <p>Finished sprints compound into momentum. Abandon one and it decays gradually, while a simple day streak stays secondary.</p>
       </div>
 
       <div class="glass feature">
         <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="#9d84ff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h13a2 2 0 0 1 2 2v13"/><path d="M4 5v14a2 2 0 0 0 2 2h13"/><path d="M8 9h7M8 13h5"/></svg></div>
         <h3>One-line session journal</h3>
-        <p>Every sprint ends with a single prompt: what moved? Months later it's the only log of your actual output that you'll trust.</p>
+        <p>Every sprint ends with one optional prompt: what moved? The answer is stored locally with that session.</p>
       </div>
 
       <div class="glass feature">
@@ -135,13 +134,13 @@
       <div class="glass feature">
         <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="#9d84ff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M5 8l7-5 7 5"/><rect x="4" y="14" width="16" height="7" rx="2"/></svg></div>
         <h3>Hard kill mode <span class="pro-tag">Pro</span></h3>
-        <p>Blocked processes are terminated the instant they spawn — no overlay to click past, no three-second grace window.</p>
+        <p>Make Soft behave like Firm: blocked processes close immediately instead of producing the brief notice.</p>
       </div>
 
       <div class="glass feature">
         <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="#9d84ff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 14h3"/></svg></div>
         <h3>Local by default</h3>
-        <p>Sessions, blocklists and journal entries live on your machine, encrypted with Windows DPAPI. Nothing is uploaded.</p>
+        <p>Your sessions, blocklists and journal never leave your PC. They are encrypted locally with Windows DPAPI.</p>
       </div>
     </div>
   </div>
@@ -159,7 +158,7 @@
       <div class="glass level l1">
         <div class="num">Shield I</div>
         <h3>Soft</h3>
-        <p>A full-screen reminder slides over the distraction. Dismissible — it only costs you a moment of honesty.</p>
+        <p>FlowShield records the blocked app and shows a brief notice inside FlowShield; the distracting app keeps running.</p>
       </div>
       <div class="glass level l2">
         <div class="num">Shield II</div>
@@ -169,7 +168,7 @@
       <div class="glass level l3">
         <div class="num">Shield III · Pro</div>
         <h3>Sealed</h3>
-        <p>Closed on sight <em>and</em> the blocklist locks until the timer ends. The escape hatch is gone, which is the point.</p>
+        <p>Blocked apps close on sight <em>and</em> the blocklist locks for the rest of the sprint.</p>
       </div>
     </div>
   </div>
@@ -190,14 +189,14 @@
         <h3>Free</h3>
         <div class="price"><b>$0</b><span>forever</span></div>
         <p class="sub">Everything you need to prove the habit works.</p>
-        <ul>
-          <li class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Up to 3 blocked apps</li>
-          <li class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Shield I &amp; II</li>
-          <li class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> 25-minute sprints</li>
-          <li class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> 7 days of history</li>
+        <ul data-plan="free">
+          <li class="on" data-feature="free-app-limit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Up to 3 blocked apps</li>
+          <li class="on" data-feature="soft-firm-shields"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Shield I &amp; II</li>
+          <li class="on" data-feature="free-sprint-lengths"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> 15 &amp; 25-minute sprints</li>
+          <li class="on" data-feature="momentum-and-streak"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Momentum score &amp; day streak</li>
           <li class="off"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg> Shield III — Sealed</li>
           <li class="off"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg> Sleep blocking schedules</li>
-          <li class="off"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg> Momentum analytics</li>
+          <li class="off"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg> Hard kill mode</li>
         </ul>
         <a class="btn btn-ghost btn-block"
            href="https://github.com/seventycookies6-design/flowshield/releases/latest/download/FlowShield-win-Setup.exe">
@@ -210,14 +209,12 @@
         <h3>Pro</h3>
         <div class="price"><b>$4.99</b><span>/ month</span></div>
         <p class="sub">For when the shield needs to be stronger than your willpower.</p>
-        <ul>
-          <li class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> <b>Unlimited</b> blocked apps</li>
-          <li class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Shield III — Sealed mode</li>
-          <li class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Custom sprint lengths</li>
-          <li class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Sleep blocking schedules</li>
-          <li class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Hard kill mode</li>
-          <li class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Unlimited history + momentum analytics</li>
-          <li class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Journal export (CSV / Markdown)</li>
+        <ul data-plan="pro">
+          <li class="on" data-feature="unlimited-blocked-apps"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> <b>Unlimited</b> blocked apps</li>
+          <li class="on" data-feature="sealed-shield"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Shield III — Sealed mode</li>
+          <li class="on" data-feature="extended-sprint-lengths"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> 45, 60 &amp; 90-minute sprints</li>
+          <li class="on" data-feature="sleep-blocking"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Sleep blocking schedules</li>
+          <li class="on" data-feature="hard-kill-mode"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Hard kill mode for instant closing on Soft</li>
         </ul>
         <button class="btn btn-primary btn-block btn-lg" data-checkout>Get Pro — $4.99/mo</button>
       </div>
