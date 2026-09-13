@@ -248,21 +248,18 @@ go-ahead.
    with `gh api repos/seventycookies6-design/flowshield/branches/main/protection`.
    Miles has full collaborator access on purpose; the merge rule is followed by
    instruction, not enforced by GitHub.
-2. **CI workflow.** A workflow that builds the app and runs the fast tests on
-   Windows for every pull request was written but not pushed, because the
-   owner's `gh` token lacks the `workflow` scope. Once the owner runs
-   `gh auth refresh -s workflow`, add `.github/workflows/ci.yml` (job name
-   `test`) through a pull request, confirm it passes, then make `test` a
-   required check on `main`.
-3. **Doc steward workflow.** The script, config and tests are in
-   `tools/doc_steward/`; `.github/workflows/doc-steward.yml` waits on the same
-   `workflow` scope. To switch it on, a human must: create free keys at
-   OpenRouter and NVIDIA's API catalogue; add them as Actions repo secrets
-   `OPENROUTER_API_KEY` and `NVIDIA_API_KEY` (`gh secret set <NAME>`, pasting the
-   value themselves). "Allow GitHub Actions to create and approve pull
-   requests" is already on (13 September 2026; default workflow permissions
-   stay read-only). Then push the workflow through a pull request and run it
-   once by hand with a dry run.
+2. **CI workflow** (on since 13 September 2026). `.github/workflows/ci.yml`
+   builds the app and runs the fast tests on Windows for every pull request and
+   push to `main`; its `test` check is required before merging. Pull requests
+   opened by GitHub Actions (the doc steward's) don't trigger it — check those
+   locally.
+3. **Doc steward workflow** (on since 13 September 2026).
+   `.github/workflows/doc-steward.yml` runs `tools/doc_steward/` after merges to
+   `main`, weekly, and on demand. `NVIDIA_API_KEY` is set as an Actions repo
+   secret; `OPENROUTER_API_KEY` isn't, so it currently uses NVIDIA's models only.
+   Adding the OpenRouter key (`gh secret set OPENROUTER_API_KEY`, pasted by a
+   human) enables the OpenRouter fallback. "Allow GitHub Actions to create and
+   approve pull requests" is on; default workflow permissions stay read-only.
 4. **Teammate access.** milessmart6-pixel accepted the invitation and is
    working in the repo (item 1.1 is pull request #9). The owner shares
    `.stripe_keys.json` with them privately.

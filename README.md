@@ -133,9 +133,8 @@ Splits `Website/` onto the `gh-pages` branch that Pages serves, after refusing
 to publish if any Stripe secret has crept into `Website/` or if
 `.stripe_keys.json` has become tracked.
 
-A GitHub Actions workflow would be the more modern route, but pushing one needs
-the `workflow` OAuth scope the local `gh` token doesn't carry. To switch:
-`gh auth refresh -s workflow`.
+A GitHub Actions workflow could publish the site instead; that hasn't been set
+up, so publishing stays a deliberate, one-person step.
 
 ## Keeping the docs consistent
 

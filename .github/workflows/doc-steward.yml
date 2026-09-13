@@ -1,0 +1,139 @@
+# Doc steward: keeps the repo's Markdown docs consistent with the code and with
+# each other, using a free model (OpenRouter, falling back to NVIDIA).
+#
+# It never edits code, the site, the legal page or generated reports — the
+# allowlist lives in tools/doc_steward/config.json and is enforced twice. Edits
+# arrive as a pull request labelled `docs-steward`; the repo owner's Claude Code
+# session reviews and merges it. Problems it can't fix go to one issue.
+#
+# Secrets (set by a human, never committed): OPENROUTER_API_KEY, NVIDIA_API_KEY.
+# Repo setting needed: Actions > General > "Allow GitHub Actions to create and
+# approve pull requests". The steward itself never approves or merges anything.
+
+name: Doc steward
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "17 6 * * 1"   # Mondays 06:17 UTC: full sweep
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "full = sweep everything; since = only the last commit on main"
+        type: choice
+        options: [full, since]
+        default: full
+      dry_run:
+        description: "Propose only; don't open a pull request"
+        type: boolean
+        default: false
+
+concurrency:
+  group: doc-steward
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  steward:
+    # Don't re-check the steward's own merged fixes.
+    if: github.event_name != 'push' || !contains(github.event.head_commit.message, '[doc-steward]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Decide scope
+        id: scope
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            before="${{ github.event.before }}"
+            if [ -z "$before" ] || [ "$before" = "0000000000000000000000000000000000000000" ]; then before="HEAD~1"; fi
+            echo "args=--since $before" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.mode }}" = "since" ]; then
+            echo "args=--since HEAD~1" >> "$GITHUB_OUTPUT"
+          else
+            echo "args=--full" >> "$GITHUB_OUTPUT"
+          fi
+          if [ "${{ inputs.dry_run }}" = "true" ]; then echo "dry=--dry-run" >> "$GITHUB_OUTPUT"; fi
+
+      - name: Run the steward
+        id: run
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+        run: |
+          set +e
+          python tools/doc_steward/steward.py ${{ steps.scope.outputs.args }} ${{ steps.scope.outputs.dry }} --out-dir "$RUNNER_TEMP/doc-steward"
+          code=$?
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          if [ -f "$RUNNER_TEMP/doc-steward/summary.md" ]; then cat "$RUNNER_TEMP/doc-steward/summary.md" >> "$GITHUB_STEP_SUMMARY"; fi
+          if [ "$code" = "2" ]; then
+            # No provider answered (keys missing, quota spent, outage). Warn on
+            # merges so main doesn't go red; fail the scheduled and manual runs.
+            echo "::warning::Doc steward could not reach a model provider; see the log."
+            if [ "${{ github.event_name }}" != "push" ]; then exit 1; fi
+            exit 0
+          fi
+          if [ "$code" != "0" ] && [ "$code" != "10" ]; then exit "$code"; fi
+
+      - name: Guard — only editable docs changed
+        if: steps.run.outputs.code == '10'
+        run: python tools/doc_steward/steward.py --guard HEAD
+
+      - name: Open a pull request with the fixes
+        if: steps.run.outputs.code == '10' && inputs.dry_run != true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          branch="docs-steward/run-${{ github.run_id }}"
+          git switch -c "$branch"
+          editable=$(python -c "import json; print(' '.join(json.load(open('tools/doc_steward/config.json'))['editable']))")
+          git add -- $editable
+          git commit -m "[doc-steward] Keep docs consistent with the code" \
+            -m "Automated by tools/doc_steward/steward.py, workflow run ${{ github.run_id }}. Never merged by the steward."
+          git push origin "$branch"
+          gh label create docs-steward --color 0E8A16 --description "Opened by the doc steward" --force
+          gh pr create --base main --head "$branch" \
+            --title "[doc-steward] Keep docs consistent with the code" \
+            --body-file "$RUNNER_TEMP/doc-steward/summary.md" \
+            --label docs-steward
+
+      - name: Record problems it may not fix
+        if: steps.run.outputs.code == '0' && inputs.dry_run != true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          result="$RUNNER_TEMP/doc-steward/result.json"
+          [ -f "$result" ] || exit 0
+          reports=$(python -c "import json; print(len(json.load(open('$result'))['reports']))")
+          [ "$reports" -gt 0 ] || exit 0
+          gh label create docs-steward --color 0E8A16 --description "Opened by the doc steward" --force
+          title="Doc steward: inconsistencies that need a human"
+          existing=$(gh issue list --label docs-steward --state open --search "in:title \"$title\"" --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body-file "$RUNNER_TEMP/doc-steward/summary.md"
+          else
+            gh issue create --title "$title" --label docs-steward --body-file "$RUNNER_TEMP/doc-steward/summary.md"
+          fi
+
+      - name: Keep the run's output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: doc-steward-${{ github.run_id }}
+          path: ${{ runner.temp }}/doc-steward/
+          if-no-files-found: ignore
