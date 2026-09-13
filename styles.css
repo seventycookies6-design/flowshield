@@ -227,7 +227,7 @@ header.nav.scrolled { border-bottom-color: var(--edge); }
   display: flex; flex-direction: column; align-items: center; justify-content: center;
 }
 .ring-time { font-size: 2.5rem; font-weight: 660; letter-spacing: -0.035em; font-variant-numeric: tabular-nums; }
-.ring-label { font-size: 0.64rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-faint); }
+.ring-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-faint); }
 
 .shield-chip {
   display: inline-flex; align-items: center; gap: 8px;
@@ -424,6 +424,10 @@ footer p { margin: 0; font-size: 0.85rem; color: var(--ink-faint); }
   .hero p.lede { max-width: none; }
   .nav-links { display: none; }
   section { padding: 68px 0; }
+}
+
+@media (max-width: 520px) {
+  .mock-stats { grid-template-columns: 1fr; }
 }
 
 @media (prefers-reduced-motion: reduce) {
