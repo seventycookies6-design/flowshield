@@ -43,7 +43,7 @@ timer, and apps on your blocklist are dealt with until it ends.
 | Website | `Website/`, static | Live at https://seventycookies6-design.github.io/flowshield/ from the `gh-pages` branch. Checkout goes through the licence server. |
 | Payments | Stripe | **Test mode only.** Account named FlowShield. |
 | Tests | `automation/`, pytest + pywinauto + Playwright, tiers 1–7 | 200 tests. See Phase 2 for the current baselines. |
-| Tools | `tools/` | `setup_stripe_store.js`, `publish_site.ps1`, `build_release.ps1`, `db_admin.js`, `fix_mojibake.py` |
+| Tools | `tools/` | `setup_stripe_store.js`, `publish_site.ps1`, `build_release.ps1`, `db_admin.js`, `fix_mojibake.py`, and `doc_steward/` (keeps the docs consistent with the code; see "Doc steward" in `CLAUDE.md`) |
 | Roadmap | `CUSTOMER_EXPERIENCE_PROMPT.md`, issues #1–#6 | A customer's-eye audit (31 problems) and six phases of fixes, all assigned to milessmart6-pixel. 1.1 (site claims) is done and live; 1.2 (Start with Windows in the tray) is in review. The file's Progress table is the current status. |
 
 ### Installer, as a customer sees it
@@ -182,16 +182,17 @@ Then run the tests in this order and report the counts, with the reason for
 every skip:
 
 1. `python -m pytest automation/tests -m "not ui and not stripe" -q` — fast,
-   needs nothing external. **Baseline: 140 passed, 11 skipped.**
+   needs nothing external. **Baseline: 161 passed, 11 skipped.**
 2. `python -m pytest automation/tests -m "not ui" -q` — adds the Stripe tiers if
    the keys are present.
 3. `python -m pytest automation/tests -q` — the UI tiers drive the real desktop
    app. **Warn the person first: it takes over the mouse, keyboard and screen**
    for about six minutes, and closes any running FlowShield. Baselines: the last
    full run without Stripe keys was **164 passed, 32 skipped** (every skip was
-   Stripe), before 10 more non-UI tests were added (settings backup, site
-   claims and doc wording) — they pass in the fast run, so expect 174 passed. With keys, the last
-   full run was 195 passed, 1 skipped, on the old computer.
+   Stripe), before 31 more non-UI tests were added (settings backup, site
+   claims, doc wording and the doc steward) — they pass in the fast run, so
+   expect 195 passed. With keys, the last full run was 195 passed, 1 skipped,
+   on the old computer.
 
 If something fails here but passed before, look for a machine difference first:
 a stale `PATH`, a missing SDK, DPI or scaling, a screen resolution that clips
@@ -253,7 +254,16 @@ go-ahead.
    `gh auth refresh -s workflow`, add `.github/workflows/ci.yml` (job name
    `test`) through a pull request, confirm it passes, then make `test` a
    required check on `main`.
-3. **Teammate access.** milessmart6-pixel accepted the invitation and is
+3. **Doc steward workflow.** The script, config and tests are in
+   `tools/doc_steward/`; `.github/workflows/doc-steward.yml` waits on the same
+   `workflow` scope. To switch it on, a human must: create free keys at
+   OpenRouter and NVIDIA's API catalogue; add them as Actions repo secrets
+   `OPENROUTER_API_KEY` and `NVIDIA_API_KEY` (`gh secret set <NAME>`, pasting the
+   value themselves). "Allow GitHub Actions to create and approve pull
+   requests" is already on (13 September 2026; default workflow permissions
+   stay read-only). Then push the workflow through a pull request and run it
+   once by hand with a dry run.
+4. **Teammate access.** milessmart6-pixel accepted the invitation and is
    working in the repo (item 1.1 is pull request #9). The owner shares
    `.stripe_keys.json` with them privately.
 

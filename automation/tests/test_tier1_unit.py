@@ -334,3 +334,166 @@ class TestMomentum:
         for _ in range(2):
             score = apply_momentum(score, True, 25)
         assert score > 50, "two good sprints should more than undo one lapse"
+
+
+# ============================================================== doc steward
+
+class TestDocSteward:
+    """
+    The doc steward lets a free model propose documentation edits, so its safety
+    comes from these checks, not from the model: allowlisted Markdown only, text
+    that occurs exactly once, and evidence that really exists in another file.
+    No network — the provider call is faked.
+    """
+
+    @pytest.fixture
+    def steward(self):
+        import importlib
+        import sys as _sys
+        tool_dir = str(Path(SERVER_DIR).parent / "tools" / "doc_steward")
+        if tool_dir not in _sys.path:
+            _sys.path.insert(0, tool_dir)
+        return importlib.import_module("steward")
+
+    @pytest.fixture
+    def repo(self, tmp_path):
+        files = {
+            "README.md": "Run `npm start` in Server.\nShield III locks until the timer ends.\n",
+            "SELLING.md": "Price is $4.99.\n",
+            "Server/package.json": '{"scripts": {"start": "node server.js"}}\n',
+            "DesktopApp/App.xaml.cs": "var locked = \"for the rest of the sprint\";\n",
+        }
+        for path, text in files.items():
+            (tmp_path / path).parent.mkdir(parents=True, exist_ok=True)
+            (tmp_path / path).write_text(text, encoding="utf-8")
+        return tmp_path, set(files)
+
+    @staticmethod
+    def reader(root):
+        return lambda p: (root / p).read_text(encoding="utf-8")
+
+    @staticmethod
+    def edit(**overrides):
+        edit = {
+            "file": "README.md",
+            "find": "locks until the timer ends",
+            "replace": "locks for the rest of the sprint",
+            "reason": "matches the app",
+            "evidence": [{"file": "DesktopApp/App.xaml.cs", "quote": "for the rest of the sprint"}],
+        }
+        edit.update(overrides)
+        return edit
+
+    def test_a_well_evidenced_doc_edit_is_accepted_and_written(self, steward, repo):
+        root, tracked = repo
+        result = steward.apply({"edits": [self.edit()]}, steward.load_config(), tracked, root, dry_run=False)
+        assert len(result.applied) == 1 and not result.rejected
+        assert "locks for the rest of the sprint" in (root / "README.md").read_text(encoding="utf-8")
+
+    def test_dry_run_writes_nothing(self, steward, repo):
+        root, tracked = repo
+        before = (root / "README.md").read_text(encoding="utf-8")
+        steward.apply({"edits": [self.edit()]}, steward.load_config(), tracked, root, dry_run=True)
+        assert (root / "README.md").read_text(encoding="utf-8") == before
+
+    @pytest.mark.parametrize("overrides, why", [
+        ({"file": "Server/package.json", "find": "server.js", "replace": "evil.js"}, "not an editable doc"),
+        ({"file": "DesktopApp/App.xaml.cs", "find": "rest", "replace": "x"}, "not an editable doc"),
+        ({"file": "../README.md"}, "unsafe path"),
+        ({"file": "C:/Windows/win.ini"}, "unsafe path"),
+        ({"find": "not in the file at all"}, "occurs 0 times"),
+        ({"evidence": []}, "no evidence"),
+        ({"evidence": [{"file": "DesktopApp/App.xaml.cs", "quote": "a quote the model made up"}]}, "not found"),
+        ({"evidence": [{"file": "README.md", "quote": "Run `npm start` in Server."}]}, "at least one other file"),
+        ({"evidence": [{"file": "secrets/.stripe_keys.json", "quote": "anything at all here"}]}, "not a tracked file"),
+        ({"evidence": [{"file": "DesktopApp/App.xaml.cs", "quote": "rest"}]}, "too short"),
+        ({"replace": "locks until the timer ends"}, "identical"),
+    ])
+    def test_unsafe_or_unproven_edits_are_rejected(self, steward, repo, overrides, why):
+        root, tracked = repo
+        verdict = steward.validate_edit(self.edit(**overrides), steward.load_config(), tracked, self.reader(root))
+        assert not verdict.ok and why in verdict.reason, verdict.reason
+
+    def test_find_text_must_be_unique(self, steward, repo):
+        root, tracked = repo
+        (root / "README.md").write_text("same line\nsame line\n", encoding="utf-8")
+        verdict = steward.validate_edit(self.edit(find="same line"), steward.load_config(), tracked, self.reader(root))
+        assert not verdict.ok and "occurs 2 times" in verdict.reason
+
+    def test_evidence_survives_rewrapping(self, steward, repo):
+        root, tracked = repo
+        verdict = steward.check_evidence(
+            [{"file": "README.md", "quote": "Run `npm start`\n   in Server."}],
+            None, tracked, self.reader(root), 12)
+        assert verdict.ok, verdict.reason
+
+    def test_config_never_lets_it_edit_code_the_site_or_legal_text(self, steward):
+        config = steward.load_config()
+        assert config["editable"], "the allowlist is empty"
+        assert all(p.endswith(".md") for p in config["editable"]), config["editable"]
+        assert not set(config["editable"]) & set(config["report_only"])
+        for protected in ("Website/index.html", "Website/legal.html", "FINAL_REPORT.md"):
+            assert protected not in config["editable"]
+
+    def test_globs_match_files_at_the_top_of_a_folder(self, steward):
+        assert steward.matches_any("DesktopApp/App.xaml.cs", ["DesktopApp/**/*.cs"])
+        assert steward.matches_any("DesktopApp/Services/Log.cs", ["DesktopApp/**/*.cs"])
+        assert not steward.matches_any("Server/server.js", ["DesktopApp/**/*.cs"])
+
+    def test_json_is_extracted_from_fenced_or_thinking_output(self, steward):
+        text = '<think>hmm {not json}</think>Sure:\n```json\n{"edits": [], "reports": []}\n```'
+        assert steward.extract_json(text) == {"edits": [], "reports": []}
+        assert steward.extract_json('{"edits": []}')["reports"] == []
+
+    def test_providers_fall_back_on_rate_limits_and_bad_output(self, steward, monkeypatch):
+        import io
+        import urllib.error
+        config = steward.load_config()
+        monkeypatch.setenv("OPENROUTER_API_KEY", "test-key-not-real")
+        monkeypatch.setenv("NVIDIA_API_KEY", "test-key-not-real")
+        calls = []
+
+        class Response(io.BytesIO):
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc):
+                return False
+
+        def fake_urlopen(request, timeout):
+            model = json.loads(request.data)["model"]
+            calls.append(model)
+            if len(calls) == 1:
+                raise urllib.error.HTTPError(request.full_url, 429, "rate limited", {}, None)
+            if len(calls) == 2:
+                return Response(json.dumps({"choices": [{"message": {"content": "no json here"}}]}).encode())
+            return Response(json.dumps({"choices": [{"message": {"content": '{"edits": [], "reports": []}'}}]}).encode())
+
+        monkeypatch.setattr(steward.urllib.request, "urlopen", fake_urlopen)
+        data, label = steward.ask_model(config, "system", "user", log=lambda *_: None)
+        assert data == {"edits": [], "reports": []}
+        assert len(calls) == 3 and label.endswith(calls[2])
+
+    def test_missing_keys_are_an_error_not_a_silent_pass(self, steward, monkeypatch):
+        monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+        monkeypatch.delenv("NVIDIA_API_KEY", raising=False)
+        with pytest.raises(RuntimeError, match="not set"):
+            steward.ask_model(steward.load_config(), "s", "u", log=lambda *_: None)
+
+    def test_guard_flags_anything_but_editable_docs(self, steward, tmp_path):
+        def git(*args):
+            subprocess.run(["git", *args], cwd=tmp_path, check=True, capture_output=True)
+        git("init", "-q")
+        git("config", "user.email", "t@example.com")
+        git("config", "user.name", "t")
+        (tmp_path / "README.md").write_text("a\n", encoding="utf-8")
+        (tmp_path / "server.js").write_text("a\n", encoding="utf-8")
+        git("add", ".")
+        git("commit", "-qm", "base")
+        config = steward.load_config()
+
+        (tmp_path / "README.md").write_text("b\n", encoding="utf-8")
+        assert steward.guard("HEAD", config, root=tmp_path) == []
+
+        (tmp_path / "server.js").write_text("b\n", encoding="utf-8")
+        assert steward.guard("HEAD", config, root=tmp_path) == ["server.js"]

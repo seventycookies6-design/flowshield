@@ -1,0 +1,85 @@
+{
+  "_about": "Doc steward configuration. See 'Doc steward' in CLAUDE.md. Paths are repo-relative with forward slashes.",
+
+  "editable": [
+    "README.md",
+    "CLAUDE.md",
+    "AGENTS.md",
+    "HANDOFF_PROMPT.md",
+    "CUSTOMER_EXPERIENCE_PROMPT.md",
+    "SELLING.md",
+    "DEPLOY.md",
+    "STRIPE_SETUP.md"
+  ],
+
+  "report_only": [
+    "FINAL_REPORT.md",
+    "Website/index.html",
+    "Website/success.html",
+    "Website/legal.html",
+    ".github/pull_request_template.md"
+  ],
+
+  "code": [
+    "DesktopApp/**/*.cs",
+    "DesktopApp/**/*.xaml",
+    "DesktopApp/*.csproj",
+    "Server/*.js",
+    "Server/package.json",
+    "Server/Dockerfile",
+    "render.yaml",
+    "Website/config.js",
+    "Website/checkout.js",
+    "tools/*.ps1",
+    "tools/*.js",
+    "tools/*.py",
+    "automation/config.py",
+    "automation/core/*.py",
+    "automation/requirements.txt",
+    "automation/pytest.ini",
+    ".gitignore",
+    ".github/CODEOWNERS",
+    ".github/workflows/*.yml"
+  ],
+
+  "limits": {
+    "max_prompt_chars": 400000,
+    "max_prompt_chars_since": 200000,
+    "max_diff_chars": 60000,
+    "max_edits": 15,
+    "max_replace_chars": 3000,
+    "min_evidence_chars": 12,
+    "request_timeout_seconds": 240,
+    "max_output_tokens": 8000
+  },
+
+  "providers": [
+    {
+      "name": "openrouter",
+      "base_url": "https://openrouter.ai/api/v1",
+      "key_env": "OPENROUTER_API_KEY",
+      "headers": {
+        "HTTP-Referer": "https://github.com/seventycookies6-design/flowshield",
+        "X-Title": "FlowShield doc steward"
+      },
+      "models": [
+        "nvidia/nemotron-3-ultra-550b-a55b:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "google/gemma-4-31b-it:free",
+        "thinkingmachines/inkling:free"
+      ]
+    },
+    {
+      "name": "nvidia",
+      "base_url": "https://integrate.api.nvidia.com/v1",
+      "key_env": "NVIDIA_API_KEY",
+      "headers": {},
+      "models": [
+        "deepseek-ai/deepseek-v4-pro-0813",
+        "moonshotai/kimi-k3",
+        "nvidia/nemotron-3-ultra-550b-a55b",
+        "nvidia/nemotron-3-super-120b-a12b"
+      ]
+    }
+  ]
+}

@@ -66,6 +66,38 @@ Merging into `main` is what ships code to customers, so it has one owner.
 - Having admin or write access on GitHub doesn't change any of this — the rule
   is about who should merge, not who technically can.
 
+## Doc steward
+
+A third, automated agent keeps the Markdown docs consistent with the code and
+with each other, so a doc nobody remembered to update gets caught.
+
+- **What it is:** `tools/doc_steward/steward.py`, run by
+  `.github/workflows/doc-steward.yml` after every merge to `main`, weekly as a
+  full sweep, and on demand. It uses a free model — OpenRouter first, NVIDIA as
+  fallback — configured in `tools/doc_steward/config.json`.
+- **What it may edit:** only the Markdown files in `editable` in that config.
+  Code, the site, the legal page, the PR template and the generated
+  `FINAL_REPORT.md` are report-only. The allowlist is enforced by the script and
+  checked again in the workflow before anything is pushed; every edit must quote
+  evidence that exists in another file, or it's discarded.
+- **How its changes arrive:** a pull request from a `docs-steward/run-*` branch,
+  labelled `docs-steward`, with before/after text and evidence for each edit.
+  It never merges or approves. Problems it may not fix go to one open issue
+  titled "Doc steward: inconsistencies that need a human".
+- **Reviewing it (owner's Claude Code session):** GitHub doesn't run other
+  workflows on pull requests opened by Actions, so check it yourself: run
+  `python tools/doc_steward/steward.py --guard origin/main` on the branch
+  (it must pass), verify each edit against the cited evidence, run the fast
+  tests, then merge as usual — or close it if the model got something wrong.
+  Originals are always recoverable from git history or by reverting the PR.
+- **Everyone else:** don't fight its edits in your own branches; if it's wrong,
+  say so on its pull request. Adding a new doc? Add it to `editable` (or
+  `report_only`) in the config in the same pull request.
+- **Secrets:** `OPENROUTER_API_KEY` and `NVIDIA_API_KEY` are GitHub Actions
+  repo secrets that a human adds. Never commit, print or type them.
+- **Switched on?** Only once `.github/workflows/doc-steward.yml` is on `main`
+  and at least one of those secrets exists; until then nothing runs.
+
 ## Shared things that exist only once
 
 Branches don't isolate these. Changing them affects both of you and every
