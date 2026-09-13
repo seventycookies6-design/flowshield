@@ -28,26 +28,31 @@ NODE_EXE = NODE if Path(NODE).exists() else "node"
 # ====================== the site only sells implemented features
 
 class _PricingFeatureParser(HTMLParser):
-    """Collect checked pricing features without depending on attribute order."""
+    """Collect checked features from every plan in the pricing section."""
 
     def __init__(self):
         super().__init__()
-        self.current_plan = None
+        self.in_pricing = False
+        self.plan_stack = []
         self.checked_features = []
 
     def handle_starttag(self, tag, attrs):
         attributes = dict(attrs)
-        if tag == "ul" and attributes.get("data-plan") in {"free", "pro"}:
-            self.current_plan = attributes["data-plan"]
-        elif tag == "li" and self.current_plan:
+        if tag == "section" and attributes.get("id") == "pricing":
+            self.in_pricing = True
+        elif tag == "ul" and self.in_pricing:
+            self.plan_stack.append(attributes.get("data-plan", "unnamed pricing list"))
+        elif tag == "li" and self.plan_stack:
             classes = set(attributes.get("class", "").split())
             if "on" in classes:
                 self.checked_features.append(
-                    (self.current_plan, attributes.get("data-feature")))
+                    (self.plan_stack[-1], attributes.get("data-feature")))
 
     def handle_endtag(self, tag):
-        if tag == "ul" and self.current_plan:
-            self.current_plan = None
+        if tag == "ul" and self.plan_stack:
+            self.plan_stack.pop()
+        elif tag == "section" and self.in_pricing:
+            self.in_pricing = False
 
 class TestWebsiteClaimsMatchTheApp:
     """Every checked pricing claim names code that implements it.
@@ -83,7 +88,8 @@ class TestWebsiteClaimsMatchTheApp:
         parser = _PricingFeatureParser()
         parser.feed(site)
 
-        assert {plan for plan, _ in parser.checked_features} == {"free", "pro"}
+        plans = {plan for plan, _ in parser.checked_features}
+        assert {"free", "pro"}.issubset(plans)
         missing_ids = [plan for plan, feature in parser.checked_features if not feature]
         assert not missing_ids, (
             "every checked pricing item needs a data-feature id; missing on: "
@@ -105,8 +111,24 @@ class TestWebsiteClaimsMatchTheApp:
                     f"implementation marker {marker!r}"
                 )
 
+    def test_future_pricing_plans_are_included(self):
+        parser = _PricingFeatureParser()
+        parser.feed(
+            '<section id="pricing"><ul data-plan="annual">'
+            '<li data-feature="annual-plan" class="featured on">Annual</li>'
+            '<li class="on featured">Untagged claim</li>'
+            '</ul></section>'
+        )
+
+        assert parser.checked_features == [
+            ("annual", "annual-plan"),
+            ("annual", None),
+        ], "a future pricing plan or reordered attributes bypassed claim checks"
+
     def test_unshipped_claims_are_not_on_the_site(self):
         site = (Path(WEBSITE_DIR) / "index.html").read_text(encoding="utf-8").lower()
+        # Remove an entry only when that feature ships and gains an implementation
+        # marker above; deleting a phrase merely to weaken this test is not a fix.
         for claim in (
             "youtube.com", "custom sprint lengths", "momentum analytics",
             "journal export", "full-screen reminder", "can't unlock it early",
@@ -115,6 +137,29 @@ class TestWebsiteClaimsMatchTheApp:
             "until the timer ends",
         ):
             assert claim not in site, f"the site still claims unshipped behaviour: {claim}"
+
+
+class TestSoftShieldWording:
+    """Public and developer-facing descriptions must match today's Soft mode."""
+
+    def test_old_overlay_wording_is_gone(self):
+        root = Path(DESKTOP_DIR).parent
+        readme = (root / "README.md").read_text(encoding="utf-8")
+        model = (Path(DESKTOP_DIR) / "Models" / "AppSettings.cs").read_text(
+            encoding="utf-8")
+
+        assert "dismissible full-screen nudge" not in readme
+        assert "Full-screen nudge overlay" not in model
+        assert "blocked app keeps running" in readme
+        assert "blocked app keeps running" in model
+
+    def test_legal_page_distinguishes_soft_from_closing_modes(self):
+        source = (Path(WEBSITE_DIR) / "legal.html").read_text(encoding="utf-8")
+        legal = " ".join(source.split())
+
+        assert "Soft records the" in legal and "leaves the application running" in legal
+        assert "Firm and Sealed close it" in legal
+        assert "Any unsaved work in an application FlowShield closes may be lost" in legal
 
 
 # ============================ payment-link purchases get a licence key
