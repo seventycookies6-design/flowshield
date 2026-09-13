@@ -79,7 +79,9 @@ with each other, so a doc nobody remembered to update gets caught.
   Code, the site, the legal page, the PR template and the generated
   `FINAL_REPORT.md` are report-only. The allowlist is enforced by the script and
   checked again in the workflow before anything is pushed; every edit must quote
-  evidence that exists in another file, or it's discarded.
+  evidence that exists in another file, or it's discarded. Files listed as
+  `historical` (the generated `FINAL_REPORT.md`) don't count as that evidence —
+  they describe a past run, not the current state.
 - **How its changes arrive:** a pull request from a `docs-steward/run-*` branch,
   labelled `docs-steward`, with before/after text and evidence for each edit.
   It never merges or approves. Problems it may not fix go to one open issue

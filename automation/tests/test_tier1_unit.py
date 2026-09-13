@@ -404,7 +404,7 @@ class TestDocSteward:
         ({"find": "not in the file at all"}, "occurs 0 times"),
         ({"evidence": []}, "no evidence"),
         ({"evidence": [{"file": "DesktopApp/App.xaml.cs", "quote": "a quote the model made up"}]}, "not found"),
-        ({"evidence": [{"file": "README.md", "quote": "Run `npm start` in Server."}]}, "at least one other file"),
+        ({"evidence": [{"file": "README.md", "quote": "Run `npm start` in Server."}]}, "at least one other"),
         ({"evidence": [{"file": "secrets/.stripe_keys.json", "quote": "anything at all here"}]}, "not a tracked file"),
         ({"evidence": [{"file": "DesktopApp/App.xaml.cs", "quote": "rest"}]}, "too short"),
         ({"replace": "locks until the timer ends"}, "identical"),
@@ -413,6 +413,19 @@ class TestDocSteward:
         root, tracked = repo
         verdict = steward.validate_edit(self.edit(**overrides), steward.load_config(), tracked, self.reader(root))
         assert not verdict.ok and why in verdict.reason, verdict.reason
+
+    def test_a_generated_snapshot_is_not_evidence_on_its_own(self, steward, repo):
+        """Reproduces the first live run: it 'corrected' 200 tests to the report's stale 196."""
+        root, tracked = repo
+        (root / "HANDOFF_PROMPT.md").write_text("| Tests | 200 tests. |\n", encoding="utf-8")
+        (root / "FINAL_REPORT.md").write_text("Duration: 1661.6s · 196 tests collected\n", encoding="utf-8")
+        tracked = tracked | {"HANDOFF_PROMPT.md", "FINAL_REPORT.md"}
+        stale = self.edit(file="HANDOFF_PROMPT.md", find="200 tests", replace="196 tests",
+                          evidence=[{"file": "FINAL_REPORT.md", "quote": "196 tests collected"}])
+        config = steward.load_config()
+        assert "FINAL_REPORT.md" in config["historical"]
+        verdict = steward.validate_edit(stale, config, tracked, self.reader(root))
+        assert not verdict.ok and "non-historical" in verdict.reason, verdict.reason
 
     def test_find_text_must_be_unique(self, steward, repo):
         root, tracked = repo

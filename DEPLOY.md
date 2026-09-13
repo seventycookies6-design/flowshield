@@ -83,10 +83,11 @@ licence over the internet — the closest thing to being a customer.
 ## What to expect from the free tier
 
 **It sleeps.** No traffic for 15 minutes and the instance spins down; the next
-request takes ~50 seconds to wake it. The desktop app's HTTP timeout is 20
-seconds, so the first activation after an idle period can fail and need a
-retry. Fixes, in order of cost: retry once on timeout (I can do this), a
-$7/month paid instance (never sleeps), or a cron ping every 10 minutes.
+request takes ~50 seconds to wake it. The desktop app's HTTP timeout is 35
+seconds and it retries up to twice on a timeout, so the first activation after
+an idle period usually succeeds, just slowly — a customer can wait about a
+minute. To remove the wait: a $7/month paid instance (never sleeps), or a cron
+ping every 10 minutes.
 
 **The disk is ephemeral.** `licenses.db` is wiped on every deploy. That is
 survivable by design — the server treats the database as a cache of Stripe and

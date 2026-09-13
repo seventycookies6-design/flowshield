@@ -96,8 +96,14 @@ class Verdict:
 
 
 def check_evidence(evidence, edited_file: str | None, tracked: set[str],
-                   read, min_chars: int) -> Verdict:
-    """Every quote must exist verbatim (whitespace-insensitive) in its file."""
+                   read, min_chars: int, historical: frozenset[str] = frozenset()) -> Verdict:
+    """
+    Every quote must exist verbatim (whitespace-insensitive) in its file, and an
+    edit needs at least one quote from another, non-historical file. A generated
+    snapshot such as FINAL_REPORT.md records a past run; its numbers aren't
+    evidence of the current state (a first live run "corrected" a test count
+    from 200 to the report's stale 196 when the real count was 227).
+    """
     if not isinstance(evidence, list) or not evidence:
         return Verdict(False, "no evidence cited")
     other_file = False
@@ -112,10 +118,10 @@ def check_evidence(evidence, edited_file: str | None, tracked: set[str],
             return Verdict(False, f"evidence quote from {path} is too short to verify")
         if quote not in normalize(read(path)):
             return Verdict(False, f"evidence quote not found in {path}: {quote[:80]!r}")
-        if path != edited_file:
+        if path != edited_file and path not in historical:
             other_file = True
     if edited_file is not None and not other_file:
-        return Verdict(False, "evidence must include at least one other file")
+        return Verdict(False, "evidence must include at least one other, non-historical file")
     return Verdict(True)
 
 
@@ -141,7 +147,8 @@ def validate_edit(edit, config: dict, tracked: set[str], read) -> Verdict:
     if count != 1:
         return Verdict(False, f"text to replace occurs {count} times in {path} (must be exactly once)")
     return check_evidence(edit.get("evidence"), path, tracked, read,
-                          limits["min_evidence_chars"])
+                          limits["min_evidence_chars"],
+                          frozenset(config.get("historical", [])))
 
 
 def validate_report(report, tracked: set[str], read, config: dict) -> Verdict:
@@ -215,6 +222,7 @@ Rules:
 - Keep each edit minimal and in the document's existing voice. Never invent facts; if unsure, report instead of editing.
 - Every edit and report must cite evidence: exact verbatim quotes (at least 12 characters, copied character for character) from the files that prove it. An edit must cite at least one file other than the one it edits.
 - "find" must be copied exactly from the target file and occur exactly once in it.
+- These files are point-in-time snapshots of a past run, not the current state; never use their numbers or statuses as evidence for an edit: {historical}. Current counts come from the code and tests themselves; if you can't establish a current number from them, report instead of editing.
 - If everything is consistent, return empty lists.
 
 Respond with a single JSON object and nothing else:
@@ -375,7 +383,8 @@ def main(argv: list[str] | None = None) -> int:
 
     context, _ = build_context(config, tracked_list, read, args.since)
     system = SYSTEM_PROMPT.format(editable=", ".join(config["editable"]),
-                                  report_only=", ".join(config["report_only"]))
+                                  report_only=", ".join(config["report_only"]),
+                                  historical=", ".join(config.get("historical", [])) or "(none)")
     try:
         data, model = ask_model(config, system, context)
     except RuntimeError as exc:
