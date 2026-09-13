@@ -8,7 +8,8 @@ from pathlib import Path
 
 # --------------------------------------------------------------------- paths
 
-PROJECT_ROOT = Path(os.environ.get("FLOWSHIELD_ROOT", r"C:\Users\xBlah\Downloads\NewApp"))
+# Derived from this file's location so a clone works wherever it lives.
+PROJECT_ROOT = Path(os.environ.get("FLOWSHIELD_ROOT", Path(__file__).resolve().parent.parent))
 
 SERVER_DIR = PROJECT_ROOT / "Server"
 WEBSITE_DIR = PROJECT_ROOT / "Website"

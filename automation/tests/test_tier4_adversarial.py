@@ -222,6 +222,7 @@ class TestConcurrency:
 
 # ======================================================== network failures
 
+@pytest.mark.ui
 class TestNetworkFailure:
     def test_the_app_reports_an_unreachable_server_instead_of_hanging(self, fresh_app):
         """Point the app at a dead port and confirm it fails loudly but safely."""
@@ -258,6 +259,7 @@ class TestNetworkFailure:
 
 # ========================================================= tampered storage
 
+@pytest.mark.ui
 class TestTamperedSettings:
     def test_a_corrupt_settings_file_does_not_brick_the_app(self, logger):
         """Garbage on disk should start a clean session, not crash."""
@@ -310,6 +312,7 @@ class TestTamperedSettings:
 
 # ============================================================== input edges
 
+@pytest.mark.ui
 class TestUIInputEdges:
     def test_an_empty_activation_is_refused(self, fresh_app):
         fresh_app.navigate_to_tab("Settings")
