@@ -5,6 +5,27 @@ FlowShield repo. It was written by walking the product the way a customer
 meets it (site → checkout → install → first run → daily use → paying → updates
 → leaving) and checking every promise against the code.
 
+## Progress
+
+Kept up to date as items land. Tracked on GitHub in issues #1–#6 (one per
+phase), with an issue per item as work starts.
+
+| Item | Status | Where |
+| --- | --- | --- |
+| 1.1 Align the site with the app | **Done** — site copy corrected, claims test in tier 5, follow-ups finished; live site republished 13 September 2026 | #8, #9, #10, #12 |
+| 1.2 Start with Windows starts in the tray | **In review** — changes requested: only installed copies may refresh the Run value | #13, #14 |
+| Everything else | Not started | #1–#6 |
+
+The audit table below is the state on 13 September 2026, before any fixes. For
+1.1, only the *site's claims* changed: the promises in A2–A6 are no longer
+advertised, and A31's momentum-and-streak wording now matches the app, but website blocking,
+custom lengths, analytics, export, the Soft overlay and a stricter Sealed mode
+are still unbuilt (items 2.3, 2.6, 3.5, 3.6, 1.7, 1.9).
+
+**Correction (13 September 2026):** an earlier version of item 1.2 said
+Velopack installs updates in versioned folders. It doesn't; installed copies
+run from a stable `current` folder. Item 1.2 below is corrected.
+
 ---
 
 You're working on **FlowShield**, a Windows focus timer and app blocker sold
@@ -122,9 +143,16 @@ The goal: nothing a customer reads or clicks is false or dead.
    marker (a documented list in the test, updated as features land).
 2. **Start with Windows starts in the tray** (A10). Handle `--tray` in
    `App.OnStartup`: create the view model and tray icon, don't show the window.
-   Re-write the Run value on every launch when enabled, so the path survives
-   Velopack updates. *Accept:* launching with `--tray` leaves no visible window,
-   and the tray icon is present.
+   While the setting is enabled, an **installed** copy re-writes the Run value on
+   launch, so a missing or stale entry is repaired. Velopack runs installed
+   copies from the stable `%LOCALAPPDATA%\FlowShield\current\FlowShield.exe`, so
+   updates don't move the executable — the refresh is a repair, not an update
+   requirement. A **dev build must never refresh the Run value on launch**: it
+   shares `%APPDATA%\FlowShield\settings.json` with any installed copy, so doing
+   so would point sign-in at `bin\Release\...`. (The explicit Settings toggle may
+   still register whichever build is running.) *Accept:* launching with `--tray`
+   leaves no visible window and the tray icon is present; launching a dev build
+   leaves an existing Run value untouched.
 3. **One instance only** (A11). A named mutex per user. A second launch hands
    its arguments (including `flowshield://` URLs) to the first over a named
    pipe, brings it to the front, and exits. *Accept:* two launches → one

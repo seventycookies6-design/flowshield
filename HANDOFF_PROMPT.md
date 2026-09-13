@@ -43,7 +43,7 @@ timer, and apps on your blocklist are dealt with until it ends.
 | Payments | Stripe | **Test mode only.** Account named FlowShield. |
 | Tests | `automation/`, pytest + pywinauto + Playwright, tiers 1–7 | 200 tests. See Phase 2 for the current baselines. |
 | Tools | `tools/` | `setup_stripe_store.js`, `publish_site.ps1`, `build_release.ps1`, `db_admin.js`, `fix_mojibake.py` |
-| Roadmap | `CUSTOMER_EXPERIENCE_PROMPT.md`, issues #1–#6 | A customer's-eye audit (31 problems) and six phases of fixes. None started yet. |
+| Roadmap | `CUSTOMER_EXPERIENCE_PROMPT.md`, issues #1–#6 | A customer's-eye audit (31 problems) and six phases of fixes, all assigned to milessmart6-pixel. 1.1 (site claims) is done and live; 1.2 (Start with Windows in the tray) is in review. The file's Progress table is the current status. |
 
 ### Installer, as a customer sees it
 
@@ -181,16 +181,16 @@ Then run the tests in this order and report the counts, with the reason for
 every skip:
 
 1. `python -m pytest automation/tests -m "not ui and not stripe" -q` — fast,
-   needs nothing external. **Baseline: 134 passed, 11 skipped.**
+   needs nothing external. **Baseline: 139 passed, 11 skipped.**
 2. `python -m pytest automation/tests -m "not ui" -q` — adds the Stripe tiers if
    the keys are present.
 3. `python -m pytest automation/tests -q` — the UI tiers drive the real desktop
    app. **Warn the person first: it takes over the mouse, keyboard and screen**
    for about six minutes, and closes any running FlowShield. Baselines: the last
    full run without Stripe keys was **164 passed, 32 skipped** (every skip was
-   Stripe), before 4 settings-backup tests were added — they pass in the fast
-   run, so expect 168 passed. With keys, the last full run was 195 passed,
-   1 skipped, on the old computer.
+   Stripe), before 9 more non-UI tests were added (settings backup and site
+   claims) — they pass in the fast run, so expect 173 passed. With keys, the last
+   full run was 195 passed, 1 skipped, on the old computer.
 
 If something fails here but passed before, look for a machine difference first:
 a stale `PATH`, a missing SDK, DPI or scaling, a screen resolution that clips
@@ -258,13 +258,13 @@ go-ahead.
 
 ### Still open: the product
 
-1. **The roadmap.** `CUSTOMER_EXPERIENCE_PROMPT.md` and issues #1–#6. Phase 1
-   matters most: the site promises features the app doesn't have (website
-   blocking, custom sprint lengths, analytics, journal export, a full-screen
-   Soft overlay), Sealed can be ended with one click, blocked apps are killed
-   with no warning, the journal can't be read back, "Start with Windows" opens
-   the full window, and the thank-you page's "Activate in FlowShield" button
-   does nothing.
+1. **The roadmap.** `CUSTOMER_EXPERIENCE_PROMPT.md` (see its Progress table)
+   and issues #1–#6, assigned to milessmart6-pixel. The site no longer
+   advertises unbuilt features (item 1.1, live since 13 September 2026), but the
+   rest of Phase 1 still matters most: Sealed can be ended with one click,
+   blocked apps are killed with no warning, the journal can't be read back,
+   "Start with Windows" opens the full window (fix in review, #14), and the
+   thank-you page's "Activate in FlowShield" button does nothing.
 2. **Email delivery.** The owner creates a Resend API key or a Gmail app-password
    SMTP URL and pastes it into Render → Environment (`RESEND_API_KEY` or
    `SMTP_URL`, plus `EMAIL_FROM`), then *Manual Deploy*. Confirm with `/health`
