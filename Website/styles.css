@@ -227,7 +227,7 @@ header.nav.scrolled { border-bottom-color: var(--edge); }
   display: flex; flex-direction: column; align-items: center; justify-content: center;
 }
 .ring-time { font-size: 2.5rem; font-weight: 660; letter-spacing: -0.035em; font-variant-numeric: tabular-nums; }
-.ring-label { font-size: 0.73rem; text-transform: uppercase; letter-spacing: 0.15em; color: var(--ink-faint); }
+.ring-label { font-size: 0.64rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-faint); }
 
 .shield-chip {
   display: inline-flex; align-items: center; gap: 8px;
@@ -238,24 +238,26 @@ header.nav.scrolled { border-bottom-color: var(--edge); }
   font-size: 0.82rem; font-weight: 600;
 }
 
-.mock-rows { display: flex; flex-direction: column; gap: 9px; margin-top: 6px; }
-.mock-row {
-  display: flex; align-items: center; gap: 12px;
-  padding: 11px 14px;
+.mock-stats { display: grid; grid-template-columns: 0.9fr 1.1fr; gap: 9px; margin-top: 6px; }
+.mock-stat {
+  padding: 14px;
   border-radius: 11px;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid var(--edge);
   font-size: 0.89rem;
 }
-.mock-row .ic {
-  width: 28px; height: 28px; border-radius: 8px; flex: none;
-  display: grid; place-items: center;
-  font-size: 0.78rem; font-weight: 700;
-  background: var(--glass-strong);
+.mock-stat > span {
+  display: block; margin-bottom: 8px;
+  color: var(--ink-faint); font-size: 0.66rem; font-weight: 700;
+  letter-spacing: 0.13em;
 }
-.mock-row .st { margin-left: auto; font-size: 0.76rem; font-weight: 600; }
-.st.blocked { color: var(--rose); }
-.st.sealed  { color: var(--violet-bright); }
+.mock-stat b { display: block; font-size: 2rem; line-height: 1.1; }
+.mock-stat b small { color: var(--ink-faint); font-size: 0.7rem; font-weight: 500; }
+.mock-stat em { color: var(--violet-bright); font-size: 0.78rem; font-style: normal; }
+.mock-stat dl { margin: 0; }
+.mock-stat dl div { display: flex; justify-content: space-between; gap: 10px; padding: 4px 0; }
+.mock-stat dt { color: var(--ink-dim); }
+.mock-stat dd { margin: 0; color: var(--ink); font-weight: 650; }
 
 /* ------------------------------------------------------------------ features */
 

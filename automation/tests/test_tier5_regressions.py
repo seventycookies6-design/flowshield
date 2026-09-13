@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import time
 from pathlib import Path
@@ -22,6 +23,70 @@ from core import state_verifier as verify
 
 NODE = r"C:\Program Files\nodejs\node.exe"
 NODE_EXE = NODE if Path(NODE).exists() else "node"
+
+
+# ====================== the site only sells implemented features
+
+class TestWebsiteClaimsMatchTheApp:
+    """Every checked pricing claim names code that implements it.
+
+    Add a marker here when a new advertised feature ships. Keeping the registry
+    beside the regression test makes changing marketing copy a deliberate,
+    reviewable decision instead of an unchecked promise.
+    """
+
+    FEATURE_MARKERS = {
+        "free-app-limit": (("Models/AppSettings.cs", "FreeBlockedAppLimit = 3"),),
+        "soft-firm-shields": (("ViewModels/TodayViewModel.cs", "ShieldLevel.Soft, ShieldLevel.Firm"),),
+        "free-sprint-lengths": (("ViewModels/TodayViewModel.cs", "{ 15, 25, 45, 60, 90 }"),),
+        "momentum-and-streak": (
+            ("Views/TodayView.xaml", 'AutomationProperties.AutomationId="MomentumValue"'),
+            ("Views/TodayView.xaml", 'AutomationProperties.AutomationId="StreakText"'),
+        ),
+        "unlimited-blocked-apps": (("Models/AppSettings.cs", "IsPro ? int.MaxValue"),),
+        "sealed-shield": (("ViewModels/TodayViewModel.cs", "ShieldLevel.Sealed && !_main.IsPro"),),
+        "extended-sprint-lengths": (("ViewModels/TodayViewModel.cs", "{ 15, 25, 45, 60, 90 }"),),
+        "sleep-blocking": (("MainWindow.xaml", 'AutomationProperties.AutomationId="Tab_SleepBlocking"'),),
+        "hard-kill-mode": (("Services/AppBlockerService.cs", "settings.HardKillModeEnabled"),),
+    }
+
+    def test_every_checked_pricing_feature_has_an_implementation_marker(self):
+        site = (Path(SERVER_DIR).parent / "Website" / "index.html").read_text(
+            encoding="utf-8")
+        pricing = site.split('<section id="pricing">', 1)[1].split("</section>", 1)[0]
+
+        plans = re.findall(r'<ul data-plan="(free|pro)">(.*?)</ul>', pricing, re.S)
+        assert {name for name, _ in plans} == {"free", "pro"}
+
+        advertised = []
+        for plan, feature_list in plans:
+            features = re.findall(
+                r'<li class="on" data-feature="([a-z0-9-]+)">', feature_list)
+            assert features, f"{plan} has no documented feature claims"
+            advertised.extend(features)
+
+        undocumented = sorted(set(advertised) - self.FEATURE_MARKERS.keys())
+        assert not undocumented, (
+            "pricing claims have no implementation markers: " + ", ".join(undocumented)
+        )
+
+        for feature in advertised:
+            for relative_path, marker in self.FEATURE_MARKERS[feature]:
+                source = (Path(DESKTOP_DIR) / relative_path).read_text(encoding="utf-8")
+                assert marker in source, (
+                    f"{feature!r} is advertised, but {relative_path} has no "
+                    f"implementation marker {marker!r}"
+                )
+
+    def test_unshipped_claims_are_not_on_the_site(self):
+        site = (Path(SERVER_DIR).parent / "Website" / "index.html").read_text(
+            encoding="utf-8").lower()
+        for claim in (
+            "youtube.com", "custom sprint lengths", "momentum analytics",
+            "journal export", "full-screen reminder", "can't unlock it early",
+            "escape hatch is gone", "no three-second grace window",
+        ):
+            assert claim not in site, f"the site still claims unshipped behaviour: {claim}"
 
 
 # ============================ payment-link purchases get a licence key
