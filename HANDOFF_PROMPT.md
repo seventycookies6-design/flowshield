@@ -83,8 +83,14 @@ at the live licence server.
 1. Every piece of work has a GitHub issue. Claim it (assign yourself) first.
 2. Branch from the latest `main` — a worktree per task if you run several —
    keep it small, rebase and run the fast tests before pushing.
-3. Open a pull request that closes the issue, fill in the template, and
-   **squash-merge**. Nobody pushes straight to `main`.
+3. Open a pull request that closes the issue and fill in the template. Nobody
+   pushes straight to `main`.
+   - **Only the owner's Claude Code session merges** (after reviewing, with
+     *Squash and merge*). Miles's Codex agent — and any other agent — never
+     merges unless a human directly asks for that specific merge in its own
+     conversation. See "Who merges" in `CLAUDE.md`; Codex gets the same rule
+     from `AGENTS.md`.
+   - `.github/CODEOWNERS` requests the owner's review on every pull request.
 4. One person at a time on things branches don't isolate: Render deploys, the
    `gh-pages` site, GitHub Releases, and the Stripe test account. Say so on the
    issue first.
@@ -234,20 +240,20 @@ go-ahead.
 
 ### Still open: collaboration setup
 
-1. **Protect `main`** (not yet done — a previous session's permission check
-   blocked the settings change). Owner only, in GitHub *Settings*: squash
-   merging only with "pull request title and commit details", auto-merge on,
-   update-branch suggestions on, head branches deleted automatically; a ruleset
-   on `main` requiring a pull request (0 approvals), linear history,
-   conversation resolution, no force pushes, no deletions, no bypass.
+1. **`main` is protected** (done 13 September 2026): pull requests required
+   (0 approvals), linear history, no force pushes or deletions, applied to
+   admins too; squash merging only, head branches deleted after merge. Check
+   with `gh api repos/seventycookies6-design/flowshield/branches/main/protection`.
+   Miles has full collaborator access on purpose; the merge rule is followed by
+   instruction, not enforced by GitHub.
 2. **CI workflow.** A workflow that builds the app and runs the fast tests on
    Windows for every pull request was written but not pushed, because the
    owner's `gh` token lacks the `workflow` scope. Once the owner runs
    `gh auth refresh -s workflow`, add `.github/workflows/ci.yml` (job name
    `test`) through a pull request, confirm it passes, then make `test` a
    required check on `main`.
-3. **Teammate access.** milessmart6-pixel was invited with write access; they
-   accept from the email or the repo's invitations page. The owner shares
+3. **Teammate access.** milessmart6-pixel accepted the invitation and is
+   working in the repo (item 1.1 is pull request #9). The owner shares
    `.stripe_keys.json` with them privately.
 
 ### Still open: the product
