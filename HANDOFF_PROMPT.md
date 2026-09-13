@@ -42,7 +42,7 @@ timer, and apps on your blocklist are dealt with until it ends.
 | Licence server | `Server/`, Node 24 + Express + SQLite | Live at https://flowshield-license-server.onrender.com (Render free plan, Docker, `render.yaml`). Sleeps when idle; first request takes ~50 s. |
 | Website | `Website/`, static | Live at https://seventycookies6-design.github.io/flowshield/ from the `gh-pages` branch. Checkout goes through the licence server. |
 | Payments | Stripe | **Test mode only.** Account named FlowShield. |
-| Tests | `automation/`, pytest + pywinauto + Playwright, tiers 1–7 | 200 tests. See Phase 2 for the current baselines. |
+| Tests | `automation/`, pytest + pywinauto + Playwright, tiers 1–7 | 228 tests. See Phase 2 for the current baselines. |
 | Tools | `tools/` | `setup_stripe_store.js`, `publish_site.ps1`, `build_release.ps1`, `db_admin.js`, `fix_mojibake.py`, and `doc_steward/` (keeps the docs consistent with the code; see "Doc steward" in `CLAUDE.md`) |
 | Roadmap | `CUSTOMER_EXPERIENCE_PROMPT.md`, issues #1–#6 | A customer's-eye audit (31 problems) and six phases of fixes, all assigned to milessmart6-pixel. 1.1 (site claims) is done and live; 1.2 (Start with Windows in the tray) is in review. The file's Progress table is the current status. |
 
@@ -182,16 +182,16 @@ Then run the tests in this order and report the counts, with the reason for
 every skip:
 
 1. `python -m pytest automation/tests -m "not ui and not stripe" -q` — fast,
-   needs nothing external. **Baseline: 161 passed, 11 skipped.**
+   needs nothing external. **Baseline: 162 passed, 11 skipped.**
 2. `python -m pytest automation/tests -m "not ui" -q` — adds the Stripe tiers if
    the keys are present.
 3. `python -m pytest automation/tests -q` — the UI tiers drive the real desktop
    app. **Warn the person first: it takes over the mouse, keyboard and screen**
    for about six minutes, and closes any running FlowShield. Baselines: the last
    full run without Stripe keys was **164 passed, 32 skipped** (every skip was
-   Stripe), before 31 more non-UI tests were added (settings backup, site
+   Stripe), before 32 more non-UI tests were added (settings backup, site
    claims, doc wording and the doc steward) — they pass in the fast run, so
-   expect 195 passed. With keys, the last full run was 195 passed, 1 skipped,
+   expect 196 passed. With keys, the last full run was 195 passed, 1 skipped,
    on the old computer.
 
 If something fails here but passed before, look for a machine difference first:

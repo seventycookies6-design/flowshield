@@ -20,6 +20,10 @@
     ".github/pull_request_template.md"
   ],
 
+  "historical": [
+    "FINAL_REPORT.md"
+  ],
+
   "code": [
     "DesktopApp/**/*.cs",
     "DesktopApp/**/*.xaml",
