@@ -997,3 +997,62 @@ class TestNoOneClickEscape:
         while time.time() < deadline and psutil.pid_exists(fresh_app.pid):
             time.sleep(0.4)
         assert not psutil.pid_exists(fresh_app.pid), "FlowShield didn't quit after the sprint ended"
+
+
+# ============ opening FlowShield twice ran two copies (roadmap 1.3, #49)
+
+class TestOneInstanceOnly:
+    """
+    A second launch started a second blocker writing to the same settings file,
+    so each copy could overwrite the other's sprint records.
+    """
+
+    @staticmethod
+    def program() -> str:
+        return (Path(DESKTOP_DIR) / "Program.cs").read_text(encoding="utf-8")
+
+    def test_the_lock_is_taken_before_the_app_starts(self):
+        main = self.program()
+        assert main.index("VelopackApp.Build().Run()") < main.index("SingleInstance.TryAcquire()"), \
+            "Velopack's install and update runs must never be turned away"
+        assert main.index("SingleInstance.TryAcquire()") < main.index("new App"), \
+            "a second copy must exit before settings load or the blocker starts"
+        acquire = main.split("SingleInstance.TryAcquire()")[1].split("new App")[0]
+        assert "return;" in acquire
+
+    def test_the_lock_is_per_user_and_survives_a_crash(self):
+        single = (Path(DESKTOP_DIR) / "Services" / "SingleInstance.cs").read_text(encoding="utf-8")
+        assert "Environment.UserName" in single
+        assert "catch (AbandonedMutexException) { owned = true; }" in single, \
+            "a copy killed from Task Manager would stop FlowShield ever opening again"
+
+    @pytest.mark.ui
+    def test_a_second_launch_mid_sprint_changes_nothing(self, fresh_app):
+        import subprocess
+
+        import psutil
+
+        from config import APP_EXE
+
+        fresh_app.navigate_to_tab("Today")
+        fresh_app.select_shield("Sealed")
+        time.sleep(0.4)
+        fresh_app.start_sprint()
+        time.sleep(1.5)
+        before = verify.read_settings()
+        assert before.get("ActiveSprint")
+
+        # --reset is what would wipe a sprint if the second copy got that far.
+        subprocess.run([str(APP_EXE), "--reset"], cwd=str(Path(APP_EXE).parent), timeout=30)
+        time.sleep(1.5)
+
+        names = [p.pid for p in psutil.process_iter(["name"])
+                 if (p.info["name"] or "").lower() == "flowshield.exe"]
+        assert names == [fresh_app.pid], "a second FlowShield kept running"
+        after = verify.read_settings()
+        # LastSeenUtc moves with the heartbeat, so compare what defines the sprint.
+        assert after.get("ActiveSprint") and all(
+            after["ActiveSprint"][k] == before["ActiveSprint"][k]
+            for k in ("StartedUtc", "PlannedMinutes", "Shield")
+        ), "the second launch touched the sprint"
+        assert fresh_app.exists("StopSprintButton", timeout=3), "the sprint stopped"

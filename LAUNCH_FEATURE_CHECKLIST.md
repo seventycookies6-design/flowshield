@@ -102,7 +102,7 @@ roadmap item below has exactly one owner. Tracking issues: #37 (Keenan) and
 | F23 | Privacy promise: in-app "Your data" and the claims test (Roadmap 4.5); Miles writes the website section | S |
 | F25 | Code signing in the release script (after the certificate is bought) | M |
 | Design §14 | `design/tokens.json`, the XAML and CSS generator, and the parity test | M |
-| Roadmap 1.3 | One instance only | S |
+| Roadmap 1.3 | One instance only (done, #49) | S |
 | Roadmap 1.4 | Register `flowshield://` | S |
 | Roadmap 1.5 | Uninstall cleans up | S |
 | Roadmap 4.1 | Updates that just happen | M |

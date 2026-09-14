@@ -11,6 +11,9 @@ public partial class App : Application
 
     public MainViewModel? ViewModel { get; private set; }
 
+    /// <summary>The single-instance lock taken in Program.Main; null only if run another way.</summary>
+    public SingleInstance? Instance { get; init; }
+
     protected override void OnStartup(StartupEventArgs e)
     {
         // Velopack's bootstrap runs in Program.Main, before this point — the
@@ -76,6 +79,13 @@ public partial class App : Application
         var window = new MainWindow { DataContext = ViewModel };
         MainWindow = window;
         window.Show();
+
+        // A later launch brings this copy forward instead of starting another.
+        Instance?.Listen(launchArgs =>
+        {
+            Log.Info($"second launch handed over (args: {string.Join(' ', launchArgs)})");
+            Dispatcher.BeginInvoke(() => window.BringToFront());
+        });
 
         // Re-confirm an existing license in the background; never blocks the UI.
         _ = licenseService.RefreshAsync(ViewModel.Settings).ContinueWith(_ =>

@@ -15,6 +15,7 @@ phase), with an issue per item as work starts.
 | --- | --- | --- |
 | 1.1 Align the site with the app | **Done** — site copy corrected, claims test in tier 5, follow-ups finished; live site republished 13 September 2026 | #8, #9, #10, #12 |
 | 1.2 Start with Windows starts in the tray | **In review** — changes requested: only installed copies may refresh the Run value | #13, #14 |
+| 1.3 One instance only | **Done**: a second launch brings the running copy forward (argument handover ready for 1.4) | #49 |
 | 1.9 Sealed means sealed, with an honest escape hatch | **Done** as launch checklist F2 | #47 |
 | 1.10 Sprints survive restarts | **Done** as launch checklist F3 | #43 |
 | Everything else | Not started | #1–#6 |
