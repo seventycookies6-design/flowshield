@@ -432,3 +432,39 @@ class TestEndingASprint:
         assert fresh_app.exists("StopSprintButton", timeout=2), "the sprint stopped after Keep going"
         settings = verify.read_settings()
         assert settings["Sessions"] == [] and settings.get("ActiveSprint")
+
+
+# ======================================================= one instance (1.3)
+
+def launch_again(*extra: str) -> int:
+    """Start a second FlowShield without closing the first; returns its exit code."""
+    import subprocess
+    from pathlib import Path
+
+    from config import APP_EXE
+
+    proc = subprocess.run([str(APP_EXE), *extra], cwd=str(Path(APP_EXE).parent), timeout=30)
+    return proc.returncode
+
+
+def flowshield_pids() -> list[int]:
+    import psutil
+
+    return [p.pid for p in psutil.process_iter(["name"])
+            if (p.info["name"] or "").lower() == "flowshield.exe"]
+
+
+class TestOneInstance:
+    def test_opening_it_again_brings_back_the_running_copy(self, fresh_app):
+        import win32gui
+
+        hwnd = fresh_app.window.handle             # UIA can't find a hidden window later
+        fresh_app.window.close()                   # minimise-to-tray is on by default
+        time.sleep(1.0)
+        assert not win32gui.IsWindowVisible(hwnd), "closing didn't hide to the tray"
+
+        launch_again()
+        time.sleep(1.5)
+
+        assert flowshield_pids() == [fresh_app.pid], "a second FlowShield kept running"
+        assert win32gui.IsWindowVisible(hwnd), "the running copy wasn't brought back"

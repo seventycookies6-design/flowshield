@@ -119,6 +119,20 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// Shows this window on top when FlowShield is opened again (roadmap 1.3).
+    /// Leaves the page and any running sprint or end panel exactly as they are.
+    /// </summary>
+    public void BringToFront()
+    {
+        RestoreFromTray();
+        // Windows won't hand focus to a background process on request; a brief
+        // Topmost flip reliably puts the window in front anyway.
+        Topmost = true;
+        Topmost = false;
+        Focus();
+    }
+
     private void RestoreFromTray()
     {
         Show();
