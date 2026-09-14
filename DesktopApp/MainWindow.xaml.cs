@@ -15,6 +15,9 @@ public partial class MainWindow : Window
     private Forms.NotifyIcon? _tray;
     private bool _reallyClosing;
 
+    /// <summary>Quit was asked for during a Firm or Sealed sprint; quit once that sprint ends (F2).</summary>
+    private bool _quitWhenSprintEnds;
+
     [DllImport("dwmapi.dll", PreserveSig = true)]
     private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int value, int size);
 
@@ -57,11 +60,7 @@ public partial class MainWindow : Window
             var menu = new Forms.ContextMenuStrip();
             menu.Items.Add("Open FlowShield", null, (_, _) => RestoreFromTray());
             menu.Items.Add(new Forms.ToolStripSeparator());
-            menu.Items.Add("Quit", null, (_, _) =>
-            {
-                _reallyClosing = true;
-                Close();
-            });
+            menu.Items.Add("Quit", null, (_, _) => Quit());
 
             _tray.ContextMenuStrip = menu;
             _tray.DoubleClick += (_, _) => RestoreFromTray();
@@ -69,6 +68,54 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             Log.Error("tray icon setup failed", ex);
+        }
+    }
+
+    /// <summary>
+    /// Really exit. During a Firm or Sealed sprint (past its grace period) the
+    /// window opens on that sprint's end flow instead, and FlowShield quits
+    /// only once the sprint has actually ended; otherwise Quit would be a
+    /// one-click way around the countdown and phrase.
+    /// </summary>
+    private void Quit()
+    {
+        if (Vm is { } vm && NeedsEndFlowToQuit(vm))
+        {
+            RestoreFromTray();
+            vm.CurrentPage = AppPage.Today;
+            if (!vm.Today.RequestEnd())
+            {
+                _quitWhenSprintEnds = true;
+                vm.Toast("End the sprint to quit FlowShield.");
+                Log.Info("quit deferred until the running sprint ends");
+                return;
+            }
+        }
+
+        _reallyClosing = true;
+        Close();
+    }
+
+    private static bool NeedsEndFlowToQuit(MainViewModel vm) =>
+        vm.Today.IsRunning && vm.Blocker.ActiveShield >= Models.ShieldLevel.Firm;
+
+    private void OnTodayChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (_quitWhenSprintEnds && e.PropertyName == nameof(TodayViewModel.IsRunning) && Vm?.Today.IsRunning == false)
+        {
+            _quitWhenSprintEnds = false;
+            _reallyClosing = true;
+            Close();
+        }
+    }
+
+    protected override void OnContentRendered(EventArgs e)
+    {
+        base.OnContentRendered(e);
+        if (Vm is { } vm)
+        {
+            vm.Today.PropertyChanged += OnTodayChanged;
+            vm.Today.EndAbandoned += (_, _) => _quitWhenSprintEnds = false;
         }
     }
 
@@ -91,6 +138,16 @@ public partial class MainWindow : Window
             _tray.ShowBalloonTip(2500, "FlowShield", "Still guarding. Double-click to reopen.",
                 Forms.ToolTipIcon.Info);
             Log.Info("minimised to tray on close");
+            return;
+        }
+
+        // Closing for real (minimise-to-tray is off) goes through the same
+        // end flow as the tray's Quit.
+        if (!_reallyClosing && Vm is { } vm && NeedsEndFlowToQuit(vm))
+        {
+            e.Cancel = true;
+            // Close() can't be called again from inside Closing, so run after it.
+            Dispatcher.BeginInvoke(Quit);
             return;
         }
 

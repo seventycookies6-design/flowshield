@@ -343,3 +343,92 @@ class TestPurchaseUnlocksAnExpiredTrial:
         expired_app.navigate_to_tab("Settings")
         assert "licence active" in expired_app.get_license_status_text().lower()
         assert expired_app.tier_badge().upper() == "PURCHASED"
+
+
+
+# ====================================== ending a sprint by shield level (F2)
+
+class TestEndingASprint:
+    """
+    The app is launched with --short-timers: a 3 s grace period, 2 s for Firm's
+    confirmation and 3 s for Sealed's countdown. Every step still has to happen.
+    """
+
+    def _start(self, app, shield):
+        app.navigate_to_tab("Today")
+        app.select_shield(shield)
+        time.sleep(0.4)
+        app.start_sprint()
+        time.sleep(0.6)
+
+    def test_cancelling_in_the_grace_period_leaves_no_record(self, fresh_app):
+        self._start(fresh_app, "Sealed")
+        assert "cancel" in fresh_app.end_button_label().lower()
+        fresh_app.cancel_sprint()
+        time.sleep(1.0)
+
+        assert "cancelled" in fresh_app.session_state().lower()
+        settings = verify.read_settings()
+        assert settings["Sessions"] == [], "a cancelled sprint was recorded"
+        assert settings.get("ActiveSprint") is None
+        assert settings["MomentumScore"] == 0
+
+    def test_soft_ends_straight_away(self, fresh_app):
+        self._start(fresh_app, "Soft")
+        fresh_app.wait_out_grace_period()
+        assert fresh_app.end_button_label() == "End sprint"
+        fresh_app.click("StopSprintButton")
+        time.sleep(1.0)
+        assert "early" in fresh_app.session_state().lower()
+        assert not fresh_app.exists("KeepGoingButton", timeout=1)
+
+    def test_firm_needs_a_confirmation_that_waits(self, fresh_app):
+        self._start(fresh_app, "Firm")
+        fresh_app.wait_out_grace_period()
+        fresh_app.click("StopSprintButton")
+
+        assert fresh_app.exists("KeepGoingButton", timeout=3), "Firm ended without a confirmation"
+        assert fresh_app.is_control_enabled("EndAnywayButton") is False, "End anyway was ready immediately"
+        time.sleep(2.8)
+        assert fresh_app.is_control_enabled("EndAnywayButton") is True
+        fresh_app.click("EndAnywayButton")
+        time.sleep(1.0)
+        assert "early" in fresh_app.session_state().lower()
+
+    def test_sealed_needs_the_countdown_and_the_phrase(self, fresh_app):
+        self._start(fresh_app, "Sealed")
+        fresh_app.wait_out_grace_period()
+        assert "need to stop" in fresh_app.end_button_label().lower()
+        fresh_app.click("StopSprintButton")
+        assert fresh_app.exists("EndPhraseInput", timeout=3), "Sealed didn't ask for the phrase"
+
+        fresh_app.set_text("EndPhraseInput", "end my sprint")
+        time.sleep(0.5)
+        assert fresh_app.is_control_enabled("EndAnywayButton") is False, \
+            "the phrase ended a Sealed sprint before its countdown"
+
+        time.sleep(3.5)
+        fresh_app.set_text("EndPhraseInput", "end sprint")
+        time.sleep(0.5)
+        assert fresh_app.is_control_enabled("EndAnywayButton") is False, "the wrong phrase was accepted"
+
+        fresh_app.set_text("EndPhraseInput", "end my sprint")
+        time.sleep(0.6)
+        assert fresh_app.is_control_enabled("EndAnywayButton") is True
+        fresh_app.click("EndAnywayButton")
+        time.sleep(1.0)
+
+        session = verify.read_settings()["Sessions"][-1]
+        assert session["Completed"] is False and session["Shield"] in (3, "Sealed")
+
+    def test_keep_going_backs_out_at_no_cost(self, fresh_app):
+        self._start(fresh_app, "Firm")
+        fresh_app.wait_out_grace_period()
+        fresh_app.click("StopSprintButton")
+        assert fresh_app.exists("KeepGoingButton", timeout=3)
+        fresh_app.click("KeepGoingButton")
+        time.sleep(0.8)
+
+        assert fresh_app.exists("StopSprintButton", timeout=2), "the sprint stopped after Keep going"
+        settings = verify.read_settings()
+        assert settings["Sessions"] == [] and settings.get("ActiveSprint")

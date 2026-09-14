@@ -77,6 +77,10 @@ public class FocusSession
     /// </summary>
     public bool Interrupted { get; set; }
 
+    /// <summary>Ended by the user before its time was up (after the grace period).</summary>
+    [JsonIgnore]
+    public bool EndedEarly => EndedUtc.HasValue && !Completed && !Interrupted;
+
     [JsonIgnore]
     public double ActualMinutes =>
         EndedUtc.HasValue ? Math.Round((EndedUtc.Value - StartedUtc).TotalMinutes, 1) : 0;

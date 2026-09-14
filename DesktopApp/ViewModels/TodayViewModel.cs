@@ -30,7 +30,9 @@ public class TodayViewModel : ViewModelBase
         _tick.Tick += (_, _) => OnTick();
 
         StartCommand = new RelayCommand(StartSprint, () => !IsRunning);
-        StopCommand = new RelayCommand(() => EndSprint(completed: false), () => IsRunning);
+        StopCommand = new RelayCommand(() => RequestEnd(), () => IsRunning);
+        KeepGoingCommand = new RelayCommand(() => CloseEndPanel(keepGoing: true));
+        EndAnywayCommand = new RelayCommand(EndAnyway);
         SaveJournalCommand = new RelayCommand(SaveJournal, () => JournalPromptVisible);
 
         RefreshStats();
@@ -39,8 +41,172 @@ public class TodayViewModel : ViewModelBase
     private AppSettings S => _main.Settings;
 
     public RelayCommand StartCommand { get; }
+
+    /// <summary>The end button: cancels, ends, or opens the end panel, depending on the shield (F2).</summary>
     public RelayCommand StopCommand { get; }
+
+    public RelayCommand KeepGoingCommand { get; }
+    public RelayCommand EndAnywayCommand { get; }
     public RelayCommand SaveJournalCommand { get; }
+
+    // ------------------------------------------------------ ending a sprint (F2)
+
+    /// <summary>Raised when an end panel opened by <see cref="RequestEnd"/> closes without ending.</summary>
+    public event EventHandler? EndAbandoned;
+
+    private DateTime _endUnlocksUtc;
+    private EndFlow _endFlow;
+
+    private bool _endPanelVisible;
+    public bool EndPanelVisible
+    {
+        get => _endPanelVisible;
+        private set
+        {
+            if (!Set(ref _endPanelVisible, value)) return;
+            Raise(nameof(EndButtonVisible));
+        }
+    }
+
+    public bool EndButtonVisible => IsRunning && !EndPanelVisible;
+
+    private string _endPanelTitle = "";
+    public string EndPanelTitle { get => _endPanelTitle; private set => Set(ref _endPanelTitle, value); }
+
+    private string _endPanelText = "";
+    public string EndPanelText { get => _endPanelText; private set => Set(ref _endPanelText, value); }
+
+    private string _endCountdownText = "";
+    public string EndCountdownText { get => _endCountdownText; private set => Set(ref _endCountdownText, value); }
+
+    private bool _endAnywayEnabled;
+    public bool EndAnywayEnabled { get => _endAnywayEnabled; private set => Set(ref _endAnywayEnabled, value); }
+
+    public bool PhraseRequired => _endFlow == EndFlow.Sealed;
+
+    public string SealedPhrase => EndSprintPolicy.SealedPhrase;
+
+    private string _phraseText = "";
+    public string PhraseText
+    {
+        get => _phraseText;
+        set { if (Set(ref _phraseText, value)) UpdateEndPanel(); }
+    }
+
+    private TimeSpan Elapsed => _current is null ? TimeSpan.Zero : DateTime.UtcNow - _current.StartedUtc;
+
+    /// <summary>The end button's label, which changes as the grace period runs out.</summary>
+    public string EndButtonLabel => !IsRunning || _current is null
+        ? "End sprint"
+        : EndSprintPolicy.FlowFor(_current.Shield, Elapsed) switch
+        {
+            EndFlow.Cancel => "Cancel sprint",
+            EndFlow.Immediate => "End sprint",
+            EndFlow.Confirm => "End sprint…",
+            _ => "I need to stop",
+        };
+
+    /// <summary>
+    /// Start ending the running sprint the way its shield allows. Also used by
+    /// the tray's Quit and by closing the window, so neither bypasses the flow.
+    /// Returns true if the sprint ended straight away.
+    /// </summary>
+    public bool RequestEnd()
+    {
+        if (!IsRunning || _current is null) return true;
+        if (EndPanelVisible) return false;
+
+        _endFlow = EndSprintPolicy.FlowFor(_current.Shield, Elapsed);
+        switch (_endFlow)
+        {
+            case EndFlow.Cancel:
+                CancelSprint();
+                return true;
+
+            case EndFlow.Immediate:
+                EndSprint(completed: false);
+                return true;
+
+            default:
+                _endUnlocksUtc = DateTime.UtcNow + EndSprintPolicy.DelayFor(_endFlow);
+                _phraseText = "";
+                Raise(nameof(PhraseText));
+                Raise(nameof(PhraseRequired));
+
+                var left = (int)Math.Ceiling((_endsAtUtc - DateTime.UtcNow).TotalMinutes);
+                var after = EndSprintPolicy.MomentumAfterEndingEarly(S.MomentumScore, _current.Shield);
+                EndPanelTitle = _endFlow == EndFlow.Sealed ? "This sprint is sealed" : "End this sprint early?";
+                EndPanelText =
+                    $"{left} minute{(left == 1 ? "" : "s")} left. Ending now counts as ended early: " +
+                    $"momentum {S.MomentumScore:0} → {after:0}." +
+                    (_endFlow == EndFlow.Sealed
+                        ? $" If you really need to stop, wait for the countdown, then type \"{EndSprintPolicy.SealedPhrase}\"."
+                        : "");
+                EndPanelVisible = true;
+                UpdateEndPanel();
+                Log.Info($"end requested: {_endFlow} flow at shield {_current.Shield}");
+                return false;
+        }
+    }
+
+    private void UpdateEndPanel()
+    {
+        if (!EndPanelVisible) return;
+
+        var wait = _endUnlocksUtc - DateTime.UtcNow;
+        var waited = wait <= TimeSpan.Zero;
+        EndCountdownText = waited
+            ? (PhraseRequired && !EndSprintPolicy.PhraseMatches(PhraseText) ? "Type the phrase to confirm." : "")
+            : $"You can end it in {(int)Math.Ceiling(wait.TotalSeconds)} s.";
+        EndAnywayEnabled = waited && (!PhraseRequired || EndSprintPolicy.PhraseMatches(PhraseText));
+    }
+
+    private void EndAnyway()
+    {
+        // Re-checked here, not only through the button's enabled state, so no
+        // route (keyboard, automation) can end a sprint before the wait is over.
+        UpdateEndPanel();
+        if (!EndPanelVisible || !EndAnywayEnabled) return;
+        CloseEndPanel(keepGoing: false);
+        EndSprint(completed: false);
+    }
+
+    private void CloseEndPanel(bool keepGoing)
+    {
+        if (!EndPanelVisible) return;
+        EndPanelVisible = false;
+        EndAnywayEnabled = false;
+        _phraseText = "";
+        Raise(nameof(PhraseText));
+        if (keepGoing)
+        {
+            Log.Info("end cancelled: kept going");
+            EndAbandoned?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
+    /// <summary>Inside the grace period: stop with no penalty and leave no record.</summary>
+    private void CancelSprint()
+    {
+        if (!IsRunning) return;
+
+        _tick.Stop();
+        IsRunning = false;
+        _current = null;
+        _main.Blocker.StopEnforcing();
+
+        S.ActiveSprint = null;
+        _main.SaveSettings();
+
+        SessionStateText = "Sprint cancelled";
+        JournalPromptVisible = false;
+        Progress = 0;
+        UpdateIdleDisplay();
+        RefreshStats();
+        _main.OnSprintStateChanged();
+        Raise(nameof(EndButtonVisible));
+        Log.Info("sprint cancelled within the grace period");
+    }
 
     // ---------------------------------------------------------------- timer
 
@@ -55,6 +221,8 @@ public class TodayViewModel : ViewModelBase
             Raise(nameof(PrimaryActionLabel));
             Raise(nameof(SessionStateText));
             Raise(nameof(SealedRestartHintVisible));
+            Raise(nameof(EndButtonVisible));
+            Raise(nameof(EndButtonLabel));
         }
     }
 
@@ -144,7 +312,7 @@ public class TodayViewModel : ViewModelBase
 
     public void TogglePrimary()
     {
-        if (IsRunning) EndSprint(completed: false);
+        if (IsRunning) RequestEnd();
         else StartSprint();
     }
 
@@ -286,6 +454,9 @@ public class TodayViewModel : ViewModelBase
             return;
         }
 
+        Raise(nameof(EndButtonLabel));
+        UpdateEndPanel();
+
         if (S.ActiveSprint is not null && now - _lastHeartbeatUtc >= HeartbeatInterval)
         {
             _lastHeartbeatUtc = now;
@@ -306,6 +477,7 @@ public class TodayViewModel : ViewModelBase
         if (!IsRunning || _current is null) return;
 
         _tick.Stop();
+        CloseEndPanel(keepGoing: false);
         IsRunning = false;
 
         _current.EndedUtc = DateTime.UtcNow;
@@ -359,7 +531,7 @@ public class TodayViewModel : ViewModelBase
         }
         else
         {
-            S.MomentumScore = Math.Round(Math.Max(0, S.MomentumScore * 0.85 - 2), 1);
+            S.MomentumScore = EndSprintPolicy.MomentumAfterEndingEarly(S.MomentumScore, session.Shield);
         }
     }
 

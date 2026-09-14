@@ -159,6 +159,8 @@ class DesktopController:
         if not use_defaults:
             args.append(f"--server={SERVER_URL}")
             args.append(f"--website={WEBSITE_URL}")
+            # Shrinks the end-sprint grace period and countdowns (F2) to seconds.
+            args.append("--short-timers")
         if extra_args:
             args.extend(extra_args)
 
@@ -624,8 +626,44 @@ class DesktopController:
     def start_sprint(self) -> None:
         self.click("StartSprintButton")
 
-    def stop_sprint(self) -> None:
+    # Matches EndSprintPolicy with --short-timers: grace 3 s, Firm 2 s, Sealed 3 s.
+    SHORT_GRACE_SECONDS = 3.0
+
+    def end_button_label(self) -> str:
+        try:
+            return self.element("StopSprintButton", timeout=2).window_text()
+        except Exception:                                  # noqa: BLE001
+            return ""
+
+    def cancel_sprint(self) -> None:
+        """End a sprint inside its grace period: no penalty, nothing recorded."""
+        label = self.end_button_label().lower()
+        if "cancel" not in label:
+            raise DesktopControllerError(f"the sprint is past its grace period (button reads {label!r})")
         self.click("StopSprintButton")
+
+    def wait_out_grace_period(self, timeout: float = 15.0) -> None:
+        deadline = time.time() + timeout
+        while time.time() < deadline and "cancel" in self.end_button_label().lower():
+            time.sleep(0.4)
+
+    def stop_sprint(self, *, phrase: str = "end my sprint") -> None:
+        """
+        End a running sprint early, going through whatever its shield requires
+        (F2): wait out the grace period so it is recorded, then confirm Firm's
+        countdown or type Sealed's phrase.
+        """
+        self.wait_out_grace_period()
+        self.click("StopSprintButton")
+        # The panel is a Border, invisible to UI Automation; its button isn't.
+        if not self.exists("KeepGoingButton", timeout=1.5):
+            return                                            # Soft ended straight away
+        if self.exists("EndPhraseInput", timeout=0.8):
+            self.set_text("EndPhraseInput", phrase)
+        deadline = time.time() + 15
+        while time.time() < deadline and not self.is_control_enabled("EndAnywayButton"):
+            time.sleep(0.4)
+        self.click("EndAnywayButton")
 
     def sprint_timer(self) -> str:
         return self.text_of("SprintTimerText")
