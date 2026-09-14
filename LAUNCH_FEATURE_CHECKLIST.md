@@ -253,7 +253,7 @@ A summary of the research, to explain the choices below.
 
 ### F3 — Sprints survive restarts and crashes · **Launch** · M · Roadmap 1.10
 
-- [ ] Done
+- [x] Done (#43)
 
 **Assigned:** Keenan (seventycookies6-design), built with Claude Code
 

@@ -859,3 +859,75 @@ class TestDesignTokensStayInSync:
         assert '<Color x:Key="PrimarySoftColor">#33123456</Color>' in build.xaml(data, "dark")
         dark_css = build.css(data, css).split('html[data-theme="dark"]')[1]
         assert "--color-primary: #123456;" in dark_css
+
+
+# ============ a sprint can't be escaped by closing FlowShield (F3, #43)
+
+class TestSprintSurvivesRestart:
+    """
+    A running sprint lived only in memory, so killing FlowShield from Task
+    Manager, a crash or a reboot ended it silently, even a Sealed one.
+    """
+
+    @staticmethod
+    def today() -> str:
+        return (Path(DESKTOP_DIR) / "ViewModels" / "TodayViewModel.cs").read_text(encoding="utf-8")
+
+    def test_the_sprint_is_saved_before_enforcement_starts(self):
+        start = self.today().split("private void StartSprint()")[1].split("\n    }")[0]
+        assert "S.ActiveSprint = new RunningSprint" in start
+        assert start.index("_main.SaveSettings()") < start.index("BeginRunning("), \
+            "a crash between starting and saving would lose the sprint"
+
+    def test_ending_a_sprint_clears_it(self):
+        end = self.today().split("private void EndSprint(bool completed)")[1].split("\n    }")[0]
+        assert "S.ActiveSprint = null" in end
+
+    def test_startup_resumes_after_the_defaults_are_applied(self):
+        main = (Path(DESKTOP_DIR) / "ViewModels" / "MainViewModel.cs").read_text(encoding="utf-8")
+        ctor = main.split("public MainViewModel(")[1].split("\n    }")[0]
+        assert "Today.ResumeInterruptedSprint()" in ctor
+        assert ctor.index("Today.SelectedShield = Settings.DefaultShield") < ctor.index("ResumeInterruptedSprint"), \
+            "applying the default shield after resuming would replace a Sealed sprint's shield"
+
+    def test_a_resumed_sprint_keeps_its_shield(self):
+        resume = self.today().split("public void ResumeInterruptedSprint")[1].split("\n    }")[0]
+        assert "Shield = saved.Shield" in resume and "BeginRunning(" in resume
+
+    @pytest.mark.ui
+    def test_killing_flowshield_mid_sprint_does_not_end_a_sealed_sprint(self, logger):
+        from desktop.app_controller import DesktopController
+
+        first = DesktopController(logger)
+        try:
+            first.launch_app(clean_state=True)
+            first.connect_window()
+            time.sleep(1.0)
+            first.navigate_to_tab("Blocked Apps")
+            first.add_blocked_app(TEST_BLOCK_APP)
+            first.navigate_to_tab("Today")
+            first.select_shield("Sealed")
+            time.sleep(0.5)
+            first.start_sprint()
+            time.sleep(2.0)
+            saved = verify.read_settings()
+            assert saved.get("ActiveSprint"), "the running sprint was not saved"
+        finally:
+            first.close_app()          # a hard kill, like ending it from Task Manager
+
+        second = DesktopController(logger)
+        try:
+            second.launch_app(clean_state=False)
+            second.connect_window()
+            time.sleep(1.5)
+            second.navigate_to_tab("Today")
+            assert "resumed" in second.session_state().lower(), second.session_state()
+            assert second.exists("StopSprintButton", timeout=3), "the sprint is not running after relaunch"
+
+            second.navigate_to_tab("Blocked Apps")
+            time.sleep(0.6)
+            assert second.is_control_enabled("NewAppNameInput") is False, \
+                "a resumed Sealed sprint must keep the blocklist locked"
+            assert second.is_control_enabled("AddAppButton") is False
+        finally:
+            second.close_app()
