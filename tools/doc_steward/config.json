@@ -9,7 +9,9 @@
     "CUSTOMER_EXPERIENCE_PROMPT.md",
     "SELLING.md",
     "DEPLOY.md",
-    "STRIPE_SETUP.md"
+    "STRIPE_SETUP.md",
+    "LAUNCH_FEATURE_CHECKLIST.md",
+    "DESIGN_SYSTEM.md"
   ],
 
   "report_only": [
