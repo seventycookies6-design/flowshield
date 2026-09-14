@@ -66,9 +66,7 @@ public class BlockedAppsViewModel : ViewModelBase
 
     public bool IsEditable => !IsSealed;
 
-    public bool AtLimit => !_main.IsPro && Apps.Count >= AppSettings.FreeBlockedAppLimit;
-
-    private bool CanAdd() => IsEditable && !AtLimit && !string.IsNullOrWhiteSpace(NewAppName);
+    private bool CanAdd() => IsEditable && !_main.IsLocked && !string.IsNullOrWhiteSpace(NewAppName);
 
     private void AddApp()
     {
@@ -81,9 +79,9 @@ public class BlockedAppsViewModel : ViewModelBase
             return;
         }
 
-        if (AtLimit)
+        if (_main.IsLocked)
         {
-            _main.Toast($"Free covers {AppSettings.FreeBlockedAppLimit} apps. Upgrade for unlimited.");
+            _main.Toast("Your free trial has ended. Buy FlowShield to edit the blocklist.");
             return;
         }
 
@@ -175,17 +173,12 @@ public class BlockedAppsViewModel : ViewModelBase
 
     public void RefreshStatus()
     {
-        LimitText = _main.IsPro
-            ? $"{Apps.Count} blocked · unlimited on Pro"
-            : $"{Apps.Count} of {AppSettings.FreeBlockedAppLimit} used on Free";
+        LimitText = $"{Apps.Count} blocked · no limit";
 
         StatusText = IsSealed
             ? "Sealed — the blocklist is locked until this sprint ends."
-            : AtLimit
-                ? "Free limit reached. Upgrade to Pro for unlimited blocked apps."
-                : $"{Apps.Count} app{(Apps.Count == 1 ? "" : "s")} on the shield.";
+            : $"{Apps.Count} app{(Apps.Count == 1 ? "" : "s")} on the shield.";
 
-        Raise(nameof(AtLimit));
         Raise(nameof(IsSealed));
         Raise(nameof(IsEditable));
     }

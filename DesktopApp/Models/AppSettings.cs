@@ -13,7 +13,7 @@ public enum ShieldLevel
     /// <summary>Blocked apps are closed on sight. Blocklist stays editable.</summary>
     Firm = 2,
 
-    /// <summary>Closed on sight and the blocklist locks for the sprint. Pro only.</summary>
+    /// <summary>Closed on sight and the blocklist locks for the sprint.</summary>
     Sealed = 3,
 }
 
@@ -92,7 +92,16 @@ public class AppSettings
     // ---- licensing ------------------------------------------------------
     public string LicenseKey { get; set; } = "";
     public string LicenseEmail { get; set; } = "";
+
+    /// <summary>
+    /// True once a licence has been activated: FlowShield was bought. The name
+    /// predates the one-time purchase (it meant "Pro subscriber") and is kept so
+    /// existing settings files still load.
+    /// </summary>
     public bool IsPro { get; set; }
+
+    /// <summary>When the free trial began: the first launch of a build that has one.</summary>
+    public DateTime? TrialStartedUtc { get; set; }
     /// <summary>
     /// Where licence validation goes. Points at the deployed service so a
     /// shipped build works without configuration; override it in Settings, or
@@ -151,12 +160,45 @@ public class AppSettings
     public int BlocksTodayCurrent =>
         BlocksTodayDateLocal?.Date == DateTime.Now.Date ? BlocksToday : 0;
 
-    // ---- limits ---------------------------------------------------------
-    public const int FreeBlockedAppLimit = 3;
-    public const int FreeMaxSprintMinutes = 25;
+    // ---- trial & access -------------------------------------------------
+
+    /// <summary>
+    /// Length of the free trial. Everything is unlocked during it; afterwards the
+    /// app is locked until FlowShield is bought. There is no free tier.
+    /// </summary>
+    public const int TrialDays = 7;
+
+    /// <summary>Starts the trial clock on first launch. Returns true if it was just started.</summary>
+    public bool EnsureTrialStarted(DateTime? nowUtc = null)
+    {
+        if (TrialStartedUtc is not null) return false;
+        TrialStartedUtc = nowUtc ?? DateTime.UtcNow;
+        return true;
+    }
 
     [JsonIgnore]
-    public int BlockedAppLimit => IsPro ? int.MaxValue : FreeBlockedAppLimit;
+    public DateTime? TrialEndsUtc => TrialStartedUtc?.AddDays(TrialDays);
+
+    /// <summary>
+    /// Whether the trial is running at <paramref name="nowUtc"/>.
+    ///
+    /// A clock more than a day behind the recorded start counts as ended:
+    /// winding the clock back is the obvious way to stretch a trial, and a
+    /// genuinely wrong clock is fixed by correcting it.
+    /// </summary>
+    public bool IsTrialActiveAt(DateTime nowUtc) =>
+        TrialStartedUtc is { } start
+        && nowUtc >= start.AddDays(-1)
+        && nowUtc < start.AddDays(TrialDays);
+
+    /// <summary>Whole days of trial left, rounded up, so the last day reads "1 day left".</summary>
+    public int TrialDaysLeftAt(DateTime nowUtc) =>
+        !IsTrialActiveAt(nowUtc) || TrialEndsUtc is not { } end
+            ? 0
+            : Math.Clamp((int)Math.Ceiling((end - nowUtc).TotalDays), 1, TrialDays);
+
+    /// <summary>Every feature is available: bought, or inside the free trial.</summary>
+    public bool HasAccessAt(DateTime nowUtc) => IsPro || IsTrialActiveAt(nowUtc);
 
     /// <summary>Deep-copy used by the settings service to snapshot before writes.</summary>
     public AppSettings Clone()

@@ -249,9 +249,9 @@
         blurb.innerHTML =
           // No receipt claim either: whether Stripe emails one depends on the
           // account's receipt settings, which this page can't see.
-          'Your FlowShield Pro subscription is active. ' +
-          'To unlock Pro, open <b>FlowShield → Settings</b>, enter the email address you ' +
-          'used at checkout, and click <b>Activate Pro</b>.' +
+          'FlowShield is yours to keep. ' +
+          'To activate it, open <b>FlowShield → Settings</b>, enter the email address you ' +
+          'used at checkout, and click <b>Activate licence</b>.' +
           (CONFIG.supportEmail
             ? ' Trouble activating? Email <b>' + escapeHtml(CONFIG.supportEmail) +
               '</b> from the address you used at checkout.'
@@ -274,7 +274,7 @@
         seal.className = 'seal';
         seal.innerHTML = iconCheck();
       }
-      if (title) title.textContent = 'FlowShield Pro is yours';
+      if (title) title.textContent = 'FlowShield is yours';
       if (blurb) {
         // Only claim an email was sent when the server actually reports one.
         // The page must never promise delivery it cannot vouch for.
@@ -285,11 +285,9 @@
           : ' Save this key now — it isn’t emailed to you.';
 
         blurb.innerHTML =
-          'Subscription <b>' +
-          escapeHtml(result.status) +
-          '</b>' +
-          (result.email ? ' for <b>' + escapeHtml(result.email) + '</b>' : '') +
-          '.' +
+          'Payment received' +
+          (result.email ? ' from <b>' + escapeHtml(result.email) + '</b>' : '') +
+          '. This is a one-time purchase — nothing renews.' +
           mailed;
       }
       if (keyVal) keyVal.textContent = result.licenseKey;

@@ -58,12 +58,12 @@ def main() -> int:
             raise AssertionError(f"app points at {configured!r}, expected {DEPLOYED}")
         log.passed(configured)
 
-        log.begin("Activate Pro over the internet")
+        log.begin("Activate the licence over the internet")
         ctrl.enter_license_key(key)
         log.shot("key-entered", ctrl.hwnd)
         ctrl.click_activate_pro()
         # Generous: a sleeping free-tier host can take ~50s to wake.
-        status = ctrl.wait_for_license_status("Pro Active", timeout=120)
+        status = ctrl.wait_for_license_status("Licence active", timeout=120)
         log.shot("pro-active", ctrl.hwnd)
         log.passed(f"status={status!r} badge={ctrl.tier_badge()!r}")
 

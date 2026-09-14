@@ -127,7 +127,7 @@ public class LicenseService
                 Log.Info($"license activated: status={settings.LicenseStatus} "
                          + $"devices={settings.DeviceCount}/{settings.DeviceLimit}");
                 return new LicenseResult(true, true, settings.LicenseStatus,
-                    "Pro unlocked. Every shield level is now available.",
+                    "FlowShield activated. Every feature is yours to keep.",
                     settings.LicenseEmail, settings.LicenseKey);
             }
 
@@ -135,9 +135,14 @@ public class LicenseService
             var message = body.Message ?? reason switch
             {
                 "malformed_key" => "That key isn't in the FS-XXXX-XXXX-XXXX-XXXX format.",
-                "not_found" => "We couldn't find a subscription for those details.",
+                "not_found" => "We couldn't find a purchase for those details.",
                 "device_limit_reached" =>
                     "This licence is already active on the maximum number of devices.",
+                "license_refunded" => "That purchase was refunded, so the licence is no longer active.",
+                "license_pending" => "That purchase hasn't been paid yet.",
+                _ when reason.StartsWith("license_") =>
+                    $"That licence is {reason["license_".Length..]}.",
+                // Licences from the old monthly plan still report this way.
                 _ when reason.StartsWith("subscription_") =>
                     $"That subscription is {reason["subscription_".Length..]}.",
                 _ => "That license could not be validated.",

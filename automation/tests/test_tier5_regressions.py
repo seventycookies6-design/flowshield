@@ -62,25 +62,31 @@ class TestWebsiteClaimsMatchTheApp:
     reviewable decision instead of an unchecked promise.
     """
 
+    # Paths are relative to DesktopApp/; "../Server/..." reaches the licence server.
     FEATURE_MARKERS = {
-        "free-app-limit": (("Models/AppSettings.cs", "FreeBlockedAppLimit = 3"),),
-        "soft-firm-shields": (("ViewModels/TodayViewModel.cs", "ShieldLevel.Soft, ShieldLevel.Firm"),),
-        "free-sprint-lengths": (
-            ("ViewModels/TodayViewModel.cs", "{ 15, 25, 45, 60, 90 }"),
-            ("Models/AppSettings.cs", "FreeMaxSprintMinutes = 25"),
+        "seven-day-trial": (("Models/AppSettings.cs", "TrialDays = 7"),),
+        "trial-unlocks-everything": (
+            ("Models/AppSettings.cs", "IsPro || IsTrialActiveAt(nowUtc)"),
         ),
+        "locks-after-trial": (
+            ("MainWindow.xaml", 'AutomationProperties.AutomationId="TrialEndedPanel"'),
+            ("ViewModels/TodayViewModel.cs", "if (_main.IsLocked)"),
+        ),
+        "one-time-purchase": (("../Server/server.js", "mode: 'payment'"),),
+        "unlimited-blocked-apps": (
+            ("ViewModels/BlockedAppsViewModel.cs", "CanAdd() => IsEditable && !_main.IsLocked &&"),
+        ),
+        "all-three-shields": (
+            ("ViewModels/TodayViewModel.cs", "ShieldLevel.Soft, ShieldLevel.Firm, ShieldLevel.Sealed"),
+        ),
+        "sprint-lengths": (("ViewModels/TodayViewModel.cs", "{ 15, 25, 45, 60, 90 }"),),
         "momentum-and-streak": (
             ("Views/TodayView.xaml", 'AutomationProperties.AutomationId="MomentumValue"'),
             ("Views/TodayView.xaml", 'AutomationProperties.AutomationId="StreakText"'),
         ),
-        "unlimited-blocked-apps": (("Models/AppSettings.cs", "IsPro ? int.MaxValue"),),
-        "sealed-shield": (("ViewModels/TodayViewModel.cs", "ShieldLevel.Sealed && !_main.IsPro"),),
-        "extended-sprint-lengths": (
-            ("ViewModels/TodayViewModel.cs", "{ 15, 25, 45, 60, 90 }"),
-            ("ViewModels/TodayViewModel.cs", "value > AppSettings.FreeMaxSprintMinutes"),
-        ),
         "sleep-blocking": (("Services/AppBlockerService.cs", "IsWithinSleepWindow"),),
         "hard-kill-mode": (("Services/AppBlockerService.cs", "settings.HardKillModeEnabled"),),
+        "three-devices": (("../Server/server.js", "DEVICE_LIMIT ?? 3"),),
     }
 
     def test_every_checked_pricing_feature_has_an_implementation_marker(self):
@@ -89,7 +95,7 @@ class TestWebsiteClaimsMatchTheApp:
         parser.feed(site)
 
         plans = {plan for plan, _ in parser.checked_features}
-        assert {"free", "pro"}.issubset(plans)
+        assert {"trial", "full"}.issubset(plans)
         missing_ids = [plan for plan, feature in parser.checked_features if not feature]
         assert not missing_ids, (
             "every checked pricing item needs a data-feature id; missing on: "
@@ -502,10 +508,12 @@ class TestEmailIsNotAuthentication:
         for name in ("validate", "devices", "create-portal-session", "resend-license"):
             assert f"'/{name}', limiter.middleware('{name}')" in source, f"/{name} is not rate limited"
 
-    def test_the_app_asks_for_a_key_before_opening_billing(self):
+    def test_the_app_no_longer_opens_a_billing_portal(self):
+        """There is no subscription to manage since the one-time purchase (#29)."""
         source = (Path(DESKTOP_DIR) / "ViewModels" / "SettingsViewModel.cs").read_text(encoding="utf-8")
-        manage = source.split("private async Task ManageSubscriptionAsync()")[1].split("\n    }")[0]
-        assert "string.IsNullOrWhiteSpace(_main.Settings.LicenseKey)" in manage
+        view = (Path(DESKTOP_DIR) / "Views" / "SettingsView.xaml").read_text(encoding="utf-8")
+        assert "create-portal-session" not in source
+        assert "Manage subscription" not in view
 
 
 @pytest.mark.stripe
@@ -657,8 +665,8 @@ class TestSuccessPageHonesty:
 
         assert "on its way to the email" not in branch, \
             "the page must not promise a licence-key email that is never sent"
-        assert "Activate Pro" in branch, \
-            "it should tell the buyer how to actually unlock Pro"
+        assert "Activate licence" in branch, \
+            "it should tell the buyer how to actually activate FlowShield"
 
 
 # ============ what a buyer reads while paying is true (found in a test purchase)
@@ -736,3 +744,77 @@ class TestPersistenceAcrossRestart:
             assert any(TEST_BLOCK_APP.lower() in n.lower() for n in names), names
         finally:
             second.close_app()
+
+
+# ============ a one-time purchase after a 7-day trial (#29)
+
+class TestTrialThenOneTimePurchase:
+    """
+    FlowShield moved from a free tier plus a $4.99/month subscription to a
+    7-day trial with everything unlocked and a one-time $4.99 purchase. Each
+    check here guards a way that change could silently come undone.
+    """
+
+    @staticmethod
+    def read(*parts) -> str:
+        return (Path(DESKTOP_DIR).parent.joinpath(*parts)).read_text(encoding="utf-8")
+
+    def test_checkout_takes_a_one_time_payment(self):
+        route = self.read("Server", "server.js").split("app.post('/create-checkout'")[1].split("\napp.")[0]
+        assert "mode: 'payment'" in route and "mode: 'subscription'" not in route
+        assert "payment_intent_data: { metadata: { license_key" in route, \
+            "the key must go on the payment, or a lost database can't be rebuilt"
+        assert "customer_creation: 'always'" in route, \
+            "without a customer the purchase can't be found by email"
+
+    def test_the_store_script_creates_a_one_time_price(self):
+        script = self.read("tools", "setup_stripe_store.js")
+        create = script.split("async function ensurePrice")[1].split("\n}")[0]
+        assert "recurring: { interval" not in create
+        assert "!p.recurring" in create, "a monthly price must never be reused as the purchase price"
+        assert "'charge.refunded'" in script, "refunds must reach the webhook"
+
+    def test_a_refund_revokes_the_licence(self):
+        server = self.read("Server", "server.js")
+        status = server.split("function paymentStatusOf")[1].split("\n}")[0]
+        assert "charge.refunded" in status and "'refunded'" in status
+        assert "case 'charge.refunded':" in server
+        validate = server.split("app.post('/validate'")[1].split("\napp.")[0]
+        assert "row.stripe_payment_intent_id" in validate, \
+            "/validate must re-check a purchase, or a missed refund webhook keeps it active"
+
+    def test_payments_are_recoverable_after_data_loss(self):
+        recover = self.read("Server", "server.js").split("async function recoverFromStripe")[1].split("\n}")[0]
+        assert "paymentIntents.search" in recover and "paymentIntents.list" in recover
+
+    def test_the_trial_starts_on_first_launch_and_is_saved(self):
+        main = self.read("DesktopApp", "ViewModels", "MainViewModel.cs")
+        app = self.read("DesktopApp", "App.xaml.cs")
+        assert "Settings.EnsureTrialStarted()" in main
+        assert app.index("new MainViewModel(") < app.index("ViewModel.SaveSettings();"), \
+            "the trial start must be persisted straight away"
+
+    def test_a_locked_app_cannot_start_a_sprint_or_keep_blocking_at_night(self):
+        today = self.read("DesktopApp", "ViewModels", "TodayViewModel.cs")
+        start = today.split("private void StartSprint()")[1].split("\n    }")[0]
+        assert "_main.IsLocked" in start
+        sleep = self.read("DesktopApp", "ViewModels", "SleepBlockingViewModel.cs")
+        tier = sleep.split("public void OnTierChanged()")[1].split("\n    }")[0]
+        assert "IsLocked" in tier and "IsSleepBlockEnabled = false" in tier
+
+    def test_the_trial_ending_mid_sprint_does_not_drop_the_shield(self):
+        main = self.read("DesktopApp", "ViewModels", "MainViewModel.cs")
+        refresh = main.split("public void RefreshAccess()")[1].split("\n    }")[0]
+        assert "if (IsSprintRunning) return;" in refresh
+
+    def test_the_expire_trial_flag_only_takes_access_away(self):
+        app = self.read("DesktopApp", "App.xaml.cs")
+        block = app.split('"--expire-trial"')[1].split("\n        }")[0]
+        assert "IsPro" not in block, "a command-line flag must never grant a licence"
+
+    def test_the_site_no_longer_sells_a_subscription(self):
+        for name in ("index.html", "success.html", "checkout.js", "legal.html"):
+            text = (Path(WEBSITE_DIR) / name).read_text(encoding="utf-8").lower()
+            for phrase in ("/mo", "per month", "billed monthly", "renews automatically",
+                           "get pro", "free forever", "subscription is active"):
+                assert phrase not in text, f"{name} still says {phrase!r}"

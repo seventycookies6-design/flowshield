@@ -4,8 +4,9 @@
 · **[Site](https://seventycookies6-design.github.io/flowshield/)**
 · **[Licence server](https://flowshield-license-server.onrender.com)**
 
-Buying on the site issues a real licence key, and the installed app activates
-Pro against the deployed server. Stripe is in **test mode** — see
+FlowShield is free for 7 days with everything unlocked, then a **one-time
+$4.99 purchase** — no subscription. Buying on the site issues a real licence
+key, and the installed app activates against the deployed server. Stripe is in **test mode** — see
 **[SELLING.md](SELLING.md)** for what's left before charging real customers.
 
 A Windows focus timer and app blocker. Distractions go behind a shield whose
@@ -14,7 +15,7 @@ strength you pick per sprint, and finished sprints compound into momentum.
 ```
 Shield I  · Soft    a brief notice inside FlowShield; the blocked app keeps running
 Shield II · Firm    blocked apps are closed on sight
-Shield III· Sealed  closed on sight, and the blocklist locks for the rest of the sprint  (Pro)
+Shield III· Sealed  closed on sight, and the blocklist locks for the rest of the sprint
 ```
 
 **Momentum, not streaks.** A completed sprint adds to a momentum score; an
@@ -29,7 +30,7 @@ One bad afternoon shouldn't erase a month. Every sprint ends with a one-line
 | Path | What it is |
 | --- | --- |
 | `DesktopApp/` | .NET 8 WPF app (MVVM). Settings are DPAPI-encrypted per user. |
-| `Server/` | Express + SQLite license server, real Stripe subscriptions. |
+| `Server/` | Express + SQLite license server, real Stripe one-time payments. |
 | `Website/` | Static marketing site and post-checkout license page. |
 | `automation/` | pywinauto + Playwright + pytest suite that drives all of it. |
 | `tools/` | Small maintenance scripts, and `doc_steward/`, which keeps the docs consistent with the code. |
@@ -78,7 +79,7 @@ writes the price id back to `.stripe_keys.json` and the Payment Link to
 `Website/config.js`, then refuses outright if handed a `sk_live_` key.
 
 Until that runs, the server's payment routes return a `503` naming the missing
-fields, and the site's Get Pro button says so plainly. Nothing else is blocked:
+fields, and the site's Buy button says so plainly. Nothing else is blocked:
 the app, the site and the whole non-payment test suite need no Stripe account.
 
 ### Two ways to check out
@@ -103,10 +104,11 @@ and the trade-offs of the free plan.
 
 The database is treated as a **cache of Stripe, not the record**. Free hosting
 tiers have ephemeral disks, so `licenses.db` is wiped on every redeploy; rather
-than silently revoking Pro for everyone who paid, the server rebuilds missing
-rows from Stripe — by the licence key stamped into subscription metadata, or by
-the customer's email. Tier 5 wipes a real row and asserts the customer keeps
-Pro, and keeps the key they already had.
+than silently revoking the licence of everyone who paid, the server rebuilds
+missing rows from Stripe — by the licence key stamped into the payment's (or,
+for old monthly licences, the subscription's) metadata, or by the customer's
+email. Tier 5 wipes a real row and asserts the customer keeps their licence, and
+keeps the key they already had. A full refund revokes the licence.
 
 ## Cutting a release
 

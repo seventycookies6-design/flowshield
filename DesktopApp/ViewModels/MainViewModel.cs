@@ -11,11 +11,19 @@ public enum AppPage { Today, BlockedApps, SleepBlocking, Settings }
 public class MainViewModel : ViewModelBase
 {
     private readonly DispatcherTimer _toastTimer;
+    private readonly DispatcherTimer _accessTimer;
+    private bool _lastHasAccess;
 
     public MainViewModel(SettingsService settingsService, LicenseService licenseService)
     {
         SettingsService = settingsService;
         Settings = settingsService.Load();
+
+        // The trial clock starts on the first launch of a build that has one.
+        // App.OnStartup saves right after construction, so this persists.
+        if (Settings.EnsureTrialStarted())
+            Log.Info($"free trial started; ends {Settings.TrialEndsUtc:u}");
+        _lastHasAccess = HasAccess;
 
         Blocker = new AppBlockerService(settingsService, Settings);
         Blocker.Blocked += OnBlocked;
@@ -36,9 +44,13 @@ public class MainViewModel : ViewModelBase
         _toastTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(4) };
         _toastTimer.Tick += (_, _) => { _toastTimer.Stop(); ToastVisible = false; };
 
-        Today.SelectedMinutes = Math.Min(
-            Settings.DefaultSprintMinutes,
-            Settings.IsPro ? int.MaxValue : AppSettings.FreeMaxSprintMinutes);
+        // The trial can run out while the app is open (it usually lives in the
+        // tray), so re-check periodically rather than only at launch.
+        _accessTimer = new DispatcherTimer { Interval = TimeSpan.FromMinutes(1) };
+        _accessTimer.Tick += (_, _) => RefreshAccess();
+        _accessTimer.Start();
+
+        Today.SelectedMinutes = Settings.DefaultSprintMinutes;
         Today.SelectedShield = Settings.DefaultShield;
         Today.UpdateIdleDisplay();
     }
@@ -55,8 +67,20 @@ public class MainViewModel : ViewModelBase
     public RelayCommand NavigateCommand { get; }
     public RelayCommand GetProCommand { get; }
 
+    /// <summary>FlowShield has been bought and activated on this machine.</summary>
     public bool IsPro => Settings.IsPro;
     public bool IsNotPro => !Settings.IsPro;
+
+    /// <summary>Every feature is usable: bought, or inside the free trial.</summary>
+    public bool HasAccess => Settings.HasAccessAt(DateTime.UtcNow);
+
+    /// <summary>The trial has ended without a purchase; the lock screen is up.</summary>
+    public bool IsLocked => !HasAccess;
+
+    public bool IsTrial => !IsPro && HasAccess;
+
+    public int TrialDaysLeft => Settings.TrialDaysLeftAt(DateTime.UtcNow);
+
     public bool IsSprintRunning => Today.IsRunning;
 
     // ------------------------------------------------------------ navigation
@@ -108,7 +132,14 @@ public class MainViewModel : ViewModelBase
         _ => "License, startup and enforcement preferences.",
     };
 
-    public string TierBadge => IsPro ? "PRO" : "FREE";
+    public string TierBadge =>
+        IsPro ? "PURCHASED"
+        : IsTrial ? $"TRIAL · {TrialDaysLeft} DAY{(TrialDaysLeft == 1 ? "" : "S")} LEFT"
+        : "TRIAL ENDED";
+
+    public string TrialEndedText =>
+        "Your 7-day free trial has ended. Buy FlowShield once for $4.99 to keep using it — "
+        + "no subscription. Already bought it? Enter your licence key below.";
 
     // ---------------------------------------------------------------- toast
 
@@ -145,11 +176,39 @@ public class MainViewModel : ViewModelBase
         }
     }
 
-    /// <summary>Re-evaluates every Pro-gated surface after activation or deactivation.</summary>
+    /// <summary>
+    /// Picks up the trial running out (or a day ticking by) while the app is open.
+    ///
+    /// A sprint already under way is left to finish: locking mid-sprint would
+    /// drop a shield the user deliberately raised, including a Sealed one.
+    /// </summary>
+    public void RefreshAccess()
+    {
+        if (IsSprintRunning) return;
+
+        var hasAccess = HasAccess;
+        if (hasAccess != _lastHasAccess)
+        {
+            Log.Info(hasAccess ? "access granted" : "free trial ended; app locked");
+            OnTierChanged();
+        }
+        else
+        {
+            Raise(nameof(TierBadge));   // the days-left count changes daily
+        }
+    }
+
+    /// <summary>Re-evaluates every gated surface after activation, deactivation or the trial ending.</summary>
     public void OnTierChanged()
     {
+        _lastHasAccess = HasAccess;
+
         Raise(nameof(IsPro));
         Raise(nameof(IsNotPro));
+        Raise(nameof(HasAccess));
+        Raise(nameof(IsLocked));
+        Raise(nameof(IsTrial));
+        Raise(nameof(TrialDaysLeft));
         Raise(nameof(TierBadge));
 
         Today.OnTierChanged();
@@ -190,7 +249,7 @@ public class MainViewModel : ViewModelBase
         var url = Settings.WebsiteUrl.TrimEnd('/') + "/index.html#pricing";
         Log.Info($"opening upgrade page {url}");
         OpenUrl(url);
-        Toast("Opened the upgrade page in your browser.");
+        Toast("Opened the FlowShield store page in your browser.");
     }
 
     public void OpenUrl(string url)

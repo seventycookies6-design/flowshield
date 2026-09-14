@@ -2,7 +2,7 @@
 FlowShield end-to-end run.
 
 Drives the real thing from a clean install to an activated Pro licence:
-build → servers up → app launch → Get Pro → website → real Stripe test checkout
+build → servers up → app launch → Buy FlowShield → website → real Stripe test checkout
 → licence key → activation in the app → verification against the encrypted
 settings file → Pro-gated features.
 
@@ -135,15 +135,15 @@ class E2ERun:
         self.log.begin("Navigate to Settings")
         title = self.attempt(lambda: self.ctrl.navigate_to_tab("Settings"))
         status = self.ctrl.get_license_status_text()
-        self.shot("settings-free")
+        self.shot("settings-trial")
         if title != "Settings":
             raise AssertionError(f"expected the Settings page, got {title!r}")
-        if "free" not in status.lower():
-            raise AssertionError(f"a clean install should start on Free, got {status!r}")
+        if "free trial" not in status.lower():
+            raise AssertionError(f"a clean install should start the free trial, got {status!r}")
         self.log.passed(f"status={status!r}, badge={self.ctrl.tier_badge()!r}")
 
     def step_07_get_pro(self) -> None:
-        self.log.begin("Click ★ Get Pro (opens the website)")
+        self.log.begin("Click Buy FlowShield (opens the website)")
         self.attempt(lambda: self.ctrl.click_get_pro_button())
         time.sleep(1.5)
         toast = self.ctrl.toast_text(timeout=3)
@@ -153,7 +153,7 @@ class E2ERun:
         # the app recorded rather than on catching the toast in time.
         if not self.ctrl.app_log_contains("opening upgrade page"):
             raise AssertionError(
-                "the app did not log an upgrade-page launch after Get Pro was clicked")
+                "the app did not log an upgrade-page launch after Buy FlowShield was clicked")
 
         self.log.passed(f"upgrade page launched; toast={toast!r}")
 
@@ -236,7 +236,7 @@ class E2ERun:
                         f"email={payload.get('email')}")
 
     def step_11_activate(self) -> None:
-        self.log.begin("Activate Pro in the app")
+        self.log.begin("Activate the licence in the app")
         if not self.license_key:
             self.log.skipped("no license key available")
             return
@@ -247,12 +247,12 @@ class E2ERun:
         self.shot("license-key-entered")
 
         self.ctrl.click_activate_pro()
-        status = self.ctrl.wait_for_license_status("Pro Active", timeout=45)
+        status = self.ctrl.wait_for_license_status("Licence active", timeout=45)
         self.shot("pro-activated")
         self.log.passed(f"status={status!r}")
 
     def step_12_verify_ui(self) -> None:
-        self.log.begin("Verify the UI reports Pro")
+        self.log.begin("Verify the UI reports the licence")
         if not self.license_key:
             self.log.skipped("activation did not run")
             return
@@ -307,18 +307,11 @@ class E2ERun:
         self.log.begin("Sleep Blocking — enable a schedule and verify it saves")
         self.ctrl.navigate_to_tab("Sleep Blocking")
 
-        if not self.license_key:
-            # Free tier must refuse; that is the assertion in this branch.
-            reached = self.ctrl.set_toggle("SleepBlockToggle", True)
-            self.shot("sleep-blocking-gated")
-            if reached:
-                raise AssertionError("sleep blocking toggled on without a Pro licence")
-            self.log.skipped("no Pro licence — verified the feature stays gated instead")
-            return
-
+        # Unlocked either way: by the licence, or by the free trial a clean
+        # install is in.
         reached = self.ctrl.set_toggle("SleepBlockToggle", True)
         if not reached:
-            raise AssertionError("the sleep-blocking toggle would not turn on with Pro active")
+            raise AssertionError("the sleep-blocking toggle would not turn on during the trial or with a licence")
 
         self.ctrl.set_sleep_window(SLEEP_START, SLEEP_END)
         time.sleep(0.6)
@@ -330,21 +323,18 @@ class E2ERun:
         self.log.passed(f"{saved.detail}; ui={self.ctrl.sleep_status()!r}")
 
     def step_16_pro_features(self) -> None:
-        self.log.begin("Pro gating — Shield III and the app limit")
+        self.log.begin("Full access — Shield III is selectable")
         self.ctrl.navigate_to_tab("Today")
         self.ctrl.select_shield("Sealed")
         time.sleep(0.5)
         description = self.ctrl.text_of("ShieldDescriptionText")
         self.shot("shield-selection")
 
-        sealed_selected = "locks" in description.lower()
-        if self.license_key and not sealed_selected:
+        if "locks" not in description.lower():
             raise AssertionError(
-                f"Pro should allow Shield III — Sealed, but description reads {description!r}")
-        if not self.license_key and sealed_selected:
-            raise AssertionError("Free tier was allowed to select Shield III — Sealed")
+                f"Shield III — Sealed should be selectable, but description reads {description!r}")
 
-        self.log.passed(f"shield description={description!r} (pro={bool(self.license_key)})")
+        self.log.passed(f"shield description={description!r} (licensed={bool(self.license_key)})")
 
     def step_17_report(self) -> None:
         self.log.begin("Capture final state and write the report")

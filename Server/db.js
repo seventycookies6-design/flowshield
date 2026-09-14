@@ -83,15 +83,27 @@ db.exec(`
 // Migration. SQLite has no "ADD COLUMN IF NOT EXISTS", and re-running ALTER
 // throws "duplicate column name" — which is the success case on a database
 // that already has it. Swallow exactly that.
-try {
-  db.exec('ALTER TABLE licenses ADD COLUMN license_email_sent_at INTEGER');
-} catch (err) {
-  if (!/duplicate column/i.test(err.message)) throw err;
+function addColumn(sql) {
+  try {
+    db.exec(sql);
+  } catch (err) {
+    if (!/duplicate column/i.test(err.message)) throw err;
+  }
 }
+
+addColumn('ALTER TABLE licenses ADD COLUMN license_email_sent_at INTEGER');
+// One-time purchases (the current model) are recorded by their PaymentIntent;
+// licences bought on the old monthly plan keep stripe_subscription_id instead.
+addColumn('ALTER TABLE licenses ADD COLUMN stripe_payment_intent_id TEXT');
+db.exec('CREATE INDEX IF NOT EXISTS idx_licenses_payment_intent ON licenses(stripe_payment_intent_id)');
 
 const now = () => Math.floor(Date.now() / 1000);
 
-/** Statuses that entitle the holder to Pro features. */
+/**
+ * Statuses that entitle the holder to the full app. A paid one-time purchase is
+ * 'active'; a refunded one becomes 'refunded'. 'trialing' is a legacy
+ * subscription status — the app's own trial never touches the server.
+ */
 const PRO_STATUSES = new Set(['active', 'trialing']);
 
 const q = {
@@ -102,6 +114,7 @@ const q = {
   byKey: db.prepare('SELECT * FROM licenses WHERE license_key = ?'),
   bySession: db.prepare('SELECT * FROM licenses WHERE stripe_session_id = ?'),
   bySubscription: db.prepare('SELECT * FROM licenses WHERE stripe_subscription_id = ?'),
+  byPaymentIntent: db.prepare('SELECT * FROM licenses WHERE stripe_payment_intent_id = ?'),
   byEmailActive: db.prepare(`
     SELECT * FROM licenses
     WHERE lower(email) = lower(?) AND status IN ('active', 'trialing')
@@ -114,7 +127,8 @@ const q = {
   activate: db.prepare(`
     UPDATE licenses
        SET status = ?, email = COALESCE(?, email), stripe_customer_id = ?,
-           stripe_subscription_id = ?, current_period_end = ?, updated_at = ?
+           stripe_subscription_id = ?, stripe_payment_intent_id = COALESCE(?, stripe_payment_intent_id),
+           current_period_end = ?, updated_at = ?
      WHERE license_key = ?
   `),
   setStatus: db.prepare('UPDATE licenses SET status = ?, updated_at = ? WHERE license_key = ?'),
@@ -166,6 +180,7 @@ module.exports = {
   findByKey: (key) => q.byKey.get(key) || null,
   findBySession: (sessionId) => q.bySession.get(sessionId) || null,
   findBySubscription: (subId) => q.bySubscription.get(subId) || null,
+  findByPaymentIntent: (piId) => q.byPaymentIntent.get(piId) || null,
 
   findByEmail(email) {
     return q.byEmailActive.get(email) || q.byEmailAny.get(email) || null;
@@ -175,12 +190,13 @@ module.exports = {
     q.attachSession.run(sessionId, now(), licenseKey);
   },
 
-  activate(licenseKey, { status, email, customerId, subscriptionId, currentPeriodEnd }) {
+  activate(licenseKey, { status, email, customerId, subscriptionId, paymentIntentId, currentPeriodEnd }) {
     q.activate.run(
       status,
       email || null,
       customerId || null,
       subscriptionId || null,
+      paymentIntentId || null,
       currentPeriodEnd || null,
       now(),
       licenseKey,
