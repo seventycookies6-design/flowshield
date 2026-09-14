@@ -471,6 +471,43 @@ def _db_admin(*args) -> str:
     return (result.stdout or "").strip().splitlines()[-1] if result.stdout.strip() else ""
 
 
+# ============ an email address is not proof of identity (#21)
+
+class TestEmailIsNotAuthentication:
+    """
+    /create-portal-session and /devices accepted an email address in place of
+    the licence key, and /validate echoed the key back to an email-only caller:
+    anyone who knew a customer's address could cancel their subscription, list
+    their PCs and release their seats, or obtain their key.
+    """
+
+    @staticmethod
+    def route(name: str) -> str:
+        source = (Path(SERVER_DIR) / "server.js").read_text(encoding="utf-8")
+        return source.split(f"app.post('/{name}'")[1].split("\napp.")[0]
+
+    def test_the_portal_and_devices_ignore_email(self):
+        for name in ("create-portal-session", "devices"):
+            body = self.route(name)
+            assert "req.body?.email" not in body, f"/{name} still reads an email address"
+            assert "findByEmail" not in body, f"/{name} still looks licences up by email"
+            assert "missing_license_key" in body, f"/{name} must refuse a request without a key"
+
+    def test_validate_redacts_the_key_unless_it_was_presented(self):
+        body = self.route("validate")
+        assert "key !== row.license_key" in body and "delete view.licenseKey" in body
+
+    def test_the_customer_endpoints_are_rate_limited(self):
+        source = (Path(SERVER_DIR) / "server.js").read_text(encoding="utf-8")
+        for name in ("validate", "devices", "create-portal-session", "resend-license"):
+            assert f"'/{name}', limiter.middleware('{name}')" in source, f"/{name} is not rate limited"
+
+    def test_the_app_asks_for_a_key_before_opening_billing(self):
+        source = (Path(DESKTOP_DIR) / "ViewModels" / "SettingsViewModel.cs").read_text(encoding="utf-8")
+        manage = source.split("private async Task ManageSubscriptionAsync()")[1].split("\n    }")[0]
+        assert "string.IsNullOrWhiteSpace(_main.Settings.LicenseKey)" in manage
+
+
 @pytest.mark.stripe
 class TestSurvivesDataLoss:
     """
@@ -499,7 +536,10 @@ class TestSurvivesDataLoss:
         assert body["isPro"] is True, (
             f"a paying customer lost Pro when the database was wiped: {body}"
         )
-        assert body.get("licenseKey", "").startswith("FS-")
+        # An email alone no longer reveals the key (#21); the row is rebuilt all the same.
+        assert "licenseKey" not in body, body
+        rebuilt = json.loads(_db_admin("show", row["license_key"]) or "null")
+        assert rebuilt and rebuilt["status"] == "active", rebuilt
 
     def test_recovery_keeps_the_key_the_customer_already_has(self, server, needs_stripe):
         """

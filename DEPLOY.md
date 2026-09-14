@@ -109,8 +109,11 @@ the health check at `/health`.
   (price IDs don't cross the test/live boundary).
 - Note the activation model: **an email address alone unlocks Pro**, because a
   Payment Link buyer has nothing else. Anyone who knows a customer's email
-  could activate with it. That's a deliberate trade for a $4.99 tool, but if it
+  could activate with it — but, since #21, not obtain the key, open the billing
+  portal, or touch devices; those need the licence key. If activation itself
   matters, the fix is to email the licence key at purchase and require the key.
-- Nothing currently sends email. Wiring the webhook to an email provider is the
-  natural next step and would let the success page stop asking buyers to
-  self-activate.
+- Email delivery is built (Resend or SMTP) but no provider is configured, so
+  nothing is sent yet; `/health` reports `email: disabled`. Configuring one lets
+  the success page stop telling buyers their key is shown only once.
+- The customer-facing endpoints are rate limited per client IP
+  (`RATE_LIMIT_PER_MINUTE`, default 30 per route; 0 disables).

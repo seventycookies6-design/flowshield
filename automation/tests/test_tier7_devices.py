@@ -26,16 +26,32 @@ def device(tag: str = "") -> str:
 
 @pytest.fixture
 def licence(server):
-    """An active licence to attach devices to, with its seats cleared first."""
-    body = requests.post(f"{server}/validate",
-                         json={"email": "deployed-e2e@example.com"}, timeout=60).json()
+    """
+    An active licence to attach devices to, with its seats cleared first.
+
+    Picked from the local cache rather than by validating an email address: an
+    email alone no longer returns a licence key (#21).
+    """
+    import json as _json
+    import subprocess as _sp
+
+    picked = _sp.run(
+        [NODE_EXE, str(Path(SERVER_DIR).parent / "tools" / "db_admin.js"), "pick-active"],
+        cwd=str(Path(SERVER_DIR).parent), capture_output=True, text=True, timeout=60,
+    )
+    lines = (picked.stdout or "").strip().splitlines()
+    row = _json.loads(lines[-1]) if lines and lines[-1] != "null" else None
+    if not row:
+        pytest.skip("no active subscription available")
+
+    body = requests.post(f"{server}/validate", json={"licenseKey": row["license_key"]}, timeout=60).json()
     if not body.get("isPro"):
         pytest.skip("no active subscription available")
 
     requests.post(f"{server}/devices",
-                  json={"licenseKey": body["licenseKey"], "action": "release-all"},
+                  json={"licenseKey": row["license_key"], "action": "release-all"},
                   timeout=30)
-    return body["licenseKey"]
+    return row["license_key"]
 
 
 def activate(server, key, device_id, name="Test PC"):

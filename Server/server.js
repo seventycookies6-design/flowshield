@@ -20,6 +20,7 @@ const db = require('./db');
 const licensekey = require('./licensekey');
 const mail = require('./email');
 const { loadKeys, describe, KEYS_PATH } = require('./keys');
+const { createLimiter } = require('./ratelimit');
 
 const PORT = Number(process.env.PORT || 3000);
 
@@ -90,6 +91,10 @@ app.use(
 // is mounted with a raw parser *before* the global JSON parser.
 app.use('/webhook', express.raw({ type: '*/*' }));
 app.use(express.json({ limit: '256kb' }));
+
+// Per-IP, per-route limit on the endpoints that answer questions about
+// customers. See ratelimit.js; loopback (the test suite) is exempt.
+const limiter = createLimiter({ limit: Number(process.env.RATE_LIMIT_PER_MINUTE ?? 30) });
 
 /* ------------------------------------------------------------------ helpers */
 
@@ -442,7 +447,7 @@ app.post('/create-checkout', async (req, res) => {
   }
 });
 
-app.get('/get-license', async (req, res) => {
+app.get('/get-license', limiter.middleware('get-license'), async (req, res) => {
   const sessionId = String(req.query.session_id || '').trim();
   if (!sessionId) {
     return res.status(400).json({ error: 'missing_session_id', message: 'session_id is required.' });
@@ -489,7 +494,7 @@ app.get('/get-license', async (req, res) => {
   }
 });
 
-app.post('/validate', async (req, res) => {
+app.post('/validate', limiter.middleware('validate'), async (req, res) => {
   const rawKey = req.body?.licenseKey ?? req.body?.license_key ?? '';
   const email = typeof req.body?.email === 'string' ? req.body.email.trim() : '';
   const key = licensekey.normalize(rawKey);
@@ -574,6 +579,14 @@ app.post('/validate', async (req, res) => {
 
   db.countActivation(row.license_key);
   const view = publicView(row);
+
+  // Only a caller who already holds this licence key learns it (and the address
+  // behind it). An email alone still answers "is this Pro?" — email activation
+  // is roadmap item 5.5 — but must never be a way to obtain someone's key.
+  if (key !== row.license_key) {
+    delete view.licenseKey;
+    delete view.email;
+  }
   log(`validate -> ${row.license_key} isPro=${view.isPro} status=${row.status}`);
 
   if (!view.isPro) {
@@ -629,7 +642,7 @@ app.post('/validate', async (req, res) => {
  * customer. The email only ever goes to the address on the subscription, so
  * asking for someone else's key tells you nothing and sends you nothing.
  */
-app.post('/resend-license', async (req, res) => {
+app.post('/resend-license', limiter.middleware('resend-license'), async (req, res) => {
   const email = typeof req.body?.email === 'string' ? req.body.email.trim() : '';
   const generic = {
     ok: true,
@@ -674,24 +687,34 @@ app.post('/resend-license', async (req, res) => {
  * A cap without a way to release seats is a trap: replace your laptop three
  * times and you are locked out of software you are still paying for. The app
  * calls this when you deactivate, and it is also reachable by support.
+ *
+ * Requires the licence key. An email address used to be accepted too, which let
+ * anyone who knew a customer's address read their key and device names and
+ * release their seats (#21). The app always sends the key it holds.
  */
-app.post('/devices', async (req, res) => {
+app.post('/devices', limiter.middleware('devices'), async (req, res) => {
   const key = licensekey.normalize(req.body?.licenseKey ?? req.body?.license_key ?? '');
-  const email = typeof req.body?.email === 'string' ? req.body.email.trim() : '';
   const action = String(req.body?.action || 'list').toLowerCase();
   const deviceId = typeof req.body?.deviceId === 'string' ? req.body.deviceId.trim() : '';
 
-  let row = key ? db.findByKey(key) : email ? db.findByEmail(email) : null;
+  if (!key) {
+    return res.status(400).json({
+      error: 'missing_license_key',
+      message: 'A licence key is required to list or release devices.',
+    });
+  }
+
+  let row = licensekey.isWellFormed(key) ? db.findByKey(key) : null;
 
   // Recover from Stripe like /validate does. Without this, deactivating just
   // after a redeploy has wiped the cache answers 404 and the seat is never
   // released — costing the customer a slot permanently, on the one path whose
   // whole job is giving slots back.
-  if (!row && (key || email)) {
-    const found = await recoverFromStripe({ key, email });
+  if (!row && licensekey.isWellFormed(key)) {
+    const found = await recoverFromStripe({ key });
     if (found) {
       try {
-        row = await rehydrate(found, email, key);
+        row = await rehydrate(found, '', key);
       } catch (err) {
         log(`devices rehydrate failed: ${err.message}`);
       }
@@ -730,12 +753,24 @@ app.post('/devices', async (req, res) => {
   });
 });
 
-app.post('/create-portal-session', async (req, res) => {
+/**
+ * Open the Stripe billing portal, where a customer can cancel, change plan or
+ * update their card. Requires the licence key: an email address alone used to
+ * be enough, which let anyone who knew it cancel someone else's subscription
+ * (#21). Checked before Stripe so the refusal doesn't depend on configuration.
+ */
+app.post('/create-portal-session', limiter.middleware('create-portal-session'), async (req, res) => {
+  const key = licensekey.normalize(req.body?.licenseKey ?? req.body?.license_key ?? '');
+  if (!key) {
+    return res.status(400).json({
+      error: 'missing_license_key',
+      message: 'A licence key is required to manage a subscription.',
+    });
+  }
+
   if (!requireStripe(res)) return;
 
-  const key = licensekey.normalize(req.body?.licenseKey ?? req.body?.license_key ?? '');
-  const email = typeof req.body?.email === 'string' ? req.body.email.trim() : '';
-  const row = key ? db.findByKey(key) : email ? db.findByEmail(email) : null;
+  const row = licensekey.isWellFormed(key) ? db.findByKey(key) : null;
 
   if (!row || !row.stripe_customer_id) {
     return res.status(404).json({

@@ -121,8 +121,10 @@ Do this last, not first.
 
 **An email address alone unlocks Pro.** A Payment Link buyer has nothing else,
 so this is a deliberate trade — but anyone who knows a customer's email can
-activate with it. Closing it properly means requiring the licence key and
-treating email activation as a support action rather than a self-service one.
+activate with it. Since #21 that's *all* an email gets: it no longer returns the
+licence key, opens the billing portal, or lists or releases devices, and those
+endpoints are rate limited. Closing the rest means requiring the licence key
+(or an emailed one-time code) to activate — roadmap item 5.5.
 
 **Unsigned.** See above. This is the one that will cost you the most installs.
 

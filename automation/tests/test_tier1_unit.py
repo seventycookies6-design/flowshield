@@ -336,6 +336,50 @@ class TestMomentum:
         assert score > 50, "two good sprints should more than undo one lapse"
 
 
+# ============================================================= rate limiter
+
+class TestRateLimiter:
+    """Server/ratelimit.js: slows guessing of keys and addresses (#21)."""
+
+    def run(self, body: str) -> dict:
+        return node_eval(
+            "const {createLimiter}=require('./ratelimit');let t=0;"
+            "const L=createLimiter({limit:3,windowMs:60000,now:()=>t});"
+            + body)
+
+    def test_allows_up_to_the_limit_then_refuses(self):
+        out = self.run(
+            "const r=[];for(let i=0;i<4;i++)r.push(L.check('validate','203.0.113.9').allowed);"
+            "console.log(JSON.stringify({r}));")
+        assert out["r"] == [True, True, True, False]
+
+    def test_the_window_resets(self):
+        out = self.run(
+            "for(let i=0;i<4;i++)L.check('validate','203.0.113.9');"
+            "t=60000;console.log(JSON.stringify({ok:L.check('validate','203.0.113.9').allowed}));")
+        assert out["ok"] is True
+
+    def test_routes_and_addresses_are_counted_separately(self):
+        out = self.run(
+            "for(let i=0;i<4;i++)L.check('validate','203.0.113.9');"
+            "console.log(JSON.stringify({route:L.check('devices','203.0.113.9').allowed,"
+            "ip:L.check('validate','198.51.100.7').allowed}));")
+        assert out == {"route": True, "ip": True}
+
+    def test_refusal_says_when_to_retry(self):
+        out = self.run(
+            "for(let i=0;i<3;i++)L.check('validate','203.0.113.9');t=45000;"
+            "console.log(JSON.stringify(L.check('validate','203.0.113.9')));")
+        assert out == {"allowed": False, "retryAfterSeconds": 15}
+
+    def test_loopback_is_exempt_and_zero_disables(self):
+        out = self.run(
+            "const a=[];for(let i=0;i<10;i++)a.push(L.check('validate','::1').allowed);"
+            "const Z=createLimiter({limit:0});const b=[];for(let i=0;i<10;i++)b.push(Z.check('v','203.0.113.9').allowed);"
+            "console.log(JSON.stringify({a:a.every(Boolean),b:b.every(Boolean)}));")
+        assert out == {"a": True, "b": True}
+
+
 # ============================================================== doc steward
 
 class TestDocSteward:
