@@ -13,7 +13,7 @@ window.FLOWSHIELD_CONFIG = {
    * This is what the published, static site uses: GitHub Pages cannot run the
    * license server, and a visitor's browser obviously cannot reach ours.
    */
-  paymentLink: "https://buy.stripe.com/test_aFaeVcgRp74752td0fcZa01",
+  paymentLink: "https://buy.stripe.com/test_14A4gy8kT3RVbqR9O3cZa02",
 
   /*
    * License server base URL. Empty on the public build.

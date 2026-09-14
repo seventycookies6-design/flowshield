@@ -12,8 +12,8 @@ Stay in **test mode** throughout. Nothing here moves real money.
 
 | Thing | Value |
 | --- | --- |
-| Product | `FlowShield` (`metadata.edition = one_time`) |
-| Price | `$4.99`, one-time |
+| Product | `FlowShield` (`prod_VFwfmfKcYpgI63`) |
+| Price | `$4.99`, one-time (`price_1UFQmZCcqk10eo83f6jDDOzp`) |
 | Tax code | `txcd_10202000` — Downloadable Software, personal use |
 | Payment Link | `https://buy.stripe.com/test_…` (in `Website/config.js`) |
 | Confirmation page | `https://seventycookies6-design.github.io/flowshield/success.html` |
@@ -25,6 +25,11 @@ FlowShield used to be a $4.99/month subscription on the product `FlowShield
 Pro`. That product and its monthly price are left in place, untouched, for the
 licences bought on it; the setup script now looks only for the one-time product
 and deactivates the old monthly Payment Link.
+
+The one-time product, price and Payment Link were made in the dashboard on 14
+September 2026, with no keys on hand, so they carry no metadata yet. The next
+run of the setup script adopts the product by name and adds
+`metadata.app = flowshield` and `metadata.edition = one_time`.
 
 ---
 

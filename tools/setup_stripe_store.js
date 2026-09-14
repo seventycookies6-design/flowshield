@@ -117,7 +117,9 @@ async function findProduct(stripe) {
   }
 
   const list = await stripe.products.list({ active: true, limit: 100 });
-  return list.data.find((p) => p.name === PRODUCT_NAME && p.metadata?.edition === EDITION) || null;
+  // By exact name too: a product made in the dashboard has no metadata yet, and
+  // the old monthly product is named "FlowShield Pro", so this can't match it.
+  return list.data.find((p) => p.name === PRODUCT_NAME) || null;
 }
 
 /*
@@ -138,6 +140,9 @@ async function ensureProduct(stripe) {
     // A product created before the tax code was required would break every
     // checkout under Managed Payments, so backfill it rather than reuse as-is.
     if (!existing.tax_code) changes.tax_code = TAX_CODE;
+    if (existing.metadata?.app !== TAG || existing.metadata?.edition !== EDITION) {
+      changes.metadata = { ...(existing.metadata || {}), app: TAG, edition: EDITION };
+    }
     if (existing.description !== PRODUCT_DESCRIPTION) changes.description = PRODUCT_DESCRIPTION;
 
     if (Object.keys(changes).length) {
@@ -185,7 +190,29 @@ async function ensurePrice(stripe, product) {
 
 async function ensurePaymentLink(stripe, price, siteUrl) {
   const links = await stripe.paymentLinks.list({ active: true, limit: 100 });
-  const existing = links.data.find((l) => l.metadata && l.metadata.app === TAG);
+  const priceOf = async (l) => {
+    const item = await stripe.paymentLinks.listLineItems(l.id, { limit: 1 });
+    return item.data.length ? item.data[0].price.id : null;
+  };
+
+  const tagged = links.data.find((l) => l.metadata && l.metadata.app === TAG);
+  let existing = tagged;
+
+  // A link made in the dashboard carries no tag; reuse it if it already sells
+  // this price, rather than creating a second one alongside it — and retire
+  // the tagged link if that one still sells an old price.
+  if (!tagged || (await priceOf(tagged)) !== price.id) {
+    for (const l of links.data) {
+      if (l !== tagged && (await priceOf(l)) === price.id) {
+        if (tagged) {
+          await stripe.paymentLinks.update(tagged.id, { active: false });
+          info(`deactivated a payment link pointing at an old price (${tagged.id})`);
+        }
+        existing = l;
+        break;
+      }
+    }
+  }
 
   // A Payment Link's price cannot be edited after creation, and its redirect
   // can. Deactivate a stale one rather than leaving two live links around.
