@@ -6,7 +6,7 @@
 
             <!-- trial-ended gate (the window-wide lock screen normally covers this) -->
             <Border Style="{StaticResource Card}" Padding="22" Margin="0,0,0,16"
-                    Background="#1A7C5CFF" BorderBrush="#557C5CFF"
+                    Background="{StaticResource PrimarySoft}" BorderBrush="{StaticResource Primary}"
                     Visibility="{Binding IsLocked, Converter={StaticResource BoolVis}}">
                 <Grid>
                     <Grid.ColumnDefinitions>

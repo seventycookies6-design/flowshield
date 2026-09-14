@@ -18,28 +18,8 @@
             <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
 
-        <!-- Ambient glow, purely decorative. -->
-        <Ellipse Grid.ColumnSpan="2" Width="720" Height="720" HorizontalAlignment="Left"
-                 VerticalAlignment="Top" Margin="-280,-320,0,0" IsHitTestVisible="False">
-            <Ellipse.Fill>
-                <RadialGradientBrush>
-                    <GradientStop Color="#557C5CFF" Offset="0"/>
-                    <GradientStop Color="#0007070D" Offset="1"/>
-                </RadialGradientBrush>
-            </Ellipse.Fill>
-        </Ellipse>
-        <Ellipse Grid.Column="1" Width="560" Height="560" HorizontalAlignment="Right"
-                 VerticalAlignment="Bottom" Margin="0,0,-220,-260" IsHitTestVisible="False">
-            <Ellipse.Fill>
-                <RadialGradientBrush>
-                    <GradientStop Color="#3334E0EA" Offset="0"/>
-                    <GradientStop Color="#0007070D" Offset="1"/>
-                </RadialGradientBrush>
-            </Ellipse.Fill>
-        </Ellipse>
-
         <!-- ================================================== navigation rail -->
-        <Border Grid.Column="0" Background="#66090813" BorderBrush="{StaticResource Edge}"
+        <Border Grid.Column="0" Background="{StaticResource BgSoft}" BorderBrush="{StaticResource Edge}"
                 BorderThickness="0,0,1,0">
             <DockPanel Margin="18,22,18,18">
 
@@ -47,9 +27,9 @@
                 <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="6,0,0,26">
                     <Canvas Width="26" Height="26" VerticalAlignment="Center">
                         <Path Data="M13 1.6 3.2 5.4v7.6c0 5.5 3.9 9.7 9.8 11.1 5.9-1.4 9.8-5.6 9.8-11.1V5.4L13 1.6Z"
-                              Fill="#337C5CFF" Stroke="{StaticResource Accent}" StrokeThickness="1.4"/>
+                              Fill="{StaticResource PrimarySoft}" Stroke="{StaticResource Primary}" StrokeThickness="1.4"/>
                         <Path Data="M8.9 13.3 11.8 16.2 17.6 9.9"
-                              Stroke="{StaticResource Accent}" StrokeThickness="1.9"
+                              Stroke="{StaticResource Primary}" StrokeThickness="1.9"
                               StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
                     </Canvas>
                     <TextBlock Text="FlowShield" Style="{StaticResource H2}" FontSize="15"
@@ -167,7 +147,7 @@
             <!-- Covers every page once the free trial ends without a purchase.
                  The nav rail stays usable so the user can still look around,
                  but nothing behind this can be operated. -->
-            <Border Grid.Row="0" Grid.RowSpan="2" Background="#F20A0913"
+            <Border Grid.Row="0" Grid.RowSpan="2" Background="#F2121110"
                     Visibility="{Binding IsLocked, Converter={StaticResource BoolVis}}"
                     AutomationProperties.AutomationId="TrialEndedPanel">
                 <Border Style="{StaticResource Card}" Padding="32" MaxWidth="520"
@@ -214,10 +194,10 @@
             <!-- toast -->
             <Border Grid.Row="1" VerticalAlignment="Bottom" HorizontalAlignment="Center"
                     Margin="0,0,0,20" CornerRadius="12" Padding="18,11"
-                    Background="#EE15142A" BorderBrush="{StaticResource EdgeBright}" BorderThickness="1"
+                    Background="{StaticResource Surface}" BorderBrush="{StaticResource EdgeBright}" BorderThickness="1"
                     Visibility="{Binding ToastVisible, Converter={StaticResource BoolVis}}">
                 <Border.Effect>
-                    <DropShadowEffect BlurRadius="28" ShadowDepth="6" Direction="270" Opacity="0.7"/>
+                    <DropShadowEffect BlurRadius="20" ShadowDepth="4" Direction="270" Opacity="0.55"/>
                 </Border.Effect>
                 <TextBlock Text="{Binding ToastText}" Foreground="{StaticResource Ink}" FontSize="12.5"
                            AutomationProperties.AutomationId="ToastText"/>
