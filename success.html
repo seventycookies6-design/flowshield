@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>FlowShield Pro — your license key</title>
+<title>FlowShield — your license key</title>
 <meta name="robots" content="noindex">
 <script>
   (function () {
@@ -32,10 +32,10 @@
   </div>
 
   <h1 style="font-size:clamp(1.7rem,4.6vw,2.3rem)" id="success-title">Confirming your payment…</h1>
-  <p id="success-blurb">Asking Stripe to confirm the subscription. This usually takes a second or two.</p>
+  <p id="success-blurb">Asking Stripe to confirm your payment. This usually takes a second or two.</p>
 
   <div class="keybox">
-    <div class="cap">Your FlowShield Pro license key</div>
+    <div class="cap">Your FlowShield license key</div>
     <div class="val" id="license-value">••••-••••-••••-••••</div>
   </div>
   <p class="copy-note" id="copy-note"></p>
@@ -50,7 +50,7 @@
     <ol>
       <li>Open FlowShield and go to <b>Settings</b>.</li>
       <li>Paste the key into <b>License key</b>.</li>
-      <li>Click <b>Activate Pro</b> — the status line flips to <b>Pro Active</b>.</li>
+      <li>Click <b>Activate licence</b> — the status line flips to <b>Licence active</b>.</li>
     </ol>
   </div>
 </div>
@@ -58,8 +58,8 @@
 <!-- ?v= is a cache buster: bump it whenever these change, otherwise browsers
      keep serving the previous build from disk cache.
      config.js must load first — checkout.js reads its values at start-up. -->
-<script src="config.js?v=3"></script>
-<script src="checkout.js?v=3"></script>
+<script src="config.js?v=4"></script>
+<script src="checkout.js?v=4"></script>
 <script>
   // Point the deep link at the real key once it resolves.
   document.addEventListener('DOMContentLoaded', function () {
