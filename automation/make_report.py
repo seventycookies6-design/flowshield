@@ -224,7 +224,7 @@ The twist is **escalating shield levels** plus **momentum instead of streaks**:
 | --- | --- | --- |
 | Shield I | Soft | A brief notice inside FlowShield; the blocked app keeps running. |
 | Shield II | Firm | Blocked apps are closed on sight; the blocklist stays editable. |
-| Shield III | Sealed *(Pro)* | Closed on sight **and** the blocklist locks for the rest of the sprint. |
+| Shield III | Sealed | Closed on sight **and** the blocklist locks for the rest of the sprint. |
 
 Momentum compounds on completed sprints and *decays* (×0.85 − 2, floored at zero)
 on abandoned ones rather than resetting — one bad afternoon should not erase a
@@ -239,16 +239,16 @@ month. Every sprint ends with a one-line "what moved?" journal entry.
 | Marketing site | Static HTML/CSS/JS, dark glassmorphism | `Website/` |
 | Automation suite | Python, pywinauto + Playwright + pytest | `automation/` |
 
-### Free vs Pro
+### Trial and purchase
 
-| | Free | Pro — $4.99/mo |
+| | 7-day free trial | Bought — $4.99 once |
 | --- | --- | --- |
-| Blocked apps | 3 | Unlimited |
-| Shield levels | I, II | I, II, **III Sealed** |
-| Sprint length | 15 or 25 min | Also 45, 60 or 90 min |
-| Sleep blocking | — | ✅ |
-| Hard kill mode | — | ✅ |
-| History | 7 days kept | Kept beyond 7 days (no history screen yet) |
+| Blocked apps | Unlimited | Unlimited |
+| Shield levels | I, II, III | I, II, III |
+| Sprint length | 15, 25, 45, 60 or 90 min | 15, 25, 45, 60 or 90 min |
+| Sleep blocking | ✅ | ✅ |
+| Hard kill mode | ✅ | ✅ |
+| After day 7 | Locked until bought | Keeps working |
 
 ---
 
@@ -322,15 +322,17 @@ Do this only when you actually intend to charge real cards.
 1. **Activate the account.** Live keys require completing Stripe's business and
    bank-details onboarding. Test mode needs none of that.
 2. **Recreate the product in live mode.** Price IDs do not cross the test/live
-   boundary — toggle to live, create *FlowShield Pro* at $4.99/month, copy the
-   new `price_...`.
+   boundary — run `node tools/setup_stripe_store.js` against live mode (after
+   deliberately lifting its test-key guard) to create *FlowShield* at a one-time
+   $4.99, and copy the new `price_...`.
 3. **Swap the credentials** in `.stripe_keys.json` for the `pk_live_` /
    `sk_live_` pair, or set `STRIPE_SECRET_KEY` and friends in the environment
    instead so no secret sits on disk.
 4. **Host the webhook somewhere reachable.** `http://localhost:3000/webhook`
    cannot receive live events. Deploy the server, register the public HTTPS URL
-   under Developers → Webhooks for `checkout.session.completed`,
-   `customer.subscription.updated` and `customer.subscription.deleted`, and use
+   under Developers → Webhooks for `checkout.session.completed` and
+   `charge.refunded` (plus the two `customer.subscription.*` events while any
+   old monthly licences remain), and use
    that endpoint's signing secret.
 5. **Serve both server and site over HTTPS**, and set `WEBSITE_URL` on the
    server so success/cancel URLs point at the deployed site rather than
@@ -341,9 +343,9 @@ Do this only when you actually intend to charge real cards.
    fails against live keys on purpose. Keep it that way; point the suite at a
    test-mode server instead of relaxing the assertion.
 
-Before going live, confirm on a real card that the subscription appears under
-Customers → Subscriptions and that a cancellation propagates back to `IsPro`
-being cleared in the app within one validation cycle.
+Before going live, confirm on a real card that the payment appears under
+Payments and that a refund propagates back to `IsPro` being cleared in the app
+within one validation cycle.
 """
 
 

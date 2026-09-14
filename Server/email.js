@@ -40,21 +40,21 @@ function escapeHtml(value) {
  * that render text only.
  */
 function licenseEmail({ licenseKey, email, status }) {
-  const subject = `Your ${APP_NAME} Pro licence key`;
+  const subject = `Your ${APP_NAME} licence key`;
 
   const text = [
-    `Your ${APP_NAME} Pro subscription is active.`,
+    `Thanks for buying ${APP_NAME}. It's yours to keep - no subscription.`,
     '',
     `Licence key: ${licenseKey}`,
     '',
     'To activate:',
     `  1. Open ${APP_NAME} and go to Settings.`,
     '  2. Paste the key into "License key".',
-    '  3. Click "Activate Pro".',
+    '  3. Click "Activate licence".',
     '',
     `You can also activate with this email address (${email}) instead of the key.`,
     '',
-    `Manage or cancel your subscription any time: ${SITE_URL}`,
+    `${APP_NAME}: ${SITE_URL}`,
     REPLY_TO ? `Questions? Reply to this email or write to ${REPLY_TO}.` : '',
     '',
     `— ${APP_NAME}`,
@@ -75,10 +75,10 @@ function licenseEmail({ licenseKey, email, status }) {
 <body style="margin:0;padding:24px;background:#f4f4f7;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#1a1a2e">
   <div style="max-width:520px;margin:0 auto;background:#ffffff;border-radius:12px;padding:32px">
     <p style="margin:0 0 4px;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#6f6d8d">${escapeHtml(APP_NAME)}</p>
-    <h1 style="margin:0 0 16px;font-size:22px;font-weight:600">Your Pro licence key</h1>
+    <h1 style="margin:0 0 16px;font-size:22px;font-weight:600">Your licence key</h1>
 
     <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#44435c">
-      Your subscription is <strong>${escapeHtml(status || 'active')}</strong>. Here is the key — keep this email, it is the only copy we send.
+      Thanks for buying ${escapeHtml(APP_NAME)} — it is yours to keep, with no subscription. Here is the key — keep this email, it is the only copy we send.
     </p>
 
     <div style="margin:0 0 24px;padding:18px;background:#0e0e1a;border-radius:10px;text-align:center">
@@ -89,7 +89,7 @@ function licenseEmail({ licenseKey, email, status }) {
     <ol style="margin:0 0 24px;padding-left:20px;font-size:15px;line-height:1.7;color:#44435c">
       <li>Open ${escapeHtml(APP_NAME)} and go to <strong>Settings</strong>.</li>
       <li>Paste the key into <strong>License key</strong>.</li>
-      <li>Click <strong>Activate Pro</strong>.</li>
+      <li>Click <strong>Activate licence</strong>.</li>
     </ol>
 
     <p style="margin:0 0 24px;font-size:14px;line-height:1.6;color:#6f6d8d">
@@ -98,7 +98,7 @@ function licenseEmail({ licenseKey, email, status }) {
     </p>
 
     <p style="margin:0;font-size:13px;line-height:1.6;color:#8b89a3;border-top:1px solid #ececf2;padding-top:18px">
-      Manage or cancel any time at <a href="${escapeHtml(SITE_URL)}" style="color:#6f5cff">${escapeHtml(SITE_URL)}</a>.
+      ${escapeHtml(APP_NAME)}: <a href="${escapeHtml(SITE_URL)}" style="color:#6f5cff">${escapeHtml(SITE_URL)}</a>.
       ${REPLY_TO ? `Questions? Write to <a href="mailto:${escapeHtml(REPLY_TO)}" style="color:#6f5cff">${escapeHtml(REPLY_TO)}</a>.` : ''}
     </p>
   </div>

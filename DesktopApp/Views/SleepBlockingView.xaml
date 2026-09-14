@@ -4,21 +4,21 @@
     <ScrollViewer VerticalScrollBarVisibility="Auto">
         <StackPanel MaxWidth="700" HorizontalAlignment="Stretch" Margin="0,0,8,0">
 
-            <!-- Pro gate -->
+            <!-- trial-ended gate (the window-wide lock screen normally covers this) -->
             <Border Style="{StaticResource Card}" Padding="22" Margin="0,0,0,16"
                     Background="#1A7C5CFF" BorderBrush="#557C5CFF"
-                    Visibility="{Binding IsPro, Converter={StaticResource InvBoolVis}}">
+                    Visibility="{Binding IsLocked, Converter={StaticResource BoolVis}}">
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
                     <StackPanel Grid.Column="0" Margin="0,0,18,0">
-                        <TextBlock Text="Sleep blocking is a Pro feature" Style="{StaticResource H2}"/>
+                        <TextBlock Text="Your free trial has ended" Style="{StaticResource H2}"/>
                         <TextBlock Style="{StaticResource Body}" Margin="0,5,0,0"
-                                   Text="Set a nightly window and the shield raises itself — no decision required at 1 a.m."/>
+                                   Text="Buy FlowShield once for $4.99 to keep your nightly shield."/>
                     </StackPanel>
-                    <Button Grid.Column="1" Style="{StaticResource BtnPrimary}" Content="★ Get Pro"
+                    <Button Grid.Column="1" Style="{StaticResource BtnPrimary}" Content="Buy FlowShield"
                             VerticalAlignment="Center" Command="{Binding GetProCommand}"
                             AutomationProperties.AutomationId="SleepGetProButton"/>
                 </Grid>
@@ -30,7 +30,7 @@
 
                     <CheckBox Style="{StaticResource Switch}"
                               IsChecked="{Binding IsEnabled}"
-                              IsEnabled="{Binding IsPro}"
+                              IsEnabled="{Binding HasAccess}"
                               AutomationProperties.AutomationId="SleepBlockToggle"
                               AutomationProperties.Name="Enable sleep blocking">
                         <StackPanel>
@@ -44,7 +44,7 @@
 
                     <TextBlock Text="WINDOW" Style="{StaticResource Eyebrow}" Margin="0,0,0,10"/>
 
-                    <StackPanel Orientation="Horizontal" IsEnabled="{Binding IsPro}">
+                    <StackPanel Orientation="Horizontal" IsEnabled="{Binding HasAccess}">
                         <StackPanel Margin="0,0,16,0">
                             <TextBlock Text="Starts" Style="{StaticResource Caption}" Margin="2,0,0,6"/>
                             <TextBox Style="{StaticResource Field}" Width="112"

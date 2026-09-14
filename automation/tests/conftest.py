@@ -110,6 +110,21 @@ def fresh_app(logger):
 
 
 @pytest.fixture
+def expired_app(logger):
+    """A fresh FlowShield whose 7-day trial has already run out, with no licence."""
+    if not Path(APP_EXE).exists():
+        pytest.skip(f"{APP_EXE} not built")
+
+    ctrl = DesktopController(logger)
+    ctrl.launch_app(clean_state=True, extra_args=["--expire-trial"])
+    ctrl.connect_window()
+    time.sleep(1.0)
+    ctrl.focus(force=True)
+    yield ctrl
+    ctrl.close_app()
+
+
+@pytest.fixture
 def app(fresh_app):
     """Readability alias — same isolation guarantees as `fresh_app`."""
     return fresh_app

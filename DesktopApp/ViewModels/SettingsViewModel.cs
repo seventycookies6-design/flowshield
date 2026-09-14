@@ -27,9 +27,8 @@ public class SettingsViewModel : ViewModelBase
         _licenseKeyInput = main.Settings.LicenseKey;
         _licenseEmailInput = main.Settings.LicenseEmail;
 
-        ActivateCommand = new AsyncRelayCommand(ActivateAsync, () => !IsPro || true);
+        ActivateCommand = new AsyncRelayCommand(ActivateAsync);
         GetProCommand = new RelayCommand(() => _main.OpenUpgradePage());
-        ManageSubscriptionCommand = new AsyncRelayCommand(ManageSubscriptionAsync, () => IsPro);
         DeactivateCommand = new AsyncRelayCommand(DeactivateAsync, () => IsPro);
         OpenLogCommand = new RelayCommand(OpenLog);
 
@@ -38,7 +37,6 @@ public class SettingsViewModel : ViewModelBase
 
     public AsyncRelayCommand ActivateCommand { get; }
     public RelayCommand GetProCommand { get; }
-    public AsyncRelayCommand ManageSubscriptionCommand { get; }
     public AsyncRelayCommand DeactivateCommand { get; }
     public RelayCommand OpenLogCommand { get; }
     public AsyncRelayCommand CheckForUpdatesCommand { get; }
@@ -120,11 +118,15 @@ public class SettingsViewModel : ViewModelBase
     private string _licenseEmailInput;
     public string LicenseEmailInput { get => _licenseEmailInput; set => Set(ref _licenseEmailInput, value); }
 
+    /// <summary>FlowShield has been bought and activated here.</summary>
     public bool IsPro => _main.IsPro;
     public bool IsNotPro => !_main.IsPro;
 
+    /// <summary>Bought, or inside the free trial.</summary>
+    public bool HasAccess => _main.HasAccess;
+
     private string _licenseStatusText = "";
-    /// <summary>The line the automation suite asserts on. Contains "Pro Active" once licensed.</summary>
+    /// <summary>The line the automation suite asserts on. Contains "Licence active" once bought.</summary>
     public string LicenseStatusText { get => _licenseStatusText; private set => Set(ref _licenseStatusText, value); }
 
     private string _licenseDetailText = "";
@@ -149,7 +151,7 @@ public class SettingsViewModel : ViewModelBase
                 LicenseEmailInput = _main.Settings.LicenseEmail;
                 _main.OnTierChanged();
                 RefreshLicenseStatus();
-                _main.Toast("Pro unlocked.");
+                _main.Toast("FlowShield activated. Thanks for buying it.");
             }
             else
             {
@@ -160,39 +162,6 @@ public class SettingsViewModel : ViewModelBase
         finally
         {
             IsBusy = false;
-        }
-    }
-
-    private async Task ManageSubscriptionAsync()
-    {
-        // The billing portal needs the licence key; an email address alone is no
-        // longer accepted (#21). Installs activated by email have no key stored.
-        if (string.IsNullOrWhiteSpace(_main.Settings.LicenseKey))
-        {
-            _main.Toast("Enter your licence key above to manage your subscription.");
-            return;
-        }
-
-        var url = _main.Settings.LicenseServerUrl.TrimEnd('/') + "/create-portal-session";
-        try
-        {
-            using var http = new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(20) };
-            using var res = await http.PostAsJsonAsync(url, new { licenseKey = _main.Settings.LicenseKey });
-            var body = await res.Content.ReadFromJsonAsync<Dictionary<string, string>>();
-
-            if (res.IsSuccessStatusCode && body is not null && body.TryGetValue("url", out var portal))
-            {
-                _main.OpenUrl(portal);
-                return;
-            }
-            _main.Toast(body is not null && body.TryGetValue("message", out var m)
-                ? m
-                : "Could not open the billing portal.");
-        }
-        catch (Exception ex)
-        {
-            Log.Error("billing portal failed", ex);
-            _main.Toast($"Could not reach the license server: {ex.Message}");
         }
     }
 
@@ -215,12 +184,12 @@ public class SettingsViewModel : ViewModelBase
 
         if (_main.IsPro)
         {
-            LicenseStatusText = "✅ Pro Active";
+            LicenseStatusText = "✅ Licence active";
             var checkedAt = settings.LicenseCheckedUtc?.ToLocalTime();
             LicenseDetailText =
                 (string.IsNullOrWhiteSpace(settings.LicenseEmail)
-                    ? "Subscription active."
-                    : $"Subscribed as {settings.LicenseEmail}.")
+                    ? "FlowShield is yours — every feature, for good."
+                    : $"Bought by {settings.LicenseEmail}. Every feature, for good.")
                 + (checkedAt is null ? "" : $" Last verified {checkedAt:d MMM, HH:mm}.");
 
             // Shown while things are fine, not only once someone is locked out —
@@ -230,15 +199,25 @@ public class SettingsViewModel : ViewModelBase
                   + "Deactivating here frees this one for another machine."
                 : "";
         }
+        else if (_main.IsTrial)
+        {
+            var days = _main.TrialDaysLeft;
+            LicenseStatusText = $"Free trial — {days} day{(days == 1 ? "" : "s")} left";
+            LicenseDetailText = "Everything is unlocked during the trial. Buy FlowShield once for $4.99 "
+                                + "to keep it — no subscription.";
+            DeviceText = "";
+        }
         else
         {
-            LicenseStatusText = "Free plan";
-            LicenseDetailText = $"{Models.AppSettings.FreeBlockedAppLimit} blocked apps, shields I and II.";
+            LicenseStatusText = "Trial ended";
+            LicenseDetailText = "Buy FlowShield once for $4.99 to keep using it, or enter the licence "
+                                + "key you received when you bought it.";
             DeviceText = "";
         }
 
         Raise(nameof(IsPro));
         Raise(nameof(IsNotPro));
+        Raise(nameof(HasAccess));
         Raise(nameof(HasDeviceInfo));
     }
 
@@ -264,9 +243,9 @@ public class SettingsViewModel : ViewModelBase
         get => _main.Settings.HardKillModeEnabled;
         set
         {
-            if (value && !_main.IsPro)
+            if (value && _main.IsLocked)
             {
-                _main.Toast("Hard kill mode is a Pro feature.");
+                _main.Toast("Your free trial has ended. Buy FlowShield to use hard kill mode.");
                 Raise();
                 return;
             }

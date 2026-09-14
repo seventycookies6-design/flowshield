@@ -15,6 +15,7 @@ accurate rather than encouraging.
 | Site | <https://seventycookies6-design.github.io/flowshield/> |
 | Licence server | <https://flowshield-license-server.onrender.com> |
 | Legal pages | `/legal.html` — terms, privacy, refunds (drafts, see below) |
+| Pricing | 7-day free trial with everything unlocked, then **$4.99 once** — no subscription (#29) |
 | Payments | Stripe, **test mode**, account named FlowShield |
 | Device limit | 3 machines per licence, with self-service seat release |
 
@@ -100,8 +101,8 @@ removes the Stripe recovery round-trip after each deploy.
 
 `Website/legal.html` is drafted and accurate about what the software does —
 including that it closes programs and may lose unsaved work. It is not legal
-advice. Consumer-subscription rules differ by country (UK/EU 14-day
-cancellation, US state auto-renewal disclosure laws). Have someone qualified
+advice. Consumer rules for digital purchases differ by country (for example the
+UK/EU 14-day cancellation right). Have someone qualified
 read it, and fill in the placeholders: operator name, registered address,
 support email.
 
@@ -127,7 +128,7 @@ Do this last, not first.
 
 ## Known weaknesses
 
-**An email address alone unlocks Pro.** A Payment Link buyer has nothing else,
+**An email address alone activates a licence.** A Payment Link buyer has nothing else,
 so this is a deliberate trade — but anyone who knows a customer's email can
 activate with it. Since #21 that's *all* an email gets: it no longer returns the
 licence key, opens the billing portal, or lists or releases devices, and those

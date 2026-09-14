@@ -1,7 +1,12 @@
 'use strict';
 
 /**
- * FlowShield license + subscription server.
+ * FlowShield licence server.
+ *
+ * FlowShield is sold as a one-time purchase after a 7-day in-app trial. A
+ * purchase is a Checkout Session in payment mode; its PaymentIntent carries the
+ * licence key in metadata. Licences bought on the old monthly plan are
+ * subscriptions and keep working through the same routes.
  *
  *   POST /create-checkout       -> { url, licenseKey, sessionId }
  *   POST /validate              -> { valid, isPro, status, ... }
@@ -120,20 +125,27 @@ function requireStripe(res) {
  * existing customer would silently drop to "not_found" and lose Pro after a
  * routine deploy. Stripe holds the real state, so rebuild the row from it.
  *
- * Two routes in: the licence key stamped into subscription metadata, and the
- * customer's email address.
+ * Two routes in: the licence key stamped into payment (or, for the old monthly
+ * plan, subscription) metadata, and the customer's email address.
+ *
+ * Returns { payment | subscription, licenseKey, customer? } or null.
  */
 async function recoverFromStripe({ key, email }) {
   if (!stripe) return null;
 
   // 1. By licence key, which create-checkout and the minting path both stamp
-  //    into subscription metadata.
+  //    into metadata.
   if (key) {
+    const query = `metadata['license_key']:'${key.replace(/'/g, '')}'`;
     try {
-      const found = await stripe.subscriptions.search({
-        query: `metadata['license_key']:'${key.replace(/'/g, '')}'`,
+      const payments = await stripe.paymentIntents.search({
+        query,
         limit: 1,
+        expand: ['data.latest_charge'],
       });
+      if (payments.data.length) return { payment: payments.data[0], licenseKey: key };
+
+      const found = await stripe.subscriptions.search({ query, limit: 1 });
       if (found.data.length) return { subscription: found.data[0], licenseKey: key };
     } catch (err) {
       // Search is eventually consistent and unavailable on brand-new accounts.
@@ -146,14 +158,26 @@ async function recoverFromStripe({ key, email }) {
     try {
       const customers = await stripe.customers.list({ email, limit: 5 });
 
-      // Gather every subscription across every customer with this address
-      // before choosing. One person can hold several — the same address can
-      // buy twice, and Stripe creates a separate customer each time a Payment
-      // Link is used. Returning whichever happened to be listed first made
-      // recovery non-deterministic and could hand back a licence key the
-      // customer has never seen.
+      // Gather every purchase across every customer with this address before
+      // choosing. One person can hold several — the same address can buy
+      // twice, and Stripe creates a separate customer each time a Payment Link
+      // is used. Returning whichever happened to be listed first made recovery
+      // non-deterministic and could hand back a licence key the customer has
+      // never seen.
       const candidates = [];
       for (const customer of customers.data) {
+        const payments = await stripe.paymentIntents.list({
+          customer: customer.id,
+          limit: 20,
+          expand: ['data.latest_charge'],
+        });
+        for (const payment of payments.data) {
+          if (payment.status !== 'succeeded') continue;
+          // Only FlowShield purchases: the same Stripe account may sell other things.
+          if (payment.metadata?.app !== APP_NAME && !payment.metadata?.license_key) continue;
+          candidates.push({ payment, customer });
+        }
+
         const subs = await stripe.subscriptions.list({
           customer: customer.id,
           status: 'all',
@@ -164,14 +188,18 @@ async function recoverFromStripe({ key, email }) {
 
       if (candidates.length === 0) return null;
 
-      const keyOf = (c) => licensekey.normalize(c.subscription.metadata?.license_key || '');
+      const keyOf = (c) =>
+        licensekey.normalize((c.payment || c.subscription).metadata?.license_key || '');
+      const isLive = (c) =>
+        c.payment ? paymentStatusOf(c.payment) === 'active' : db.PRO_STATUSES.has(c.subscription.status);
 
-      // Prefer the subscription that actually carries the presented key.
+      // Prefer the purchase that actually carries the presented key.
       const exact = key ? candidates.find((c) => keyOf(c) === key) : null;
-      const live = candidates.find((c) => db.PRO_STATUSES.has(c.subscription.status));
+      const live = candidates.find(isLive);
       const chosen = exact || live || candidates[0];
 
       return {
+        payment: chosen.payment,
         subscription: chosen.subscription,
         licenseKey: keyOf(chosen) || null,
         customer: chosen.customer,
@@ -185,15 +213,17 @@ async function recoverFromStripe({ key, email }) {
 }
 
 /**
- * Write a recovered subscription back into the local cache, minting a licence
- * key if the subscription never carried one.
+ * Write a recovered purchase back into the local cache, minting a licence key
+ * if the purchase never carried one.
  */
 async function rehydrate(found, fallbackEmail, preferredKey = '') {
-  let { subscription, licenseKey } = found;
+  const { payment, subscription } = found;
+  const target = payment || subscription;
+  let { licenseKey } = found;
 
-  // If the subscription carries no key but the caller presented a well-formed
-  // one, adopt theirs. Minting a fresh key here would silently orphan the key
-  // the customer already has written down. This grants nothing extra: whoever
+  // If the purchase carries no key but the caller presented a well-formed one,
+  // adopt theirs. Minting a fresh key here would silently orphan the key the
+  // customer already has written down. This grants nothing extra: whoever
   // supplied the email could already activate with it alone.
   if (!licenseKey && preferredKey && licensekey.isWellFormed(preferredKey)) {
     licenseKey = licensekey.normalize(preferredKey);
@@ -201,47 +231,79 @@ async function rehydrate(found, fallbackEmail, preferredKey = '') {
 
   if (!licenseKey) {
     licenseKey = licensekey.generate();
-    try {
-      await stripe.subscriptions.update(subscription.id, {
-        metadata: { ...(subscription.metadata || {}), license_key: licenseKey, app: APP_NAME },
-      });
-    } catch (err) {
-      log(`could not stamp licence key onto ${subscription.id}: ${err.message}`);
-    }
+    await stampLicenseKey({ payment, subscription }, licenseKey);
   }
 
   let email =
     found.customer?.email ||
-    (typeof subscription.customer === 'object' ? subscription.customer?.email : null) ||
+    (typeof target.customer === 'object' ? target.customer?.email : null) ||
     fallbackEmail ||
     null;
 
-  // Recovery by licence key returns the subscription with `customer` as a bare
-  // id, so the address is missing. Fetch it: without an email on the row the
-  // customer cannot activate by email and no licence email can ever be sent to
-  // them — a silent loss that only shows up after a redeploy wipes the cache.
-  if (!email && typeof subscription.customer === 'string') {
+  // Recovery by licence key returns `customer` as a bare id, so the address is
+  // missing. Fetch it: without an email on the row the customer cannot
+  // activate by email and no licence email can ever be sent to them — a silent
+  // loss that only shows up after a redeploy wipes the cache.
+  if (!email && typeof target.customer === 'string') {
     try {
-      const customer = await stripe.customers.retrieve(subscription.customer);
+      const customer = await stripe.customers.retrieve(target.customer);
       if (!customer.deleted) email = customer.email || null;
     } catch (err) {
-      log(`could not resolve customer ${subscription.customer}: ${err.message}`);
+      log(`could not resolve customer ${target.customer}: ${err.message}`);
     }
   }
 
   if (!db.findByKey(licenseKey)) db.createPending(licenseKey, email, null);
 
+  const status = payment ? paymentStatusOf(payment) : subscription.status;
   const row = db.activate(licenseKey, {
-    status: subscription.status,
+    status,
     email,
-    customerId:
-      typeof subscription.customer === 'object' ? subscription.customer?.id : subscription.customer,
-    subscriptionId: subscription.id,
-    currentPeriodEnd: periodEndOf(subscription),
+    customerId: typeof target.customer === 'object' ? target.customer?.id : target.customer,
+    subscriptionId: subscription ? subscription.id : null,
+    paymentIntentId: payment ? payment.id : null,
+    currentPeriodEnd: subscription ? periodEndOf(subscription) : null,
   });
 
-  log(`rehydrated ${licenseKey} from Stripe (${subscription.status})`);
+  log(`rehydrated ${licenseKey} from Stripe (${status})`);
   return row;
+}
+
+/**
+ * Stamp the licence key onto the Stripe record so it can be recovered if this
+ * database is ever lost. Payment Link purchases arrive without one. Never
+ * throws: a failed stamp costs recoverability, not the purchase.
+ */
+async function stampLicenseKey({ payment, subscription }, licenseKey) {
+  try {
+    if (payment && payment.metadata?.license_key !== licenseKey) {
+      await stripe.paymentIntents.update(payment.id, {
+        metadata: { ...(payment.metadata || {}), license_key: licenseKey, app: APP_NAME },
+      });
+    } else if (subscription && subscription.metadata?.license_key !== licenseKey) {
+      await stripe.subscriptions.update(subscription.id, {
+        metadata: { ...(subscription.metadata || {}), license_key: licenseKey, app: APP_NAME },
+      });
+    }
+  } catch (err) {
+    log(`could not stamp licence key onto ${(payment || subscription).id}: ${err.message}`);
+  }
+}
+
+/**
+ * A one-time purchase's licence status.
+ *
+ * 'refunded' once the charge is fully refunded (a partial refund keeps the
+ * licence), 'active' once paid, otherwise 'pending'. Needs latest_charge
+ * expanded to see refunds; without it a paid purchase reads as active.
+ */
+function paymentStatusOf(payment) {
+  if (!payment) return 'pending';
+  const charge = payment.latest_charge && typeof payment.latest_charge === 'object'
+    ? payment.latest_charge
+    : null;
+  if (charge && charge.refunded) return 'refunded';
+  return payment.status === 'succeeded' ? 'active' : 'pending';
 }
 
 /**
@@ -301,8 +363,14 @@ function publicView(row, extra = {}) {
     status: row.status,
     currentPeriodEnd: row.current_period_end || null,
     plan: db.isPro(row) ? 'pro' : 'free',
+    purchase: row.stripe_subscription_id ? 'subscription' : 'one_time',
     ...extra,
   };
+}
+
+/** Why a known licence doesn't unlock the app, e.g. license_refunded. */
+function inactiveReason(row) {
+  return row.stripe_subscription_id ? `subscription_${row.status}` : `license_${row.status}`;
 }
 
 /**
@@ -315,7 +383,7 @@ function publicView(row, extra = {}) {
  */
 async function syncFromSession(sessionId) {
   const session = await stripe.checkout.sessions.retrieve(sessionId, {
-    expand: ['subscription', 'customer'],
+    expand: ['subscription', 'customer', 'payment_intent.latest_charge'],
   });
 
   let licenseKey = licensekey.normalize(session.client_reference_id || '');
@@ -354,26 +422,21 @@ async function syncFromSession(sessionId) {
 
   const subscription =
     session.subscription && typeof session.subscription === 'object' ? session.subscription : null;
+  const payment =
+    session.payment_intent && typeof session.payment_intent === 'object' ? session.payment_intent : null;
 
   const updated = db.activate(licenseKey, {
-    status: subscription ? subscription.status : 'active',
+    status: subscription ? subscription.status : payment ? paymentStatusOf(payment) : 'active',
     email: session.customer_details?.email || session.customer_email || row.email,
     customerId: typeof session.customer === 'object' ? session.customer?.id : session.customer,
     subscriptionId: subscription ? subscription.id : null,
+    paymentIntentId: payment ? payment.id : null,
     currentPeriodEnd: periodEndOf(subscription),
   });
 
-  // Stamp the key onto the subscription so it can be recovered from Stripe if
-  // this database is ever lost. Payment Link purchases arrive without one.
-  if (subscription && subscription.metadata?.license_key !== licenseKey) {
-    try {
-      await stripe.subscriptions.update(subscription.id, {
-        metadata: { ...(subscription.metadata || {}), license_key: licenseKey, app: APP_NAME },
-      });
-    } catch (err) {
-      log(`could not stamp licence key onto ${subscription.id}: ${err.message}`);
-    }
-  }
+  // Stamp the key onto Stripe so it can be recovered if this database is ever
+  // lost. Payment Link purchases arrive without one.
+  await stampLicenseKey({ payment, subscription }, licenseKey);
 
   return { row: updated, session };
 }
@@ -425,15 +488,19 @@ app.post('/create-checkout', async (req, res) => {
   try {
     db.createPending(licenseKeyValue, email || null, null);
 
+    // A one-time purchase: payment mode against a one-time price. The key goes
+    // on the PaymentIntent so it can be recovered from Stripe, and a customer
+    // is always created so the purchase can also be found by email.
     const session = await stripe.checkout.sessions.create({
-      mode: 'subscription',
+      mode: 'payment',
       line_items: [{ price: keys.price_id, quantity: 1 }],
       client_reference_id: licenseKeyValue,
       ...(email ? { customer_email: email } : {}),
+      customer_creation: 'always',
       allow_promotion_codes: true,
       success_url: `${WEBSITE_URL}/success.html?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${WEBSITE_URL}/index.html?checkout=cancelled`,
-      subscription_data: { metadata: { license_key: licenseKeyValue, app: APP_NAME } },
+      payment_intent_data: { metadata: { license_key: licenseKeyValue, app: APP_NAME } },
       metadata: { license_key: licenseKeyValue, app: APP_NAME },
     });
 
@@ -556,14 +623,27 @@ app.post('/validate', limiter.middleware('validate'), async (req, res) => {
       valid: false,
       isPro: false,
       reason: 'not_found',
-      message: 'No subscription found for those details.',
+      message: 'No purchase found for those details.',
     });
   }
 
-  // Re-confirm against Stripe so cancellations propagate even if the webhook
-  // was missed. A Stripe outage must not revoke a known-good license, so any
-  // error here leaves the cached status untouched.
-  if (stripe && row.stripe_subscription_id) {
+  // Re-confirm against Stripe so refunds and cancellations propagate even if
+  // the webhook was missed. A Stripe outage must not revoke a known-good
+  // license, so any error here leaves the cached status untouched.
+  if (stripe && row.stripe_payment_intent_id) {
+    try {
+      const payment = await stripe.paymentIntents.retrieve(row.stripe_payment_intent_id, {
+        expand: ['latest_charge'],
+      });
+      const status = paymentStatusOf(payment);
+      if (status !== row.status) {
+        log(`validate: ${row.license_key} status ${row.status} -> ${status}`);
+        row = db.setStatus(row.license_key, status);
+      }
+    } catch (err) {
+      log(`validate: Stripe re-check failed (serving cached status): ${err.message}`);
+    }
+  } else if (stripe && row.stripe_subscription_id) {
     try {
       const sub = await stripe.subscriptions.retrieve(row.stripe_subscription_id);
       if (sub.status !== row.status) {
@@ -590,13 +670,13 @@ app.post('/validate', limiter.middleware('validate'), async (req, res) => {
   log(`validate -> ${row.license_key} isPro=${view.isPro} status=${row.status}`);
 
   if (!view.isPro) {
-    return res.json({ ...view, valid: false, reason: `subscription_${row.status}` });
+    return res.json({ ...view, valid: false, reason: inactiveReason(row) });
   }
 
   /*
    * Seat limit.
    *
-   * Only applied once the subscription itself is known good, so a device
+   * Only applied once the purchase itself is known good, so a device
    * problem can never be confused with a payment problem. A request without a
    * device id still validates — the suite and curl have no machine identity —
    * but claims no seat, so it cannot be used to exhaust someone's allowance.
@@ -618,8 +698,8 @@ app.post('/validate', limiter.middleware('validate'), async (req, res) => {
         deviceCount: seat.count,
         deviceLimit: seat.limit,
         message:
-          `This licence is already active on ${seat.count} devices, the maximum for ` +
-          `your plan. Deactivate FlowShield on a machine you no longer use, then try again.`,
+          `This licence is already active on ${seat.count} devices, the maximum per ` +
+          `licence. Deactivate FlowShield on a machine you no longer use, then try again.`,
       });
     }
 
@@ -637,7 +717,7 @@ app.post('/validate', limiter.middleware('validate'), async (req, res) => {
 /**
  * Re-send a licence key to the address that bought it.
  *
- * Always answers the same way whether or not the address has a subscription:
+ * Always answers the same way whether or not the address has a purchase:
  * a different response would turn this into an oracle for checking who is a
  * customer. The email only ever goes to the address on the subscription, so
  * asking for someone else's key tells you nothing and sends you nothing.
@@ -646,7 +726,7 @@ app.post('/resend-license', limiter.middleware('resend-license'), async (req, re
   const email = typeof req.body?.email === 'string' ? req.body.email.trim() : '';
   const generic = {
     ok: true,
-    message: 'If that address has a subscription, the licence key is on its way.',
+    message: 'If that address bought FlowShield, the licence key is on its way.',
   };
 
   if (!email) {
@@ -675,7 +755,7 @@ app.post('/resend-license', limiter.middleware('resend-license'), async (req, re
   if (row && db.isPro(row)) {
     await deliverLicenseEmail(row, { force: true });
   } else {
-    log(`resend requested for ${email} with no active subscription`);
+    log(`resend requested for ${email} with no active licence`);
   }
 
   return res.json(generic);
@@ -825,6 +905,22 @@ app.post('/webhook', async (req, res) => {
         break;
       }
 
+      // A refund revokes a one-time licence. Only a full refund: Stripe sets
+      // charge.refunded once the whole amount has been returned.
+      case 'charge.refunded': {
+        const charge = event.data.object;
+        const paymentId =
+          typeof charge.payment_intent === 'string' ? charge.payment_intent : charge.payment_intent?.id;
+        const row = paymentId ? db.findByPaymentIntent(paymentId) : null;
+        if (row && charge.refunded) {
+          db.setStatus(row.license_key, 'refunded');
+          log(`webhook charge.refunded ${row.license_key} -> refunded`);
+        }
+        break;
+      }
+
+      // The two subscription events below only concern licences bought on
+      // the old monthly plan.
       case 'customer.subscription.updated': {
         const sub = event.data.object;
         const row =
