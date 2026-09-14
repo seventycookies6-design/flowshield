@@ -273,16 +273,16 @@ go-ahead.
    blocked apps are killed with no warning, the journal can't be read back,
    "Start with Windows" opens the full window (fix in review, #14), and the
    thank-you page's "Activate in FlowShield" button does nothing.
-2. **Stripe dashboard fixes** (owner, signed in; found in a test purchase on
-   13 September 2026):
-   - Settings → Business → public details: the business name customers see on
-     checkout and the billing portal is still "Focus Unlock sandbox".
-   - Settings → Billing → Customer portal → Subscriptions: plan switching
-     offers the old **Focus Unlock Pro** ($9.99) to FlowShield customers; limit
-     it to FlowShield Pro. Don't archive the old product.
-   - The FlowShield Pro product description still promises "unlimited history
-     with momentum analytics". Re-running `node tools/setup_stripe_store.js`
-     with the test keys corrects it, or edit it on the product.
+2. **Stripe business name** (owner; found in a test purchase on 13 September
+   2026). Checkout and the billing portal show "Focus Unlock sandbox". The
+   sandbox's account name is already FlowShield; the displayed name comes from
+   the public business profile, which Stripe only lets you edit through its full
+   business onboarding (Settings → Business → Business details → "Add business
+   information"), or from the parent account's name ("Focus Unlock"). Owner
+   task. Already fixed the same day, and verified on a fresh checkout and
+   billing portal: the portal's plan switching is off, so the old **Focus Unlock
+   Pro** ($9.99) is no longer offered (the product itself is untouched), and the
+   FlowShield Pro description now lists only shipped features.
 3. **Email delivery.** The owner creates a Resend API key or a Gmail app-password
    SMTP URL and pastes it into Render → Environment (`RESEND_API_KEY` or
    `SMTP_URL`, plus `EMAIL_FROM`), then *Manual Deploy*. Confirm with `/health`
