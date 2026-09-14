@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+import sys
 import time
 from html.parser import HTMLParser
 from pathlib import Path
@@ -818,3 +819,43 @@ class TestTrialThenOneTimePurchase:
             for phrase in ("/mo", "per month", "billed monthly", "renews automatically",
                            "get pro", "free forever", "subscription is active"):
                 assert phrase not in text, f"{name} still says {phrase!r}"
+
+
+# ============ app and site colours come from one file (DESIGN_SYSTEM.md §14)
+
+class TestDesignTokensStayInSync:
+    """
+    Colours were typed twice, in Theme.xaml and styles.css, and drifted. They
+    now come from design/tokens.json through tools/build_tokens.py; these tests
+    fail when someone edits a generated file by hand or forgets to regenerate.
+    """
+
+    ROOT = Path(DESKTOP_DIR).parent
+
+    def test_generated_token_files_are_current(self):
+        result = subprocess.run(
+            [sys.executable, str(self.ROOT / "tools" / "build_tokens.py"), "--check"],
+            cwd=str(self.ROOT), capture_output=True, text=True, timeout=60)
+        assert result.returncode == 0, result.stdout + result.stderr
+
+    def test_theme_takes_its_palette_from_the_tokens(self):
+        theme = (Path(DESKTOP_DIR) / "Styles" / "Theme.xaml").read_text(encoding="utf-8")
+        assert '<ResourceDictionary Source="Tokens.xaml"/>' in theme
+        for key in ("Bg", "Surface", "Ink", "InkFaint", "Primary", "Edge", "Green", "Amber", "Rose"):
+            assert f'x:Key="{key}"' not in theme, f"{key} is defined in Theme.xaml instead of the tokens"
+
+    def test_a_token_change_reaches_both_the_app_and_the_site(self, tmp_path):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("build_tokens", self.ROOT / "tools" / "build_tokens.py")
+        build = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(build)
+
+        data = json.loads((self.ROOT / "design" / "tokens.json").read_text(encoding="utf-8"))
+        data["themes"]["dark"]["primary"] = "#123456"
+        css = (Path(WEBSITE_DIR) / "styles.css").read_bytes().decode("utf-8").replace("\r\n", "\n")
+
+        assert '<Color x:Key="PrimaryColor">#FF123456</Color>' in build.xaml(data, "dark")
+        # A referenced token follows the colour it points at.
+        assert '<Color x:Key="PrimarySoftColor">#33123456</Color>' in build.xaml(data, "dark")
+        dark_css = build.css(data, css).split('html[data-theme="dark"]')[1]
+        assert "--color-primary: #123456;" in dark_css
