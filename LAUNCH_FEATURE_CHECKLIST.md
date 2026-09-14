@@ -318,7 +318,7 @@ A summary of the research, to explain the choices below.
 
 ---
 
-### F6 — Study templates and scheduled sprints · **Launch+** · M · Roadmap 3.8
+### F6 — Study templates and scheduled sprints · **Launch+** · M
 
 - [ ] Done
 
