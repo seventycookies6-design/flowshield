@@ -378,7 +378,7 @@ its own issue:
 Who owns each task is in `LAUNCH_FEATURE_CHECKLIST.md` → "Who builds what": the token generator is Keenan's and lands first; the rest are Miles's. Work through these as separate small pull requests. Each is visual-only, keeps
 `AutomationId`s, and includes before and after screenshots in the PR.
 
-- [ ] Tokens: `design/tokens.json`, the generator and the parity test (section 14).
+- [x] Tokens: `design/tokens.json`, the generator and the parity test (section 14). Done in #41: colours only so far; type, spacing and radii can be added to the JSON as their tasks land.
 - [ ] Contrast fixes applied in the app and on the site (section 2).
 - [ ] Legacy colour aliases removed from `Theme.xaml` and `styles.css`.
 - [ ] No hard-coded colours left in app views.

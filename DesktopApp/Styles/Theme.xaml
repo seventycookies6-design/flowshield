@@ -3,45 +3,25 @@
                     xmlns:inf="clr-namespace:FlowShield.Infrastructure">
 
     <!-- ============================================================ palette
-         Dark “time guardian” tokens — match Website/styles.css html[data-theme=dark]
-         Keep Violet/Cyan key names as aliases so views that still reference them
-         pick up teal instead of purple. -->
+         Every colour comes from Tokens.xaml, generated from design/tokens.json by
+         tools/build_tokens.py. Change colours there, never here. -->
 
-    <Color x:Key="BgColor">#FF121110</Color>
-    <Color x:Key="BgSoftColor">#FF181716</Color>
-    <Color x:Key="SurfaceColor">#FF1C1B19</Color>
-    <Color x:Key="Surface2Color">#FF242220</Color>
-    <Color x:Key="PrimaryColor">#FF3AA892</Color>
-    <Color x:Key="PrimaryHoverColor">#FF4FBEA7</Color>
-    <Color x:Key="PrimaryInkColor">#FF0B1F1B</Color>
-    <!-- Legacy aliases (were violet/cyan) → primary teal -->
+    <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="Tokens.xaml"/>
+    </ResourceDictionary.MergedDictionaries>
+
+    <!-- Legacy aliases (were violet/cyan) → primary teal. Kept so views that still
+         reference them pick up teal; DESIGN_SYSTEM.md §2 has them removed. -->
     <Color x:Key="VioletColor">#FF3AA892</Color>
     <Color x:Key="VioletBrightColor">#FF4FBEA7</Color>
     <Color x:Key="CyanColor">#FF3AA892</Color>
 
-    <SolidColorBrush x:Key="Bg" Color="{StaticResource BgColor}"/>
-    <SolidColorBrush x:Key="BgSoft" Color="{StaticResource BgSoftColor}"/>
-    <SolidColorBrush x:Key="Surface" Color="{StaticResource SurfaceColor}"/>
-    <SolidColorBrush x:Key="Surface2" Color="{StaticResource Surface2Color}"/>
-    <SolidColorBrush x:Key="Ink" Color="#FFF2F0EB"/>
-    <SolidColorBrush x:Key="InkDim" Color="#FFB0ADA5"/>
-    <SolidColorBrush x:Key="InkFaint" Color="#FF7E7B73"/>
-    <SolidColorBrush x:Key="Primary" Color="{StaticResource PrimaryColor}"/>
-    <SolidColorBrush x:Key="PrimaryHover" Color="{StaticResource PrimaryHoverColor}"/>
-    <SolidColorBrush x:Key="PrimaryInk" Color="{StaticResource PrimaryInkColor}"/>
     <SolidColorBrush x:Key="Violet" Color="{StaticResource PrimaryColor}"/>
     <SolidColorBrush x:Key="VioletBright" Color="{StaticResource PrimaryHoverColor}"/>
     <SolidColorBrush x:Key="Cyan" Color="{StaticResource PrimaryColor}"/>
-    <SolidColorBrush x:Key="Green" Color="#FF5EC987"/>
-    <SolidColorBrush x:Key="Amber" Color="#FFE0B35A"/>
-    <SolidColorBrush x:Key="Rose" Color="#FFEF7A88"/>
 
     <SolidColorBrush x:Key="Glass" Color="{StaticResource Surface2Color}"/>
     <SolidColorBrush x:Key="GlassStrong" Color="{StaticResource Surface2Color}"/>
-    <SolidColorBrush x:Key="Edge" Color="#1FF2F0EB"/>
-    <SolidColorBrush x:Key="EdgeBright" Color="#38F2F0EB"/>
-    <SolidColorBrush x:Key="Track" Color="#14F2F0EB"/>
-    <SolidColorBrush x:Key="PrimarySoft" Color="#333AA892"/>
 
     <!-- Solid primary (site .btn-primary) — kept as brush named Accent for existing refs -->
     <SolidColorBrush x:Key="Accent" Color="{StaticResource PrimaryColor}"/>
