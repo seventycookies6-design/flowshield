@@ -53,6 +53,10 @@ public class MainViewModel : ViewModelBase
         Today.SelectedMinutes = Settings.DefaultSprintMinutes;
         Today.SelectedShield = Settings.DefaultShield;
         Today.UpdateIdleDisplay();
+
+        // Last, so a resumed sprint's length and shield aren't overwritten by
+        // the defaults above.
+        Today.ResumeInterruptedSprint();
     }
 
     public SettingsService SettingsService { get; }

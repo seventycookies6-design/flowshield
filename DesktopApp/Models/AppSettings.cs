@@ -70,9 +70,69 @@ public class FocusSession
     /// <summary>The one-line "what moved?" answer captured when a sprint ends.</summary>
     public string Journal { get; set; } = "";
 
+    /// <summary>
+    /// FlowShield was closed for most of this sprint (a crash, a reboot, or
+    /// quitting from Task Manager), so it was neither finished nor given up.
+    /// Interrupted sprints don't change momentum.
+    /// </summary>
+    public bool Interrupted { get; set; }
+
     [JsonIgnore]
     public double ActualMinutes =>
         EndedUtc.HasValue ? Math.Round((EndedUtc.Value - StartedUtc).TotalMinutes, 1) : 0;
+}
+
+/// <summary>
+/// The sprint that is running right now, saved the moment it starts.
+///
+/// A sprint used to live only in memory, so a crash, a reboot or ending
+/// FlowShield from Task Manager quietly ended it, which made even a Sealed
+/// sprint trivially escapable. On the next launch this is read back and the
+/// sprint resumes with its shield (and a Sealed blocklist lock) intact.
+/// </summary>
+public class RunningSprint
+{
+    public DateTime StartedUtc { get; set; }
+    public int PlannedMinutes { get; set; }
+    public ShieldLevel Shield { get; set; } = ShieldLevel.Firm;
+
+    /// <summary>Last time FlowShield confirmed it was still running this sprint.</summary>
+    public DateTime LastSeenUtc { get; set; }
+
+    [JsonIgnore]
+    public DateTime EndsUtc => StartedUtc.AddMinutes(PlannedMinutes);
+
+    /// <summary>What to do with this sprint when FlowShield starts again.</summary>
+    public SprintResume Decide(DateTime nowUtc)
+    {
+        if (PlannedMinutes <= 0) return SprintResume.Discard;
+        if (nowUtc < EndsUtc) return SprintResume.Resume;
+
+        // The time ran out while FlowShield was closed. It counts as finished
+        // only if FlowShield was watching for at least half of it; otherwise
+        // nothing was actually enforced, so it's recorded as interrupted.
+        var watched = (Min(LastSeenUtc, EndsUtc) - StartedUtc).TotalMinutes;
+        return watched >= PlannedMinutes * CompletedIfWatchedFraction
+            ? SprintResume.RecordCompleted
+            : SprintResume.RecordInterrupted;
+    }
+
+    /// <summary>Share of a sprint FlowShield must have been running for it to count as finished.</summary>
+    public const double CompletedIfWatchedFraction = 0.5;
+
+    private static DateTime Min(DateTime a, DateTime b) => a < b ? a : b;
+}
+
+public enum SprintResume
+{
+    /// <summary>Time is left: carry on with the same shield and lock.</summary>
+    Resume,
+    /// <summary>Ended while closed, but FlowShield ran for most of it.</summary>
+    RecordCompleted,
+    /// <summary>Ended while closed, and FlowShield wasn't running for most of it.</summary>
+    RecordInterrupted,
+    /// <summary>Unreadable record; drop it.</summary>
+    Discard,
 }
 
 public class AppSettings
@@ -122,6 +182,9 @@ public class AppSettings
     public int DefaultSprintMinutes { get; set; } = 25;
     public ShieldLevel DefaultShield { get; set; } = ShieldLevel.Firm;
     public List<FocusSession> Sessions { get; set; } = new();
+
+    /// <summary>The sprint in progress, or null. See <see cref="RunningSprint"/>.</summary>
+    public RunningSprint? ActiveSprint { get; set; }
 
     /// <summary>
     /// Compounding score: completed sprints add, abandoned ones decay it.

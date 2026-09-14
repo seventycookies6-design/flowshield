@@ -112,6 +112,11 @@
                     <TextBlock Text="{Binding ShieldDescription}" Style="{StaticResource Caption}"
                                Margin="0,10,0,0"
                                AutomationProperties.AutomationId="ShieldDescriptionText"/>
+                    <TextBlock Style="{StaticResource Caption}" Margin="0,6,0,0" TextWrapping="Wrap"
+                               Foreground="{StaticResource Amber}"
+                               Visibility="{Binding SealedRestartHintVisible, Converter={StaticResource BoolVis}}"
+                               AutomationProperties.AutomationId="SealedRestartHint"
+                               Text="If FlowShield closes, a Sealed sprint picks up again when it reopens. After a reboot that only happens by itself if FlowShield starts with Windows (Settings → Preferences)."/>
 
                     <!-- journal prompt -->
                     <Border Style="{StaticResource RowCard}" Margin="0,22,0,0" Padding="16"

@@ -582,3 +582,40 @@ class TestDocSteward:
 
         (tmp_path / "server.js").write_text("b\n", encoding="utf-8")
         assert steward.guard("HEAD", config, root=tmp_path) == ["server.js"]
+
+
+# ===================================================== sprints survive restarts
+
+def resume_decision(started_min_ago: float, planned: int, last_seen_min_ago: float) -> str:
+    """Mirror of RunningSprint.Decide, in minutes relative to now."""
+    if planned <= 0:
+        return "Discard"
+    started = -started_min_ago
+    ends = started + planned
+    if 0 < ends:
+        return "Resume"
+    watched = min(-last_seen_min_ago, ends) - started
+    return "RecordCompleted" if watched >= planned * 0.5 else "RecordInterrupted"
+
+
+class TestSprintResume:
+    """F3: what happens to a sprint that was running when FlowShield closed."""
+
+    SOURCE = Path(SERVER_DIR).parent / "DesktopApp" / "Models" / "AppSettings.cs"
+
+    def test_the_threshold_matches_the_app(self):
+        source = self.SOURCE.read_text(encoding="utf-8")
+        assert "CompletedIfWatchedFraction = 0.5" in source
+
+    @pytest.mark.parametrize("started,planned,last_seen,expected", [
+        (10, 25, 0.2, "Resume"),              # crashed mid-sprint, relaunched quickly
+        (10, 25, 9.5, "Resume"),              # closed almost immediately, still time left
+        (24.9, 25, 24, "Resume"),             # seconds left
+        (30, 25, 6, "RecordCompleted"),       # ran 24 of 25 minutes, then closed
+        (60, 25, 47.5, "RecordCompleted"),    # watched exactly half
+        (60, 25, 50, "RecordInterrupted"),    # watched 10 of 25 minutes
+        (120, 90, 119, "RecordInterrupted"),  # closed a minute in, reopened much later
+        (5, 0, 0, "Discard"),                 # unreadable record
+    ])
+    def test_decision(self, started, planned, last_seen, expected):
+        assert resume_decision(started, planned, last_seen) == expected

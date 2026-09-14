@@ -54,6 +54,7 @@ public class TodayViewModel : ViewModelBase
             Raise(nameof(NotRunning));
             Raise(nameof(PrimaryActionLabel));
             Raise(nameof(SessionStateText));
+            Raise(nameof(SealedRestartHintVisible));
         }
     }
 
@@ -88,8 +89,20 @@ public class TodayViewModel : ViewModelBase
     public ShieldLevel SelectedShield
     {
         get => _selectedShield;
-        set { if (Set(ref _selectedShield, value)) Raise(nameof(ShieldDescription)); }
+        set
+        {
+            if (!Set(ref _selectedShield, value)) return;
+            Raise(nameof(ShieldDescription));
+            Raise(nameof(SealedRestartHintVisible));
+        }
     }
+
+    /// <summary>
+    /// A Sealed sprint survives a reboot only if FlowShield starts again at
+    /// sign-in, so say so before someone relies on it.
+    /// </summary>
+    public bool SealedRestartHintVisible =>
+        !IsRunning && SelectedShield == ShieldLevel.Sealed && !S.StartWithWindows;
 
     public string ShieldDescription => SelectedShield switch
     {
@@ -147,34 +160,137 @@ public class TodayViewModel : ViewModelBase
             return;
         }
 
+        var now = DateTime.UtcNow;
         _current = new FocusSession
         {
-            StartedUtc = DateTime.UtcNow,
+            StartedUtc = now,
             PlannedMinutes = SelectedMinutes,
             Shield = SelectedShield,
         };
 
-        _endsAtUtc = _current.StartedUtc.AddMinutes(SelectedMinutes);
+        // Saved before enforcement begins, so a crash one second in still
+        // leaves a sprint to resume.
+        S.ActiveSprint = new RunningSprint
+        {
+            StartedUtc = now,
+            PlannedMinutes = SelectedMinutes,
+            Shield = SelectedShield,
+            LastSeenUtc = now,
+        };
+        _main.SaveSettings();
+
+        BeginRunning($"Shield {Roman(SelectedShield)} engaged");
+        Log.Info($"sprint started: {SelectedMinutes}m at shield {SelectedShield}");
+    }
+
+    private void BeginRunning(string stateText)
+    {
+        _endsAtUtc = _current!.StartedUtc.AddMinutes(_current.PlannedMinutes);
+        _lastHeartbeatUtc = DateTime.UtcNow;
         _blocksThisSprint = 0;
         IsRunning = true;
-        SessionStateText = $"Shield {Roman(SelectedShield)} engaged";
+        SessionStateText = stateText;
         JournalPromptVisible = false;
 
-        _main.Blocker.BeginEnforcing(SelectedShield);
+        _main.Blocker.BeginEnforcing(_current.Shield);
         _main.OnSprintStateChanged();
 
         OnTick();
         _tick.Start();
-        Log.Info($"sprint started: {SelectedMinutes}m at shield {SelectedShield}");
+    }
+
+    /// <summary>How often a running sprint re-saves that FlowShield is still watching it.</summary>
+    public static readonly TimeSpan HeartbeatInterval = TimeSpan.FromSeconds(30);
+
+    private DateTime _lastHeartbeatUtc;
+
+    /// <summary>
+    /// Pick up a sprint that was running when FlowShield last closed (F3).
+    ///
+    /// Called once at startup. With time left, the sprint carries on with its
+    /// shield, so a Sealed blocklist stays locked. If the time ran out while
+    /// FlowShield was closed, it is recorded as finished or interrupted
+    /// according to <see cref="RunningSprint.Decide"/>.
+    /// </summary>
+    public void ResumeInterruptedSprint(DateTime? nowUtc = null)
+    {
+        var saved = S.ActiveSprint;
+        if (saved is null || IsRunning) return;
+
+        var now = nowUtc ?? DateTime.UtcNow;
+        var decision = saved.Decide(now);
+        Log.Info($"found a saved sprint from {saved.StartedUtc:u} ({saved.PlannedMinutes}m, {saved.Shield}): {decision}");
+
+        switch (decision)
+        {
+            case SprintResume.Resume:
+                _current = new FocusSession
+                {
+                    StartedUtc = saved.StartedUtc,
+                    PlannedMinutes = saved.PlannedMinutes,
+                    Shield = saved.Shield,
+                };
+                _selectedMinutes = saved.PlannedMinutes;
+                _selectedShield = saved.Shield;
+                Raise(nameof(SelectedMinutes));
+                Raise(nameof(SelectedShield));
+                Raise(nameof(ShieldDescription));
+
+                saved.LastSeenUtc = now;
+                _main.SaveSettings();
+
+                var left = (int)Math.Ceiling((saved.EndsUtc - now).TotalMinutes);
+                BeginRunning($"Sprint resumed — shield {Roman(saved.Shield)}");
+                _main.Toast($"Sprint resumed — {left} minute{(left == 1 ? "" : "s")} left.");
+                break;
+
+            case SprintResume.RecordCompleted:
+            case SprintResume.RecordInterrupted:
+                var completed = decision == SprintResume.RecordCompleted;
+                var session = new FocusSession
+                {
+                    StartedUtc = saved.StartedUtc,
+                    EndedUtc = saved.EndsUtc,
+                    PlannedMinutes = saved.PlannedMinutes,
+                    Shield = saved.Shield,
+                    Completed = completed,
+                    Interrupted = !completed,
+                };
+                if (completed) ApplyMomentum(completed: true, session);
+
+                S.Sessions.Add(session);
+                S.ActiveSprint = null;
+                _main.SaveSettings();
+                RefreshStats();
+
+                SessionStateText = completed ? "Sprint finished while FlowShield was closed" : "Sprint interrupted";
+                _main.Toast(completed
+                    ? "Your last sprint finished while FlowShield was closed."
+                    : "Your last sprint was interrupted — FlowShield wasn't running for most of it.");
+                break;
+
+            default:
+                S.ActiveSprint = null;
+                _main.SaveSettings();
+                break;
+        }
     }
 
     private void OnTick()
     {
-        var remaining = _endsAtUtc - DateTime.UtcNow;
+        var now = DateTime.UtcNow;
+        var remaining = _endsAtUtc - now;
         if (remaining <= TimeSpan.Zero)
         {
             EndSprint(completed: true);
             return;
+        }
+
+        if (S.ActiveSprint is not null && now - _lastHeartbeatUtc >= HeartbeatInterval)
+        {
+            _lastHeartbeatUtc = now;
+            S.ActiveSprint.LastSeenUtc = now;
+            _main.SaveSettings();
         }
 
         RemainingText = remaining.TotalHours >= 1
@@ -201,6 +317,7 @@ public class TodayViewModel : ViewModelBase
         ApplyMomentum(completed, _current);
 
         S.Sessions.Add(_current);
+        S.ActiveSprint = null;
         _main.SaveSettings();
 
         SessionStateText = completed ? "Sprint complete" : "Sprint ended early";
@@ -282,6 +399,7 @@ public class TodayViewModel : ViewModelBase
 
         MomentumText = S.MomentumScore.ToString("0");
         StreakText = S.CurrentStreak == 1 ? "1 day" : $"{S.CurrentStreak} days";
+        Raise(nameof(SealedRestartHintVisible));
     }
 
     /// <summary>Called when access changes (purchase, deactivation, trial ending).</summary>
