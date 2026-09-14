@@ -399,3 +399,67 @@ class TestDeclinedCards:
         body = requests.post(f"{server}/validate",
                              json={"licenseKey": created["licenseKey"]}, timeout=20).json()
         assert body["isPro"] is False, "a declined payment still granted Pro"
+
+
+# ============================= an email address is not proof of identity (#21)
+
+class TestEmailAloneGrantsNothing:
+    """
+    Knowing a customer's email address must not let anyone open their billing
+    portal (and cancel), read their licence key or device names, or release
+    their seats. A licence row is seeded straight into the local database so
+    this runs without Stripe.
+    """
+
+    EMAIL = "email-alone-probe@example.com"
+
+    @pytest.fixture
+    def seeded(self, server):
+        script = (
+            "const db=require('./db');const k=require('./licensekey').generate();"
+            f"db.createPending(k,'{self.EMAIL}','cs_local_probe_'+k);db.setStatus(k,'active');"
+            "console.log(JSON.stringify({key:k}));"
+        )
+        result = subprocess.run([NODE_EXE, "-e", script], cwd=str(SERVER_DIR),
+                                capture_output=True, text=True, timeout=30)
+        assert result.returncode == 0, result.stderr[:400]
+        key = json.loads(result.stdout.strip().splitlines()[-1])["key"]
+        yield key
+        subprocess.run([NODE_EXE, "-e", f"require('./db').removeAllDevices('{key}')"],
+                       cwd=str(SERVER_DIR), capture_output=True, text=True, timeout=30)
+        subprocess.run([NODE_EXE, str(Path(SERVER_DIR).parent / "tools" / "db_admin.js"), "forget", key],
+                       cwd=str(Path(SERVER_DIR).parent), capture_output=True, text=True, timeout=30)
+
+    def test_the_billing_portal_needs_the_licence_key(self, server, seeded):
+        response = requests.post(f"{server}/create-portal-session",
+                                 json={"email": self.EMAIL}, timeout=20)
+        assert response.status_code == 400, response.text[:300]
+        body = response.json()
+        assert body["error"] == "missing_license_key"
+        assert "url" not in body
+
+    def test_devices_need_the_licence_key(self, server, seeded):
+        for action in ("list", "release-all"):
+            response = requests.post(f"{server}/devices",
+                                     json={"email": self.EMAIL, "action": action}, timeout=20)
+            assert response.status_code == 400, f"{action}: {response.text[:300]}"
+            assert seeded not in response.text, f"{action} leaked the licence key"
+
+    def test_validating_by_email_never_reveals_the_key_or_address(self, server, seeded):
+        body = requests.post(f"{server}/validate", json={"email": self.EMAIL}, timeout=20).json()
+        assert body["isPro"] is True, body   # email activation itself is roadmap 5.5
+        assert "licenseKey" not in body and seeded not in json.dumps(body), body
+        assert "email" not in body, body
+
+    def test_the_real_key_still_gets_its_details(self, server, seeded):
+        body = requests.post(f"{server}/validate", json={"licenseKey": seeded}, timeout=20).json()
+        assert body["isPro"] is True and body["licenseKey"] == seeded, body
+        devices = requests.post(f"{server}/devices", json={"licenseKey": seeded}, timeout=20)
+        assert devices.status_code == 200 and devices.json()["licenseKey"] == seeded
+
+    def test_a_different_key_with_the_same_email_learns_nothing(self, server, seeded):
+        """Presenting someone else's address alongside any other key must not reveal theirs."""
+        other = new_key()
+        body = requests.post(f"{server}/validate",
+                             json={"licenseKey": other, "email": self.EMAIL}, timeout=20).json()
+        assert seeded not in json.dumps(body), body

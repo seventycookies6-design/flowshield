@@ -165,6 +165,14 @@ public class SettingsViewModel : ViewModelBase
 
     private async Task ManageSubscriptionAsync()
     {
+        // The billing portal needs the licence key; an email address alone is no
+        // longer accepted (#21). Installs activated by email have no key stored.
+        if (string.IsNullOrWhiteSpace(_main.Settings.LicenseKey))
+        {
+            _main.Toast("Enter your licence key above to manage your subscription.");
+            return;
+        }
+
         var url = _main.Settings.LicenseServerUrl.TrimEnd('/') + "/create-portal-session";
         try
         {
