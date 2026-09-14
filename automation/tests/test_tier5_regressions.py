@@ -931,3 +931,69 @@ class TestSprintSurvivesRestart:
             assert second.is_control_enabled("AddAppButton") is False
         finally:
             second.close_app()
+
+
+# ============ a sprint couldn't be escaped by one click (F2, #47)
+
+class TestNoOneClickEscape:
+    """
+    End sprint was one click at every shield level, and the tray's Quit exited
+    instantly mid-sprint, so neither Firm nor Sealed actually held.
+    """
+
+    @staticmethod
+    def read(*parts) -> str:
+        return (Path(DESKTOP_DIR).joinpath(*parts)).read_text(encoding="utf-8")
+
+    def test_the_end_button_goes_through_the_policy(self):
+        today = self.read("ViewModels", "TodayViewModel.cs")
+        assert "StopCommand = new RelayCommand(() => RequestEnd()" in today
+        assert "EndSprint(completed: false), () => IsRunning" not in today
+        request = today.split("public bool RequestEnd()")[1].split("\n    }")[0]
+        assert "EndSprintPolicy.FlowFor(" in request
+
+    def test_end_anyway_rechecks_the_wait(self):
+        today = self.read("ViewModels", "TodayViewModel.cs")
+        end_anyway = today.split("private void EndAnyway()")[1].split("\n    }")[0]
+        assert "!EndAnywayEnabled) return" in end_anyway, \
+            "End anyway must refuse before the countdown and phrase are done, whatever invoked it"
+
+    def test_tray_quit_and_window_close_use_the_end_flow(self):
+        window = self.read("MainWindow.xaml.cs")
+        assert 'menu.Items.Add("Quit", null, (_, _) => Quit());' in window
+        quit_ = window.split("private void Quit()")[1].split("\n    }")[0]
+        assert "RequestEnd()" in quit_
+        closing = window.split("protected override void OnClosing")[1].split("\n    }")[0]
+        assert "NeedsEndFlowToQuit" in closing
+
+    def test_short_timers_only_shorten_waits(self):
+        policy = self.read("Models", "EndSprintPolicy.cs")
+        flow = policy.split("public static EndFlow FlowFor")[1].split(";")[0]
+        assert "UseShortTimers" not in flow, "the test flag must not change which flow applies"
+
+    @pytest.mark.ui
+    def test_closing_the_window_mid_firm_sprint_goes_through_the_flow(self, fresh_app):
+        import psutil
+
+        fresh_app.navigate_to_tab("Settings")
+        fresh_app.set_toggle("MinimizeToTrayToggle", False)   # close really exits
+        fresh_app.navigate_to_tab("Today")
+        fresh_app.select_shield("Firm")
+        time.sleep(0.4)
+        fresh_app.start_sprint()
+        fresh_app.wait_out_grace_period()
+
+        fresh_app.window.close()                      # WM_CLOSE, like clicking X
+        time.sleep(1.5)
+        assert psutil.pid_exists(fresh_app.pid), "closing the window escaped a Firm sprint"
+        assert fresh_app.exists("KeepGoingButton", timeout=3), "no end flow was shown"
+
+        deadline = time.time() + 10
+        while time.time() < deadline and not fresh_app.is_control_enabled("EndAnywayButton"):
+            time.sleep(0.4)
+        fresh_app.click("EndAnywayButton")
+
+        deadline = time.time() + 10
+        while time.time() < deadline and psutil.pid_exists(fresh_app.pid):
+            time.sleep(0.4)
+        assert not psutil.pid_exists(fresh_app.pid), "FlowShield didn't quit after the sprint ended"

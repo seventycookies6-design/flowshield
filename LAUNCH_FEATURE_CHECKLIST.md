@@ -226,7 +226,7 @@ A summary of the research, to explain the choices below.
 
 ### F2 — An honest escape hatch that gets harder as the shield gets stronger · **Launch** · M · Roadmap 1.9
 
-- [ ] Done
+- [x] Done (#47): grace period set to 2 minutes by the owner
 
 **Assigned:** Keenan (seventycookies6-design), built with Claude Code
 
@@ -235,7 +235,7 @@ A summary of the research, to explain the choices below.
 **Why it fits:** reviewers of every blocker say the same thing: if quitting is effortless, the blocker is pointless. But a lock with no way out (Cold Turkey, SelfControl) generates the other big complaint, being locked out of something needed. FlowShield's escalating shields are the natural place for a fair middle ground.
 
 **How to build it**
-- **Grace window, every level:** in the first 60 seconds, **Cancel** ends the sprint with no momentum change and nothing recorded. This covers a wrong length or a wrong shield.
+- **Grace window, every level:** in the first 2 minutes (owner decision), **Cancel** ends the sprint with no momentum change and nothing recorded. This covers a wrong length or a wrong shield.
 - **Soft:** after the grace window, **End sprint** ends it immediately. It's recorded as abandoned and momentum decays as it does today.
 - **Firm:** **End sprint** opens a confirmation that shows the time left and the momentum you'll lose, with a 5-second countdown before **End anyway** is enabled.
 - **Sealed:** no **End sprint** button. **I need to stop** opens a 30-second countdown; after it, you type a short phrase ("end my sprint"), and the sprint is recorded as abandoned with a larger momentum penalty.

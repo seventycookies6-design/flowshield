@@ -619,3 +619,60 @@ class TestSprintResume:
     ])
     def test_decision(self, started, planned, last_seen, expected):
         assert resume_decision(started, planned, last_seen) == expected
+
+
+# ============================================== ending a sprint early (F2)
+
+GRACE_SECONDS = 120
+
+
+def end_flow(shield: str, elapsed_seconds: float) -> str:
+    """Mirror of EndSprintPolicy.FlowFor with the real timers."""
+    if elapsed_seconds < GRACE_SECONDS:
+        return "Cancel"
+    return {"Soft": "Immediate", "Firm": "Confirm"}.get(shield, "Sealed")
+
+
+def momentum_after_ending(score: float, shield: str) -> float:
+    """Mirror of EndSprintPolicy.MomentumAfterEndingEarly."""
+    if shield == "Sealed":
+        return round(max(0.0, score * 0.7 - 5), 1)
+    return round(max(0.0, score * 0.85 - 2), 1)
+
+
+def phrase_matches(typed: str) -> bool:
+    """Mirror of EndSprintPolicy.PhraseMatches."""
+    return " ".join((typed or "").split()).lower() == "end my sprint"
+
+
+class TestEndSprintPolicy:
+    SOURCE = Path(SERVER_DIR).parent / "DesktopApp" / "Models" / "EndSprintPolicy.cs"
+
+    def test_the_owner_decisions_are_in_the_app(self):
+        source = self.SOURCE.read_text(encoding="utf-8")
+        assert "TimeSpan.FromMinutes(2)" in source, "grace period is 2 minutes"
+        assert "TimeSpan.FromSeconds(5)" in source, "Firm confirmation waits 5 s"
+        assert "TimeSpan.FromSeconds(30)" in source, "Sealed countdown is 30 s"
+        assert 'SealedPhrase = "end my sprint"' in source
+        assert "score * 0.7 - 5" in source and "score * 0.85 - 2" in source
+
+    @pytest.mark.parametrize("shield,elapsed,flow", [
+        ("Soft", 5, "Cancel"), ("Firm", 119, "Cancel"), ("Sealed", 0, "Cancel"),
+        ("Soft", 120, "Immediate"), ("Firm", 121, "Confirm"), ("Sealed", 3600, "Sealed"),
+    ])
+    def test_flow(self, shield, elapsed, flow):
+        assert end_flow(shield, elapsed) == flow
+
+    @pytest.mark.parametrize("score,shield,after", [
+        (100, "Soft", 83.0), (100, "Firm", 83.0), (100, "Sealed", 65.0),
+        (5, "Sealed", 0.0), (0, "Firm", 0.0),
+    ])
+    def test_sealed_costs_more(self, score, shield, after):
+        assert momentum_after_ending(score, shield) == after
+
+    @pytest.mark.parametrize("typed,ok", [
+        ("end my sprint", True), ("  End  My Sprint ", True), ("END MY SPRINT", True),
+        ("end my sprint.", False), ("end sprint", False), ("", False),
+    ])
+    def test_phrase(self, typed, ok):
+        assert phrase_matches(typed) is ok

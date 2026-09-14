@@ -47,12 +47,46 @@
                             AutomationProperties.AutomationId="StartSprintButton"
                             AutomationProperties.Name="Start sprint"/>
 
-                    <Button Style="{StaticResource BtnDanger}" Content="End sprint"
+                    <!-- Label and behaviour depend on the shield and the grace period (F2). -->
+                    <Button Style="{StaticResource BtnGhost}" Content="{Binding EndButtonLabel}"
                             Command="{Binding StopCommand}"
-                            Visibility="{Binding IsRunning, Converter={StaticResource BoolVis}}"
+                            Visibility="{Binding EndButtonVisible, Converter={StaticResource BoolVis}}"
                             HorizontalAlignment="Center" Padding="40,12" Margin="0,22,0,0"
                             AutomationProperties.AutomationId="StopSprintButton"
-                            AutomationProperties.Name="End sprint"/>
+                            AutomationProperties.Name="{Binding EndButtonLabel}"/>
+
+                    <!-- End panel: Firm's confirmation and Sealed's countdown and phrase. -->
+                    <Border Style="{StaticResource RowCard}" Margin="0,22,0,0" Padding="18"
+                            Visibility="{Binding EndPanelVisible, Converter={StaticResource BoolVis}}"
+                            AutomationProperties.AutomationId="EndSprintPanel">
+                        <StackPanel>
+                            <TextBlock Text="{Binding EndPanelTitle}" Style="{StaticResource H2}" FontSize="15"
+                                       AutomationProperties.AutomationId="EndPanelTitle"/>
+                            <TextBlock Text="{Binding EndPanelText}" Style="{StaticResource Body}"
+                                       TextWrapping="Wrap" Margin="0,6,0,0"
+                                       AutomationProperties.AutomationId="EndPanelText"/>
+
+                            <TextBox Style="{StaticResource Field}" Margin="0,12,0,0"
+                                     Text="{Binding PhraseText, UpdateSourceTrigger=PropertyChanged}"
+                                     Visibility="{Binding PhraseRequired, Converter={StaticResource BoolVis}}"
+                                     AutomationProperties.AutomationId="EndPhraseInput"
+                                     AutomationProperties.Name="Type end my sprint to confirm"/>
+
+                            <TextBlock Text="{Binding EndCountdownText}" Style="{StaticResource Caption}"
+                                       Margin="0,8,0,0"
+                                       AutomationProperties.AutomationId="EndCountdownText"/>
+
+                            <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                                <Button Style="{StaticResource BtnPrimary}" Content="Keep going"
+                                        Command="{Binding KeepGoingCommand}" Padding="22,9"
+                                        AutomationProperties.AutomationId="KeepGoingButton"/>
+                                <Button Style="{StaticResource BtnQuiet}" Content="End anyway"
+                                        Command="{Binding EndAnywayCommand}"
+                                        IsEnabled="{Binding EndAnywayEnabled}" Margin="10,0,0,0"
+                                        AutomationProperties.AutomationId="EndAnywayButton"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
 
                     <!-- length -->
                     <TextBlock Text="SPRINT LENGTH" Style="{StaticResource Eyebrow}" Margin="0,26,0,9"/>

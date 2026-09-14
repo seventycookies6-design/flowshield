@@ -24,6 +24,14 @@ public partial class App : Application
         var args = e.Args ?? Array.Empty<string>();
         Log.Info($"FlowShield starting (args: {string.Join(' ', args)})");
 
+        // --short-timers shrinks F2's grace period and countdowns for the UI tests.
+        // It only shortens waits; every step still has to be taken.
+        if (args.Any(a => a.Equals("--short-timers", StringComparison.OrdinalIgnoreCase)))
+        {
+            Models.EndSprintPolicy.UseShortTimers = true;
+            Log.Info("short end-sprint timers enabled by --short-timers flag");
+        }
+
         var settingsService = new SettingsService();
 
         // --reset gives the automation suite a deterministic clean install.
