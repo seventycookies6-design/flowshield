@@ -80,7 +80,7 @@
                                     </Grid.ColumnDefinitions>
 
                                     <Border Grid.Column="0" Width="34" Height="34" CornerRadius="10"
-                                            Background="#227C5CFF" BorderBrush="#447C5CFF" BorderThickness="1"
+                                            Background="{StaticResource PrimarySoft}" BorderBrush="{StaticResource Primary}" BorderThickness="1"
                                             Margin="0,0,13,0">
                                         <TextBlock Text="⊘" FontSize="15" Foreground="{StaticResource VioletBright}"
                                                    HorizontalAlignment="Center" VerticalAlignment="Center"/>

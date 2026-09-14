@@ -6,7 +6,7 @@
 
             <!-- Pro gate -->
             <Border Style="{StaticResource Card}" Padding="22" Margin="0,0,0,16"
-                    Background="#1A7C5CFF" BorderBrush="#557C5CFF"
+                    Background="{StaticResource PrimarySoft}" BorderBrush="{StaticResource Primary}"
                     Visibility="{Binding IsPro, Converter={StaticResource InvBoolVis}}">
                 <Grid>
                     <Grid.ColumnDefinitions>

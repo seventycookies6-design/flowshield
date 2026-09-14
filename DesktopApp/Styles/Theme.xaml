@@ -2,48 +2,52 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:inf="clr-namespace:FlowShield.Infrastructure">
 
-    <!-- ============================================================ palette -->
+    <!-- ============================================================ palette
+         Dark “time guardian” tokens — match Website/styles.css html[data-theme=dark]
+         Keep Violet/Cyan key names as aliases so views that still reference them
+         pick up teal instead of purple. -->
 
-    <Color x:Key="BgColor">#FF07070D</Color>
-    <Color x:Key="SurfaceColor">#FF0E0E1A</Color>
-    <Color x:Key="VioletColor">#FF7C5CFF</Color>
-    <Color x:Key="VioletBrightColor">#FF9D84FF</Color>
-    <Color x:Key="CyanColor">#FF34E0EA</Color>
+    <Color x:Key="BgColor">#FF121110</Color>
+    <Color x:Key="BgSoftColor">#FF181716</Color>
+    <Color x:Key="SurfaceColor">#FF1C1B19</Color>
+    <Color x:Key="Surface2Color">#FF242220</Color>
+    <Color x:Key="PrimaryColor">#FF3AA892</Color>
+    <Color x:Key="PrimaryHoverColor">#FF4FBEA7</Color>
+    <Color x:Key="PrimaryInkColor">#FF0B1F1B</Color>
+    <!-- Legacy aliases (were violet/cyan) → primary teal -->
+    <Color x:Key="VioletColor">#FF3AA892</Color>
+    <Color x:Key="VioletBrightColor">#FF4FBEA7</Color>
+    <Color x:Key="CyanColor">#FF3AA892</Color>
 
     <SolidColorBrush x:Key="Bg" Color="{StaticResource BgColor}"/>
+    <SolidColorBrush x:Key="BgSoft" Color="{StaticResource BgSoftColor}"/>
     <SolidColorBrush x:Key="Surface" Color="{StaticResource SurfaceColor}"/>
-    <SolidColorBrush x:Key="Ink" Color="#FFF3F2FB"/>
-    <SolidColorBrush x:Key="InkDim" Color="#FFA8A6C4"/>
-    <SolidColorBrush x:Key="InkFaint" Color="#FF6F6D8D"/>
-    <SolidColorBrush x:Key="Violet" Color="{StaticResource VioletColor}"/>
-    <SolidColorBrush x:Key="VioletBright" Color="{StaticResource VioletBrightColor}"/>
-    <SolidColorBrush x:Key="Cyan" Color="{StaticResource CyanColor}"/>
-    <SolidColorBrush x:Key="Green" Color="#FF46E5A4"/>
-    <SolidColorBrush x:Key="Amber" Color="#FFFFB45C"/>
-    <SolidColorBrush x:Key="Rose" Color="#FFFF6B8B"/>
+    <SolidColorBrush x:Key="Surface2" Color="{StaticResource Surface2Color}"/>
+    <SolidColorBrush x:Key="Ink" Color="#FFF2F0EB"/>
+    <SolidColorBrush x:Key="InkDim" Color="#FFB0ADA5"/>
+    <SolidColorBrush x:Key="InkFaint" Color="#FF7E7B73"/>
+    <SolidColorBrush x:Key="Primary" Color="{StaticResource PrimaryColor}"/>
+    <SolidColorBrush x:Key="PrimaryHover" Color="{StaticResource PrimaryHoverColor}"/>
+    <SolidColorBrush x:Key="PrimaryInk" Color="{StaticResource PrimaryInkColor}"/>
+    <SolidColorBrush x:Key="Violet" Color="{StaticResource PrimaryColor}"/>
+    <SolidColorBrush x:Key="VioletBright" Color="{StaticResource PrimaryHoverColor}"/>
+    <SolidColorBrush x:Key="Cyan" Color="{StaticResource PrimaryColor}"/>
+    <SolidColorBrush x:Key="Green" Color="#FF5EC987"/>
+    <SolidColorBrush x:Key="Amber" Color="#FFE0B35A"/>
+    <SolidColorBrush x:Key="Rose" Color="#FFEF7A88"/>
 
-    <SolidColorBrush x:Key="Glass" Color="#12FFFFFF"/>
-    <SolidColorBrush x:Key="GlassStrong" Color="#1EFFFFFF"/>
-    <SolidColorBrush x:Key="Edge" Color="#1AFFFFFF"/>
-    <SolidColorBrush x:Key="EdgeBright" Color="#2EFFFFFF"/>
-    <SolidColorBrush x:Key="Track" Color="#14FFFFFF"/>
+    <SolidColorBrush x:Key="Glass" Color="{StaticResource Surface2Color}"/>
+    <SolidColorBrush x:Key="GlassStrong" Color="{StaticResource Surface2Color}"/>
+    <SolidColorBrush x:Key="Edge" Color="#1FF2F0EB"/>
+    <SolidColorBrush x:Key="EdgeBright" Color="#38F2F0EB"/>
+    <SolidColorBrush x:Key="Track" Color="#14F2F0EB"/>
+    <SolidColorBrush x:Key="PrimarySoft" Color="#333AA892"/>
 
-    <LinearGradientBrush x:Key="Accent" StartPoint="0,0" EndPoint="1,1">
-        <GradientStop Color="{StaticResource VioletColor}" Offset="0"/>
-        <GradientStop Color="#FF6F7CFF" Offset="0.5"/>
-        <GradientStop Color="{StaticResource CyanColor}" Offset="1"/>
-    </LinearGradientBrush>
+    <!-- Solid primary (site .btn-primary) — kept as brush named Accent for existing refs -->
+    <SolidColorBrush x:Key="Accent" Color="{StaticResource PrimaryColor}"/>
 
-    <LinearGradientBrush x:Key="WindowBg" StartPoint="0,0" EndPoint="1,1">
-        <GradientStop Color="#FF0A0913" Offset="0"/>
-        <GradientStop Color="#FF07070D" Offset="0.45"/>
-        <GradientStop Color="#FF0B0A18" Offset="1"/>
-    </LinearGradientBrush>
-
-    <LinearGradientBrush x:Key="GlassFill" StartPoint="0,0" EndPoint="0.4,1">
-        <GradientStop Color="#16FFFFFF" Offset="0"/>
-        <GradientStop Color="#0AFFFFFF" Offset="1"/>
-    </LinearGradientBrush>
+    <SolidColorBrush x:Key="WindowBg" Color="{StaticResource BgColor}"/>
+    <SolidColorBrush x:Key="GlassFill" Color="{StaticResource SurfaceColor}"/>
 
     <!-- ========================================================= converters -->
 
@@ -97,23 +101,23 @@
     <!-- ============================================================== cards -->
 
     <Style x:Key="Card" TargetType="Border">
-        <Setter Property="Background" Value="{StaticResource GlassFill}"/>
+        <Setter Property="Background" Value="{StaticResource Surface}"/>
         <Setter Property="BorderBrush" Value="{StaticResource Edge}"/>
         <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="CornerRadius" Value="16"/>
+        <Setter Property="CornerRadius" Value="14"/>
         <Setter Property="Padding" Value="22"/>
         <Setter Property="Effect">
             <Setter.Value>
-                <DropShadowEffect BlurRadius="34" ShadowDepth="8" Direction="270" Opacity="0.5" Color="#FF000000"/>
+                <DropShadowEffect BlurRadius="24" ShadowDepth="6" Direction="270" Opacity="0.45" Color="#FF000000"/>
             </Setter.Value>
         </Setter>
     </Style>
 
     <Style x:Key="Chip" TargetType="Border">
-        <Setter Property="Background" Value="{StaticResource Glass}"/>
+        <Setter Property="Background" Value="{StaticResource Surface2}"/>
         <Setter Property="BorderBrush" Value="{StaticResource Edge}"/>
         <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="CornerRadius" Value="999"/>
+        <Setter Property="CornerRadius" Value="10"/>
         <Setter Property="Padding" Value="12,5"/>
     </Style>
 
@@ -156,13 +160,39 @@
     </Style>
 
     <Style x:Key="BtnPrimary" TargetType="Button" BasedOn="{StaticResource BtnBase}">
-        <Setter Property="Background" Value="{StaticResource Accent}"/>
-        <Setter Property="Foreground" Value="#FF08060F"/>
+        <Setter Property="Background" Value="{StaticResource Primary}"/>
+        <Setter Property="Foreground" Value="{StaticResource PrimaryInk}"/>
         <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="bd"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="11"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="bd" Property="Background" Value="{StaticResource PrimaryHover}"/>
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="bd" Property="Opacity" Value="0.88"/>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="bd" Property="Opacity" Value="0.4"/>
+                            <Setter Property="Cursor" Value="Arrow"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
     </Style>
 
     <Style x:Key="BtnGhost" TargetType="Button" BasedOn="{StaticResource BtnBase}">
-        <Setter Property="Background" Value="{StaticResource Glass}"/>
+        <Setter Property="Background" Value="{StaticResource Surface}"/>
         <Setter Property="BorderBrush" Value="{StaticResource Edge}"/>
         <Setter Property="BorderThickness" Value="1"/>
     </Style>
@@ -205,11 +235,11 @@
                     </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="bd" Property="Background" Value="{StaticResource Glass}"/>
+                            <Setter TargetName="bd" Property="Background" Value="{StaticResource Surface2}"/>
                             <Setter Property="Foreground" Value="{StaticResource Ink}"/>
                         </Trigger>
                         <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="True">
-                            <Setter TargetName="bd" Property="Background" Value="{StaticResource GlassStrong}"/>
+                            <Setter TargetName="bd" Property="Background" Value="{StaticResource Surface2}"/>
                             <Setter TargetName="bar" Property="Opacity" Value="1"/>
                             <Setter Property="Foreground" Value="{StaticResource Ink}"/>
                             <Setter Property="FontWeight" Value="SemiBold"/>
@@ -226,9 +256,9 @@
         <Setter Property="FontFamily" Value="{StaticResource FontStack}"/>
         <Setter Property="FontSize" Value="13"/>
         <Setter Property="Foreground" Value="{StaticResource Ink}"/>
-        <Setter Property="CaretBrush" Value="{StaticResource VioletBright}"/>
-        <Setter Property="SelectionBrush" Value="{StaticResource Violet}"/>
-        <Setter Property="Background" Value="#33000000"/>
+        <Setter Property="CaretBrush" Value="{StaticResource Primary}"/>
+        <Setter Property="SelectionBrush" Value="{StaticResource PrimarySoft}"/>
+        <Setter Property="Background" Value="{StaticResource Surface2}"/>
         <Setter Property="BorderBrush" Value="{StaticResource Edge}"/>
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="Padding" Value="12,9"/>
@@ -245,7 +275,7 @@
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsKeyboardFocused" Value="True">
-                            <Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource Violet}"/>
+                            <Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource Primary}"/>
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter TargetName="bd" Property="Opacity" Value="0.45"/>
@@ -282,11 +312,11 @@
                     </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsChecked" Value="True">
-                            <Setter TargetName="track" Property="Background" Value="{StaticResource Accent}"/>
+                            <Setter TargetName="track" Property="Background" Value="{StaticResource Primary}"/>
                             <Setter TargetName="track" Property="BorderBrush" Value="Transparent"/>
                             <Setter TargetName="knob" Property="HorizontalAlignment" Value="Right"/>
                             <Setter TargetName="knob" Property="Margin" Value="0,0,3,0"/>
-                            <Setter TargetName="knob" Property="Fill" Value="#FF08060F"/>
+                            <Setter TargetName="knob" Property="Fill" Value="{StaticResource PrimaryInk}"/>
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter Property="Opacity" Value="0.45"/>
@@ -309,7 +339,7 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="RadioButton">
-                    <Border x:Name="bd" Background="{StaticResource Glass}" BorderBrush="{StaticResource Edge}"
+                    <Border x:Name="bd" Background="{StaticResource Surface2}" BorderBrush="{StaticResource Edge}"
                             BorderThickness="1" CornerRadius="10" Padding="15,8">
                         <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Border>
@@ -318,8 +348,8 @@
                             <Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource EdgeBright}"/>
                         </Trigger>
                         <Trigger Property="IsChecked" Value="True">
-                            <Setter TargetName="bd" Property="Background" Value="#337C5CFF"/>
-                            <Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource Violet}"/>
+                            <Setter TargetName="bd" Property="Background" Value="{StaticResource PrimarySoft}"/>
+                            <Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource Primary}"/>
                             <Setter Property="Foreground" Value="{StaticResource Ink}"/>
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
@@ -366,7 +396,7 @@
     <!-- ========================================================== list rows -->
 
     <Style x:Key="RowCard" TargetType="Border">
-        <Setter Property="Background" Value="#0DFFFFFF"/>
+        <Setter Property="Background" Value="{StaticResource Surface2}"/>
         <Setter Property="BorderBrush" Value="{StaticResource Edge}"/>
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="CornerRadius" Value="12"/>
@@ -404,10 +434,10 @@
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="bd" Property="Background" Value="{StaticResource Glass}"/>
+                            <Setter TargetName="bd" Property="Background" Value="{StaticResource Surface2}"/>
                         </Trigger>
                         <Trigger Property="IsSelected" Value="True">
-                            <Setter TargetName="bd" Property="Background" Value="#337C5CFF"/>
+                            <Setter TargetName="bd" Property="Background" Value="{StaticResource PrimarySoft}"/>
                             <Setter Property="Foreground" Value="{StaticResource Ink}"/>
                         </Trigger>
                     </ControlTemplate.Triggers>
