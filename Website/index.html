@@ -1,39 +1,58 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>FlowShield — Guard the hours that matter</title>
-<meta name="description" content="FlowShield blocks distracting apps behind escalating shield levels and turns finished focus sprints into compounding momentum.">
+<meta name="description" content="FlowShield protects focus time with escalating shield levels, blocks distracting apps during sprints, and logs finished sessions into momentum you can feel.">
+<script>
+  (function () {
+    try {
+      var saved = localStorage.getItem('flowshield-theme');
+      var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      document.documentElement.setAttribute('data-theme', saved || (prefersDark ? 'dark' : 'light'));
+    } catch (e) {
+      document.documentElement.setAttribute('data-theme', 'light');
+    }
+  })();
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Syne:wght@600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='25' font-size='26'>🛡️</text></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><path fill='%230c6b5c' d='M16 2.5 4.5 7v9.2c0 6.6 4.7 11.6 11.5 13.3 6.8-1.7 11.5-6.7 11.5-13.3V7L16 2.5Z'/></svg>">
 </head>
 <body>
 
 <header class="nav">
   <div class="wrap nav-inner">
-    <div class="brand">
+    <a class="brand" href="index.html">
       <svg viewBox="0 0 32 32" fill="none" aria-hidden="true">
-        <defs>
-          <linearGradient id="bg1" x1="0" y1="0" x2="32" y2="32">
-            <stop stop-color="#7c5cff"/><stop offset="1" stop-color="#34e0ea"/>
-          </linearGradient>
-        </defs>
-        <path d="M16 2.5 4.5 7v9.2c0 6.6 4.7 11.6 11.5 13.3 6.8-1.7 11.5-6.7 11.5-13.3V7L16 2.5Z" fill="url(#bg1)" opacity=".22"/>
-        <path d="M16 2.5 4.5 7v9.2c0 6.6 4.7 11.6 11.5 13.3 6.8-1.7 11.5-6.7 11.5-13.3V7L16 2.5Z" stroke="url(#bg1)" stroke-width="1.7"/>
-        <path d="m11 16.2 3.4 3.4L21.5 12" stroke="url(#bg1)" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M16 2.5 4.5 7v9.2c0 6.6 4.7 11.6 11.5 13.3 6.8-1.7 11.5-6.7 11.5-13.3V7L16 2.5Z"
+              fill="var(--color-primary)" opacity=".18"/>
+        <path d="M16 2.5 4.5 7v9.2c0 6.6 4.7 11.6 11.5 13.3 6.8-1.7 11.5-6.7 11.5-13.3V7L16 2.5Z"
+              stroke="var(--color-primary)" stroke-width="1.7"/>
+        <path d="m11 16.2 3.4 3.4L21.5 12" stroke="var(--color-primary)" stroke-width="2.1"
+              stroke-linecap="round" stroke-linejoin="round"/>
       </svg>
       FlowShield
-    </div>
-    <nav class="nav-links">
+    </a>
+    <nav class="nav-links" aria-label="Primary">
       <a href="#features">Features</a>
       <a href="#shields">Shield levels</a>
       <a href="#pricing">Pricing</a>
     </nav>
-    <button class="btn btn-primary" data-checkout>Get Pro — $4.99/mo</button>
+    <div class="nav-actions">
+      <button class="theme-toggle" type="button" data-theme-toggle aria-label="Toggle color theme">
+        <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+          <circle cx="12" cy="12" r="4"/><path d="M12 2v2.2M12 19.8V22M4.2 12H2M22 12h-2.2M5.6 5.6l1.6 1.6M16.8 16.8l1.6 1.6M18.4 5.6l-1.6 1.6M7.2 16.8l-1.6 1.6"/>
+        </svg>
+        <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+          <path d="M20 13.5A7.5 7.5 0 1 1 10.5 4 6 6 0 0 0 20 13.5Z"/>
+        </svg>
+      </button>
+      <button class="btn btn-primary" data-checkout>Get Pro — $4.99/mo</button>
+    </div>
   </div>
 </header>
 
@@ -41,11 +60,17 @@
 <section class="hero">
   <div class="wrap hero-grid">
     <div>
-      <span class="eyebrow"><i class="dot"></i> Windows · Free to start</span>
-      <h1>Guard the hours<br>that <span class="gradient-text">actually matter</span>.</h1>
+      <span class="eyebrow"><i class="dot" aria-hidden="true"></i> Windows · Free to start</span>
+      <h1>Guard the hours<br>that matter.</h1>
       <p class="lede">
-        FlowShield puts your distractions behind a shield that gets harder to lower the
-        deeper you go — and turns every finished sprint into momentum you can feel.
+        FlowShield is a Windows focus timer that puts distractions behind a shield
+        you choose — Soft, Firm, or Sealed — and logs every finished sprint into
+        momentum you can see at the end of the day.
+      </p>
+      <p class="example">
+        Turn your 5–7&nbsp;PM into a protected homework block: Discord, Steam, and
+        Minecraft stay on the blocklist until the sprint ends, and the session is
+        saved with your one-line “what moved?” note.
       </p>
       <div class="hero-cta">
         <a class="btn btn-primary btn-lg"
@@ -56,7 +81,7 @@
       </div>
       <p class="hero-note">
         Free to use · Windows 10 &amp; 11 · No .NET install needed ·
-        <a href="legal.html" style="color:var(--ink-faint)">Terms &amp; privacy</a>
+        <a href="legal.html">Terms &amp; privacy</a>
       </p>
 
       <div class="trust">
@@ -66,111 +91,236 @@
       </div>
     </div>
 
-    <!-- Static mock of the desktop app's Today view -->
-    <div class="glass mock" aria-hidden="true">
-      <div class="mock-bar"><i></i><i></i><i></i><span>FLOWSHIELD — TODAY</span></div>
+    <!-- Day timeline mock — how shields land on a student schedule -->
+    <div class="surface day-mock" aria-hidden="true">
+      <div class="mock-bar"><i></i><i></i><i></i><span>Today · sample day</span></div>
 
-      <div class="ring-wrap">
-        <div class="ring">
-          <svg width="196" height="196" viewBox="0 0 196 196">
-            <defs>
-              <linearGradient id="rg" x1="0" y1="0" x2="196" y2="196">
-                <stop stop-color="#7c5cff"/><stop offset="1" stop-color="#34e0ea"/>
-              </linearGradient>
-            </defs>
-            <circle cx="98" cy="98" r="86" stroke="rgba(255,255,255,.08)" stroke-width="11" fill="none"/>
-            <circle cx="98" cy="98" r="86" stroke="url(#rg)" stroke-width="11" fill="none"
-                    stroke-linecap="round" stroke-dasharray="540" stroke-dashoffset="146"/>
-          </svg>
-          <div class="ring-face">
-            <div class="ring-time">25:00</div>
-            <div class="ring-label">Ready when you are</div>
+      <div class="timeline">
+        <div class="tl-block">
+          <div class="tl-time">8–3</div>
+          <div class="tl-card">
+            <div class="tl-label"><strong>Classes</strong><span>Soft</span></div>
+            <p>Light shield — apps stay open; FlowShield notes the distraction.</p>
           </div>
         </div>
-        <div class="shield-chip">🛡️ Shield II · Firm</div>
+        <div class="tl-block">
+          <div class="tl-time">5–7</div>
+          <div class="tl-card flagship">
+            <div class="tl-label"><strong>Homework block</strong><span>Firm</span></div>
+            <p>Blocked launchers close on sight for the length of the sprint.</p>
+          </div>
+        </div>
+        <div class="tl-block">
+          <div class="tl-time">9–10</div>
+          <div class="tl-card">
+            <div class="tl-label"><strong>Deep review</strong><span>Sealed</span></div>
+            <p>Apps close and the blocklist locks until the sprint ends.</p>
+          </div>
+        </div>
+        <div class="tl-block">
+          <div class="tl-time">10+</div>
+          <div class="tl-card">
+            <div class="tl-label"><strong>Gaming window</strong><span>Off</span></div>
+            <p>Shield down — Steam and Discord open when you choose.</p>
+          </div>
+        </div>
       </div>
 
-      <div class="mock-stats">
-        <div class="mock-stat mock-momentum"><span>MOMENTUM</span><b>48 <small>pts</small></b><em>Streak: 3 days</em></div>
-        <div class="mock-stat"><span>TODAY</span><dl><div><dt>Sprints completed</dt><dd>2</dd></div><div><dt>Focus minutes</dt><dd>50</dd></div><div><dt>Distractions blocked</dt><dd>6</dd></div></dl></div>
+      <div class="mock-foot">
+        <div>
+          <span class="cap">Momentum</span>
+          <b>48 <small>pts</small></b>
+          <em>Streak: 3 days</em>
+        </div>
+        <div>
+          <span class="cap">Today</span>
+          <b>50 min</b>
+          <em>2 sprints · 6 blocks</em>
+        </div>
       </div>
+    </div>
+  </div>
+</section>
+
+<!-- --------------------------------------------------------------- how it works -->
+<section id="how">
+  <div class="wrap story-grid">
+    <div class="story-copy">
+      <p class="label">What is FlowShield?</p>
+      <h2>A day of school, homework, and gaming — with a shield on the hours you choose.</h2>
+      <p>
+        You pick how hard the shield pushes back for each sprint. Distracting apps
+        you put on the blocklist are nudged or closed; finished sprints compound
+        into momentum instead of all-or-nothing streak theater.
+      </p>
+      <ol class="story-list">
+        <li>
+          <span class="n">01</span>
+          <div>
+            <strong>Build a blocklist</strong>
+            <p>Add process names you actually open when you drift — Discord, Steam, Minecraft launchers, browsers you use for scrolling.</p>
+          </div>
+        </li>
+        <li>
+          <span class="n">02</span>
+          <div>
+            <strong>Start a sprint with a shield</strong>
+            <p>Choose Soft, Firm, or Sealed and a length. FlowShield holds that line for the timer.</p>
+          </div>
+        </li>
+        <li>
+          <span class="n">03</span>
+          <div>
+            <strong>See the day land</strong>
+            <p>Finished sprints add momentum and focus minutes. An optional one-line journal captures what moved.</p>
+          </div>
+        </li>
+      </ol>
+    </div>
+
+    <aside class="surface callout">
+      <p class="label">End of day</p>
+      <h3>What you see after the last sprint</h3>
+      <p>
+        Momentum is the main score. A simple day streak sits beside it. Sessions
+        stay on your PC — encrypted with Windows DPAPI — so school, homework, and
+        gaming hours stay your record, not a cloud feed.
+      </p>
+      <dl>
+        <div><dt>Sprints completed</dt><dd>2</dd></div>
+        <div><dt>Focus minutes</dt><dd>50</dd></div>
+        <div><dt>Distractions blocked</dt><dd>6</dd></div>
+        <div><dt>Journal</dt><dd>local only</dd></div>
+      </dl>
+    </aside>
+  </div>
+</section>
+
+<!-- ---------------------------------------------------------- shield levels -->
+<section id="shields" class="band">
+  <div class="wrap">
+    <div class="shields-intro">
+      <div>
+        <p class="label">What does a Shield do?</p>
+        <h2>Three levels of resistance</h2>
+        <p>Pick how much you trust yourself today. FlowShield will hold you to it — from a quiet notice to a locked blocklist.</p>
+      </div>
+      <div class="day-strip" aria-hidden="true">
+        <div class="strip">
+          <div class="seg s1">Soft · classes</div>
+          <div class="seg s2">Firm · homework</div>
+          <div class="seg s3">Sealed · deep work</div>
+        </div>
+        <div class="caption"><span>Morning</span><span>After school</span><span>Night</span></div>
+      </div>
+    </div>
+
+    <div class="levels">
+      <article class="surface level flagship l2">
+        <div class="num">Shield II · flagship for homework</div>
+        <h3>Firm</h3>
+        <p class="scenario">
+          After school, when Minecraft and Discord are one click away: Firm closes
+          blocked apps on sight and keeps them closed for the rest of the sprint,
+          while you can still edit the blocklist.
+        </p>
+        <ul class="behaviors">
+          <li><strong>Closes launchers</strong> Steam, Epic, and Minecraft processes on the blocklist are closed when they appear.</li>
+          <li><strong>Holds the line</strong> Blocked apps stay closed for the rest of the sprint.</li>
+          <li><strong>Still editable</strong> You can adjust the blocklist mid-sprint if a study tool got caught.</li>
+        </ul>
+      </article>
+
+      <article class="surface level l1">
+        <div class="num">Shield I</div>
+        <h3>Soft</h3>
+        <p class="scenario">
+          For lighter stretches — between classes, or when you need Discord open for
+          a group project but still want a nudge when a blocked game launches.
+        </p>
+        <ul class="behaviors">
+          <li><strong>Records the hit</strong> FlowShield notes the blocked app when it appears.</li>
+          <li><strong>Shows a brief notice</strong> Inside FlowShield’s own window — the distracting app keeps running.</li>
+          <li><strong>Low friction</strong> Use Soft when a full close would be too harsh for the moment.</li>
+        </ul>
+      </article>
+
+      <article class="surface level l3">
+        <div class="num">Shield III · Pro</div>
+        <h3>Sealed</h3>
+        <p class="scenario">
+          For the late-night review when you do not trust yourself to “just check”
+          Steam: blocked apps close on sight and the blocklist locks until the sprint ends.
+        </p>
+        <ul class="behaviors">
+          <li><strong>Closes on sight</strong> Same hard close as Firm for everything on the list.</li>
+          <li><strong>Locks the list</strong> You cannot add or remove blocked apps mid-sprint.</li>
+          <li><strong>Pro only</strong> Available on FlowShield Pro with longer sprint lengths.</li>
+        </ul>
+      </article>
     </div>
   </div>
 </section>
 
 <!-- --------------------------------------------------------------- features -->
 <section id="features">
-  <div class="wrap">
-    <div class="section-head">
-      <h2>Built for people who<br>already know what to do</h2>
-      <p>Momentum is the main score; a simple day streak adds context. No confetti, no all-or-nothing reset.</p>
-    </div>
-
-    <div class="features">
-      <div class="glass feature">
-        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="#9d84ff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4 6.2v6.4c0 4.7 3.3 8.2 8 9.4 4.7-1.2 8-4.7 8-9.4V6.2L12 3Z"/></svg></div>
-        <h3>Escalating shield levels</h3>
-        <p>Start with a brief notice inside FlowShield while the distracting app keeps running. Step up to closing blocked apps. Or lock the blocklist for the sprint.</p>
+  <div class="wrap features-layout">
+    <div>
+      <div class="section-head">
+        <p class="label">Built in</p>
+        <h2>Built for people who already know what to do</h2>
+        <p>Momentum is the main score; a simple day streak adds context. No confetti, no all-or-nothing reset.</p>
       </div>
-
-      <div class="glass feature">
-        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="#9d84ff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5-5 4 3 8-8"/><path d="M14 7h6v6"/></svg></div>
-        <h3>Momentum first</h3>
-        <p>Finished sprints compound into momentum. Abandon one and it decays gradually, while a simple day streak stays secondary.</p>
-      </div>
-
-      <div class="glass feature">
-        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="#9d84ff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h13a2 2 0 0 1 2 2v13"/><path d="M4 5v14a2 2 0 0 0 2 2h13"/><path d="M8 9h7M8 13h5"/></svg></div>
-        <h3>One-line session journal</h3>
-        <p>Every sprint ends with one optional prompt: what moved? The answer is stored locally with that session.</p>
-      </div>
-
-      <div class="glass feature">
-        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="#9d84ff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M18 5a8.5 8.5 0 1 1-11.6 3.1"/><path d="M6 3v5h5"/><circle cx="12" cy="12" r="1.6"/></svg></div>
-        <h3>Sleep blocking <span class="pro-tag">Pro</span></h3>
-        <p>Set a nightly window where the shield raises itself. The 1 a.m. version of you doesn't get a vote.</p>
-      </div>
-
-      <div class="glass feature">
-        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="#9d84ff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M5 8l7-5 7 5"/><rect x="4" y="14" width="16" height="7" rx="2"/></svg></div>
-        <h3>Hard kill mode <span class="pro-tag">Pro</span></h3>
-        <p>Make Soft behave like Firm: blocked processes close immediately instead of producing the brief notice.</p>
-      </div>
-
-      <div class="glass feature">
-        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="#9d84ff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 14h3"/></svg></div>
-        <h3>Local by default</h3>
-        <p>Your sessions, blocklists and journal never leave your PC. They are encrypted locally with Windows DPAPI.</p>
+      <div class="feature-stack">
+        <div class="surface feature">
+          <h3>Escalating shield levels</h3>
+          <p>Start with a brief notice inside FlowShield while the distracting app keeps running. Step up to closing blocked apps. Or lock the blocklist for the sprint.</p>
+        </div>
+        <div class="surface feature">
+          <h3>Momentum first</h3>
+          <p>Finished sprints compound into momentum. Abandon one and it decays gradually, while a simple day streak stays secondary.</p>
+        </div>
+        <div class="surface feature">
+          <h3>One-line session journal</h3>
+          <p>Every sprint ends with one optional prompt: what moved? The answer is stored locally with that session.</p>
+        </div>
+        <div class="surface feature">
+          <h3>Sleep blocking <span class="pro-tag">Pro</span></h3>
+          <p>Set a nightly window where the shield raises itself. The 1 a.m. version of you doesn't get a vote.</p>
+        </div>
+        <div class="surface feature">
+          <h3>Hard kill mode <span class="pro-tag">Pro</span></h3>
+          <p>Make Soft behave like Firm: blocked processes close immediately instead of producing the brief notice.</p>
+        </div>
+        <div class="surface feature">
+          <h3>Local by default</h3>
+          <p>Your sessions, blocklists and journal never leave your PC. They are encrypted locally with Windows DPAPI.</p>
+        </div>
       </div>
     </div>
-  </div>
-</section>
 
-<!-- ---------------------------------------------------------- shield levels -->
-<section id="shields" style="background:var(--bg-soft);border-top:1px solid var(--edge);border-bottom:1px solid var(--edge)">
-  <div class="wrap">
-    <div class="section-head">
-      <h2>Three levels of <span class="gradient-text">resistance</span></h2>
-      <p>Pick how much you trust yourself today. FlowShield will hold you to it.</p>
-    </div>
-
-    <div class="levels">
-      <div class="glass level l1">
-        <div class="num">Shield I</div>
-        <h3>Soft</h3>
-        <p>FlowShield records the blocked app and shows a brief notice inside FlowShield; the distracting app keeps running.</p>
-      </div>
-      <div class="glass level l2">
-        <div class="num">Shield II</div>
-        <h3>Firm</h3>
-        <p>Blocked apps are closed on sight and stay closed for the rest of the sprint. The blocklist is still editable.</p>
-      </div>
-      <div class="glass level l3">
-        <div class="num">Shield III · Pro</div>
-        <h3>Sealed</h3>
-        <p>Blocked apps close on sight <em>and</em> the blocklist locks for the rest of the sprint.</p>
-      </div>
-    </div>
+    <aside class="surface feature-aside">
+      <p class="label">Why it sticks</p>
+      <h3>Resistance you choose, progress you keep.</h3>
+      <p>
+        FlowShield does not gamify your week into confetti. It gives you three
+        honest levels of resistance and a score that survives a bad afternoon.
+      </p>
+      <ul>
+        <li>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+          <span>Shield strength is per sprint — change it for homework vs. gaming recovery.</span>
+        </li>
+        <li>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+          <span>Momentum decays slowly on abandoned sprints instead of resetting to zero.</span>
+        </li>
+        <li>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+          <span>Everything that matters stays on the machine you already trust.</span>
+        </li>
+      </ul>
+    </aside>
   </div>
 </section>
 
@@ -185,7 +335,7 @@
     <div id="checkout-alert" class="alert" role="alert"></div>
 
     <div class="pricing">
-      <div class="glass plan">
+      <div class="surface plan">
         <h3>Free</h3>
         <div class="price"><b>$0</b><span>forever</span></div>
         <p class="sub">Everything you need to prove the habit works.</p>
@@ -204,7 +354,7 @@
         </a>
       </div>
 
-      <div class="glass plan featured">
+      <div class="surface plan featured">
         <span class="plan-badge">Recommended</span>
         <h3>Pro</h3>
         <div class="price"><b>$4.99</b><span>/ month</span></div>
@@ -228,6 +378,7 @@
     <p>© 2026 FlowShield</p>
     <div class="foot-links">
       <a href="#features">Features</a>
+      <a href="#shields">Shield levels</a>
       <a href="#pricing">Pricing</a>
       <a href="legal.html#terms">Terms</a>
       <a href="legal.html#privacy">Privacy</a>
@@ -239,5 +390,17 @@
 <!-- config.js must load first: checkout.js reads window.FLOWSHIELD_CONFIG at start-up. -->
 <script src="config.js?v=3"></script>
 <script src="checkout.js?v=3"></script>
+<script>
+  (function () {
+    var root = document.documentElement;
+    document.querySelectorAll('[data-theme-toggle]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+        root.setAttribute('data-theme', next);
+        try { localStorage.setItem('flowshield-theme', next); } catch (e) {}
+      });
+    });
+  })();
+</script>
 </body>
 </html>
