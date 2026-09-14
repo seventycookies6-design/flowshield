@@ -21,7 +21,7 @@ accurate rather than encouraging.
 Cutting a new version:
 
 ```bash
-pwsh tools/build_release.ps1 -Version 1.0.1 -Publish
+pwsh tools/build_release.ps1 -Version 1.0.4 -Publish
 ```
 
 Existing installs pick it up from Settings → Check for updates.

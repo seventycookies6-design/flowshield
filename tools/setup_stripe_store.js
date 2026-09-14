@@ -37,8 +37,9 @@ const TAG = 'flowshield';
  * FlowShield is: a desktop app you download and run locally, sold to
  * individuals on a subscription. It is NOT SaaS — nothing executes on a server.
  *
- * This classification only affects tax calculation, and in test mode it affects
- * nothing at all. Before going live, confirm it with whoever does your taxes —
+ * This classification only affects tax calculation. Stripe Tax does calculate
+ * in test mode (a test purchase with ZIP 90210 was charged 8.25%), but no real
+ * tax is collected. Before going live, confirm it with whoever does your taxes —
  * a business-use or SaaS code may fit better depending on who buys it.
  * Alternatives: txcd_10202003 (downloadable, business use),
  * txcd_10103000 (SaaS, personal use), txcd_10103001 (SaaS, business use).

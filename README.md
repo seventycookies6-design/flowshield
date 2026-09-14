@@ -111,7 +111,7 @@ Pro, and keeps the key they already had.
 ## Cutting a release
 
 ```bash
-pwsh tools/build_release.ps1 -Version 1.0.1 -Publish
+pwsh tools/build_release.ps1 -Version 1.0.4 -Publish
 ```
 
 Builds a self-contained win-x64 copy (customers don't need the .NET runtime),
