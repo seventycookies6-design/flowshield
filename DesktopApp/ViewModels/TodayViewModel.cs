@@ -119,7 +119,7 @@ public class TodayViewModel : ViewModelBase
     {
         ShieldLevel.Soft => "Blocked apps get a nudge you can dismiss.",
         ShieldLevel.Firm => "Blocked apps are closed on sight.",
-        _ => "Closed on sight, and the blocklist locks until the timer ends.",
+        _ => "Closed on sight, and the blocklist locks for the rest of the sprint.",
     };
 
     // ------------------------------------------------------------- journal

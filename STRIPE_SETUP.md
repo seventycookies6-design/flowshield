@@ -98,7 +98,9 @@ line items whose product has no tax code. The product is set to
 a desktop app you download and run locally, sold to individuals. It is not SaaS;
 nothing executes on a server.
 
-This only affects tax calculation, and in test mode it affects nothing at all.
+This only affects tax calculation — but that calculation runs in test mode too:
+a test purchase with ZIP 90210 was charged 8.25% sales tax ($5.40 for the
+$4.99 plan). The site says the price is plus sales tax where it applies.
 **Confirm it with whoever does your taxes before going live.** Plausible
 alternatives:
 

@@ -245,10 +245,10 @@ month. Every sprint ends with a one-line "what moved?" journal entry.
 | --- | --- | --- |
 | Blocked apps | 3 | Unlimited |
 | Shield levels | I, II | I, II, **III Sealed** |
-| Sprint length | ≤ 25 min | Any |
+| Sprint length | 15 or 25 min | Also 45, 60 or 90 min |
 | Sleep blocking | — | ✅ |
 | Hard kill mode | — | ✅ |
-| History | 7 days | Unlimited + momentum analytics |
+| History | 7 days kept | Kept beyond 7 days (no history screen yet) |
 
 ---
 
