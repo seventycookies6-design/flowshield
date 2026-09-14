@@ -113,14 +113,28 @@ async function findProduct(stripe) {
   return list.data.find((p) => p.name === PRODUCT_NAME) || null;
 }
 
+/*
+ * Shown on Stripe Checkout and in the billing portal, so it must only name
+ * features the shipped app has. It used to promise "unlimited history with
+ * momentum analytics", which doesn't exist; re-running this script corrects an
+ * existing product's description too.
+ */
+const PRODUCT_DESCRIPTION =
+  'Unlimited blocked apps, Shield III Sealed mode, 45, 60 and 90-minute sprints, ' +
+  'sleep-blocking schedules and hard kill mode.';
+
 async function ensureProduct(stripe) {
   const existing = await findProduct(stripe);
   if (existing) {
+    const changes = {};
     // A product created before the tax code was required would break every
     // checkout under Managed Payments, so backfill it rather than reuse as-is.
-    if (!existing.tax_code) {
-      const updated = await stripe.products.update(existing.id, { tax_code: TAX_CODE });
-      ok(`product reused and tax code set to ${TAX_CODE}: ${updated.name} (${updated.id})`);
+    if (!existing.tax_code) changes.tax_code = TAX_CODE;
+    if (existing.description !== PRODUCT_DESCRIPTION) changes.description = PRODUCT_DESCRIPTION;
+
+    if (Object.keys(changes).length) {
+      const updated = await stripe.products.update(existing.id, changes);
+      ok(`product reused and updated (${Object.keys(changes).join(', ')}): ${updated.name} (${updated.id})`);
       return updated;
     }
     ok(`product reused: ${existing.name} (${existing.id})`);
@@ -129,9 +143,7 @@ async function ensureProduct(stripe) {
 
   const product = await stripe.products.create({
     name: PRODUCT_NAME,
-    description:
-      'Unlimited blocked apps, Shield III Sealed mode, sleep-blocking schedules, ' +
-      'hard kill mode, and unlimited history with momentum analytics.',
+    description: PRODUCT_DESCRIPTION,
     tax_code: TAX_CODE,
     metadata: { app: TAG },
   });

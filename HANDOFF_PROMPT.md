@@ -42,7 +42,7 @@ timer, and apps on your blocklist are dealt with until it ends.
 | Licence server | `Server/`, Node 24 + Express + SQLite | Live at https://flowshield-license-server.onrender.com (Render free plan, Docker, `render.yaml`). Sleeps when idle; first request takes ~50 s. |
 | Website | `Website/`, static | Live at https://seventycookies6-design.github.io/flowshield/ from the `gh-pages` branch. Checkout goes through the licence server. |
 | Payments | Stripe | **Test mode only.** Account named FlowShield. |
-| Tests | `automation/`, pytest + pywinauto + Playwright, tiers 1–7 | 242 tests. See Phase 2 for the current baselines. |
+| Tests | `automation/`, pytest + pywinauto + Playwright, tiers 1–7 | 247 tests. See Phase 2 for the current baselines. |
 | Tools | `tools/` | `setup_stripe_store.js`, `publish_site.ps1`, `build_release.ps1`, `db_admin.js`, `fix_mojibake.py`, and `doc_steward/` (keeps the docs consistent with the code; see "Doc steward" in `CLAUDE.md`) |
 | Roadmap | `CUSTOMER_EXPERIENCE_PROMPT.md`, issues #1–#6 | A customer's-eye audit (31 problems) and six phases of fixes, all assigned to milessmart6-pixel. 1.1 (site claims) is done and live; 1.2 (Start with Windows in the tray) is in review. The file's Progress table is the current status. |
 
@@ -182,16 +182,16 @@ Then run the tests in this order and report the counts, with the reason for
 every skip:
 
 1. `python -m pytest automation/tests -m "not ui and not stripe" -q` — fast,
-   needs nothing external. **Baseline: 176 passed, 11 skipped.**
+   needs nothing external. **Baseline: 181 passed, 11 skipped.**
 2. `python -m pytest automation/tests -m "not ui" -q` — adds the Stripe tiers if
    the keys are present.
 3. `python -m pytest automation/tests -q` — the UI tiers drive the real desktop
    app. **Warn the person first: it takes over the mouse, keyboard and screen**
    for about six minutes, and closes any running FlowShield. Baselines: the last
    full run without Stripe keys was **164 passed, 32 skipped** (every skip was
-   Stripe), before 46 more non-UI tests were added (settings backup, site
+   Stripe), before 51 more non-UI tests were added (settings backup, site
    claims, doc wording, the doc steward and the #21 security fix) — they pass
-   in the fast run, so expect 210 passed. With keys, the last full run was 195 passed, 1 skipped,
+   in the fast run, so expect 215 passed. With keys, the last full run was 195 passed, 1 skipped,
    on the old computer.
 
 If something fails here but passed before, look for a machine difference first:
@@ -273,19 +273,29 @@ go-ahead.
    blocked apps are killed with no warning, the journal can't be read back,
    "Start with Windows" opens the full window (fix in review, #14), and the
    thank-you page's "Activate in FlowShield" button does nothing.
-2. **Email delivery.** The owner creates a Resend API key or a Gmail app-password
+2. **Stripe dashboard fixes** (owner, signed in; found in a test purchase on
+   13 September 2026):
+   - Settings → Business → public details: the business name customers see on
+     checkout and the billing portal is still "Focus Unlock sandbox".
+   - Settings → Billing → Customer portal → Subscriptions: plan switching
+     offers the old **Focus Unlock Pro** ($9.99) to FlowShield customers; limit
+     it to FlowShield Pro. Don't archive the old product.
+   - The FlowShield Pro product description still promises "unlimited history
+     with momentum analytics". Re-running `node tools/setup_stripe_store.js`
+     with the test keys corrects it, or edit it on the product.
+3. **Email delivery.** The owner creates a Resend API key or a Gmail app-password
    SMTP URL and pastes it into Render → Environment (`RESEND_API_KEY` or
    `SMTP_URL`, plus `EMAIL_FROM`), then *Manual Deploy*. Confirm with `/health`
    that `email.configured` is `true`.
-3. **Legal pages.** `Website/legal.html` still shows a draft banner and
+4. **Legal pages.** `Website/legal.html` still shows a draft banner and
    placeholders: operator name, address, support email. Once the owner provides
    them, fill them in and republish with `pwsh tools/publish_site.ps1`.
-4. **Launch gates** (`SELLING.md`): Stripe account activation, completed legal
+5. **Launch gates** (`SELLING.md`): Stripe account activation, completed legal
    pages, a support email. Recommended: a code-signing certificate (removes the
    SmartScreen wall — the biggest drop-off), a domain, and Render's paid plan.
-5. **Going live on Stripe** comes last, and only when the owner explicitly asks.
+6. **Going live on Stripe** comes last, and only when the owner explicitly asks.
    `SELLING.md` → "Going live on Stripe".
-6. **Known weaknesses:** an email address alone unlocks Pro (but, since #21, no
+7. **Known weaknesses:** an email address alone unlocks Pro (but, since #21, no
    longer reveals the key, opens the billing portal or touches devices); no
    crash reporting; tested on one Windows 11 x64 machine.
 

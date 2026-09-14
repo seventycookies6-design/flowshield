@@ -71,10 +71,14 @@ vpk pack ... --signParams "/fd sha256 /f cert.pfx /p PASSWORD /tr http://timesta
 Three things currently look wrong to a buyer:
 
 - The site is at `github.io`, which reads as a hobby project
-- ~~Your Stripe account is named "Focus Unlock sandbox"~~ — renamed to
-  **FlowShield**. An old *Focus Unlock Pro* product is still active in the
-  account with subscriptions attached; it was left alone deliberately rather
-  than archived, since those are real records from earlier work
+- Checkout and the billing portal still show the business name **"Focus Unlock
+  sandbox"** (checked 13 September 2026), although the account is labelled
+  FlowShield in the dashboard; the public business name is set separately in
+  Stripe's business settings. An old *Focus Unlock Pro* product is still active
+  in the account with subscriptions attached; it was left alone deliberately
+  rather than archived, since those are real records from earlier work — but
+  the billing portal currently offers it as a plan FlowShield customers can
+  switch to, so limit the portal's plan switching to FlowShield Pro
 - Licence emails would come from `onboarding@resend.dev` or a Gmail address,
   which hurts both credibility and deliverability
 

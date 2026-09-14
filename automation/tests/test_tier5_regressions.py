@@ -661,6 +661,48 @@ class TestSuccessPageHonesty:
             "it should tell the buyer how to actually unlock Pro"
 
 
+# ============ what a buyer reads while paying is true (found in a test purchase)
+
+class TestPurchaseFlowCopy:
+    """
+    A test-mode purchase on 13 September 2026 showed buyers claims the product
+    couldn't back: a receipt "sent" that the page can't know about, a key
+    "shown only once" that reloads fine, a Stripe product description promising
+    momentum analytics, a price with no mention of the sales tax Stripe adds,
+    and the app describing Sealed as locking "until the timer ends".
+    """
+
+    def test_the_success_page_makes_no_receipt_or_one_time_claims(self):
+        source = (Path(WEBSITE_DIR) / "checkout.js").read_text(encoding="utf-8")
+        assert "receipt sent to" not in source
+        assert "Stripe has emailed your receipt" not in source
+        assert "shown here only once" not in source
+
+    def test_the_pricing_mentions_sales_tax(self):
+        site = (Path(WEBSITE_DIR) / "index.html").read_text(encoding="utf-8")
+        pricing = site.split('<section id="pricing">', 1)[1].split("</section>", 1)[0]
+        assert "sales tax" in pricing.lower()
+
+    def test_the_stripe_product_description_is_true_and_kept_current(self):
+        script = (Path(DESKTOP_DIR).parent / "tools" / "setup_stripe_store.js").read_text(encoding="utf-8")
+        description = script.split("const PRODUCT_DESCRIPTION =", 1)[1].split(";", 1)[0]
+        assert "analytics" not in description and "unlimited history" not in description.lower()
+        assert "existing.description !== PRODUCT_DESCRIPTION" in script, \
+            "re-running the setup script must correct an existing product's description"
+
+    def test_the_app_describes_sealed_accurately(self):
+        today = (Path(DESKTOP_DIR) / "ViewModels" / "TodayViewModel.cs").read_text(encoding="utf-8")
+        assert "until the timer ends" not in today
+        assert "locks for the rest of the sprint" in today
+
+    def test_the_report_table_lists_only_shipped_pro_features(self):
+        root = Path(DESKTOP_DIR).parent
+        for name in ("automation/make_report.py", "FINAL_REPORT.md"):
+            text = (root / name).read_text(encoding="utf-8")
+            assert "momentum analytics" not in text, f"{name} still promises momentum analytics"
+            assert "| Sprint length | ≤ 25 min | Any |" not in text, f"{name} says Pro sprints can be any length"
+
+
 # ==================================== settings survive a restart
 
 @pytest.mark.ui

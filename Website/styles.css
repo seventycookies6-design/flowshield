@@ -325,6 +325,7 @@ section { padding: 96px 0; }
 .price { display: flex; align-items: baseline; gap: 7px; margin: 6px 0 4px; }
 .price b { font-size: 3.1rem; font-weight: 700; letter-spacing: -0.04em; }
 .price span { color: var(--ink-faint); font-size: 0.95rem; }
+.price-note { margin: 0 0 12px; color: var(--ink-faint); font-size: 0.8rem; }
 .plan > p.sub { font-size: 0.9rem; margin-bottom: 26px; }
 
 .plan ul { list-style: none; padding: 0; margin: 0 0 30px; display: flex; flex-direction: column; gap: 12px; }
