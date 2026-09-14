@@ -2,12 +2,12 @@
 
 Paste everything below the line into a new Claude Code session opened in a
 clone of the repo — on a new computer, or for a new teammate. Last brought up
-to date on 13 September 2026.
+to date on 14 September 2026.
 
 ---
 
-You're picking up **FlowShield**, a Windows focus timer and app blocker sold as
-a subscription. It's built, released and live; two people now work on it, each
+You're picking up **FlowShield**, a Windows focus timer and app blocker with a
+7-day free trial, sold as a one-time $4.99 purchase (no subscription). It's built, released and live; two people now work on it, each
 with an AI agent, often at the same time. The repo owner is
 **seventycookies6-design** and the teammate is **milessmart6-pixel**. The owner
 often talks to their agent from another computer through Remote Control.
@@ -25,16 +25,21 @@ A Windows 10/11 x64 app. Pick a sprint length and a shield level, start the
 timer, and apps on your blocklist are dealt with until it ends.
 
 - **Shield levels:** Soft (a brief notice inside FlowShield; the blocked app
-  keeps running), Firm (blocked apps are closed), Sealed (Pro: closed, and the
+  keeps running), Firm (blocked apps are closed), Sealed (closed, and the
   blocklist locks for the rest of the sprint — ending the sprint early unlocks it).
 - **Momentum score:** a finished sprint adds to it; an abandoned one decays it
   (×0.85 − 2) rather than resetting it. A day streak is shown too.
 - **Journal:** a one-line "What moved?" entry after each sprint.
-- **Sleep blocking** (Pro): a nightly window that closes blocked apps.
-- **Free:** 3 blocked apps, shields I and II, sprints up to 25 minutes, 7 days
-  of sessions. **Pro, $4.99/month:** unlimited apps, Sealed, 45/60/90-minute
-  sprints, sleep blocking, hard kill mode, sessions kept beyond 7 days (no
-  screen shows past sessions or journal entries yet).
+- **Sleep blocking:** a nightly window that closes blocked apps.
+- **Trial, then buy once (#29):** every feature is unlocked for 7 days from the
+  first launch (`AppSettings.TrialDays`). After that, a lock screen offers
+  **Buy FlowShield — $4.99** and licence-key activation, and no sprint can
+  start. Buying (a one-time Stripe payment) unlocks everything for good:
+  unlimited apps, all three shields, 15–90-minute sprints, sleep blocking, hard
+  kill mode. A full refund revokes the licence. The trial start lives in the
+  encrypted settings file, so deleting that file restarts it — accepted, like the
+  device cap, as not worth DRM. Licences bought on the old $4.99/month plan keep
+  working. `--expire-trial` backdates the trial for the UI tests.
 
 | Part | Where | State |
 | --- | --- | --- |
@@ -52,7 +57,7 @@ Tested on a real machine on 13 September 2026: the download is 69.5 MB and
 unsigned, so SmartScreen shows **"Windows protected your PC"** with *Publisher:
 Unknown publisher* and hides **Run anyway** behind *More info*. Past that, the
 install takes about 3 seconds with no admin prompt, adds Start Menu and Desktop
-shortcuts and an *Installed apps* entry, launches on the free tier, and points
+shortcuts and an *Installed apps* entry, launches into the free trial (since #29), and points
 at the live licence server.
 
 ### Key design facts
@@ -60,7 +65,8 @@ at the live licence server.
 - **Stripe is the record; the server's database is only a cache.** Render's free
   disk is wiped on every deploy. The server rebuilds missing rows from Stripe
   (`recoverFromStripe` / `rehydrate`), matching on the licence key in
-  subscription metadata or on the customer's email.
+  the payment's metadata (subscription metadata for old monthly licences) or on
+  the customer's email.
 - **Licence keys** look like `FS-XXXX-XXXX-XXXX-XXXX`: Crockford base32 with an
   odd-weighted mod-32 checksum.
 - **Device cap:** 3 machines per licence (`DEVICE_LIMIT`). The app sends a
@@ -295,7 +301,7 @@ go-ahead.
    SmartScreen wall — the biggest drop-off), a domain, and Render's paid plan.
 6. **Going live on Stripe** comes last, and only when the owner explicitly asks.
    `SELLING.md` → "Going live on Stripe".
-7. **Known weaknesses:** an email address alone unlocks Pro (but, since #21, no
+7. **Known weaknesses:** an email address alone activates a licence (but, since #21, no
    longer reveals the key, opens the billing portal or touches devices); no
    crash reporting; tested on one Windows 11 x64 machine.
 

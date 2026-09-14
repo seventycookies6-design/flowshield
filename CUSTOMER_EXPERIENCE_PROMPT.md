@@ -22,14 +22,22 @@ advertised, and A31's momentum-and-streak wording now matches the app, but websi
 custom lengths, analytics, export, the Soft overlay and a stricter Sealed mode
 are still unbuilt (items 2.3, 2.6, 3.5, 3.6, 1.7, 1.9).
 
+**Business model change (14 September 2026, #29):** the owner replaced the
+free tier and the $4.99/month Pro subscription with a **7-day free trial
+(everything unlocked), then a one-time $4.99 purchase**. Read "Pro" below as
+"the bought app", and treat items built around subscriptions — billing
+trouble and cancellation (5.6), subscription emails (5.9), the trial and plans
+decision (5.8, now decided) — as superseded or needing a rewrite for a
+one-time purchase before anyone builds them.
+
 **Correction (13 September 2026):** an earlier version of item 1.2 said
 Velopack installs updates in versioned folders. It doesn't; installed copies
 run from a stable `current` folder. Item 1.2 below is corrected.
 
 ---
 
-You're working on **FlowShield**, a Windows focus timer and app blocker sold
-as a $4.99/month subscription. Read `README.md`, `SELLING.md`,
+You're working on **FlowShield**, a Windows focus timer and app blocker with a
+7-day free trial, sold as a one-time $4.99 purchase. Read `README.md`, `SELLING.md`,
 `HANDOFF_PROMPT.md` and `FINAL_REPORT.md` first. They're accurate.
 
 Your job is to turn FlowShield into the product a customer would actually want

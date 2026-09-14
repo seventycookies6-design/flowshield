@@ -22,16 +22,19 @@ public class SleepBlockingViewModel : ViewModelBase
     public RelayCommand SaveCommand { get; }
     public RelayCommand GetProCommand { get; }
 
-    public bool IsPro => _main.IsPro;
+    /// <summary>Bought, or inside the free trial.</summary>
+    public bool HasAccess => _main.HasAccess;
+
+    public bool IsLocked => _main.IsLocked;
 
     public bool IsEnabled
     {
         get => _main.Settings.IsSleepBlockEnabled;
         set
         {
-            if (value && !_main.IsPro)
+            if (value && _main.IsLocked)
             {
-                _main.Toast("Sleep blocking is a Pro feature.");
+                _main.Toast("Your free trial has ended. Buy FlowShield to use sleep blocking.");
                 Raise();               // snap the toggle back
                 return;
             }
@@ -67,9 +70,9 @@ public class SleepBlockingViewModel : ViewModelBase
 
     private void Save()
     {
-        if (!_main.IsPro)
+        if (_main.IsLocked)
         {
-            _main.Toast("Sleep blocking is a Pro feature.");
+            _main.Toast("Your free trial has ended. Buy FlowShield to use sleep blocking.");
             return;
         }
 
@@ -107,21 +110,23 @@ public class SleepBlockingViewModel : ViewModelBase
 
         WindowText = $"{StartText} → {EndText}";
 
-        StatusText = !_main.IsPro
-            ? "Sleep blocking is a Pro feature. Upgrade to schedule a nightly shield."
+        StatusText = _main.IsLocked
+            ? "Your free trial has ended. Buy FlowShield to schedule a nightly shield."
             : !enabled
                 ? "Scheduled blocking is off."
                 : inWindow
                     ? $"Active now — the shield is up until {EndText}."
                     : $"Armed. The shield raises itself at {StartText}.";
 
-        Raise(nameof(IsPro));
+        Raise(nameof(HasAccess));
+        Raise(nameof(IsLocked));
         Raise(nameof(IsEnabled));
     }
 
     public void OnTierChanged()
     {
-        if (!_main.IsPro && _main.Settings.IsSleepBlockEnabled)
+        // A locked app must not keep closing programs every night.
+        if (_main.IsLocked && _main.Settings.IsSleepBlockEnabled)
         {
             _main.Settings.IsSleepBlockEnabled = false;
             _main.SaveSettings();

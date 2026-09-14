@@ -79,20 +79,7 @@ public class TodayViewModel : ViewModelBase
     public int SelectedMinutes
     {
         get => _selectedMinutes;
-        set
-        {
-            // Free tier caps sprint length; snap back and explain rather than
-            // silently accepting a value we won't honour.
-            if (!_main.IsPro && value > AppSettings.FreeMaxSprintMinutes)
-            {
-                _main.Toast($"Sprints longer than {AppSettings.FreeMaxSprintMinutes} minutes are a Pro feature.");
-                Set(ref _selectedMinutes, AppSettings.FreeMaxSprintMinutes);
-                Raise(nameof(SelectedMinutes));
-                UpdateIdleDisplay();
-                return;
-            }
-            if (Set(ref _selectedMinutes, value)) UpdateIdleDisplay();
-        }
+        set { if (Set(ref _selectedMinutes, value)) UpdateIdleDisplay(); }
     }
 
     public ShieldLevel[] ShieldLevels { get; } = { ShieldLevel.Soft, ShieldLevel.Firm, ShieldLevel.Sealed };
@@ -101,18 +88,7 @@ public class TodayViewModel : ViewModelBase
     public ShieldLevel SelectedShield
     {
         get => _selectedShield;
-        set
-        {
-            if (value == ShieldLevel.Sealed && !_main.IsPro)
-            {
-                _main.Toast("Shield III — Sealed is a Pro feature.");
-                Set(ref _selectedShield, ShieldLevel.Firm);
-                Raise(nameof(SelectedShield));
-                Raise(nameof(ShieldDescription));
-                return;
-            }
-            if (Set(ref _selectedShield, value)) Raise(nameof(ShieldDescription));
-        }
+        set { if (Set(ref _selectedShield, value)) Raise(nameof(ShieldDescription)); }
     }
 
     public string ShieldDescription => SelectedShield switch
@@ -162,6 +138,14 @@ public class TodayViewModel : ViewModelBase
     private void StartSprint()
     {
         if (IsRunning) return;
+
+        // The lock screen covers this button once the trial ends, but the tray
+        // menu and keyboard can still reach it.
+        if (_main.IsLocked)
+        {
+            _main.Toast("Your free trial has ended. Buy FlowShield to start a sprint.");
+            return;
+        }
 
         _current = new FocusSession
         {
@@ -217,13 +201,6 @@ public class TodayViewModel : ViewModelBase
         ApplyMomentum(completed, _current);
 
         S.Sessions.Add(_current);
-        // Free tier keeps a week of history; Pro keeps everything.
-        if (!_main.IsPro)
-        {
-            var cutoff = DateTime.UtcNow.AddDays(-7);
-            S.Sessions.RemoveAll(s => s.StartedUtc < cutoff);
-        }
-
         _main.SaveSettings();
 
         SessionStateText = completed ? "Sprint complete" : "Sprint ended early";
@@ -307,15 +284,9 @@ public class TodayViewModel : ViewModelBase
         StreakText = S.CurrentStreak == 1 ? "1 day" : $"{S.CurrentStreak} days";
     }
 
-    /// <summary>Called when the Pro tier changes so gated choices re-evaluate.</summary>
+    /// <summary>Called when access changes (purchase, deactivation, trial ending).</summary>
     public void OnTierChanged()
     {
-        if (!_main.IsPro)
-        {
-            if (SelectedShield == ShieldLevel.Sealed) SelectedShield = ShieldLevel.Firm;
-            if (SelectedMinutes > AppSettings.FreeMaxSprintMinutes)
-                SelectedMinutes = AppSettings.FreeMaxSprintMinutes;
-        }
         Raise(nameof(SelectedShield));
         Raise(nameof(ShieldDescription));
     }

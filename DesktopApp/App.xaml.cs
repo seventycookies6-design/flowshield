@@ -50,6 +50,16 @@ public partial class App : Application
             ViewModel.Settings.WebsiteUrl = websiteArg["--website=".Length..].Trim();
         }
 
+        // --expire-trial backdates the trial so the automation suite can reach
+        // the lock screen. It can only take access away, never grant it.
+        if (args.Any(a => a.Equals("--expire-trial", StringComparison.OrdinalIgnoreCase)))
+        {
+            ViewModel.Settings.TrialStartedUtc =
+                DateTime.UtcNow.AddDays(-(Models.AppSettings.TrialDays + 1));
+            ViewModel.OnTierChanged();
+            Log.Info("free trial expired by --expire-trial flag");
+        }
+
         // Persist immediately so a settings file always exists after first run.
         // Without this, a session where the user changes nothing leaves no file
         // at all, and "is sleep blocking off?" becomes unanswerable from disk.

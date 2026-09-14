@@ -224,6 +224,46 @@ class TestWebhook:
         assert first.get("duplicate") is not True
         assert second.get("duplicate") is True, "replay guard did not fire"
 
+    def test_a_refund_revokes_a_one_time_licence(self, server, needs_webhook_secret):
+        """A signed charge.refunded for a paid purchase turns its licence off."""
+        keys = load_stripe_keys()
+        key = new_key()
+        payment_id = f"pi_refund_probe_{uuid.uuid4().hex[:12]}"
+        seed = (
+            "const db=require('./db');"
+            f"db.createPending({json.dumps(key)},'refund-probe@example.com',null);"
+            f"db.activate({json.dumps(key)},{{status:'active',paymentIntentId:{json.dumps(payment_id)}}});"
+            "console.log('{}');"
+        )
+        seeded = subprocess.run([NODE_EXE, "-e", seed], cwd=str(SERVER_DIR),
+                                capture_output=True, text=True, timeout=30)
+        assert seeded.returncode == 0, seeded.stderr[:400]
+
+        script = f"""
+        const Stripe = require('stripe');
+        const payload = JSON.stringify({{
+          id: 'evt_refund_{uuid.uuid4().hex[:16]}', object: 'event', type: 'charge.refunded',
+          data: {{ object: {{ id: 'ch_refund_probe', object: 'charge', refunded: true,
+                              payment_intent: {json.dumps(payment_id)} }} }}
+        }});
+        const header = Stripe.webhooks.generateTestHeaderString({{
+          payload, secret: {json.dumps(keys['webhook_secret'])} }});
+        console.log(JSON.stringify({{ payload, header }}));
+        """
+        result = subprocess.run([NODE_EXE, "-e", script], cwd=str(SERVER_DIR),
+                                capture_output=True, text=True, timeout=60)
+        signed = json.loads(result.stdout.strip().splitlines()[-1])
+        response = requests.post(f"{server}/webhook", data=signed["payload"].encode(),
+                                 headers={"Content-Type": "application/json",
+                                          "Stripe-Signature": signed["header"]}, timeout=15)
+        assert response.status_code == 200, response.text[:300]
+
+        check = subprocess.run(
+            [NODE_EXE, "-e", f"console.log(JSON.stringify(require('./db').findByKey({json.dumps(key)})))"],
+            cwd=str(SERVER_DIR), capture_output=True, text=True, timeout=30)
+        row = json.loads(check.stdout.strip().splitlines()[-1])
+        assert row["status"] == "refunded", row
+
 
 # ============================================================ get-license
 
@@ -285,5 +325,22 @@ class TestCreateCheckout:
         body = requests.post(f"{server}/create-checkout", json={}, timeout=45).json()
         check = requests.post(f"{server}/validate",
                               json={"licenseKey": body["licenseKey"]}, timeout=20).json()
-        assert check["isPro"] is False, "an unpaid checkout must not grant Pro"
-        assert check["reason"] == "subscription_pending"
+        assert check["isPro"] is False, "an unpaid checkout must not grant a licence"
+        assert check["reason"] == "license_pending"
+
+    def test_checkout_is_a_one_time_payment(self, server, needs_stripe):
+        """FlowShield is bought once; the session must not start a subscription."""
+        body = requests.post(f"{server}/create-checkout", json={}, timeout=45).json()
+        script = (
+            "const {loadKeys}=require('./keys');const k=loadKeys();"
+            "const s=require('stripe')(k.secret_key);"
+            f"s.checkout.sessions.retrieve({json.dumps(body['sessionId'])},{{expand:['line_items']}})"
+            ".then(x=>console.log(JSON.stringify({mode:x.mode,"
+            "recurring:x.line_items.data[0].price.recurring,amount:x.amount_total})));"
+        )
+        result = subprocess.run([NODE_EXE, "-e", script], cwd=str(SERVER_DIR),
+                                capture_output=True, text=True, timeout=60)
+        assert result.returncode == 0, result.stderr[:400]
+        session = json.loads(result.stdout.strip().splitlines()[-1])
+        assert session["mode"] == "payment", session
+        assert session["recurring"] is None, "the configured price is still a subscription price"

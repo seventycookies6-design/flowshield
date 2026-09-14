@@ -520,13 +520,13 @@ class DesktopController:
     # ------------------------------------------------------------- licensing
 
     def click_get_pro_button(self) -> None:
-        """Prefer the Settings-page button; fall back to the nav-rail one."""
-        for auto_id in ("GetProButton", "GetProNavButton", "SleepGetProButton"):
+        """Prefer the Settings-page button; fall back to the nav rail and lock screen."""
+        for auto_id in ("GetProButton", "GetProNavButton", "LockBuyButton", "SleepGetProButton"):
             if self.exists(auto_id, timeout=1.5):
                 self._say(f"clicking {auto_id}")
                 self.click(auto_id)
                 return
-        raise DesktopControllerError("no Get Pro button is visible on this page")
+        raise DesktopControllerError("no Buy FlowShield button is visible on this page")
 
     def enter_license_key(self, text: str) -> None:
         self.set_text("LicenseKeyInput", text)
@@ -557,7 +557,7 @@ class DesktopController:
         )
 
     def is_pro(self) -> bool:
-        return "pro active" in self.get_license_status_text().lower()
+        return "licence active" in self.get_license_status_text().lower()
 
     def tier_badge(self) -> str:
         return self.text_of("TierBadge")
@@ -569,7 +569,7 @@ class DesktopController:
         Type a process name and press Add.
 
         Returns False when the Add button is disabled — which is the correct app
-        behaviour at the Free tier's three-app limit, not a driver failure, so it
+        behaviour for an empty name or a locked app, not a driver failure, so it
         must not raise.
         """
         self.set_text("NewAppNameInput", process_name)

@@ -6,7 +6,7 @@
  *
  *   node tools/setup_stripe_store.js --site https://user.github.io/flowshield
  *
- * Creates (or reuses) the product, the $4.99/month price, and a Payment Link
+ * Creates (or reuses) the product, the one-time $4.99 price, and a Payment Link
  * whose confirmation page is the published success page. Then writes the price
  * id into .stripe_keys.json and the Payment Link into Website/config.js.
  *
@@ -24,7 +24,13 @@ const ROOT = path.join(__dirname, '..');
 const KEYS_PATH = path.join(ROOT, '.stripe_keys.json');
 const CONFIG_PATH = path.join(ROOT, 'Website', 'config.js');
 
-const PRODUCT_NAME = 'FlowShield Pro';
+/*
+ * FlowShield is a one-time purchase (after a 7-day in-app trial). The old
+ * monthly product, "FlowShield Pro", is left untouched for existing licences;
+ * this product is told apart from it by metadata.edition.
+ */
+const PRODUCT_NAME = 'FlowShield';
+const EDITION = 'one_time';
 const UNIT_AMOUNT = 499; // cents
 const CURRENCY = 'usd';
 const TAG = 'flowshield';
@@ -35,7 +41,7 @@ const TAG = 'flowshield';
  *
  * txcd_10202000 = "Downloadable Software - personal use", which is what
  * FlowShield is: a desktop app you download and run locally, sold to
- * individuals on a subscription. It is NOT SaaS — nothing executes on a server.
+ * individuals as a one-time purchase. It is NOT SaaS — nothing executes on a server.
  *
  * This classification only affects tax calculation. Stripe Tax does calculate
  * in test mode (a test purchase with ZIP 90210 was charged 8.25%), but no real
@@ -100,7 +106,7 @@ const info = (m) => console.log(`    ${m}`);
 async function findProduct(stripe) {
   try {
     const tagged = await stripe.products.search({
-      query: `active:'true' AND metadata['app']:'${TAG}'`,
+      query: `active:'true' AND metadata['app']:'${TAG}' AND metadata['edition']:'${EDITION}'`,
       limit: 10,
     });
     if (tagged.data.length) return tagged.data[0];
@@ -111,17 +117,20 @@ async function findProduct(stripe) {
   }
 
   const list = await stripe.products.list({ active: true, limit: 100 });
+  // By exact name too: a product made in the dashboard has no metadata yet, and
+  // the old monthly product is named "FlowShield Pro", so this can't match it.
   return list.data.find((p) => p.name === PRODUCT_NAME) || null;
 }
 
 /*
- * Shown on Stripe Checkout and in the billing portal, so it must only name
+ * Shown on Stripe Checkout, so it must only name
  * features the shipped app has. It used to promise "unlimited history with
  * momentum analytics", which doesn't exist; re-running this script corrects an
  * existing product's description too.
  */
 const PRODUCT_DESCRIPTION =
-  'Unlimited blocked apps, Shield III Sealed mode, 45, 60 and 90-minute sprints, ' +
+  'A one-time purchase: FlowShield for Windows with every feature, for good. ' +
+  'Unlimited blocked apps, all three shields including Sealed, 15 to 90-minute sprints, ' +
   'sleep-blocking schedules and hard kill mode.';
 
 async function ensureProduct(stripe) {
@@ -131,6 +140,9 @@ async function ensureProduct(stripe) {
     // A product created before the tax code was required would break every
     // checkout under Managed Payments, so backfill it rather than reuse as-is.
     if (!existing.tax_code) changes.tax_code = TAX_CODE;
+    if (existing.metadata?.app !== TAG || existing.metadata?.edition !== EDITION) {
+      changes.metadata = { ...(existing.metadata || {}), app: TAG, edition: EDITION };
+    }
     if (existing.description !== PRODUCT_DESCRIPTION) changes.description = PRODUCT_DESCRIPTION;
 
     if (Object.keys(changes).length) {
@@ -146,7 +158,7 @@ async function ensureProduct(stripe) {
     name: PRODUCT_NAME,
     description: PRODUCT_DESCRIPTION,
     tax_code: TAX_CODE,
-    metadata: { app: TAG },
+    metadata: { app: TAG, edition: EDITION },
   });
   ok(`product created: ${product.name} (${product.id})`);
   return product;
@@ -158,12 +170,11 @@ async function ensurePrice(stripe, product) {
     (p) =>
       p.unit_amount === UNIT_AMOUNT &&
       p.currency === CURRENCY &&
-      p.recurring &&
-      p.recurring.interval === 'month',
+      !p.recurring,
   );
 
   if (match) {
-    ok(`price reused: ${(match.unit_amount / 100).toFixed(2)} ${match.currency.toUpperCase()}/month (${match.id})`);
+    ok(`price reused: ${(match.unit_amount / 100).toFixed(2)} ${match.currency.toUpperCase()} one-time (${match.id})`);
     return match;
   }
 
@@ -171,16 +182,37 @@ async function ensurePrice(stripe, product) {
     product: product.id,
     unit_amount: UNIT_AMOUNT,
     currency: CURRENCY,
-    recurring: { interval: 'month' },
-    metadata: { app: TAG },
+    metadata: { app: TAG, edition: EDITION },
   });
-  ok(`price created: $4.99/month (${price.id})`);
+  ok(`price created: $4.99 one-time (${price.id})`);
   return price;
 }
 
 async function ensurePaymentLink(stripe, price, siteUrl) {
   const links = await stripe.paymentLinks.list({ active: true, limit: 100 });
-  const existing = links.data.find((l) => l.metadata && l.metadata.app === TAG);
+  const priceOf = async (l) => {
+    const item = await stripe.paymentLinks.listLineItems(l.id, { limit: 1 });
+    return item.data.length ? item.data[0].price.id : null;
+  };
+
+  const tagged = links.data.find((l) => l.metadata && l.metadata.app === TAG);
+  let existing = tagged;
+
+  // A link made in the dashboard carries no tag; reuse it if it already sells
+  // this price, rather than creating a second one alongside it — and retire
+  // the tagged link if that one still sells an old price.
+  if (!tagged || (await priceOf(tagged)) !== price.id) {
+    for (const l of links.data) {
+      if (l !== tagged && (await priceOf(l)) === price.id) {
+        if (tagged) {
+          await stripe.paymentLinks.update(tagged.id, { active: false });
+          info(`deactivated a payment link pointing at an old price (${tagged.id})`);
+        }
+        existing = l;
+        break;
+      }
+    }
+  }
 
   // A Payment Link's price cannot be edited after creation, and its redirect
   // can. Deactivate a stale one rather than leaving two live links around.
@@ -210,7 +242,10 @@ async function ensurePaymentLink(stripe, price, siteUrl) {
     line_items: [{ price: price.id, quantity: 1 }],
     metadata: { app: TAG },
     allow_promotion_codes: true,
-    subscription_data: { metadata: { app: TAG } },
+    // Always create a customer so the purchase can be found by email, and tag
+    // the payment so the licence server recognises it as a FlowShield sale.
+    customer_creation: 'always',
+    payment_intent_data: { metadata: { app: 'FlowShield' } },
   };
 
   if (siteUrl) {
@@ -225,12 +260,31 @@ async function ensurePaymentLink(stripe, price, siteUrl) {
   return link;
 }
 
+/*
+ * charge.refunded revokes a one-time licence. The subscription events only
+ * matter for licences bought on the old monthly plan.
+ */
+const WEBHOOK_EVENTS = [
+  'checkout.session.completed',
+  'charge.refunded',
+  'customer.subscription.updated',
+  'customer.subscription.deleted',
+];
+
 async function ensureWebhook(stripe, webhookUrl) {
   if (!webhookUrl) return null;
 
   const endpoints = await stripe.webhookEndpoints.list({ limit: 100 });
   const existing = endpoints.data.find((e) => e.url === webhookUrl);
   if (existing) {
+    // Updating the events keeps the signing secret, so the server needs no change.
+    const missing = WEBHOOK_EVENTS.filter((e) => !existing.enabled_events.includes(e));
+    if (missing.length && !existing.enabled_events.includes('*')) {
+      await stripe.webhookEndpoints.update(existing.id, {
+        enabled_events: [...new Set([...existing.enabled_events, ...WEBHOOK_EVENTS])],
+      });
+      info(`webhook now also sends: ${missing.join(', ')}`);
+    }
     ok(`webhook endpoint already registered: ${webhookUrl}`);
     info('Stripe only reveals a signing secret at creation — reuse the stored one.');
     return null;
@@ -238,11 +292,7 @@ async function ensureWebhook(stripe, webhookUrl) {
 
   const endpoint = await stripe.webhookEndpoints.create({
     url: webhookUrl,
-    enabled_events: [
-      'checkout.session.completed',
-      'customer.subscription.updated',
-      'customer.subscription.deleted',
-    ],
+    enabled_events: WEBHOOK_EVENTS,
     metadata: { app: TAG },
   });
   ok(`webhook endpoint created: ${webhookUrl}`);
@@ -353,7 +403,7 @@ async function main() {
 
   console.log('\n  Store is set up.\n');
   console.log(`    product      ${product.id}`);
-  console.log(`    price        ${price.id}  ($4.99/month)`);
+  console.log(`    price        ${price.id}  ($4.99 one-time)`);
   console.log(`    payment link ${link.url}`);
   if (args.site) console.log(`    success page ${args.site}/success.html`);
   console.log('\n  Test card 4242 4242 4242 4242 · 12/34 · 123 · 90210\n');

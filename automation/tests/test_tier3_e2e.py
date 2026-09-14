@@ -27,10 +27,15 @@ class TestAppShell:
     def test_every_tab_is_reachable(self, app, tab):
         assert app.navigate_to_tab(tab) == tab
 
-    def test_a_clean_install_is_on_the_free_tier(self, app):
+    def test_a_clean_install_starts_the_seven_day_trial(self, app):
         app.navigate_to_tab("Settings")
-        assert "free" in app.get_license_status_text().lower()
-        assert app.tier_badge().upper() == "FREE"
+        assert "free trial — 7 days left" in app.get_license_status_text().lower()
+        assert app.tier_badge().upper() == "TRIAL · 7 DAYS LEFT"
+        # The panel is a Border, which UI Automation can't see; its button can be.
+        assert not app.exists("LockBuyButton", timeout=1.5), "a new install is locked"
+
+        settings = verify.read_settings()
+        assert settings.get("TrialStartedUtc"), "the trial start was not saved"
 
     def test_the_app_writes_an_encrypted_settings_file(self, app):
         # Touch a setting so the file definitely exists.
@@ -91,15 +96,15 @@ class TestBlockedApps:
 
         assert after == before, "the same process was added twice"
 
-    def test_free_tier_stops_at_three_apps(self, fresh_app):
+    def test_there_is_no_blocked_app_limit(self, fresh_app):
+        """The old free tier stopped at three; the trial and a purchase have no cap."""
         fresh_app.navigate_to_tab("Blocked Apps")
         for index in range(5):
             fresh_app.add_blocked_app(f"limit-probe-{index}")
             time.sleep(0.5)
 
         names = fresh_app.blocked_app_names()
-        assert len(names) == 3, f"Free tier allowed {len(names)} apps: {names}"
-        assert "upgrade" in fresh_app.blocked_apps_status().lower()
+        assert len(names) == 5, f"only {len(names)} of 5 apps were added: {names}"
 
     def test_removing_an_app_takes_it_off_the_list_and_disk(self, fresh_app):
         fresh_app.navigate_to_tab("Blocked Apps")
@@ -180,42 +185,63 @@ class TestSprints:
         assert settings["Sessions"][-1]["Journal"] == "shipped the licence server"
 
 
-# ============================================================ free-tier gates
+# ==================================================== the trial unlocks all
 
-class TestFreeTierGating:
-    def test_sleep_blocking_will_not_turn_on(self, fresh_app):
+class TestTrialUnlocksEverything:
+    """During the 7-day trial every feature is available, as after a purchase."""
+
+    def test_sleep_blocking_turns_on(self, fresh_app):
         fresh_app.navigate_to_tab("Sleep Blocking")
+        assert fresh_app.set_toggle("SleepBlockToggle", True) is True
+        fresh_app.set_sleep_window("23:15", "06:45")
+        time.sleep(0.8)
+        saved = verify.verify_sleep_window(enabled=True, start="23:15", end="06:45")
+        assert saved.ok, saved.detail
 
-        # Assert the gate directly as well as its effect: a toggle that merely
-        # failed to receive the click would also "stay off".
-        assert fresh_app.is_control_enabled("SleepBlockToggle") is False, \
-            "the sleep-blocking toggle is interactive on the Free tier"
-
-        reached = fresh_app.set_toggle("SleepBlockToggle", True)
-        assert reached is False, "sleep blocking unlocked without Pro"
-
-        result = verify.verify_sleep_window(enabled=False)
-        assert result.ok, result.detail
-
-    def test_shield_three_snaps_back_to_firm(self, fresh_app):
+    def test_shield_three_and_long_sprints_stick(self, fresh_app):
         fresh_app.navigate_to_tab("Today")
         fresh_app.select_shield("Sealed")
         time.sleep(0.8)
-        description = fresh_app.text_of("ShieldDescriptionText")
-        assert "locks" not in description.lower(), \
-            f"Free tier reached Shield III (description: {description!r})"
+        assert "locks" in fresh_app.text_of("ShieldDescriptionText").lower()
 
-    def test_hard_kill_mode_is_disabled(self, fresh_app):
+    def test_hard_kill_mode_turns_on(self, fresh_app):
         fresh_app.navigate_to_tab("Settings")
+        assert fresh_app.set_toggle("HardKillModeToggle", True) is True
+        time.sleep(0.8)
+        assert verify.read_settings()["HardKillModeEnabled"] is True
 
-        assert fresh_app.is_control_enabled("HardKillModeToggle") is False, \
-            "hard kill mode is interactive on the Free tier"
 
-        reached = fresh_app.set_toggle("HardKillModeToggle", True)
-        assert reached is False, "hard kill mode unlocked without Pro"
+# ================================================== after the trial ends
 
-        settings = verify.read_settings()
-        assert settings["HardKillModeEnabled"] is False
+class TestTrialEnded:
+    """With the trial over and nothing bought, the app is locked."""
+
+    def test_the_lock_screen_offers_the_purchase(self, expired_app):
+        assert expired_app.exists("LockBuyButton", timeout=5), "no lock screen after the trial"
+        assert "$4.99" in expired_app.text_of("TrialEndedText")
+        assert expired_app.tier_badge().upper() == "TRIAL ENDED"
+
+    def test_a_sprint_cannot_start(self, expired_app):
+        expired_app.navigate_to_tab("Today")
+        try:
+            expired_app.start_sprint()
+        except Exception:                      # noqa: BLE001 — covered by the lock screen
+            pass
+        time.sleep(1.5)
+        assert "engaged" not in expired_app.session_state().lower(), "a locked app started a sprint"
+        assert verify.read_settings()["Sessions"] == []
+
+    def test_sleep_blocking_and_hard_kill_are_disabled(self, expired_app):
+        expired_app.navigate_to_tab("Sleep Blocking")
+        assert expired_app.is_control_enabled("SleepBlockToggle") is False
+        expired_app.navigate_to_tab("Settings")
+        assert expired_app.is_control_enabled("HardKillModeToggle") is False
+        assert "trial ended" in expired_app.get_license_status_text().lower()
+
+    def test_the_buy_button_opens_the_store(self, expired_app):
+        expired_app.click("LockBuyButton")
+        time.sleep(1.5)
+        assert expired_app.app_log_contains("opening upgrade page")
 
 
 # ============================================ full purchase path (Stripe)
@@ -264,8 +290,8 @@ class TestPurchaseToActivation:
         fresh_app.navigate_to_tab("Settings")
         fresh_app.enter_license_key(payload["licenseKey"])
         fresh_app.click_activate_pro()
-        status = fresh_app.wait_for_license_status("Pro Active", timeout=45)
-        assert "pro active" in status.lower()
+        status = fresh_app.wait_for_license_status("Licence active", timeout=45)
+        assert "licence active" in status.lower()
 
         ui = verify.verify_ui_pro_status(fresh_app, expected_pro=True)
         assert ui.ok, ui.detail
@@ -277,11 +303,11 @@ class TestPurchaseToActivation:
 
 @pytest.mark.stripe
 @pytest.mark.e2e
-class TestProFeaturesAfterActivation:
-    """Pro-gated surfaces must open up once a licence is active."""
+class TestPurchaseUnlocksAnExpiredTrial:
+    """Buying FlowShield after the trial has ended must lift the lock."""
 
-    def test_pro_unlocks_sleep_blocking_and_shield_three(self, fresh_app, server,
-                                                         needs_stripe, logger):
+    def test_a_licence_unlocks_the_locked_app(self, expired_app, server,
+                                              needs_stripe, logger):
         import requests
 
         from browser.stripe_checkout import StripeCheckoutAutomator
@@ -305,28 +331,15 @@ class TestProFeaturesAfterActivation:
                 break
             time.sleep(2)
 
-        fresh_app.navigate_to_tab("Settings")
-        fresh_app.enter_license_key(created["licenseKey"])
-        fresh_app.click_activate_pro()
-        fresh_app.wait_for_license_status("Pro Active", timeout=45)
+        # Activate from the lock screen itself — the Settings page is behind it.
+        expired_app.set_text("LockLicenseKeyInput", created["licenseKey"])
+        expired_app.click("LockActivateButton")
 
-        # Sleep blocking now opens.
-        fresh_app.navigate_to_tab("Sleep Blocking")
-        assert fresh_app.set_toggle("SleepBlockToggle", True) is True
-        fresh_app.set_sleep_window("23:15", "06:45")
-        time.sleep(0.8)
-        saved = verify.verify_sleep_window(enabled=True, start="23:15", end="06:45")
-        assert saved.ok, saved.detail
+        deadline = time.time() + 45
+        while time.time() < deadline and expired_app.exists("LockBuyButton", timeout=1):
+            time.sleep(1)
+        assert not expired_app.exists("LockBuyButton", timeout=1), "the lock stayed up after buying"
 
-        # Shield III sticks.
-        fresh_app.navigate_to_tab("Today")
-        fresh_app.select_shield("Sealed")
-        time.sleep(0.6)
-        assert "locks" in fresh_app.text_of("ShieldDescriptionText").lower()
-
-        # And the blocked-app limit is gone.
-        fresh_app.navigate_to_tab("Blocked Apps")
-        for index in range(5):
-            fresh_app.add_blocked_app(f"pro-probe-{index}")
-            time.sleep(0.45)
-        assert len(fresh_app.blocked_app_names()) == 5
+        expired_app.navigate_to_tab("Settings")
+        assert "licence active" in expired_app.get_license_status_text().lower()
+        assert expired_app.tier_badge().upper() == "PURCHASED"

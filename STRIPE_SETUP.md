@@ -12,14 +12,24 @@ Stay in **test mode** throughout. Nothing here moves real money.
 
 | Thing | Value |
 | --- | --- |
-| Product | `FlowShield Pro` |
-| Price | `$4.99` / month, recurring |
+| Product | `FlowShield` (`prod_VFwfmfKcYpgI63`) |
+| Price | `$4.99`, one-time (`price_1UFQmZCcqk10eo83f6jDDOzp`) |
 | Tax code | `txcd_10202000` — Downloadable Software, personal use |
 | Payment Link | `https://buy.stripe.com/test_…` (in `Website/config.js`) |
 | Confirmation page | `https://seventycookies6-design.github.io/flowshield/success.html` |
 
 Everything is tagged `metadata.app = flowshield`, which is how the setup script
 finds it again instead of creating duplicates.
+
+FlowShield used to be a $4.99/month subscription on the product `FlowShield
+Pro`. That product and its monthly price are left in place, untouched, for the
+licences bought on it; the setup script now looks only for the one-time product
+and deactivates the old monthly Payment Link.
+
+The one-time product, price and Payment Link were made in the dashboard on 14
+September 2026, with no keys on hand, so they carry no metadata yet. The next
+run of the setup script adopts the product by name and adds
+`metadata.app = flowshield` and `metadata.edition = one_time`.
 
 ---
 
@@ -70,8 +80,9 @@ isn't the secret Stripe would sign with.
 
 Activation does **not** depend on webhooks. `GET /get-license` asks Stripe for
 the session's true state directly, so a missed webhook cannot strand a paying
-customer. The webhook exists to catch later changes (cancellations, payment
-failures) promptly.
+customer. The webhook exists to catch later changes (refunds, and cancellations
+of old monthly licences) promptly; `/validate` re-checks a purchase with Stripe
+as well, so a missed refund webhook is caught on the next check.
 
 To use the real thing, either:
 
@@ -85,8 +96,11 @@ It prints a `whsec_…`; put that in `.stripe_keys.json` and restart the server.
 
 **Deployed endpoint** — once the server is hosted somewhere public, register
 `https://your-host/webhook` under Developers → Webhooks for
-`checkout.session.completed`, `customer.subscription.updated` and
-`customer.subscription.deleted`, then copy that endpoint's signing secret.
+`checkout.session.completed`, `charge.refunded`, `customer.subscription.updated`
+and `customer.subscription.deleted` (the last two only matter for old monthly
+licences), then copy that endpoint's signing secret. Re-running the setup
+script with `--webhook <url>` adds any missing events to an existing endpoint
+without changing its secret.
 
 ---
 

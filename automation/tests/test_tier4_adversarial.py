@@ -239,15 +239,15 @@ class TestNetworkFailure:
         status = fresh_app.get_license_status_text()
         detail = fresh_app.get_license_detail_text()
 
-        assert "pro active" not in status.lower(), \
-            "a dead server must never result in Pro"
+        assert "licence active" not in status.lower(), \
+            "a dead server must never result in a licence"
         assert status.strip() != "", "the status line went blank instead of explaining"
         assert any(word in (status + detail).lower()
                    for word in ("not activated", "couldn't reach", "could not",
                                 "server", "format")), \
             f"unhelpful failure text: {status!r} / {detail!r}"
 
-    def test_a_failed_activation_leaves_the_free_tier_intact_on_disk(self, fresh_app):
+    def test_a_failed_activation_leaves_the_app_unlicensed_on_disk(self, fresh_app):
         fresh_app.navigate_to_tab("Settings")
         fresh_app.enter_license_key("FS-AAAA-AAAA-AAAA-AAAA")
         fresh_app.click_activate_pro()
@@ -276,8 +276,9 @@ class TestTamperedSettings:
             assert ctrl.current_page_title() == "Today"
 
             ctrl.navigate_to_tab("Settings")
-            assert "free" in ctrl.get_license_status_text().lower(), \
-                "a corrupt file must not be readable as a Pro licence"
+            status = ctrl.get_license_status_text().lower()
+            assert "licence active" not in status and "free trial" in status, \
+                "a corrupt file must start a clean trial, never read as a licence"
         finally:
             ctrl.close_app()
 
@@ -304,8 +305,8 @@ class TestTamperedSettings:
             ctrl.connect_window(timeout=30)
             time.sleep(1.2)
             ctrl.navigate_to_tab("Settings")
-            assert "pro active" not in ctrl.get_license_status_text().lower(), \
-                "a forged settings envelope granted Pro"
+            assert "licence active" not in ctrl.get_license_status_text().lower(), \
+                "a forged settings envelope granted a licence"
         finally:
             ctrl.close_app()
 
@@ -320,7 +321,7 @@ class TestUIInputEdges:
         fresh_app.enter_license_email("")
         fresh_app.click_activate_pro()
         time.sleep(2.5)
-        assert "pro active" not in fresh_app.get_license_status_text().lower()
+        assert "licence active" not in fresh_app.get_license_status_text().lower()
 
     def test_whitespace_only_app_name_is_not_added(self, fresh_app):
         fresh_app.navigate_to_tab("Blocked Apps")
@@ -333,32 +334,35 @@ class TestUIInputEdges:
         assert fresh_app.is_control_enabled("AddAppButton") is False
         assert len(fresh_app.blocked_app_names()) == before
 
-    def test_the_sleep_window_cannot_be_edited_on_the_free_tier(self, fresh_app):
+    def test_the_sleep_window_cannot_be_edited_after_the_trial(self, expired_app):
         """
         The whole schedule row is gated, not just the toggle.
 
         An earlier version of this test typed an invalid time into these fields
-        and asserted it wasn't saved — but on Free the fields are disabled, so
-        it was really just failing to type. Assert the gate that actually
+        and asserted it wasn't saved — but when locked the fields are disabled,
+        so it was really just failing to type. Assert the gate that actually
         exists; the time-parsing rules are covered by tier 1.
         """
-        fresh_app.navigate_to_tab("Sleep Blocking")
+        expired_app.navigate_to_tab("Sleep Blocking")
 
         for auto_id in ("SleepStartInput", "SleepEndInput"):
-            assert fresh_app.is_control_enabled(auto_id) is False, \
-                f"{auto_id} is editable without Pro"
+            assert expired_app.is_control_enabled(auto_id) is False, \
+                f"{auto_id} is editable after the trial ended"
 
         result = verify.verify_sleep_window(enabled=False)
         assert result.ok, result.detail
 
-    def test_saving_a_sleep_window_without_pro_persists_nothing(self, fresh_app):
-        fresh_app.navigate_to_tab("Sleep Blocking")
+    def test_saving_a_sleep_window_after_the_trial_persists_nothing(self, expired_app):
+        expired_app.navigate_to_tab("Sleep Blocking")
         before = verify.read_settings()
 
         # The Save button stays live so it can explain the gate; pressing it
-        # must still change nothing on disk.
-        if fresh_app.is_control_enabled("SaveSleepWindowButton"):
-            fresh_app.click("SaveSleepWindowButton")
+        # must still change nothing on disk. The lock screen may cover it.
+        if expired_app.is_control_enabled("SaveSleepWindowButton"):
+            try:
+                expired_app.click("SaveSleepWindowButton")
+            except Exception:              # noqa: BLE001 — covered by the lock screen
+                pass
             time.sleep(1.0)
 
         after = verify.read_settings()

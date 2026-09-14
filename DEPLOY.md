@@ -11,8 +11,8 @@
 | Database | `node:sqlite` at `/data/licenses.db` — a cache of Stripe |
 
 The full loop is verified end to end: a purchase on the published site issues a
-licence key on the success page, and the shipped desktop binary activates Pro
-against this server with no local services running.
+licence key on the success page, and the shipped desktop binary activates its
+licence against this server with no local services running.
 
 ## How it was connected
 
@@ -46,7 +46,7 @@ optionally `EMAIL_REPLY_TO` for support replies. Then **Manual Deploy** and
 confirm `/health` reports `"email": {"configured": true}`.
 
 `POST /resend-license {"email":"..."}` re-sends a key. It answers identically
-whether or not the address has a subscription, so it can't be used to check who
+whether or not the address has bought FlowShield, so it can't be used to check who
 your customers are.
 
 ### Testing without a provider
@@ -91,9 +91,10 @@ ping every 10 minutes.
 
 **The disk is ephemeral.** `licenses.db` is wiped on every deploy. That is
 survivable by design — the server treats the database as a cache of Stripe and
-rebuilds any row it is missing, by licence key stamped into subscription
-metadata or by the customer's email. `tier5` has tests that wipe a real row and
-assert the customer keeps Pro. A paid plan with a persistent disk removes the
+rebuilds any row it is missing, by licence key stamped into the payment's
+metadata (subscription metadata for old monthly licences) or by the customer's
+email. `tier5` has tests that wipe a real row and assert the customer keeps
+their licence. A paid plan with a persistent disk removes the
 recovery round-trip; uncomment the `disk:` block in `render.yaml`.
 
 ## Other hosts
@@ -107,7 +108,7 @@ the health check at `/health`.
 
 - Swap the test keys for live ones and recreate the product in live mode
   (price IDs don't cross the test/live boundary).
-- Note the activation model: **an email address alone unlocks Pro**, because a
+- Note the activation model: **an email address alone activates a licence**, because a
   Payment Link buyer has nothing else. Anyone who knows a customer's email
   could activate with it — but, since #21, not obtain the key, open the billing
   portal, or touch devices; those need the licence key. If activation itself

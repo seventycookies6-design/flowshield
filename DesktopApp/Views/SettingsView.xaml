@@ -26,12 +26,12 @@
                                        AutomationProperties.AutomationId="DeviceText"/>
                         </StackPanel>
 
-                        <Button Style="{StaticResource BtnPrimary}" Content="★ Get Pro"
+                        <Button Style="{StaticResource BtnPrimary}" Content="Buy FlowShield — $4.99"
                                 HorizontalAlignment="Right" VerticalAlignment="Top"
                                 Command="{Binding GetProCommand}"
                                 Visibility="{Binding IsNotPro, Converter={StaticResource BoolVis}}"
                                 AutomationProperties.AutomationId="GetProButton"
-                                AutomationProperties.Name="Get Pro"/>
+                                AutomationProperties.Name="Buy FlowShield"/>
                     </Grid>
 
                     <Border Height="1" Background="{StaticResource Edge}" Margin="0,0,0,18"/>
@@ -52,15 +52,10 @@
                              AutomationProperties.Name="License email"/>
 
                     <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
-                        <Button Style="{StaticResource BtnPrimary}" Content="Activate Pro"
+                        <Button Style="{StaticResource BtnPrimary}" Content="Activate licence"
                                 Command="{Binding ActivateCommand}" Padding="26,10"
                                 AutomationProperties.AutomationId="ActivateProButton"
-                                AutomationProperties.Name="Activate Pro"/>
-
-                        <Button Style="{StaticResource BtnGhost}" Content="Manage subscription"
-                                Command="{Binding ManageSubscriptionCommand}" Margin="9,0,0,0"
-                                Visibility="{Binding IsPro, Converter={StaticResource BoolVis}}"
-                                AutomationProperties.AutomationId="ManageSubscriptionButton"/>
+                                AutomationProperties.Name="Activate licence"/>
 
                         <Button Style="{StaticResource BtnQuiet}" Content="Deactivate"
                                 Command="{Binding DeactivateCommand}" Margin="9,0,0,0"
@@ -106,18 +101,11 @@
                     <Border Height="1" Background="{StaticResource Edge}" Margin="0,16,0,16"/>
 
                     <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding HardKillModeEnabled}"
-                              IsEnabled="{Binding IsPro}"
+                              IsEnabled="{Binding HasAccess}"
                               AutomationProperties.AutomationId="HardKillModeToggle"
                               AutomationProperties.Name="Hard kill mode">
                         <StackPanel>
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="Hard kill mode" Foreground="{StaticResource Ink}" FontSize="13.5"/>
-                                <Border Background="{StaticResource Accent}" CornerRadius="5" Padding="6,1"
-                                        Margin="9,0,0,0" VerticalAlignment="Center"
-                                        Visibility="{Binding IsNotPro, Converter={StaticResource BoolVis}}">
-                                    <TextBlock Text="PRO" FontSize="9" FontWeight="Bold" Foreground="#FF08060F"/>
-                                </Border>
-                            </StackPanel>
+                            <TextBlock Text="Hard kill mode" Foreground="{StaticResource Ink}" FontSize="13.5"/>
                             <TextBlock Text="Terminate blocked apps the moment they launch — no grace period."
                                        Style="{StaticResource Caption}" Margin="0,2,0,0"/>
                         </StackPanel>

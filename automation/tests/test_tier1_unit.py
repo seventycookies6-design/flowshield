@@ -264,39 +264,67 @@ class TestProcessNameNormalisation:
             assert f'"{critical}"' in block, f"{critical} must never be terminable"
 
 
-# ================================================================= free tier
+# ============================================================== free trial
 
-class TestFreeTierLimits:
-    FREE_APP_LIMIT = 3
-    FREE_MAX_SPRINT = 25
+TRIAL_DAYS = 7
 
-    def test_limit_constants_match_the_app(self):
-        source = (Path(SERVER_DIR).parent / "DesktopApp" / "Models"
-                  / "AppSettings.cs").read_text(encoding="utf-8")
-        assert f"FreeBlockedAppLimit = {self.FREE_APP_LIMIT}" in source
-        assert f"FreeMaxSprintMinutes = {self.FREE_MAX_SPRINT}" in source
 
-    @pytest.mark.parametrize("count,is_pro,allowed", [
-        (0, False, True), (2, False, True), (3, False, False), (9, False, False),
-        (3, True, True), (500, True, True),
+def trial_active(start_days_ago: float | None, *, now_days: float = 0.0) -> bool:
+    """Mirror of AppSettings.IsTrialActiveAt, in days relative to now."""
+    if start_days_ago is None:
+        return False
+    start = now_days - start_days_ago
+    return now_days >= start - 1 and now_days < start + TRIAL_DAYS
+
+
+def trial_days_left(start_days_ago: float) -> int:
+    """Mirror of AppSettings.TrialDaysLeftAt."""
+    import math
+    if not trial_active(start_days_ago):
+        return 0
+    return min(max(math.ceil(TRIAL_DAYS - start_days_ago), 1), TRIAL_DAYS)
+
+
+class TestFreeTrial:
+    """Seven days with everything unlocked, then locked until FlowShield is bought."""
+
+    SOURCE = Path(SERVER_DIR).parent / "DesktopApp" / "Models" / "AppSettings.cs"
+
+    def test_the_trial_length_matches_the_app(self):
+        source = self.SOURCE.read_text(encoding="utf-8")
+        assert f"TrialDays = {TRIAL_DAYS}" in source
+
+    def test_the_free_tier_is_gone(self):
+        source = self.SOURCE.read_text(encoding="utf-8")
+        assert "FreeBlockedAppLimit" not in source and "FreeMaxSprintMinutes" not in source
+
+    def test_access_is_a_purchase_or_a_running_trial(self):
+        source = self.SOURCE.read_text(encoding="utf-8")
+        assert "HasAccessAt(DateTime nowUtc) => IsPro || IsTrialActiveAt(nowUtc)" in source
+
+    @pytest.mark.parametrize("start_days_ago,active", [
+        (None, False),        # never started
+        (0, True),            # first launch
+        (6.9, True),          # last hours of day 7
+        (7, False),           # exactly seven days
+        (30, False),
+        (-0.5, True),         # clock slightly behind the recorded start
+        (-2, False),          # clock wound back to stretch the trial
     ])
-    def test_add_permission(self, count, is_pro, allowed):
-        at_limit = (not is_pro) and count >= self.FREE_APP_LIMIT
-        assert (not at_limit) is allowed
+    def test_trial_window(self, start_days_ago, active):
+        assert trial_active(start_days_ago) is active
 
-    @pytest.mark.parametrize("minutes,is_pro,allowed", [
-        (15, False, True), (25, False, True), (45, False, False),
-        (45, True, True), (90, True, True),
+    @pytest.mark.parametrize("start_days_ago,days_left", [
+        (0, 7), (0.5, 7), (1, 6), (6.2, 1), (6.99, 1), (7, 0),
     ])
-    def test_sprint_length_permission(self, minutes, is_pro, allowed):
-        assert (is_pro or minutes <= self.FREE_MAX_SPRINT) is allowed
+    def test_days_left_rounds_up(self, start_days_ago, days_left):
+        assert trial_days_left(start_days_ago) == days_left
 
-    @pytest.mark.parametrize("shield,is_pro,allowed", [
-        ("Soft", False, True), ("Firm", False, True), ("Sealed", False, False),
-        ("Sealed", True, True),
+    @pytest.mark.parametrize("bought,start_days_ago,has_access", [
+        (False, 0, True), (False, 10, False), (True, 10, True), (True, None, True),
     ])
-    def test_shield_permission(self, shield, is_pro, allowed):
-        assert (is_pro or shield != "Sealed") is allowed
+    def test_a_purchase_outlasts_the_trial(self, bought, start_days_ago, has_access):
+        assert (bought or trial_active(start_days_ago)) is has_access
 
 
 # ================================================================== momentum

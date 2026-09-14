@@ -1,7 +1,7 @@
 """
 Independent verification of app state.
 
-The UI saying "Pro Active" only proves the label rendered. These checks read the
+The UI saying "Licence active" only proves the label rendered. These checks read the
 DPAPI-encrypted settings file straight off disk and confirm what was actually
 persisted — so a cosmetic-only activation would fail the suite.
 """
@@ -204,7 +204,7 @@ def verify_ui_pro_status(desktop_ctrl, expected_pro: bool = True) -> Verificatio
     except Exception as exc:                       # noqa: BLE001
         return VerificationResult(False, f"could not read the UI: {exc}")
 
-    shows_pro = "pro active" in status.lower()
+    shows_pro = "licence active" in status.lower()
     badge_pro = badge.strip().upper() == "PRO"
 
     if shows_pro != expected_pro:

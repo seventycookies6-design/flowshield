@@ -39,10 +39,10 @@
                 <!-- tier + upgrade, pinned to the bottom -->
                 <StackPanel DockPanel.Dock="Bottom">
                     <Button Style="{StaticResource BtnPrimary}"
-                            Content="★ Get Pro"
+                            Content="Buy FlowShield — $4.99"
                             Command="{Binding GetProCommand}"
                             AutomationProperties.AutomationId="GetProNavButton"
-                            AutomationProperties.Name="Get Pro"
+                            AutomationProperties.Name="Buy FlowShield"
                             Visibility="{Binding IsNotPro, Converter={StaticResource BoolVis}}"
                             Margin="0,0,0,12"/>
 
@@ -142,6 +142,54 @@
                                                  RelativeSource={RelativeSource AncestorType=Window},
                                                  Converter={StaticResource BoolVis}}"/>
             </Grid>
+
+            <!-- ===================================================== lock screen -->
+            <!-- Covers every page once the free trial ends without a purchase.
+                 The nav rail stays usable so the user can still look around,
+                 but nothing behind this can be operated. -->
+            <Border Grid.Row="0" Grid.RowSpan="2" Background="#F2121110"
+                    Visibility="{Binding IsLocked, Converter={StaticResource BoolVis}}"
+                    AutomationProperties.AutomationId="TrialEndedPanel">
+                <Border Style="{StaticResource Card}" Padding="32" MaxWidth="520"
+                        HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <StackPanel>
+                        <TextBlock Text="FREE TRIAL ENDED" Style="{StaticResource Eyebrow}"/>
+                        <TextBlock Text="Keep FlowShield for $4.99" Style="{StaticResource H1}"
+                                   Margin="0,8,0,0"/>
+                        <TextBlock Text="{Binding TrialEndedText}" Style="{StaticResource Body}"
+                                   TextWrapping="Wrap" Margin="0,10,0,0"
+                                   AutomationProperties.AutomationId="TrialEndedText"/>
+
+                        <Button Style="{StaticResource BtnPrimary}" Content="Buy FlowShield — $4.99"
+                                Command="{Binding GetProCommand}" Padding="26,12" Margin="0,22,0,0"
+                                HorizontalAlignment="Left"
+                                AutomationProperties.AutomationId="LockBuyButton"
+                                AutomationProperties.Name="Buy FlowShield"/>
+
+                        <Border Height="1" Background="{StaticResource Edge}" Margin="0,24,0,18"/>
+
+                        <TextBlock Text="ALREADY BOUGHT IT?" Style="{StaticResource Eyebrow}" Margin="0,0,0,7"/>
+                        <TextBox Style="{StaticResource Field}"
+                                 Text="{Binding SettingsPage.LicenseKeyInput, UpdateSourceTrigger=PropertyChanged}"
+                                 FontFamily="Cascadia Mono, Consolas, monospace"
+                                 AutomationProperties.AutomationId="LockLicenseKeyInput"
+                                 AutomationProperties.Name="License key"
+                                 AutomationProperties.HelpText="FS-XXXX-XXXX-XXXX-XXXX"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                            <Button Style="{StaticResource BtnGhost}" Content="Activate licence"
+                                    Command="{Binding SettingsPage.ActivateCommand}"
+                                    AutomationProperties.AutomationId="LockActivateButton"
+                                    AutomationProperties.Name="Activate licence"/>
+                            <TextBlock Text="Checking…" Style="{StaticResource Caption}"
+                                       VerticalAlignment="Center" Margin="12,0,0,0"
+                                       Visibility="{Binding SettingsPage.IsBusy, Converter={StaticResource BoolVis}}"/>
+                        </StackPanel>
+                        <TextBlock Text="{Binding SettingsPage.LicenseDetailText}" Style="{StaticResource Caption}"
+                                   TextWrapping="Wrap" Margin="0,10,0,0"
+                                   AutomationProperties.AutomationId="LockLicenseDetailText"/>
+                    </StackPanel>
+                </Border>
+            </Border>
 
             <!-- toast -->
             <Border Grid.Row="1" VerticalAlignment="Bottom" HorizontalAlignment="Center"
