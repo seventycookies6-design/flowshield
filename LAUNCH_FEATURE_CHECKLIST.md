@@ -65,6 +65,119 @@ These come from `CLAUDE.md` and the roadmap, and they shape several decisions be
 
 ---
 
+## Who builds what
+
+The work is split evenly between the two people, and matched to the tools each
+of them develops with. Every checklist item, design-system task and remaining
+roadmap item below has exactly one owner. Tracking issues: #37 (Keenan) and
+#38 (Miles).
+
+### How the split was decided
+
+| | Keenan: Claude Code | Miles: Codex and Cursor |
+| --- | --- | --- |
+| Where it runs | Locally on Keenan's Windows PC, with a terminal, the full build, the UI test suite that drives the real app, and the owner's signed-in dashboards (Stripe, Render, GitHub releases) | Codex runs well-specified tasks in cloud sandboxes, several at once, and opens pull requests; Cursor is an editor where Miles iterates interactively and sees the result immediately |
+| Strongest at | Long, multi-file changes that cross the app, licence server and tests; state machines and Windows integration (processes, tray, registry, native messaging, persistence); keeping changes consistent with `CLAUDE.md`; releases, deploys and anything needing the owner's accounts | Well-scoped, clearly specified changes done in parallel (Codex); fast visual iteration on XAML and CSS with a human judging the result, website work, copy and polish (Cursor) |
+| Weaker at | Pixel-level visual tuning (it judges layouts from screenshots, one round at a time); one session works on one thing at a time | Cloud sandboxes aren't a Windows desktop, so Codex can't run the WPF app or its UI tests (Miles verifies app changes on Windows before opening a pull request); no access to the owner's Stripe, Render or release accounts |
+| So owns | Sprint engine and strictness, scheduling, blocking coverage, data and history, licence server and purchase flow, notifications and tray, installer and release pipeline, the design-token generator | Visual design-system adoption, the shield visuals and overlay, the summary card and motivation screens, light theme and accessibility, settings layout, the website, FAQ and marketing copy |
+
+**Balance:** effort is counted as S = 1, M = 3, L = 6. Keenan's launch work totals 50 points, and Miles's 49. Website blocking (F10, L) and allow-only focus (F11) sit with Keenan but come after launch, so they're outside that count.
+
+**Merging doesn't change:** Keenan's Claude Code session still reviews and merges everyone's pull requests, as `CLAUDE.md` describes.
+
+### Keenan (Claude Code)
+
+| Item | What | Effort |
+| --- | --- | --- |
+| F2 | Escape hatch that gets harder by shield level (Roadmap 1.9) | M |
+| F3 | Sprints survive restarts and crashes (Roadmap 1.10) | M |
+| F4 | Start a sprint from the tray or keyboard (Roadmap 3.9) | S |
+| F5 | Breaks and study cycles (Roadmap 3.4) | M |
+| F6 | Study templates and scheduled sprints | M |
+| F8 | App picker with student and gamer suggestions (Roadmap 2.2) | M |
+| F9 | Blocklist profiles (Roadmap 3.8) | M |
+| F16 | History and weekly view (Roadmap 3.1, 3.6) | M |
+| F18 | Three-step first run (Roadmap 2.1) | M |
+| F19 | Native notifications and tray (Roadmap 2.5, 2.7) | S |
+| F23 | Privacy promise: in-app "Your data" and the claims test (Roadmap 4.5); Miles writes the website section | S |
+| F25 | Code signing in the release script (after the certificate is bought) | M |
+| Design §14 | `design/tokens.json`, the XAML and CSS generator, and the parity test | M |
+| Roadmap 1.3 | One instance only | S |
+| Roadmap 1.4 | Register `flowshield://` | S |
+| Roadmap 1.5 | Uninstall cleans up | S |
+| Roadmap 4.1 | Updates that just happen | M |
+| Roadmap 5.1 | Buy from inside the app with no key to copy (server) | M |
+| Roadmap 5.2 | Honest waiting while the licence server wakes | S |
+| Roadmap 5.4 | Lost your key? (server) | S |
+| Roadmap 5.5 | Close the email-only unlock (server and email) | M |
+| Roadmap 5.7 | See and manage your devices | M |
+| After launch | F10 website blocking extension (owner decision first), F11 allow-only focus | L, M |
+
+### Miles (Codex and Cursor)
+
+| Item | What | Effort |
+| --- | --- | --- |
+| F1 | Shield levels as clear commitment modes | S |
+| F7 | Soft overlay and graceful Firm close (Roadmap 1.7, 1.8) | M |
+| F12 | Sprint summary card | S |
+| F13 | Set an intention before a sprint (Roadmap 3.3) | S |
+| F14 | Momentum explained, trend chart and milestones (Roadmap 3.2) | M |
+| F15 | Daily focus goal | S |
+| F17 | Read back and export the journal (Roadmap 3.5) | S |
+| F20 | A trial that never nags | S |
+| F21 | Light theme, keyboard use and accessibility (Roadmap 4.6) | M |
+| F22 | Clear, calm Settings (Roadmap 4.2) | S |
+| F24 | One-time price as the headline, on the site | S |
+| F26 | Honest limits and the FAQ (Roadmap 6.2) | S |
+| F27 | Real screenshots and a screen recording (Roadmap 6.1) | S |
+| Design §2 | Contrast fixes in the app and site | S |
+| Design §2 | Remove legacy colour aliases and hard-coded colours | S |
+| Design §3 | Embed Syne and Source Sans 3; tabular numbers | S |
+| Design §4 | Normalise spacing and corner radii | S |
+| Design §5 | Outline icon set replacing the Unicode glyphs | M |
+| Design §6 | Shield glyphs everywhere | M |
+| Design §7 | Quiet and destructive button variants | S |
+| Design §8–9 | Reduced motion, and the copy pass | S |
+| Roadmap 1.2 | Start with Windows in the tray (#13, pull request #14, in review) | M |
+| Roadmap 1.6 | A real app icon | S |
+| Roadmap 1.13 | Fit small screens | S |
+| Roadmap 1.14 | Friendly errors | S |
+| Roadmap 1.15 | No developer text on customer surfaces | S |
+| Roadmap 2.3 | Custom sprint lengths | S |
+| Roadmap 2.4 | Per-app on/off switch | S |
+| Roadmap 3.7 | A sleep schedule people trust | M |
+| Roadmap 4.3 | Help that works | S |
+| Roadmap 5.3 | A thank-you page that can't lose the key | S |
+| Roadmap 6.3 | Guide the download | S |
+| Roadmap 6.4 | Phone visitors | S |
+| Roadmap 6.6 | Changelog and support pages | S |
+| Roadmap 6.7 | Website accessibility | S |
+
+### Where the two meet
+
+A few items depend on each other. Agree the interface on the issue before either side builds it.
+
+- **F2 and F3 → F12:** the summary card shows "ended early" and "interrupted" sprints, which F2 and F3 define. Keenan records the fields on `FocusSession` first.
+- **F16 → F14:** milestones are listed on the History page. Keenan builds the page; Miles adds milestones and the momentum chart to it.
+- **Design §14 → Miles's design tasks and F21:** the token generator should land first, so contrast fixes, alias removal and the light theme edit `design/tokens.json` rather than the XAML and CSS by hand. Keenan does it first.
+- **F6 → Roadmap 3.7:** Keenan's scheduler reworks the sleep-blocking schedule. Miles's schedule UI builds on it.
+- **F23:** Keenan builds the in-app data page and the claims test; Miles writes the website section, following the test.
+- **F8 → F18:** the first run reuses the app picker's suggestions; both are Keenan's.
+
+### Roadmap items not assigned
+
+| Roadmap item | Why |
+| --- | --- |
+| 1.1 Align the site | Done (#8–#12) |
+| 1.11 Keep Free history, 1.12 Show Pro limits | Obsolete: there is no free tier since #29 |
+| 3.5 Export, 3.6 Momentum analytics | Covered by F17 and F16 |
+| 3.8 Profiles, 3.9 Keyboard | Covered by F9 and F4 |
+| 4.4 Crash reporting | Owner decision still to make |
+| 5.6 Billing trouble, 5.8 Plans and trial, 5.9 Subscription emails | Obsolete or decided: one-time purchase (#29). Purchase emails wait for an email provider on Render |
+| 6.5 Say it near the price | Replaced by F24 |
+
+---
+
 ## What competitors do well, and where FlowShield stands
 
 A summary of the research, to explain the choices below.
@@ -92,6 +205,8 @@ A summary of the research, to explain the choices below.
 
 - [ ] Done
 
+**Assigned:** Miles (milessmart6-pixel), built with Codex and Cursor
+
 **Borrowed from:** Cold Turkey and SelfControl, which sell strictness directly ("the toughest blocker"); Opal's named modes (Hard Mode, Allow-Only).
 
 **Why it fits:** the three shields are FlowShield's most distinctive feature, but today they're labelled only "I · Soft", "II · Firm" and "III · Sealed", with one line of description. Competitors show that people choose strictness when it's framed as a commitment they're making, not a technical setting.
@@ -112,6 +227,8 @@ A summary of the research, to explain the choices below.
 ### F2 — An honest escape hatch that gets harder as the shield gets stronger · **Launch** · M · Roadmap 1.9
 
 - [ ] Done
+
+**Assigned:** Keenan (seventycookies6-design), built with Claude Code
 
 **Borrowed from:** RescueTime (a session can be cancelled in its first five minutes without counting; after that, ending it counts); Freedom's Locked Mode; Cold Turkey's Frozen Turkey; SelfControl's non-cancellable timer.
 
@@ -138,6 +255,8 @@ A summary of the research, to explain the choices below.
 
 - [ ] Done
 
+**Assigned:** Keenan (seventycookies6-design), built with Claude Code
+
 **Borrowed from:** Cold Turkey and SelfControl, whose blocks continue through a restart. That is a large part of their reputation for strictness.
 
 **Why it fits:** today a sprint lives only in memory. Closing FlowShield from Task Manager, a crash or a reboot silently ends it, so Sealed can be escaped without going through F2.
@@ -157,6 +276,8 @@ A summary of the research, to explain the choices below.
 ### F4 — Start a sprint from anywhere in one action · **Launch+** · S · Roadmap 2.7, 3.9
 
 - [ ] Done
+
+**Assigned:** Keenan (seventycookies6-design), built with Claude Code
 
 **Borrowed from:** RescueTime's one-click "Focus Now", added after users complained about a four-step start; Windows Focus Sessions' start in the Clock app.
 
@@ -178,6 +299,8 @@ A summary of the research, to explain the choices below.
 
 - [ ] Done
 
+**Assigned:** Keenan (seventycookies6-design), built with Claude Code
+
 **Borrowed from:** Pomodoro blockers (AppBlock, Otto, Time To Focus), which block during work and release during breaks; FocusMe's break rules; Windows Focus Sessions' break length.
 
 **Why it fits:** students already think in Pomodoro terms, and the sprint lengths (15–90 minutes) map straight onto them. Without breaks, a homework evening means restarting sprints by hand.
@@ -198,6 +321,8 @@ A summary of the research, to explain the choices below.
 ### F6 — Study templates and scheduled sprints · **Launch+** · M · Roadmap 3.8
 
 - [ ] Done
+
+**Assigned:** Keenan (seventycookies6-design), built with Claude Code
 
 **Borrowed from:** FocusMe (plans that run on a schedule); Freedom (recurring sessions); Cold Turkey (scheduled blocks); LeechBlock NG (block sets tied to time windows).
 
@@ -221,6 +346,8 @@ A summary of the research, to explain the choices below.
 
 - [ ] Done
 
+**Assigned:** Miles (milessmart6-pixel), built with Codex and Cursor
+
 **Borrowed from:** Opal and Forest's blocked screens, and LeechBlock NG's blocked page: a clear "this is blocked" moment, not a silent kill.
 
 **Why it fits:** today Soft only shows a toast inside FlowShield's window, which usually isn't visible, and Firm kills a process with no warning. That risks unsaved work and gives no feeling of being protected. Roadmap 1.7 and 1.8 already specify the fix.
@@ -236,6 +363,8 @@ A summary of the research, to explain the choices below.
 ### F8 — An app picker built for students and gamers · **Launch** · M · Roadmap 2.2
 
 - [ ] Done
+
+**Assigned:** Keenan (seventycookies6-design), built with Claude Code
 
 **Borrowed from:** Cold Turkey's granular blocking (apps, games, Microsoft Store apps); PC Screen Time Manager, which scans common install folders to suggest distracting apps; BlockSite's categories, in spirit.
 
@@ -260,6 +389,8 @@ A summary of the research, to explain the choices below.
 
 - [ ] Done
 
+**Assigned:** Keenan (seventycookies6-design), built with Claude Code
+
 **Borrowed from:** LeechBlock NG's block sets (up to 30, each with its own rules); FocusMe's plans; Opal's rule types.
 
 **Why it fits:** a student's "homework" list (Discord, games) differs from their "exam" list (also the browser). One global list forces them to edit it before every sprint, and Sealed then locks the wrong list.
@@ -278,6 +409,8 @@ A summary of the research, to explain the choices below.
 
 - [ ] Decision recorded
 - [ ] Done
+
+**Assigned:** Keenan (seventycookies6-design), built with Claude Code
 
 **Borrowed from:** almost every competitor. LeechBlock NG and BlockSite are browser-only; Cold Turkey, Freedom and FocusMe block both apps and sites.
 
@@ -309,6 +442,8 @@ The recommendation is (b) plus the honest message (F26), unless early users say 
 
 - [ ] Done
 
+**Assigned:** Keenan (seventycookies6-design), built with Claude Code
+
 **Borrowed from:** Opal's Allow-Only rule, which blocks everything except chosen apps.
 
 **Why it fits:** for exam prep, listing what's *allowed* (a PDF reader, notes app and calculator) is easier than listing every distraction.
@@ -326,6 +461,8 @@ The recommendation is (b) plus the honest message (F26), unless early users say 
 ### F12 — A sprint summary worth reading · **Launch** · S
 
 - [ ] Done
+
+**Assigned:** Miles (milessmart6-pixel), built with Codex and Cursor
 
 **Borrowed from:** RescueTime's session summaries; Forest's end-of-session screen with your tree and coins.
 
@@ -350,6 +487,8 @@ The recommendation is (b) plus the honest message (F26), unless early users say 
 
 - [ ] Done
 
+**Assigned:** Miles (milessmart6-pixel), built with Codex and Cursor
+
 **Borrowed from:** Serene, which asks for one goal for the day and structures sessions around it.
 
 **Why it fits:** "What moved?" after a sprint works better when there was a "what are you working on?" before it. It turns the journal into a simple plan-then-reflect loop without becoming a task manager.
@@ -361,6 +500,8 @@ The recommendation is (b) plus the honest message (F26), unless early users say 
 ### F14 — Momentum you can understand, with quiet milestones · **Launch+** · M · Roadmap 3.2
 
 - [ ] Done
+
+**Assigned:** Miles (milessmart6-pixel), built with Codex and Cursor
 
 **Borrowed from:** Forest's collection and achievements; streaks and daily goals in Windows Focus Sessions and RescueTime. All are adapted to stay calm, with no trees, coins or confetti.
 
@@ -380,6 +521,8 @@ The recommendation is (b) plus the honest message (F26), unless early users say 
 
 - [ ] Done
 
+**Assigned:** Miles (milessmart6-pixel), built with Codex and Cursor
+
 **Borrowed from:** Windows Focus Sessions' daily goal; RescueTime's goals.
 
 **Why it fits:** "2 sprints today" or "90 minutes today" is concrete for a student, and the day streak becomes meaningful once it means "hit your goal".
@@ -394,6 +537,8 @@ The recommendation is (b) plus the honest message (F26), unless early users say 
 ### F16 — History and a weekly view · **Launch+** · M · Roadmap 3.1, 3.6
 
 - [ ] Done
+
+**Assigned:** Keenan (seventycookies6-design), built with Claude Code
 
 **Borrowed from:** RescueTime and Opal's weekly summaries and time saved, keeping the insight and dropping the cloud analytics and wellbeing scores.
 
@@ -411,6 +556,8 @@ The recommendation is (b) plus the honest message (F26), unless early users say 
 
 - [ ] Done
 
+**Assigned:** Miles (milessmart6-pixel), built with Codex and Cursor
+
 **Borrowed from:** Serene's daily goal record and RescueTime's summaries. Mainly this fixes a gap: the journal can be written but never read.
 
 **How to build it:** journal entries appear in History (F16). Export them to CSV or Markdown with a date range, as Roadmap 3.5 describes.
@@ -422,6 +569,8 @@ The recommendation is (b) plus the honest message (F26), unless early users say 
 ### F18 — A three-step first run · **Launch** · M · Roadmap 2.1
 
 - [ ] Done
+
+**Assigned:** Keenan (seventycookies6-design), built with Claude Code
 
 **Borrowed from:** FocusMe's setup wizard, and RescueTime's lesson in the other direction: keep setup short, and never repeat a tour before every session.
 
@@ -444,6 +593,8 @@ The recommendation is (b) plus the honest message (F26), unless early users say 
 
 - [ ] Done
 
+**Assigned:** Keenan (seventycookies6-design), built with Claude Code
+
 **Borrowed from:** RescueTime's tray countdown and progress; Windows Focus Sessions' system integration.
 
 **How to build it**
@@ -457,6 +608,8 @@ The recommendation is (b) plus the honest message (F26), unless early users say 
 ### F20 — A trial that never nags · **Launch** · S
 
 - [ ] Done
+
+**Assigned:** Miles (milessmart6-pixel), built with Codex and Cursor
 
 **Borrowed from:** avoiding the anti-pattern reviewers criticise in BlockSite (constant upsells) and Freedom (a tightly limited free tier).
 
@@ -478,6 +631,8 @@ The recommendation is (b) plus the honest message (F26), unless early users say 
 
 - [ ] Done
 
+**Assigned:** Miles (milessmart6-pixel), built with Codex and Cursor
+
 **Borrowed from:** Windows Focus Sessions, which follows the system theme and has solid keyboard support.
 
 **How to build it:** follow Windows light or dark with an override, using the light palette already defined for the website (see `DESIGN_SYSTEM.md`). Full keyboard navigation with visible focus, screen-reader names on every control, and contrast that passes WCAG AA. The design system lists the current tokens that fail.
@@ -488,6 +643,8 @@ The recommendation is (b) plus the honest message (F26), unless early users say 
 
 - [ ] Done
 
+**Assigned:** Miles (milessmart6-pixel), built with Codex and Cursor
+
 Build to Roadmap 4.2. As scheduling, profiles and notifications arrive (F5–F9, F19), group them so Settings doesn't become FocusMe-style "tab overload", which reviewers call overwhelming.
 
 ---
@@ -497,6 +654,8 @@ Build to Roadmap 4.2. As scheduling, profiles and notifications arrive (F5–F9,
 ### F23 — A privacy promise, stated plainly and provable · **Launch** · S
 
 - [ ] Done
+
+**Assigned:** Keenan (seventycookies6-design), built with Claude Code
 
 **Borrowed from:** SelfControl and LeechBlock NG (no accounts, no data collected), and newer entrants (SiteBlocker, DigitalZen) that lead with privacy against Freedom, Opal and RescueTime's accounts and cloud analytics.
 
@@ -512,6 +671,8 @@ Build to Roadmap 4.2. As scheduling, profiles and notifications arrive (F5–F9,
 ### F24 — Make the one-time price the headline it deserves · **Launch** · S
 
 - [ ] Done
+
+**Assigned:** Miles (milessmart6-pixel), built with Codex and Cursor
 
 **Borrowed from:** Cold Turkey's "Pay once, own forever"; the subscription fatigue the report found in reviews of Freedom, BlockSite and Opal.
 
@@ -533,6 +694,8 @@ Build to Roadmap 4.2. As scheduling, profiles and notifications arrive (F5–F9,
 - [ ] Signing added to `tools/build_release.ps1`
 - [ ] Security note on the site
 
+**Assigned:** Keenan (seventycookies6-design), built with Claude Code (certificate purchase is an owner action)
+
 **Borrowed from:** established products that ship signed installers. Windows SmartScreen's "unknown publisher" warning is the biggest install drop-off noted in `SELLING.md`.
 
 **How to build it**
@@ -546,6 +709,8 @@ Build to Roadmap 4.2. As scheduling, profiles and notifications arrive (F5–F9,
 
 - [ ] Done
 
+**Assigned:** Miles (milessmart6-pixel), built with Codex and Cursor
+
 **Borrowed from:** reviewers' frustration when a product's limits surface after purchase, and SelfControl's plain "what it does" framing.
 
 **How to build it:** a FAQ entry and a short line near pricing. "FlowShield blocks desktop apps on Windows 10 and 11. It doesn't block websites inside your browser yet, and there's no Mac or phone app." Update it the day F10 ships. Treat the limit as focus, not apology: it's built for the apps that actually eat a gamer's or student's evening.
@@ -555,6 +720,8 @@ Build to Roadmap 4.2. As scheduling, profiles and notifications arrive (F5–F9,
 ### F27 — Show the real product · **Launch** · S · Roadmap 6.1
 
 - [ ] Done
+
+**Assigned:** Miles (milessmart6-pixel), built with Codex and Cursor
 
 **Borrowed from:** every established competitor's site leads with screenshots or a demo of its real app. The Higgsfield proposal (#33) was declined for cost; real captures do the job for free.
 

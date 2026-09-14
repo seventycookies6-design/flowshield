@@ -375,7 +375,7 @@ its own issue:
 
 ## 15. Adoption checklist
 
-Work through these as separate small pull requests. Each is visual-only, keeps
+Who owns each task is in `LAUNCH_FEATURE_CHECKLIST.md` → "Who builds what": the token generator is Keenan's and lands first; the rest are Miles's. Work through these as separate small pull requests. Each is visual-only, keeps
 `AutomationId`s, and includes before and after screenshots in the PR.
 
 - [ ] Tokens: `design/tokens.json`, the generator and the parity test (section 14).
