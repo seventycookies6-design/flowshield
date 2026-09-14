@@ -30,6 +30,11 @@ trouble and cancellation (5.6), subscription emails (5.9), the trial and plans
 decision (5.8, now decided) — as superseded or needing a rewrite for a
 one-time purchase before anyone builds them.
 
+**Launch checklist (14 September 2026, #34):** `LAUNCH_FEATURE_CHECKLIST.md`
+turns competitor research into features for launch, and cross-references the
+items below by number (e.g. "Roadmap 1.9"), so build overlapping items once,
+to both descriptions. `DESIGN_SYSTEM.md` sets the visual style for all of it.
+
 **Correction (13 September 2026):** an earlier version of item 1.2 said
 Velopack installs updates in versioned folders. It doesn't; installed copies
 run from a stable `current` folder. Item 1.2 below is corrected.

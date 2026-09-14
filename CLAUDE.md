@@ -6,7 +6,9 @@ time: the owner **seventycookies6-design** with Claude Code, and the teammate
 conflicting versions. (Codex reads `AGENTS.md`, which points back here.)
 Read `README.md` for what the product is; `SELLING.md`, `DEPLOY.md` and
 `FINAL_REPORT.md` are accurate background. `CUSTOMER_EXPERIENCE_PROMPT.md` is
-the current roadmap.
+the current roadmap, `LAUNCH_FEATURE_CHECKLIST.md` lists the features planned for
+launch, and `DESIGN_SYSTEM.md` is the visual style every app and site change
+follows.
 
 ## How work flows
 
