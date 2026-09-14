@@ -72,11 +72,13 @@ Three things currently look wrong to a buyer:
 
 - The site is at `github.io`, which reads as a hobby project
 - Checkout and the billing portal still show the business name **"Focus Unlock
-  sandbox"** (checked 13 September 2026). The sandbox's own account name is
-  already FlowShield; the sandbox sits inside a Stripe account named "Focus
-  Unlock", and the public business name is only editable through Stripe's full
-  business profile (the same onboarding as account activation). Setting it to
-  FlowShield there — or renaming the parent account — is an owner task. An old
+  sandbox"** (checked 13 September 2026). Both the sandbox and its parent Stripe
+  account are now named FlowShield — the parent was renamed from "Focus Unlock"
+  on 13 September 2026 — but account names only appear inside the dashboard;
+  a fresh checkout after the rename still showed the old name. The public
+  business name is only editable through Stripe's full business profile
+  (Settings → Business → Business details, the same onboarding as account
+  activation). Setting it to FlowShield there is an owner task. An old
   *Focus Unlock Pro* product is still active in the account with subscriptions
   attached; it was left alone deliberately rather than archived, since those
   are real records from earlier work. The billing portal no longer offers it:

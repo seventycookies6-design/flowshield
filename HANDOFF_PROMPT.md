@@ -275,11 +275,11 @@ go-ahead.
    thank-you page's "Activate in FlowShield" button does nothing.
 2. **Stripe business name** (owner; found in a test purchase on 13 September
    2026). Checkout and the billing portal show "Focus Unlock sandbox". The
-   sandbox's account name is already FlowShield; the displayed name comes from
-   the public business profile, which Stripe only lets you edit through its full
-   business onboarding (Settings → Business → Business details → "Add business
-   information"), or from the parent account's name ("Focus Unlock"). Owner
-   task. Already fixed the same day, and verified on a fresh checkout and
+   sandbox and its parent account are both named FlowShield (the parent was
+   renamed from "Focus Unlock" the same day, which did not change checkout); the
+   displayed name comes from the public business profile, which Stripe only
+   lets you edit through its full business onboarding (Settings → Business →
+   Business details → "Add business information"). Owner task. Already fixed the same day, and verified on a fresh checkout and
    billing portal: the portal's plan switching is off, so the old **Focus Unlock
    Pro** ($9.99) is no longer offered (the product itself is untouched), and the
    FlowShield Pro description now lists only shipped features.
