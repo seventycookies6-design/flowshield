@@ -247,12 +247,14 @@
         // is static. Saying "check your inbox" would be a promise the system
         // cannot keep, and the buyer would wait for a message that never comes.
         blurb.innerHTML =
-          'Your FlowShield Pro subscription is active and Stripe has emailed your receipt. ' +
+          // No receipt claim either: whether Stripe emails one depends on the
+          // account's receipt settings, which this page can't see.
+          'Your FlowShield Pro subscription is active. ' +
           'To unlock Pro, open <b>FlowShield → Settings</b>, enter the email address you ' +
           'used at checkout, and click <b>Activate Pro</b>.' +
           (CONFIG.supportEmail
             ? ' Trouble activating? Email <b>' + escapeHtml(CONFIG.supportEmail) +
-              '</b> with your receipt.'
+              '</b> from the address you used at checkout.'
             : '');
       }
       if (keyVal) keyVal.textContent = 'activate with your email';
@@ -276,15 +278,17 @@
       if (blurb) {
         // Only claim an email was sent when the server actually reports one.
         // The page must never promise delivery it cannot vouch for.
+        // It never promises a receipt either: Stripe sends one only if the
+        // account's receipt emails are switched on, which this page can't see.
         var mailed = result.emailSent
           ? ' A copy is on its way to <b>' + escapeHtml(result.email || 'your inbox') + '</b>.'
-          : ' Save this key — it is shown here only once.';
+          : ' Save this key now — it isn’t emailed to you.';
 
         blurb.innerHTML =
           'Subscription <b>' +
           escapeHtml(result.status) +
           '</b>' +
-          (result.email ? ' · receipt sent to <b>' + escapeHtml(result.email) + '</b>' : '') +
+          (result.email ? ' for <b>' + escapeHtml(result.email) + '</b>' : '') +
           '.' +
           mailed;
       }
