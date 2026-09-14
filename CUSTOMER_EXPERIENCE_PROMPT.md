@@ -7,7 +7,8 @@ meets it (site → checkout → install → first run → daily use → paying �
 
 ## Progress
 
-Kept up to date as items land. Tracked on GitHub in issues #1–#6 (one per
+Who builds each item is in `LAUNCH_FEATURE_CHECKLIST.md` → "Who builds what"
+(tracking issues #37 and #38). Kept up to date as items land. Tracked on GitHub in issues #1–#6 (one per
 phase), with an issue per item as work starts.
 
 | Item | Status | Where |

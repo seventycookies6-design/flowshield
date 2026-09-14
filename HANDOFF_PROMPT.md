@@ -49,7 +49,7 @@ timer, and apps on your blocklist are dealt with until it ends.
 | Payments | Stripe | **Test mode only.** Account named FlowShield. |
 | Tests | `automation/`, pytest + pywinauto + Playwright, tiers 1–7 | 247 tests. See Phase 2 for the current baselines. |
 | Tools | `tools/` | `setup_stripe_store.js`, `publish_site.ps1`, `build_release.ps1`, `db_admin.js`, `fix_mojibake.py`, and `doc_steward/` (keeps the docs consistent with the code; see "Doc steward" in `CLAUDE.md`) |
-| Roadmap | `CUSTOMER_EXPERIENCE_PROMPT.md`, issues #1–#6 | A customer's-eye audit (31 problems) and six phases of fixes, all assigned to milessmart6-pixel. 1.1 (site claims) is done and live; 1.2 (Start with Windows in the tray) is in review. The file's Progress table is the current status. |
+| Roadmap | `CUSTOMER_EXPERIENCE_PROMPT.md`, issues #1–#6; `LAUNCH_FEATURE_CHECKLIST.md` and `DESIGN_SYSTEM.md` | A customer's-eye audit (31 problems) and six phases of fixes, plus a launch feature checklist and design system from competitor research (#35). The work is split evenly: Keenan with Claude Code (#37) and Miles with Codex and Cursor (#38); see "Who builds what" in the checklist. 1.1 (site claims) is done and live; 1.2 (Start with Windows in the tray) is in review. The file's Progress table is the current status. |
 
 ### Installer, as a customer sees it
 
@@ -273,7 +273,7 @@ go-ahead.
 ### Still open: the product
 
 1. **The roadmap.** `CUSTOMER_EXPERIENCE_PROMPT.md` (see its Progress table)
-   and issues #1–#6, assigned to milessmart6-pixel. The site no longer
+   and issues #1–#6, split between the owner (#37) and milessmart6-pixel (#38). The site no longer
    advertises unbuilt features (item 1.1, live since 13 September 2026), but the
    rest of Phase 1 still matters most: Sealed can be ended with one click,
    blocked apps are killed with no warning, the journal can't be read back,
