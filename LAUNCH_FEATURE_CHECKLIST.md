@@ -262,9 +262,9 @@ A summary of the research, to explain the choices below.
 **Why it fits:** today a sprint lives only in memory. Closing FlowShield from Task Manager, a crash or a reboot silently ends it, so Sealed can be escaped without going through F2.
 
 **How to build it**
-- Persist the running sprint (start time, planned length, shield, blocklist snapshot, locked state) in settings the moment it starts, and clear it when it ends.
+- Persist the running sprint (start time, planned length, shield, and a last-seen heartbeat) in settings the moment it starts, and clear it when it ends.
 - On launch, including a `--tray` start at sign-in, resume a sprint that still has time left, with its shield and lock state intact. Show "Sprint resumed — 18 minutes left".
-- If the time ran out while FlowShield was closed, record it as completed only if the app was running for most of it. Otherwise record it as interrupted, neither completed nor abandoned. Keep the rule simple and write it down in the code.
+- If the time ran out while FlowShield was closed, record it as completed only if the app was running for at least half of it. Otherwise record it as interrupted, neither completed nor abandoned. Keep the rule simple and write it down in the code.
 - Pairs with Start with Windows (Roadmap 1.2 / #14): a Sealed sprint only survives a reboot if FlowShield starts at sign-in, so say so when Sealed is chosen and start-with-Windows is off.
 
 **Done when:**
