@@ -1591,3 +1591,33 @@ class TestSmallScreenLayout:
         assert "NavColumn" in cs, "MainWindow must adjust nav column width on size change"
         assert "NavTodayLabel" in cs and "Visibility" in cs, \
             "MainWindow must hide nav labels in narrow mode"
+
+    @pytest.mark.parametrize("view", ["MainWindow", "Views/TodayView"])
+    def test_resizing_never_overwrites_a_visibility_binding(self, view):
+        """
+        The first draft set NavBuyButton.Visibility from OnSizeChanged. A local
+        value replaces the element's {Binding IsNotPro} binding, so after one
+        resize a paying customer saw "Buy FlowShield" again. Code-behind may
+        only toggle Visibility on elements whose Visibility isn't data-bound.
+        """
+        import re
+
+        xaml = self.read(*f"{view}.xaml".split("/")).replace("\ufeff", "")
+        cs = self.read(*f"{view}.xaml.cs".split("/"))
+
+        toggled = set(re.findall(r"\b(\w+)\.Visibility\s*=", cs))
+        if view == "MainWindow":
+            assert toggled, "MainWindow.xaml.cs no longer toggles visibility; update this test"
+
+        for name in toggled:
+            start = xaml.find(f'x:Name="{name}"')
+            assert start >= 0, f"{view}.xaml.cs toggles {name}, which isn't in the XAML"
+            element = xaml[xaml.rfind("<", 0, start):xaml.find(">", start)]
+            assert "Visibility=\"{Binding" not in element, \
+                f"{name} has a Visibility binding that {view}.xaml.cs overwrites"
+
+    def test_the_buy_button_keeps_its_paid_user_binding(self):
+        xaml = self.read("MainWindow.xaml").replace("\ufeff", "")
+        start = xaml.find('AutomationId="GetProNavButton"')
+        element = xaml[xaml.rfind("<", 0, start):xaml.find(">", start)]
+        assert "{Binding IsNotPro" in element

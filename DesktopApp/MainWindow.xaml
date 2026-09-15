@@ -39,8 +39,11 @@
                 </StackPanel>
 
                 <!-- tier + upgrade, pinned to the bottom -->
-                <StackPanel DockPanel.Dock="Bottom">
-                    <Button x:Name="NavBuyButton" Style="{StaticResource BtnPrimary}"
+                <!-- Collapsed as a whole at narrow widths. The Buy button keeps its own
+                     IsNotPro binding: setting Visibility on it from code would replace
+                     that binding and show the button to paying customers. -->
+                <StackPanel x:Name="NavBottomPanel" DockPanel.Dock="Bottom">
+                    <Button Style="{StaticResource BtnPrimary}"
                             Content="Buy FlowShield — $4.99"
                             Command="{Binding GetProCommand}"
                             AutomationProperties.AutomationId="GetProNavButton"
@@ -48,7 +51,7 @@
                             Visibility="{Binding IsNotPro, Converter={StaticResource BoolVis}}"
                             Margin="0,0,0,12"/>
 
-                    <Border x:Name="NavTierBadge" Style="{StaticResource Chip}" HorizontalAlignment="Left" Padding="11,4">
+                    <Border Style="{StaticResource Chip}" HorizontalAlignment="Left" Padding="11,4">
                         <StackPanel Orientation="Horizontal">
                             <Ellipse Width="6" Height="6" VerticalAlignment="Center"
                                      Fill="{StaticResource Green}" Margin="0,0,7,0"/>

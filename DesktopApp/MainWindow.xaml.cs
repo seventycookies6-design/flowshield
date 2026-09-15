@@ -37,8 +37,7 @@ public partial class MainWindow : Window
         NavColumn.Width = new GridLength(narrow ? 64 : 238);
         NavDockPanel.Margin = narrow ? new Thickness(6, 22, 6, 18) : new Thickness(18, 22, 18, 18);
         NavBrandText.Visibility = narrow ? Visibility.Collapsed : Visibility.Visible;
-        NavBuyButton.Visibility = narrow ? Visibility.Collapsed : Visibility.Visible;
-        NavTierBadge.Visibility = narrow ? Visibility.Collapsed : Visibility.Visible;
+        NavBottomPanel.Visibility = narrow ? Visibility.Collapsed : Visibility.Visible;
         NavTodayLabel.Visibility = narrow ? Visibility.Collapsed : Visibility.Visible;
         NavBlockedAppsLabel.Visibility = narrow ? Visibility.Collapsed : Visibility.Visible;
         NavSleepBlockingLabel.Visibility = narrow ? Visibility.Collapsed : Visibility.Visible;
