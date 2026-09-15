@@ -1836,3 +1836,13 @@ class TestWebsiteAccessibilityStyles:
         assert "@media (prefers-reduced-motion: reduce)" in css, (
             "styles.css must disable non-essential motion for reduced-motion users"
         )
+
+    @pytest.mark.parametrize("page", [
+        "index.html", "legal.html", "success.html", "changelog.html", "support.html",
+    ])
+    def test_every_public_page_has_one_main_landmark(self, page):
+        html = (Path(WEBSITE_DIR) / page).read_text(encoding="utf-8")
+        assert html.count("<main>") == 1 and html.count("</main>") == 1, \
+            f"{page} needs exactly one <main> landmark for screen-reader navigation"
+        assert html.index("</main>") < html.index("<footer>"), \
+            f"{page}: the footer must sit outside <main>"
