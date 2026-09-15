@@ -954,3 +954,22 @@ class TestCustomSprintLengths:
                 / "TodayView.xaml").read_text(encoding="utf-8-sig")
         assert "{Binding CustomMinutesText, UpdateSourceTrigger=PropertyChanged}" in view
         assert 'AutomationProperties.AutomationId="CustomMinutesError"' in view
+
+
+# ====================================================== per-app on/off switch
+
+class TestPerAppSwitch:
+    """Roadmap 2.4: each blocked-app row has an on/off switch wired to ToggleApp."""
+
+    XAML = Path(SERVER_DIR).parent / "DesktopApp" / "Views" / "BlockedAppsView.xaml"
+    VM = Path(SERVER_DIR).parent / "DesktopApp" / "ViewModels" / "BlockedAppsViewModel.cs"
+
+    def test_the_switch_automation_id_is_in_the_xaml(self):
+        xaml = self.XAML.read_text(encoding="utf-8")
+        assert "AppEnabledSwitch" in xaml, \
+            "each blocked-app row must expose an AppEnabledSwitch AutomationId"
+
+    def test_toggle_app_exists_in_the_viewmodel(self):
+        vm = self.VM.read_text(encoding="utf-8")
+        assert "ToggleApp" in vm, "BlockedAppsViewModel must expose ToggleApp"
+        assert "ToggleAppCommand" in vm, "ToggleApp must be reachable as a command"
