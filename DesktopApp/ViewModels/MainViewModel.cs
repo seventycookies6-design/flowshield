@@ -32,6 +32,8 @@ public class MainViewModel : ViewModelBase
         BlockedApps = new BlockedAppsViewModel(this);
         SleepBlocking = new SleepBlockingViewModel(this);
         SettingsPage = new SettingsViewModel(this, licenseService);
+        FirstRun = new FirstRunViewModel(this);
+        ShowFirstRunCommand = new RelayCommand(() => FirstRun.Show());
 
         NavigateCommand = new RelayCommand(p =>
         {
@@ -67,6 +69,10 @@ public class MainViewModel : ViewModelBase
     public BlockedAppsViewModel BlockedApps { get; }
     public SleepBlockingViewModel SleepBlocking { get; }
     public SettingsViewModel SettingsPage { get; }
+    public FirstRunViewModel FirstRun { get; }
+
+    /// <summary>Settings → Show the welcome again.</summary>
+    public RelayCommand ShowFirstRunCommand { get; }
 
     public RelayCommand NavigateCommand { get; }
     public RelayCommand GetProCommand { get; }

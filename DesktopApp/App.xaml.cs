@@ -73,6 +73,12 @@ public partial class App : Application
             Log.Info("free trial expired by --expire-trial flag");
         }
 
+        // The first-run welcome (F18), decided after --expire-trial so a locked
+        // trial never gets it. --skip-first-run keeps the UI tests on Today.
+        if (args.Any(a => a.Equals("--skip-first-run", StringComparison.OrdinalIgnoreCase)))
+            Models.FirstRunPolicy.SkipForTests = true;
+        ViewModel.FirstRun.ShowIfNew();
+
         // Persist immediately so a settings file always exists after first run.
         // Without this, a session where the user changes nothing leaves no file
         // at all, and "is sleep blocking off?" becomes unanswerable from disk.

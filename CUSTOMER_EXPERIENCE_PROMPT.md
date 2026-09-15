@@ -18,6 +18,7 @@ phase), with an issue per item as work starts.
 | 1.3 One instance only | **Done**: a second launch brings the running copy forward (argument handover ready for 1.4) | #49 |
 | 1.4 Register `flowshield://` | **Done**: installed copies open activation links, and activate after one confirming click | #51 |
 | 1.5 Uninstall cleans up | **Done**: uninstall removes the Run value and `flowshield://`; data stays, deletion steps in `SELLING.md` | #54 |
+| 2.1 First run | **Done** as launch checklist F18 | #68 |
 | 2.2 An app picker | **Done** as launch checklist F8 | #58 |
 | 1.9 Sealed means sealed, with an honest escape hatch | **Done** as launch checklist F2 | #47 |
 | 1.10 Sprints survive restarts | **Done** as launch checklist F3 | #43 |

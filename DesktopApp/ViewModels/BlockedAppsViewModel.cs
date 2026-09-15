@@ -102,6 +102,17 @@ public class BlockedAppsViewModel : ViewModelBase
     private bool IsOnList(PickerEntry entry) =>
         entry.Processes.All(p => Apps.Any(a => a.AllProcessNames.Contains(p, StringComparer.OrdinalIgnoreCase)));
 
+    /// <summary>Adds a picker entry without a toast; used by the first run.</summary>
+    public bool AddEntry(PickerEntry entry)
+    {
+        var added = AddProcesses(entry.Name, entry.Processes, entry.ExePath);
+        ApplyFilter();
+        return added;
+    }
+
+    /// <summary>Whether every process of the entry is already blocked.</summary>
+    public bool IsBlocked(PickerEntry entry) => IsOnList(entry);
+
     private void Pick(PickerEntry? entry)
     {
         if (entry is null || !CanEdit()) return;
