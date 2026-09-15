@@ -1542,3 +1542,52 @@ class TestFriendlyErrorDialog:
             encoding="utf-8").lower()
         for claim in ("still guarding", "are safe", "is safe", "protected"):
             assert claim not in dialog, f"the error dialog claims '{claim}' but cannot verify it"
+
+
+# ============ the app must fit small screens (roadmap 1.13)
+
+class TestSmallScreenLayout:
+    """
+    The window's minimum size was 900x620, which didn't fit on small laptops
+    or split-screen layouts. The adaptive layout must collapse the nav rail to
+    icons and move the stats rail below the timer at narrow widths.
+    """
+
+    @staticmethod
+    def read(*parts) -> str:
+        return (Path(DESKTOP_DIR).joinpath(*parts)).read_text(encoding="utf-8")
+
+    def test_main_window_min_size_allows_small_screens(self):
+        xaml = self.read("MainWindow.xaml")
+        assert 'MinHeight="540"' in xaml, "MinHeight must be 540 to fit small screens"
+        assert 'MinWidth="800"' in xaml, "MinWidth must be 800 to fit small screens"
+        assert 'MinHeight="620"' not in xaml, "old MinHeight 620 must be replaced"
+        assert 'MinWidth="900"' not in xaml, "old MinWidth 900 must be replaced"
+
+    def test_today_view_has_adaptive_layout_elements(self):
+        xaml = self.read("Views", "TodayView.xaml")
+        assert 'x:Name="StatsRail"' in xaml, "stats rail must be named for adaptive layout"
+        assert 'x:Name="StatsColumn"' in xaml, "stats column must be named for adaptive layout"
+        assert 'x:Name="StatsRow"' in xaml, "stats row must be named for adaptive layout"
+        assert 'x:Name="TimerCard"' in xaml, "timer card must be named for adaptive layout"
+
+    def test_today_view_code_behind_handles_size_changes(self):
+        cs = self.read("Views", "TodayView.xaml.cs")
+        assert "OnSizeChanged" in cs, "TodayView must handle SizeChanged for adaptive layout"
+        assert "StatsColumn" in cs and "StatsRail" in cs, \
+            "TodayView must adjust stats column and rail position on size change"
+        assert "Grid.SetRow" in cs or "SetRow" in cs, \
+            "TodayView must move the stats rail between rows for narrow/wide layout"
+
+    def test_nav_rail_has_icon_only_state(self):
+        xaml = self.read("MainWindow.xaml")
+        assert 'x:Name="NavTodayLabel"' in xaml, "nav labels must be named for icon-only state"
+        assert 'x:Name="NavBlockedAppsLabel"' in xaml
+        assert 'x:Name="NavBrandText"' in xaml, "brand text must be named for icon-only state"
+        assert 'x:Name="NavColumn"' in xaml, "nav column must be named for width adjustment"
+
+        cs = self.read("MainWindow.xaml.cs")
+        assert "OnSizeChanged" in cs, "MainWindow must handle SizeChanged for nav rail adaptation"
+        assert "NavColumn" in cs, "MainWindow must adjust nav column width on size change"
+        assert "NavTodayLabel" in cs and "Visibility" in cs, \
+            "MainWindow must hide nav labels in narrow mode"

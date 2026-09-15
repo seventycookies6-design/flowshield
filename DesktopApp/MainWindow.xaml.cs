@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Runtime.InteropServices;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Interop;
 using FlowShield.Services;
 using FlowShield.ViewModels;
@@ -28,6 +29,20 @@ public partial class MainWindow : Window
         InitializeComponent();
         DataContextChanged += OnDataContextChanged;
         SetUpTray();
+    }
+
+    private void OnSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        bool narrow = ActualWidth < 1000;
+        NavColumn.Width = new GridLength(narrow ? 64 : 238);
+        NavDockPanel.Margin = narrow ? new Thickness(6, 22, 6, 18) : new Thickness(18, 22, 18, 18);
+        NavBrandText.Visibility = narrow ? Visibility.Collapsed : Visibility.Visible;
+        NavBuyButton.Visibility = narrow ? Visibility.Collapsed : Visibility.Visible;
+        NavTierBadge.Visibility = narrow ? Visibility.Collapsed : Visibility.Visible;
+        NavTodayLabel.Visibility = narrow ? Visibility.Collapsed : Visibility.Visible;
+        NavBlockedAppsLabel.Visibility = narrow ? Visibility.Collapsed : Visibility.Visible;
+        NavSleepBlockingLabel.Visibility = narrow ? Visibility.Collapsed : Visibility.Visible;
+        NavSettingsLabel.Visibility = narrow ? Visibility.Collapsed : Visibility.Visible;
     }
 
     private MainViewModel? Vm => DataContext as MainViewModel;
