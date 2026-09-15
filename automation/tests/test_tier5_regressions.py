@@ -1506,3 +1506,39 @@ class TestSupportPageDescribesTheShippedApp:
         # v1.0.0 was published on 11 September 2026; the draft said the 14th.
         page = (Path(WEBSITE_DIR) / "changelog.html").read_text(encoding="utf-8")
         assert "1.0.0 <span class=\"date\">11 September 2026</span>" in page
+
+
+# ============ a crash shows a friendly dialog, not a raw exception dump (roadmap 1.14)
+
+class TestFriendlyErrorDialog:
+    """
+    An unhandled UI exception used to pop a raw MessageBox with the exception
+    message and a log path. It now shows a calm dialog that copies the details
+    and links to support.
+
+    The first draft of the dialog said "FlowShield is still guarding your
+    sprint" and "Your sprint and blocklist are safe". Nothing in the handler
+    can verify either after an arbitrary exception, so the dialog may not
+    promise it (CLAUDE.md: never claim what the build can't back up).
+    """
+
+    def test_the_friendly_dialog_replaced_the_raw_message(self):
+        app = (Path(DESKTOP_DIR) / "App.xaml.cs").read_text(encoding="utf-8")
+        dialog = (Path(DESKTOP_DIR) / "Views" / "FriendlyErrorDialog.xaml").read_text(
+            encoding="utf-8")
+        code_behind = (Path(DESKTOP_DIR) / "Views" / "FriendlyErrorDialog.xaml.cs").read_text(
+            encoding="utf-8")
+
+        assert "FlowShield hit an unexpected error" not in app, \
+            "the raw exception MessageBox must be gone"
+        assert "FriendlyErrorDialog" in app, \
+            "App.xaml.cs must show the friendly dialog on an unhandled exception"
+        assert 'Text="Something went wrong."' in dialog
+        assert "seventycookies6-design.github.io/flowshield/support.html" in code_behind, \
+            "the friendly dialog must link to the support page"
+
+    def test_the_dialog_does_not_promise_what_it_cannot_verify(self):
+        dialog = (Path(DESKTOP_DIR) / "Views" / "FriendlyErrorDialog.xaml").read_text(
+            encoding="utf-8").lower()
+        for claim in ("still guarding", "are safe", "is safe", "protected"):
+            assert claim not in dialog, f"the error dialog claims '{claim}' but cannot verify it"
