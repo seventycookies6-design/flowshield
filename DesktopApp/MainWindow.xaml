@@ -6,23 +6,24 @@
         xmlns:models="clr-namespace:FlowShield.Models"
         Title="FlowShield" Icon="Assets/FlowShield.ico"
         Height="760" Width="1180"
-        MinHeight="620" MinWidth="900"
+        MinHeight="540" MinWidth="800"
         WindowStartupLocation="CenterScreen"
         Background="{StaticResource WindowBg}"
         TextOptions.TextFormattingMode="Ideal"
         UseLayoutRounding="True"
+        SizeChanged="OnSizeChanged"
         AutomationProperties.AutomationId="FlowShieldMainWindow">
 
     <Grid>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="238"/>
+            <ColumnDefinition x:Name="NavColumn" Width="238"/>
             <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
 
         <!-- ================================================== navigation rail -->
         <Border Grid.Column="0" Background="{StaticResource BgSoft}" BorderBrush="{StaticResource Edge}"
                 BorderThickness="0,0,1,0">
-            <DockPanel Margin="18,22,18,18">
+            <DockPanel x:Name="NavDockPanel" Margin="18,22,18,18">
 
                 <!-- brand -->
                 <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="6,0,0,26">
@@ -33,12 +34,15 @@
                               Stroke="{StaticResource Primary}" StrokeThickness="1.9"
                               StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
                     </Canvas>
-                    <TextBlock Text="FlowShield" Style="{StaticResource H2}" FontSize="15"
+                    <TextBlock x:Name="NavBrandText" Text="FlowShield" Style="{StaticResource H2}" FontSize="15"
                                VerticalAlignment="Center" Margin="10,0,0,0"/>
                 </StackPanel>
 
                 <!-- tier + upgrade, pinned to the bottom -->
-                <StackPanel DockPanel.Dock="Bottom">
+                <!-- Collapsed as a whole at narrow widths. The Buy button keeps its own
+                     IsNotPro binding: setting Visibility on it from code would replace
+                     that binding and show the button to paying customers. -->
+                <StackPanel x:Name="NavBottomPanel" DockPanel.Dock="Bottom">
                     <Button Style="{StaticResource BtnPrimary}"
                             Content="Buy FlowShield — $4.99"
                             Command="{Binding GetProCommand}"
@@ -67,7 +71,7 @@
                             AutomationProperties.Name="Today">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="◷" FontSize="15" Width="24" VerticalAlignment="Center"/>
-                            <TextBlock Text="Today" VerticalAlignment="Center"/>
+                            <TextBlock x:Name="NavTodayLabel" Text="Today" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
 
@@ -78,7 +82,7 @@
                             AutomationProperties.Name="Blocked Apps">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="⊘" FontSize="15" Width="24" VerticalAlignment="Center"/>
-                            <TextBlock Text="Blocked Apps" VerticalAlignment="Center"/>
+                            <TextBlock x:Name="NavBlockedAppsLabel" Text="Blocked Apps" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
 
@@ -89,7 +93,7 @@
                             AutomationProperties.Name="Sleep Blocking">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="☾" FontSize="15" Width="24" VerticalAlignment="Center"/>
-                            <TextBlock Text="Sleep Blocking" VerticalAlignment="Center"/>
+                            <TextBlock x:Name="NavSleepBlockingLabel" Text="Sleep Blocking" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
 
@@ -100,7 +104,7 @@
                             AutomationProperties.Name="Settings">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="⚙" FontSize="15" Width="24" VerticalAlignment="Center"/>
-                            <TextBlock Text="Settings" VerticalAlignment="Center"/>
+                            <TextBlock x:Name="NavSettingsLabel" Text="Settings" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
                 </StackPanel>
