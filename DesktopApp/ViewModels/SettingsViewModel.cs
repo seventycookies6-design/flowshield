@@ -1,5 +1,4 @@
 using System.Net.Http.Json;
-using Microsoft.Win32;
 using FlowShield.Infrastructure;
 using FlowShield.Services;
 
@@ -229,7 +228,9 @@ public class SettingsViewModel : ViewModelBase
         {
             if (_main.Settings.StartWithWindows == value) return;
             _main.Settings.StartWithWindows = value;
-            ApplyStartWithWindows(value);
+            // This is an explicit user action, so it applies to whichever copy
+            // is running. Only the automatic launch-time repair is install-only.
+            StartupEntry.Set(value);
             _main.SaveSettings();
             Raise();
         }
@@ -279,8 +280,6 @@ public class SettingsViewModel : ViewModelBase
     }
 
     public string SettingsFilePath => _main.SettingsService.SettingsPath;
-
-    private static void ApplyStartWithWindows(bool enabled) => StartupEntry.Set(enabled);
 
     private void OpenLog() => _main.OpenUrl(Log.Path);
 }

@@ -15,7 +15,7 @@ from pathlib import Path
 import psutil
 from pywinauto import Application, Desktop
 from pywinauto.controls.uiawrapper import UIAWrapper
-from pywinauto.findwindows import ElementNotFoundError
+from pywinauto.findwindows import ElementNotFoundError, find_elements
 from pywinauto.timings import TimeoutError as PwaTimeoutError
 from pywinauto.uia_defines import IUIA
 from pywinauto.uia_element_info import UIAElementInfo
@@ -199,6 +199,59 @@ class DesktopController:
             f"could not connect to a '{APP_WINDOW_TITLE}' window within {timeout}s "
             f"(last error: {last_error})"
         )
+
+    def main_window_is_visible(self) -> bool:
+        """Whether this process currently exposes a visible main window."""
+        if not self.pid:
+            return False
+        try:
+            for window in Desktop(backend="uia").windows(
+                title=APP_WINDOW_TITLE, visible_only=True
+            ):
+                try:
+                    if window.process_id() == self.pid:
+                        return True
+                except Exception:
+                    continue
+        except Exception:
+            pass
+        return False
+
+    def find_tray_icon(self, timeout: float = UI_ACTION_TIMEOUT):
+        """Return FlowShield's real Windows notification-area button."""
+        deadline = time.time() + timeout
+        opened_overflow = False
+        while time.time() < deadline:
+            try:
+                elements = find_elements(
+                    title_re=r"^FlowShield(?:$|\s)",
+                    control_type="Button",
+                    backend="uia",
+                    top_level_only=False,
+                )
+                for element in elements:
+                    # The notification icon belongs to Explorer; exclude any
+                    # similarly named button inside FlowShield's own process.
+                    if element.process_id != self.pid:
+                        return UIAWrapper(element)
+
+                # Windows 11 keeps less-frequently-used icons in a XAML
+                # overflow panel. Its buttons are absent from the automation
+                # tree until the panel is opened, so reveal it once and retry.
+                if not opened_overflow:
+                    hidden_icons = find_elements(
+                        title="Show Hidden Icons",
+                        control_type="Button",
+                        backend="uia",
+                        top_level_only=False,
+                    )
+                    if hidden_icons:
+                        UIAWrapper(hidden_icons[0]).click_input()
+                        opened_overflow = True
+            except Exception:
+                pass
+            time.sleep(0.35)
+        return None
 
     @property
     def hwnd(self) -> int | None:
