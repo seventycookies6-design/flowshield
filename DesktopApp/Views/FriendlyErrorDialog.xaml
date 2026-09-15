@@ -12,10 +12,10 @@
         AutomationProperties.AutomationId="FriendlyErrorDialog">
     <Border Style="{StaticResource Card}" Margin="18" Padding="24">
         <StackPanel>
-            <TextBlock Text="Something went wrong. FlowShield is still guarding your sprint."
+            <TextBlock Text="Something went wrong."
                        Style="{StaticResource H2}" TextWrapping="Wrap"
                        AutomationProperties.AutomationId="FriendlyErrorText"/>
-            <TextBlock Text="Your sprint and blocklist are safe. If this keeps happening, copy the details and get help."
+            <TextBlock Text="FlowShield hit a problem it didn't expect. It will keep running — if a sprint is in progress, check that the timer is still counting. The details were saved to the log; if this keeps happening, copy them and get help."
                        Style="{StaticResource Body}" Margin="0,10,0,0" TextWrapping="Wrap"/>
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,24,0,0">
                 <Button Style="{StaticResource BtnGhost}" Content="Copy details"
