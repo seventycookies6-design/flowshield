@@ -999,6 +999,47 @@ class TestNoOneClickEscape:
         assert not psutil.pid_exists(fresh_app.pid), "FlowShield didn't quit after the sprint ended"
 
 
+# ============ the success page's Activate button did nothing (roadmap 1.4, #51)
+
+class TestActivationLinkWorks:
+    """
+    success.html linked to flowshield://activate?key=… but nothing registered
+    the scheme, so buyers had to copy the key by hand.
+    """
+
+    @staticmethod
+    def read(*parts) -> str:
+        return (Path(DESKTOP_DIR).joinpath(*parts)).read_text(encoding="utf-8")
+
+    def test_install_and_update_register_and_uninstall_removes(self):
+        program = self.read("Program.cs")
+        assert ".OnAfterInstallFastCallback(_ => RegisterLink())" in program
+        assert ".OnAfterUpdateFastCallback(_ => RegisterLink())" in program
+        assert ".OnBeforeUninstallFastCallback(_ => DeepLink.Unregister())" in program
+        link = self.read("Services", "DeepLink.cs")
+        assert r'@"Software\Classes\" + Scheme' in link, "must be per user (HKCU), never machine-wide"
+        assert "Registry.LocalMachine" not in link
+        assert '$"\\"{exePath}\\" \\"%1\\""' in link
+
+    def test_a_link_never_activates_by_itself(self):
+        main = self.read("ViewModels", "MainViewModel.cs")
+        handle = main.split("public void HandleLink(")[1].split("\n    }")[0]
+        assert "ActivateCommand" not in handle and "ValidateAsync" not in handle, \
+            "a web page must not be able to activate without the user's click"
+        confirm = main.split("private void ConfirmActivation()")[1].split("\n    }")[0]
+        assert "ActivateCommand.Execute" in confirm
+
+    def test_links_and_keys_stay_out_of_the_log(self):
+        app = self.read("App.xaml.cs")
+        assert '"<link>"' in app
+        assert "string.Join(' ', launchArgs)" not in app
+
+    def test_both_ways_in_handle_the_link(self):
+        app = self.read("App.xaml.cs")
+        assert "ViewModel.HandleLink(DeepLink.FindLink(args))" in app, "cold start"
+        assert "ViewModel.HandleLink(DeepLink.FindLink(launchArgs))" in app, "already running"
+
+
 # ============ opening FlowShield twice ran two copies (roadmap 1.3, #49)
 
 class TestOneInstanceOnly:
@@ -1013,7 +1054,7 @@ class TestOneInstanceOnly:
 
     def test_the_lock_is_taken_before_the_app_starts(self):
         main = self.program()
-        assert main.index("VelopackApp.Build().Run()") < main.index("SingleInstance.TryAcquire()"), \
+        assert main.index(".Run();") < main.index("SingleInstance.TryAcquire()"), \
             "Velopack's install and update runs must never be turned away"
         assert main.index("SingleInstance.TryAcquire()") < main.index("new App"), \
             "a second copy must exit before settings load or the blocker starts"

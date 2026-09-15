@@ -468,3 +468,69 @@ class TestOneInstance:
 
         assert flowshield_pids() == [fresh_app.pid], "a second FlowShield kept running"
         assert win32gui.IsWindowVisible(hwnd), "the running copy wasn't brought back"
+
+
+# =================================================== flowshield:// links (1.4)
+
+# Shaped like a real key; never activated, so it doesn't need to exist.
+LINK_KEY = "FS-ABCD-EFGH-JKMN-PQR5"
+LINK = f"flowshield://activate?key={LINK_KEY}"
+
+
+class TestActivationLinks:
+    def _launch_with(self, logger, *extra):
+        from desktop.app_controller import DesktopController
+
+        app = DesktopController(logger)
+        app.launch_app(clean_state=True, extra_args=list(extra))
+        app.connect_window()
+        time.sleep(1.2)
+        return app
+
+    def test_a_link_fills_in_the_key_and_waits_for_a_click(self, logger):
+        app = self._launch_with(logger, LINK)
+        try:
+            assert app.exists("ConfirmActivationButton", timeout=3), "no confirmation was shown"
+            assert app.text_of("ActivationLinkKey") == LINK_KEY
+            assert app.current_page_title() == "Settings"
+            time.sleep(1.0)
+            settings = verify.read_settings()
+            assert not settings.get("IsPro") and not settings.get("LicenseKey"), \
+                "the link activated without the user's click"
+
+            app.click("DismissActivationButton")
+            time.sleep(0.6)
+            assert not app.exists("ConfirmActivationButton", timeout=1)
+            assert not verify.read_settings().get("IsPro")
+        finally:
+            app.close_app()
+
+    def test_activate_checks_the_key_with_the_server(self, logger, server):
+        app = self._launch_with(logger, LINK)
+        try:
+            app.click("ConfirmActivationButton")
+            status = app.wait_for_license_status("not activated", timeout=30)
+            assert "not activated" in status.lower(), status   # a made-up key is refused
+            assert not app.exists("ConfirmActivationButton", timeout=1)
+        finally:
+            app.close_app()
+
+    def test_a_link_reaches_a_copy_that_is_already_running(self, fresh_app):
+        launch_again(LINK)
+        time.sleep(1.5)
+        assert flowshield_pids() == [fresh_app.pid]
+        assert fresh_app.exists("ConfirmActivationButton", timeout=3), "the running copy ignored the link"
+        assert fresh_app.text_of("ActivationLinkKey") == LINK_KEY
+
+    @pytest.mark.parametrize("link", [
+        "flowshield://settings?hardkill=on",
+        "flowshield://activate?key=not-a-key",
+        "flowshield://activate",
+    ])
+    def test_other_links_do_nothing(self, logger, link):
+        app = self._launch_with(logger, link)
+        try:
+            assert not app.exists("ConfirmActivationButton", timeout=2)
+            assert app.current_page_title() == "Today"
+        finally:
+            app.close_app()

@@ -25,7 +25,9 @@ public partial class App : Application
             Log.Error($"fatal: {(args.ExceptionObject as Exception)?.Message ?? "unknown"}");
 
         var args = e.Args ?? Array.Empty<string>();
-        Log.Info($"FlowShield starting (args: {string.Join(' ', args)})");
+        // Links are left out of the log: an activation link carries a licence key.
+        Log.Info($"FlowShield starting (args: {string.Join(' ', args.Select(a =>
+            a.StartsWith(DeepLink.Scheme + ":", StringComparison.OrdinalIgnoreCase) ? "<link>" : a))})");
 
         // --short-timers shrinks F2's grace period and countdowns for the UI tests.
         // It only shortens waits; every step still has to be taken.
@@ -83,9 +85,16 @@ public partial class App : Application
         // A later launch brings this copy forward instead of starting another.
         Instance?.Listen(launchArgs =>
         {
-            Log.Info($"second launch handed over (args: {string.Join(' ', launchArgs)})");
-            Dispatcher.BeginInvoke(() => window.BringToFront());
+            Log.Info("second launch handed over");
+            Dispatcher.BeginInvoke(() =>
+            {
+                window.BringToFront();
+                ViewModel.HandleLink(DeepLink.FindLink(launchArgs));
+            });
         });
+
+        // Opened by a flowshield:// link while FlowShield wasn't running.
+        ViewModel.HandleLink(DeepLink.FindLink(args));
 
         // Re-confirm an existing license in the background; never blocks the UI.
         _ = licenseService.RefreshAsync(ViewModel.Settings).ContinueWith(_ =>
