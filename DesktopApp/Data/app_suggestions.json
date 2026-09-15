@@ -25,7 +25,7 @@
         { "name": "Fortnite", "processes": ["FortniteClient-Win64-Shipping", "FortniteLauncher"], "verified": true },
         { "name": "EA app", "processes": ["EADesktop"], "verified": true },
         { "name": "Ubisoft Connect", "processes": ["UbisoftConnect", "upc"], "verified": true },
-        { "name": "Xbox app", "processes": ["XboxPcApp"], "verified": false }
+        { "name": "Xbox app", "processes": ["XboxPcApp", "XboxPcTray"], "verified": true }
       ]
     },
     {
