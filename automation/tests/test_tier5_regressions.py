@@ -1909,3 +1909,15 @@ class TestDownloadGuidePanel:
         assert self.INSTALLER_URL in panel, (
             "the panel's Download button must point at the installer URL"
         )
+
+    def test_the_first_run_step_describes_the_real_welcome(self):
+        # The welcome (F18) has three steps — apps, strictness, first sprint —
+        # and only starts a sprint if the user presses Start. The draft said it
+        # "asks for your blocklist and default sprint, then starts the first
+        # sprint", which skipped a step and promised an automatic start.
+        site = (Path(WEBSITE_DIR) / "index.html").read_text(encoding="utf-8")
+        panel = site.split('id="download-panel"', 1)[1].split("</dialog>", 1)[0]
+        vm = (Path(DESKTOP_DIR) / "ViewModels" / "FirstRunViewModel.cs").read_text(encoding="utf-8")
+        assert 'StepText => $"Step {Step} of 3"' in vm
+        assert "three-step welcome" in panel
+        assert "then starts the first sprint" not in panel
