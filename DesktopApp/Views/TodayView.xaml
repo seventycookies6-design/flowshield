@@ -100,33 +100,54 @@
                                      Margin="0,0,8,8"
                                      AutomationProperties.AutomationId="SprintLength_15"
                                      AutomationProperties.Name="15 minute sprint"
-                                     IsChecked="{Binding SelectedMinutes, Converter={StaticResource IntEq},
+                                     IsChecked="{Binding PresetMinutes, Converter={StaticResource IntEq},
                                                  ConverterParameter=15}"/>
                         <RadioButton Style="{StaticResource Segment}" GroupName="SprintLength" Content="25 min"
                                      Margin="0,0,8,8"
                                      AutomationProperties.AutomationId="SprintLength_25"
                                      AutomationProperties.Name="25 minute sprint"
-                                     IsChecked="{Binding SelectedMinutes, Converter={StaticResource IntEq},
+                                     IsChecked="{Binding PresetMinutes, Converter={StaticResource IntEq},
                                                  ConverterParameter=25}"/>
                         <RadioButton Style="{StaticResource Segment}" GroupName="SprintLength" Content="45 min"
                                      Margin="0,0,8,8"
                                      AutomationProperties.AutomationId="SprintLength_45"
                                      AutomationProperties.Name="45 minute sprint"
-                                     IsChecked="{Binding SelectedMinutes, Converter={StaticResource IntEq},
+                                     IsChecked="{Binding PresetMinutes, Converter={StaticResource IntEq},
                                                  ConverterParameter=45}"/>
                         <RadioButton Style="{StaticResource Segment}" GroupName="SprintLength" Content="60 min"
                                      Margin="0,0,8,8"
                                      AutomationProperties.AutomationId="SprintLength_60"
                                      AutomationProperties.Name="60 minute sprint"
-                                     IsChecked="{Binding SelectedMinutes, Converter={StaticResource IntEq},
+                                     IsChecked="{Binding PresetMinutes, Converter={StaticResource IntEq},
                                                  ConverterParameter=60}"/>
                         <RadioButton Style="{StaticResource Segment}" GroupName="SprintLength" Content="90 min"
-                                     Margin="0,0,8,8"
-                                     AutomationProperties.AutomationId="SprintLength_90"
-                                     AutomationProperties.Name="90 minute sprint"
-                                     IsChecked="{Binding SelectedMinutes, Converter={StaticResource IntEq},
-                                                 ConverterParameter=90}"/>
+                                      Margin="0,0,8,8"
+                                      AutomationProperties.AutomationId="SprintLength_90"
+                                      AutomationProperties.Name="90 minute sprint"
+                                      IsChecked="{Binding PresetMinutes, Converter={StaticResource IntEq},
+                                                  ConverterParameter=90}"/>
+                        <RadioButton Style="{StaticResource Segment}" GroupName="SprintLength" Content="Custom…"
+                                      Margin="0,0,8,8"
+                                      AutomationProperties.AutomationId="SprintLength_Custom"
+                                      AutomationProperties.Name="Custom sprint length"
+                                      IsChecked="{Binding IsCustomSelected}"/>
                     </WrapPanel>
+
+                    <StackPanel Margin="0,0,0,8"
+                                Visibility="{Binding CustomInputVisible, Converter={StaticResource BoolVis}}">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBox Width="70" Style="{StaticResource Field}"
+                                     Text="{Binding CustomMinutesText, UpdateSourceTrigger=PropertyChanged}"
+                                     AutomationProperties.AutomationId="CustomMinutesInput"
+                                     AutomationProperties.Name="Custom minutes"/>
+                            <TextBlock Text="min (5–240)" Style="{StaticResource Caption}"
+                                       VerticalAlignment="Center" Margin="8,0,0,0"/>
+                        </StackPanel>
+                        <TextBlock Text="{Binding CustomMinutesError}" Style="{StaticResource Caption}"
+                                   Foreground="{StaticResource Amber}" Margin="0,6,0,0"
+                                   Visibility="{Binding CustomMinutesErrorVisible, Converter={StaticResource BoolVis}}"
+                                   AutomationProperties.AutomationId="CustomMinutesError"/>
+                    </StackPanel>
 
                     <!-- shield level -->
                     <TextBlock Text="SHIELD LEVEL" Style="{StaticResource Eyebrow}" Margin="0,14,0,9"/>

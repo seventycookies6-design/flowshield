@@ -882,3 +882,75 @@ class TestEndSprintPolicy:
     ])
     def test_phrase(self, typed, ok):
         assert phrase_matches(typed) is ok
+
+
+# ============================================ custom sprint lengths (roadmap 2.3)
+
+CUSTOM_MIN = 5
+CUSTOM_MAX = 240
+
+
+def custom_minutes_valid(value: int) -> bool:
+    """Mirror of TodayViewModel.IsCustomMinutesValid."""
+    return CUSTOM_MIN <= value <= CUSTOM_MAX
+
+
+class TestCustomSprintLengths:
+    SOURCE = Path(SERVER_DIR).parent / "DesktopApp" / "Models" / "AppSettings.cs"
+
+    def test_settings_round_trips_last_custom_sprint_minutes(self):
+        source = self.SOURCE.read_text(encoding="utf-8")
+        assert "public int LastCustomSprintMinutes { get; set; } = 30;" in source
+
+    @pytest.mark.parametrize("minutes", [5, 30, 120, 240])
+    def test_validation_accepts_values_in_range(self, minutes):
+        assert custom_minutes_valid(minutes) is True
+
+    @pytest.mark.parametrize("minutes", [0, 1, 4, 241, 300, -5])
+    def test_validation_rejects_values_outside_range(self, minutes):
+        assert custom_minutes_valid(minutes) is False
+
+    def test_the_viewmodel_exposes_the_bounds(self):
+        vm = (Path(SERVER_DIR).parent / "DesktopApp" / "ViewModels"
+              / "TodayViewModel.cs").read_text(encoding="utf-8")
+        assert "CustomMinMinutes = 5" in vm
+        assert "CustomMaxMinutes = 240" in vm
+
+    @staticmethod
+    def viewmodel_member(name: str) -> str:
+        vm = (Path(SERVER_DIR).parent / "DesktopApp" / "ViewModels"
+              / "TodayViewModel.cs").read_text(encoding="utf-8")
+        assert name in vm, f"TodayViewModel no longer has {name}"
+        return vm.split(name, 1)[1].split("\n    }", 1)[0]
+
+    def test_selecting_custom_without_access_opens_the_upgrade_page(self):
+        # The radio's two-way IsChecked binding writes the property before any
+        # command fires, so the gate has to be in the setter itself. The first
+        # draft put it in a command and the locked user got the feature anyway.
+        setter = self.viewmodel_member("public bool IsCustomSelected")
+        assert "_main.IsLocked" in setter
+        assert "_main.OpenUpgradePage()" in setter
+
+    def test_a_valid_custom_value_is_persisted_when_typed(self):
+        # The first draft only saved when the Custom radio was clicked, never
+        # when the number was typed — so the value was lost on restart.
+        apply = self.viewmodel_member("private void ApplyCustomMinutes()")
+        assert "S.LastCustomSprintMinutes = _customMinutes" in apply
+        assert "_main.SaveSettings()" in apply
+        text_setter = self.viewmodel_member("public string CustomMinutesText")
+        assert "ApplyCustomMinutes()" in text_setter
+
+    def test_start_is_refused_while_the_custom_value_is_invalid(self):
+        vm = (Path(SERVER_DIR).parent / "DesktopApp" / "ViewModels"
+              / "TodayViewModel.cs").read_text(encoding="utf-8")
+        assert "StartCommand = new RelayCommand(StartSprint, CanStart)" in vm
+        can_start = vm.split("private bool CanStart()")[1].split("\n", 1)[0]
+        assert "IsCustomMinutesValid" in can_start
+
+    def test_the_input_is_bound_as_text_so_garbage_is_rejected(self):
+        # An int-typed binding swallows "abc" as a silent binding error and
+        # leaves the previous length in place with no message.
+        view = (Path(SERVER_DIR).parent / "DesktopApp" / "Views"
+                / "TodayView.xaml").read_text(encoding="utf-8-sig")
+        assert "{Binding CustomMinutesText, UpdateSourceTrigger=PropertyChanged}" in view
+        assert 'AutomationProperties.AutomationId="CustomMinutesError"' in view
