@@ -1865,3 +1865,21 @@ class TestSuccessPageKeyRecovery:
         assert 'id="download-link"' in source, "the Download FlowShield button is missing"
         assert "resend-license" not in source or "checkout.js" in source, \
             "the email handler must live in checkout.js, not inline in the HTML"
+
+    def test_the_email_button_is_only_offered_when_the_server_can_send(self):
+        """
+        /resend-license answers 503 when no mail provider is configured, so
+        the button would fail every time on such a server. get-license reports
+        emailConfigured; the page hides the button — and stops saying "have it
+        emailed to you" — when that is false or the buyer's address is unknown.
+        """
+        js = (Path(WEBSITE_DIR) / "checkout.js").read_text(encoding="utf-8")
+        assert "result.emailConfigured !== false" in js
+        assert "emailKeyBtn.style.display = 'none'" in js
+        assert "You can copy, email, or activate the key below." not in js
+
+    def test_checkout_js_has_no_byte_order_mark(self):
+        # A PowerShell edit once prepended U+FEFF; browsers tolerate it but
+        # every later diff of the file shows a phantom first-line change.
+        raw = (Path(WEBSITE_DIR) / "checkout.js").read_bytes()
+        assert not raw.startswith(b"\xef\xbb\xbf"), "checkout.js starts with a UTF-8 BOM"

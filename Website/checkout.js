@@ -1,4 +1,4 @@
-﻿/* FlowShield — checkout + license retrieval glue.
+/* FlowShield — checkout + license retrieval glue.
    Talks to the license server; no Stripe.js needed since Checkout is hosted. */
 
 (function () {
@@ -270,6 +270,7 @@
         seal.innerHTML = iconCheck();
       }
       if (title) title.textContent = 'FlowShield is yours';
+      var canEmail = !!result.email && result.emailConfigured !== false;
       if (blurb) {
         // Only claim an email was sent when the server actually reports one.
         // The page must never promise delivery it cannot vouch for.
@@ -277,7 +278,9 @@
         // account's receipt emails are switched on, which this page can't see.
         var mailed = result.emailSent
           ? ' A copy is on its way to <b>' + escapeHtml(result.email || 'your inbox') + '</b>.'
-          : ' You can copy, email, or activate the key below.';
+          : canEmail
+            ? ' You can copy the key, have it emailed to you, or activate it below.'
+            : ' You can copy the key or activate it below.';
 
         blurb.innerHTML =
           'Payment received' +
@@ -287,6 +290,11 @@
       }
       if (keyVal) keyVal.textContent = result.licenseKey;
       if (actions) actions.style.display = 'flex';
+      // Only offer "Email me this key" when the server says it can send mail
+      // and knows the buyer's address; a button that always fails is worse
+      // than none.
+      var emailKeyBtn = document.getElementById('email-key');
+      if (emailKeyBtn && !canEmail) emailKeyBtn.style.display = 'none';
 
       // Expose for the automation suite to read deterministically.
       document.body.setAttribute('data-license-key', result.licenseKey);
