@@ -14,7 +14,7 @@ phase), with an issue per item as work starts.
 | Item | Status | Where |
 | --- | --- | --- |
 | 1.1 Align the site with the app | **Done** — site copy corrected, claims test in tier 5, follow-ups finished; live site republished 13 September 2026 | #8, #9, #10, #12 |
-| 1.2 Start with Windows starts in the tray | **In review** — changes requested: only installed copies may refresh the Run value | #13, #14 |
+| 1.2 Start with Windows starts in the tray | **Done** — `--tray` starts hidden in the tray, and only installed copies refresh the Run value | #13, #14 |
 | 1.3 One instance only | **Done**: a second launch brings the running copy forward (argument handover ready for 1.4) | #49 |
 | 1.4 Register `flowshield://` | **Done**: installed copies open activation links, and activate after one confirming click | #51 |
 | 1.5 Uninstall cleans up | **Done**: uninstall removes the Run value and `flowshield://`; data stays, deletion steps in `SELLING.md` | #54 |
