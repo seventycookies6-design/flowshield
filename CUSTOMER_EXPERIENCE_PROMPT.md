@@ -230,8 +230,10 @@ The goal: nothing a customer reads or clicks is false or dead.
     rail moves under the timer and the nav rail collapses to icons. *Accept:*
     smoke screenshots at 1093×570 and 1920×1080 with nothing clipped.
 14. **Friendly errors** (A28). Replace the raw exception dialog with "Something
-    went wrong. FlowShield is still guarding your sprint." plus **Copy details**
-    and **Get help** (see 4.3). Keep full detail in the log.
+    went wrong." plus **Copy details** and **Get help** (see 4.3). Keep full
+    detail in the log. The dialog must not claim the sprint is still guarded or
+    that data is safe — after an arbitrary exception that can't be verified, and
+    tier 5 now enforces it.
 15. **No developer text on customer surfaces** (A16, A25). Site: every error is
     written for a buyer ("Checkout is taking longer than usual — try again in a
     minute. You haven't been charged.") with developer detail only in the
