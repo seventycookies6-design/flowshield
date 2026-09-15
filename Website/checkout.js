@@ -60,26 +60,21 @@
 
   function friendlyError(err, payload) {
     if (payload && payload.error === 'stripe_not_configured') {
+      console.error('stripe_not_configured', payload);
       return (
-        '<div><b>Stripe is not configured yet.</b><br>The license server is running but has no ' +
-        'test keys. Add them to <code>.stripe_keys.json</code> and restart it — see ' +
-        '<b>STRIPE_SETUP.md</b>.' +
-        (payload.missing && payload.missing.length
-          ? '<code>missing: ' + payload.missing.join(', ') + '</code>'
-          : '') +
-        '</div>'
+        '<div><b>Checkout is not available right now.</b><br>' +
+        'Please try again in a minute. You haven\'t been charged.</div>'
       );
     }
     if (payload && payload.message) {
-      return '<div><b>Checkout could not start.</b><code>' + escapeHtml(payload.message) + '</code></div>';
+      console.error('checkout error payload', payload);
+      return '<div><b>Checkout could not start.</b><br>Please try again in a moment. You haven\'t been charged.</div>';
     }
     var msg = err && err.message ? err.message : String(err);
+    console.error('license server unreachable', SERVER, msg);
     return (
-      '<div><b>Could not reach the license server.</b><br>Expected it at <code>' +
-      escapeHtml(SERVER) +
-      '</code>. Start it with <code>cd Server &amp;&amp; npm start</code>.<code>' +
-      escapeHtml(msg) +
-      '</code></div>'
+      '<div><b>Checkout is taking longer than usual.</b><br>' +
+      'Try again in a minute. You haven\'t been charged.</div>'
     );
   }
 
@@ -98,12 +93,12 @@
     // No backend: hand off to the Stripe-hosted Payment Link directly.
     if (!HAS_SERVER) {
       if (!PAYMENT_LINK) {
+        console.warn('checkout: no payment link and no license server configured');
         showAlert(
           'checkout-alert',
           'error',
-          '<div><b>Checkout is not configured yet.</b><br>No Stripe Payment Link and no ' +
-            'license server are set. Run <code>node tools/setup_stripe_store.js</code> to ' +
-            'create the product and wire this button up.</div>',
+          '<div><b>Checkout is not available right now.</b><br>' +
+            'Please try again shortly. You haven\'t been charged.</div>',
         );
         return;
       }
@@ -309,15 +304,19 @@
     }
 
     var payload = (result && result.payload) || {};
-    var detail =
-      payload.error === 'stripe_not_configured'
-        ? 'The license server has no Stripe keys configured. See <b>STRIPE_SETUP.md</b>.'
-        : result && result.unreachable
-          ? 'The license server at <code>' + escapeHtml(SERVER) + '</code> is not responding. ' +
-            'Start it with <code>cd Server &amp;&amp; npm start</code>, then reload this page.'
-          : payload.message
-            ? '<code>' + escapeHtml(payload.message) + '</code>'
-            : 'The payment may still be settling. Refresh in a moment.';
+    var detail;
+    if (payload.error === 'stripe_not_configured') {
+      console.error('success: stripe_not_configured', payload);
+      detail = 'Checkout is not available right now. Please try again in a minute.';
+    } else if (result && result.unreachable) {
+      console.error('success: license server unreachable', SERVER, payload);
+      detail = 'We are having trouble confirming your payment. Please refresh in a moment.';
+    } else if (payload.message) {
+      console.error('success: server error', payload);
+      detail = 'Something went wrong confirming your payment. Please try again shortly.';
+    } else {
+      detail = 'The payment may still be settling. Refresh in a moment.';
+    }
 
     if (stashed) {
       fail('Still confirming your payment', detail);

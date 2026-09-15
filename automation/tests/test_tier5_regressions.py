@@ -1721,3 +1721,99 @@ class TestPerAppSwitchGuard:
         assert "Raise(nameof(CanEditApps))" in vm, (
             "CanEditApps must notify when sprint state changes"
         )
+
+
+# ============ developer-only text must not reach customer surfaces (roadmap 1.15)
+
+class TestNoDeveloperTextOnCustomerSurfaces:
+    """
+    Customer-facing surfaces (the website checkout flow and the Settings UI)
+    previously leaked developer commands, file paths, and setup-doc references.
+    A buyer should never see ``cd Server && npm start``, ``STRIPE_SETUP.md``,
+    ``node tools/setup_stripe_store.js``, ``.stripe_keys.json``, the raw
+    license-server URL, or the DPAPI settings-file path.
+    """
+
+    BANNED_WEBSITE_STRINGS = (
+        "STRIPE_SETUP.md",
+        "cd Server && npm start",
+        "cd Server &amp;&amp; npm start",
+        "node tools/setup_stripe_store.js",
+        ".stripe_keys.json",
+    )
+
+    def test_checkout_js_has_no_developer_strings(self):
+        source = (Path(WEBSITE_DIR) / "checkout.js").read_text(encoding="utf-8")
+        for banned in self.BANNED_WEBSITE_STRINGS:
+            assert banned not in source, (
+                f"checkout.js still contains developer string {banned!r}"
+            )
+
+    def test_index_html_has_no_developer_strings(self):
+        source = (Path(WEBSITE_DIR) / "index.html").read_text(encoding="utf-8")
+        for banned in self.BANNED_WEBSITE_STRINGS:
+            assert banned not in source, (
+                f"index.html still contains developer string {banned!r}"
+            )
+
+    def test_settings_xaml_hides_license_server_from_normal_view(self):
+        source = (Path(DESKTOP_DIR) / "Views" / "SettingsView.xaml").read_text(
+            encoding="utf-8")
+        dev_container = 'x:Name="DevOnlyFields"'
+        assert dev_container in source, (
+            "the developer-only fields must be wrapped in a named container "
+            "so they can be hidden from normal users"
+        )
+        dev_block = source.split(dev_container)[1].split("</StackPanel>")[0]
+        assert "License server" in dev_block, (
+            "the License server label should live inside the dev-only container"
+        )
+        assert "DPAPI-encrypted" in dev_block, (
+            "the DPAPI settings-path text should live inside the dev-only container"
+        )
+
+    def test_settings_code_behind_gates_dev_fields(self):
+        source = (Path(DESKTOP_DIR) / "Views" / "SettingsView.xaml.cs").read_text(
+            encoding="utf-8")
+        assert "DevMode" in source, (
+            "the code-behind must check App.DevMode before showing dev fields"
+        )
+        assert "DevOnlyFields" in source, (
+            "the code-behind must toggle the DevOnlyFields container"
+        )
+        assert "Collapsed" in source, (
+            "dev fields must be Collapsed by default, not merely hidden"
+        )
+
+    def test_app_parses_dev_flag(self):
+        source = (Path(DESKTOP_DIR) / "App.xaml.cs").read_text(encoding="utf-8")
+        assert '"--dev"' in source, "App.xaml.cs must recognise the --dev flag"
+        assert "DevMode" in source, "App must expose a DevMode property"
+
+    @pytest.mark.ui
+    def test_a_customer_launch_hides_the_dev_fields_but_keeps_the_log_button(self, logger):
+        """Launched the way a customer does (no --dev), Settings shows no
+        licence-server box or settings path, but Open diagnostic log — which
+        support.html tells people to use — is still there."""
+        from desktop.app_controller import DesktopController
+
+        ctrl = DesktopController(logger)
+        try:
+            ctrl.launch_app(clean_state=True, dev_fields=False)
+            ctrl.connect_window()
+            time.sleep(1.0)
+            ctrl.focus(force=True)
+            ctrl.navigate_to_tab("Settings")
+            assert not ctrl.exists("LicenseServerUrlInput", timeout=1.5), \
+                "the licence-server URL box is visible to customers"
+            assert ctrl.exists("OpenLogButton", timeout=3), \
+                "Open diagnostic log disappeared with the dev fields"
+        finally:
+            ctrl.close_app()
+
+    @pytest.mark.ui
+    def test_the_suite_launch_still_reaches_the_dev_fields(self, fresh_app):
+        # tier 4 types a dead URL into this box; verify_deployed.py reads it.
+        fresh_app.navigate_to_tab("Settings")
+        assert fresh_app.exists("LicenseServerUrlInput", timeout=3), \
+            "the controller must pass --dev so tests can reach the URL box"

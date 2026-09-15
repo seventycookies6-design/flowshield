@@ -118,16 +118,18 @@
                 <StackPanel>
                     <TextBlock Text="ADVANCED" Style="{StaticResource Eyebrow}" Margin="0,0,0,14"/>
 
-                    <TextBlock Text="License server" Style="{StaticResource Caption}" Margin="2,0,0,6"/>
-                    <TextBox Style="{StaticResource Field}"
-                             Text="{Binding LicenseServerUrl, UpdateSourceTrigger=LostFocus}"
-                             AutomationProperties.AutomationId="LicenseServerUrlInput"
-                             AutomationProperties.Name="License server URL"/>
+                    <StackPanel x:Name="DevOnlyFields">
+                        <TextBlock Text="License server" Style="{StaticResource Caption}" Margin="2,0,0,6"/>
+                        <TextBox Style="{StaticResource Field}"
+                                 Text="{Binding LicenseServerUrl, UpdateSourceTrigger=LostFocus}"
+                                 AutomationProperties.AutomationId="LicenseServerUrlInput"
+                                 AutomationProperties.Name="License server URL"/>
 
-                    <TextBlock Style="{StaticResource Caption}" Margin="2,14,0,0" TextWrapping="Wrap">
-                        <Run Text="Settings are DPAPI-encrypted at"/>
-                        <Run Text="{Binding SettingsFilePath, Mode=OneWay}" Foreground="{StaticResource InkDim}"/>
-                    </TextBlock>
+                        <TextBlock Style="{StaticResource Caption}" Margin="2,14,0,0" TextWrapping="Wrap">
+                            <Run Text="Settings are DPAPI-encrypted at"/>
+                            <Run Text="{Binding SettingsFilePath, Mode=OneWay}" Foreground="{StaticResource InkDim}"/>
+                        </TextBlock>
+                    </StackPanel>
 
                     <Button Style="{StaticResource BtnQuiet}" Content="Show the welcome again"
                             HorizontalAlignment="Left" Margin="-10,10,0,0"

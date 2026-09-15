@@ -132,6 +132,7 @@ class DesktopController:
         extra_args: list[str] | None = None,
         use_defaults: bool = False,
         show_first_run: bool = False,
+        dev_fields: bool = True,
     ) -> int:
         """
         Start the app.
@@ -140,6 +141,11 @@ class DesktopController:
         runs exactly as a downloaded copy would, against whatever endpoints it
         was built with. Without it every launch is pinned to localhost, which
         makes it impossible to test the shipped configuration.
+
+        `dev_fields=True` passes --dev so Settings shows the developer-only
+        controls (the licence-server URL box, the settings path) that several
+        tests read or type into. Customers never see them (roadmap 1.15); pass
+        False to check that.
         """
         if not Path(APP_EXE).exists():
             raise DesktopControllerError(f"{APP_EXE} not found — build the app first.")
@@ -165,6 +171,8 @@ class DesktopController:
         if not show_first_run:
             # A clean install opens the first-run welcome (F18) over every page.
             args.append("--skip-first-run")
+        if dev_fields:
+            args.append("--dev")
         if extra_args:
             args.extend(extra_args)
 
