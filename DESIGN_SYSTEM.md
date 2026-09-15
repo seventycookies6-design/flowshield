@@ -369,8 +369,8 @@ and `Website/styles.css`, and they already drift. Recommended implementation, as
 its own issue:
 
 1. Create `design/tokens.json` with every token in section 2 (both themes), the type scale, spacing and radii.
-2. Add `tools/build_tokens.py` to generate `DesktopApp/Styles/Tokens.Dark.xaml`, `Tokens.Light.xaml` and a `Website/tokens.css` block of CSS custom properties from it. `Theme.xaml` and `styles.css` then reference tokens only.
-3. Add a tier 5 test that regenerates the files into a temp folder and fails if the committed copies differ. That makes drift impossible and gives the doc steward something concrete to check.
+2. Add `tools/build_tokens.py` to generate `DesktopApp/Styles/Tokens.xaml` (dark), `DesktopApp/Styles/Tokens.Light.xaml` and the marked colour blocks in `Website/styles.css` from it. `Theme.xaml` merges `Tokens.xaml`, and `styles.css` carries the generated values between its `tokens:` markers.
+3. Add a tier 5 test that runs the generator's `--check` mode and fails if the committed files are stale. That makes drift impossible and gives the doc steward something concrete to check.
 4. Add `DESIGN_SYSTEM.md` to the doc steward's editable list, so this document stays in step with the tokens.
 
 ## 15. Adoption checklist
