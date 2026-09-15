@@ -131,6 +131,7 @@ class DesktopController:
         clean_state: bool = True,
         extra_args: list[str] | None = None,
         use_defaults: bool = False,
+        show_first_run: bool = False,
     ) -> int:
         """
         Start the app.
@@ -161,6 +162,9 @@ class DesktopController:
             args.append(f"--website={WEBSITE_URL}")
             # Shrinks the end-sprint grace period and countdowns (F2) to seconds.
             args.append("--short-timers")
+        if not show_first_run:
+            # A clean install opens the first-run welcome (F18) over every page.
+            args.append("--skip-first-run")
         if extra_args:
             args.extend(extra_args)
 

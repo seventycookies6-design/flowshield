@@ -759,6 +759,51 @@ class TestPickerSearch:
         assert "e.Processes.Any(p => p.Contains(q, StringComparison.OrdinalIgnoreCase))" in filt
 
 
+def first_run_shows(*, completed=False, blocked=0, sessions=0, active=False,
+                    has_access=True, running=False, skip_flag=False) -> bool:
+    """Mirror of FirstRunPolicy.ShouldShow."""
+    existing = blocked > 0 or sessions > 0 or active
+    return not skip_flag and not completed and not existing and has_access and not running
+
+
+class TestFirstRunPolicy:
+    SOURCE = Path(SERVER_DIR).parent / "DesktopApp" / "Models" / "FirstRunPolicy.cs"
+
+    @pytest.mark.parametrize("kwargs,shows", [
+        ({}, True),                                   # a brand-new install
+        ({"completed": True}, False),                 # finished or skipped before
+        ({"blocked": 2}, False),                      # an existing user after an update
+        ({"sessions": 5}, False),
+        ({"active": True}, False),
+        ({"has_access": False}, False),               # never over the lock screen
+        ({"running": True}, False),                   # never over a resumed sprint
+        ({"skip_flag": True}, False),
+    ])
+    def test_who_sees_it(self, kwargs, shows):
+        assert first_run_shows(**kwargs) is shows
+
+    def test_the_mirror_matches_the_app(self):
+        source = self.SOURCE.read_text(encoding="utf-8")
+        should = source.split("public static bool ShouldShow(")[1].split(";")[0]
+        for part in ("!SkipForTests", "!settings.FirstRunCompleted", "!IsExistingUser(settings)",
+                     "hasAccess", "!sprintRunning"):
+            assert part in should
+        existing = source.split("public static bool IsExistingUser(")[1].split(";")[0]
+        assert "BlockedApps.Count > 0" in existing and "Sessions.Count > 0" in existing
+        assert "ActiveSprint is not null" in existing
+
+    def test_browsers_are_never_preticked(self):
+        source = self.SOURCE.read_text(encoding="utf-8")
+        preticked = source.split("public static bool PreTicked(")[1].split(";")[0]
+        assert "PickerSource.Suggested" in preticked and "ExePath is not null" in preticked
+        assert '!entry.Group.Equals("Browsers"' in preticked
+
+    def test_firm_is_the_default_and_lengths_are_25_and_45(self):
+        vm = (Path(SERVER_DIR).parent / "DesktopApp" / "ViewModels" / "FirstRunViewModel.cs").read_text(encoding="utf-8")
+        assert "private ShieldLevel _shield = ShieldLevel.Firm;" in vm
+        assert "SprintLengths = { 25, 45 }" in self.SOURCE.read_text(encoding="utf-8")
+
+
 def activation_key(link: str) -> str | None:
     """Mirror of DeepLink.ParseActivationKey."""
     import re

@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:views="clr-namespace:FlowShield.Views"
         xmlns:vm="clr-namespace:FlowShield.ViewModels"
+        xmlns:models="clr-namespace:FlowShield.Models"
         Title="FlowShield"
         Height="760" Width="1180"
         MinHeight="620" MinWidth="900"
@@ -188,6 +189,175 @@
                                    TextWrapping="Wrap" Margin="0,10,0,0"
                                    AutomationProperties.AutomationId="LockLicenseDetailText"/>
                     </StackPanel>
+                </Border>
+            </Border>
+
+            <!-- ================================================= first run (F18) -->
+            <Border Grid.Row="0" Grid.RowSpan="2" Background="#F2121110"
+                    DataContext="{Binding FirstRun}"
+                    Visibility="{Binding IsVisible, Converter={StaticResource BoolVis}}"
+                    AutomationProperties.AutomationId="FirstRunPanel">
+                <Border Style="{StaticResource Card}" Padding="30,26" Width="600" MaxWidth="600" Margin="24"
+                        HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <DockPanel>
+                        <!-- header -->
+                        <Grid DockPanel.Dock="Top" Margin="0,0,0,16">
+                            <TextBlock Text="{Binding StepText}" Style="{StaticResource Eyebrow}"
+                                       VerticalAlignment="Center"
+                                       AutomationProperties.AutomationId="FirstRunStepText"/>
+                            <Button Style="{StaticResource BtnQuiet}" Content="Skip setup" HorizontalAlignment="Right"
+                                    Command="{Binding SkipCommand}"
+                                    AutomationProperties.AutomationId="FirstRunSkipButton"
+                                    AutomationProperties.Name="Skip setup"/>
+                        </Grid>
+
+                        <!-- footer -->
+                        <Grid DockPanel.Dock="Bottom" Margin="0,20,0,0">
+                            <Button Style="{StaticResource BtnQuiet}" Content="Back" HorizontalAlignment="Left"
+                                    Command="{Binding BackCommand}"
+                                    Visibility="{Binding IsStep1, Converter={StaticResource InvBoolVis}}"
+                                    AutomationProperties.AutomationId="FirstRunBackButton"/>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                <Button Style="{StaticResource BtnPrimary}" Content="Next" Padding="26,10"
+                                        Command="{Binding NextCommand}"
+                                        Visibility="{Binding NextVisible, Converter={StaticResource BoolVis}}"
+                                        AutomationProperties.AutomationId="FirstRunNextButton"/>
+                                <Button Style="{StaticResource BtnQuiet}" Content="Finish without starting"
+                                        Command="{Binding FinishCommand}" Margin="0,0,9,0"
+                                        Visibility="{Binding IsStep3, Converter={StaticResource BoolVis}}"
+                                        AutomationProperties.AutomationId="FirstRunFinishButton"/>
+                                <Button Style="{StaticResource BtnPrimary}" Content="Start my first sprint" Padding="24,10"
+                                        Command="{Binding StartCommand}"
+                                        Visibility="{Binding IsStep3, Converter={StaticResource BoolVis}}"
+                                        AutomationProperties.AutomationId="FirstRunStartButton"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <Grid>
+                            <!-- step 1: what distracts you -->
+                            <DockPanel Visibility="{Binding IsStep1, Converter={StaticResource BoolVis}}">
+                                <StackPanel DockPanel.Dock="Top">
+                                    <TextBlock Text="What pulls you away?" Style="{StaticResource H1}"/>
+                                    <TextBlock Style="{StaticResource Body}" TextWrapping="Wrap" Margin="0,8,0,14"
+                                               Text="Tick the apps FlowShield should block during a sprint. The ones on this PC are ticked for you to confirm."/>
+                                    <TextBox Style="{StaticResource Field}" Margin="0,0,0,10"
+                                             Text="{Binding Query, UpdateSourceTrigger=PropertyChanged}"
+                                             AutomationProperties.AutomationId="FirstRunSearchInput"
+                                             AutomationProperties.Name="Search apps"/>
+                                </StackPanel>
+                                <ListBox ItemsSource="{Binding Apps}" MaxHeight="300" MinHeight="160"
+                                         Background="Transparent" BorderThickness="0"
+                                         ItemContainerStyle="{StaticResource PlainItem}"
+                                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                         AutomationProperties.AutomationId="FirstRunAppList"
+                                         AutomationProperties.Name="Apps to block">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <CheckBox IsChecked="{Binding IsChecked}" IsEnabled="{Binding CanToggle}"
+                                                      Margin="0,0,0,8" VerticalContentAlignment="Center"
+                                                      AutomationProperties.AutomationId="{Binding AutomationId}"
+                                                      AutomationProperties.Name="{Binding Entry.Name}">
+                                                <Grid Margin="6,0,0,0">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <Grid Width="26" Height="26" Margin="0,0,10,0">
+                                                        <Border CornerRadius="7" Background="{StaticResource PrimarySoft}"
+                                                                Visibility="{Binding Entry.HasIcon, Converter={StaticResource InvBoolVis}}">
+                                                            <TextBlock Text="{Binding Entry.Initial}" FontWeight="SemiBold"
+                                                                       Foreground="{StaticResource Ink}"
+                                                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                        </Border>
+                                                        <Image Source="{Binding Entry.Icon}" Width="22" Height="22"/>
+                                                    </Grid>
+                                                    <StackPanel Grid.Column="1">
+                                                        <TextBlock Text="{Binding Entry.Name}" Foreground="{StaticResource Ink}"
+                                                                   FontSize="13" FontWeight="SemiBold"/>
+                                                        <TextBlock Text="{Binding Caption}" Style="{StaticResource Caption}"/>
+                                                        <TextBlock Text="{Binding Entry.Note}" Style="{StaticResource Caption}"
+                                                                   Foreground="{StaticResource Amber}" TextWrapping="Wrap"
+                                                                   Visibility="{Binding Entry.HasNote, Converter={StaticResource BoolVis}}"/>
+                                                    </StackPanel>
+                                                </Grid>
+                                            </CheckBox>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+                            </DockPanel>
+
+                            <!-- step 2: how strict -->
+                            <StackPanel Visibility="{Binding IsStep2, Converter={StaticResource BoolVis}}">
+                                <TextBlock Text="How strict should the shield be?" Style="{StaticResource H1}"/>
+                                <TextBlock Style="{StaticResource Body}" TextWrapping="Wrap" Margin="0,8,0,16"
+                                           Text="You can change this before any sprint."/>
+                                <RadioButton GroupName="FirstRunShield" Margin="0,0,0,12"
+                                             IsChecked="{Binding Shield, Converter={StaticResource EnumEq},
+                                                         ConverterParameter={x:Static models:ShieldLevel.Soft}}"
+                                             AutomationProperties.AutomationId="FirstRunShield_Soft"
+                                             AutomationProperties.Name="Soft">
+                                    <StackPanel Margin="6,0,0,0">
+                                        <TextBlock Text="Soft" Foreground="{StaticResource Ink}" FontWeight="SemiBold"/>
+                                        <TextBlock Text="Blocked apps get a nudge you can dismiss." Style="{StaticResource Caption}"/>
+                                    </StackPanel>
+                                </RadioButton>
+                                <RadioButton GroupName="FirstRunShield" Margin="0,0,0,12"
+                                             IsChecked="{Binding Shield, Converter={StaticResource EnumEq},
+                                                         ConverterParameter={x:Static models:ShieldLevel.Firm}}"
+                                             AutomationProperties.AutomationId="FirstRunShield_Firm"
+                                             AutomationProperties.Name="Firm (recommended)">
+                                    <StackPanel Margin="6,0,0,0">
+                                        <TextBlock Foreground="{StaticResource Ink}" FontWeight="SemiBold">
+                                            <Run Text="Firm"/><Run Text="  recommended" Foreground="{StaticResource Primary}" FontWeight="Normal"/>
+                                        </TextBlock>
+                                        <TextBlock Text="Blocked apps are closed on sight." Style="{StaticResource Caption}"/>
+                                    </StackPanel>
+                                </RadioButton>
+                                <RadioButton GroupName="FirstRunShield"
+                                             IsChecked="{Binding Shield, Converter={StaticResource EnumEq},
+                                                         ConverterParameter={x:Static models:ShieldLevel.Sealed}}"
+                                             AutomationProperties.AutomationId="FirstRunShield_Sealed"
+                                             AutomationProperties.Name="Sealed">
+                                    <StackPanel Margin="6,0,0,0">
+                                        <TextBlock Text="Sealed" Foreground="{StaticResource Ink}" FontWeight="SemiBold"/>
+                                        <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap"
+                                                   Text="Closed on sight, and the blocklist locks until the sprint ends. Ending early takes a 30-second wait."/>
+                                    </StackPanel>
+                                </RadioButton>
+                            </StackPanel>
+
+                            <!-- step 3: first sprint -->
+                            <StackPanel Visibility="{Binding IsStep3, Converter={StaticResource BoolVis}}">
+                                <TextBlock Text="Your first sprint" Style="{StaticResource H1}"/>
+                                <TextBlock Style="{StaticResource Body}" TextWrapping="Wrap" Margin="0,8,0,16"
+                                           Text="Pick a length. The shield runs until the time is up."/>
+                                <StackPanel Orientation="Horizontal">
+                                    <RadioButton Style="{StaticResource Segment}" GroupName="FirstRunLength" Content="25 min"
+                                                 Margin="0,0,8,0"
+                                                 IsChecked="{Binding Minutes, Converter={StaticResource IntEq}, ConverterParameter=25}"
+                                                 AutomationProperties.AutomationId="FirstRunLength_25"
+                                                 AutomationProperties.Name="25 minutes"/>
+                                    <RadioButton Style="{StaticResource Segment}" GroupName="FirstRunLength" Content="45 min"
+                                                 IsChecked="{Binding Minutes, Converter={StaticResource IntEq}, ConverterParameter=45}"
+                                                 AutomationProperties.AutomationId="FirstRunLength_45"
+                                                 AutomationProperties.Name="45 minutes"/>
+                                </StackPanel>
+                                <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding StartWithWindows}"
+                                          Margin="0,20,0,0"
+                                          AutomationProperties.AutomationId="FirstRunStartWithWindows"
+                                          AutomationProperties.Name="Start FlowShield with Windows">
+                                    <StackPanel>
+                                        <TextBlock Text="Start FlowShield with Windows" Foreground="{StaticResource Ink}"/>
+                                        <TextBlock Text="Opens quietly in the tray when you sign in, so a sprint survives a restart."
+                                                   Style="{StaticResource Caption}" TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                </CheckBox>
+                                <TextBlock Text="{Binding TrialLine}" Style="{StaticResource Caption}" Margin="0,20,0,0"
+                                           Visibility="{Binding HasTrialLine, Converter={StaticResource BoolVis}}"
+                                           AutomationProperties.AutomationId="FirstRunTrialText"/>
+                            </StackPanel>
+                        </Grid>
+                    </DockPanel>
                 </Border>
             </Border>
 

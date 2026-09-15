@@ -477,6 +477,120 @@ class TestAppPicker:
         assert "closes the whole browser" in texts.lower(), texts
 
 
+# ============================================================ first run (F18)
+
+class TestFirstRun:
+    RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
+
+    def _launch(self, logger, clean=True):
+        from desktop.app_controller import DesktopController
+
+        app = DesktopController(logger)
+        app.launch_app(clean_state=clean, show_first_run=True)
+        app.connect_window()
+        time.sleep(1.5)
+        return app
+
+    def _run_value(self):
+        import winreg
+        try:
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, self.RUN_KEY) as k:
+                return winreg.QueryValueEx(k, "FlowShield")[0]
+        except FileNotFoundError:
+            return None
+
+    def _set_run_value(self, value):
+        import winreg
+        with winreg.CreateKey(winreg.HKEY_CURRENT_USER, self.RUN_KEY) as k:
+            if value is None:
+                try:
+                    winreg.DeleteValue(k, "FlowShield")
+                except FileNotFoundError:
+                    pass
+            else:
+                winreg.SetValueEx(k, "FlowShield", 0, winreg.REG_SZ, value)
+
+    def test_completing_it_saves_every_choice_and_starts_the_sprint(self, logger):
+        saved_run = self._run_value()          # the toggle writes the real Run value
+        app = self._launch(logger)
+        try:
+            assert app.exists("FirstRunSkipButton", timeout=3), "a clean install didn't get the welcome"
+            assert app.text_of("FirstRunStepText") == "Step 1 of 3"
+
+            app.set_text("FirstRunSearchInput", "steam")
+            time.sleep(0.8)
+            app.click("FirstRunPickApp_steam")
+            app.click("FirstRunNextButton")
+            time.sleep(0.4)
+
+            assert app.text_of("FirstRunStepText") == "Step 2 of 3"
+            app.click("FirstRunShield_Sealed")
+            app.click("FirstRunNextButton")
+            time.sleep(0.4)
+
+            app.click("FirstRunLength_45")
+            app.click("FirstRunStartWithWindows")
+            assert "unlocked for 7 days" in app.text_of("FirstRunTrialText").lower()
+            app.click("FirstRunStartButton")
+            time.sleep(1.5)
+
+            assert not app.exists("FirstRunSkipButton", timeout=1), "the welcome stayed open"
+            assert app.exists("StopSprintButton", timeout=3), "the first sprint didn't start"
+
+            s = verify.read_settings()
+            steam = next(a for a in s["BlockedApps"] if a["ProcessName"].lower() == "steam")
+            assert [p.lower() for p in steam["ExtraProcessNames"]] == ["steamwebhelper"]
+            assert s["DefaultShield"] in (3, "Sealed")
+            assert s["DefaultSprintMinutes"] == 45
+            assert s["StartWithWindows"] is True and self._run_value(), "start with Windows wasn't applied"
+            assert s["FirstRunCompleted"] is True
+            active = s["ActiveSprint"]
+            assert active["PlannedMinutes"] == 45 and active["Shield"] in (3, "Sealed")
+        finally:
+            app.close_app()
+            self._set_run_value(saved_run)
+
+    def test_skipping_means_it_never_comes_back(self, logger):
+        app = self._launch(logger)
+        try:
+            app.click("FirstRunSkipButton")
+            time.sleep(0.8)
+            assert not app.exists("FirstRunSkipButton", timeout=1)
+            assert verify.read_settings()["FirstRunCompleted"] is True
+        finally:
+            app.close_app()
+
+        again = self._launch(logger, clean=False)
+        try:
+            assert not again.exists("FirstRunSkipButton", timeout=2), "the welcome came back after skipping"
+            assert again.current_page_title() == "Today"
+        finally:
+            again.close_app()
+
+    def test_settings_can_open_it_again(self, fresh_app):
+        assert not fresh_app.exists("FirstRunSkipButton", timeout=1)
+        fresh_app.navigate_to_tab("Settings")
+        fresh_app.click("ShowFirstRunButton")
+        assert fresh_app.exists("FirstRunSkipButton", timeout=3)
+        assert fresh_app.text_of("FirstRunStepText") == "Step 1 of 3"
+        fresh_app.click("FirstRunSkipButton")
+        time.sleep(0.5)
+        assert not fresh_app.exists("FirstRunSkipButton", timeout=1)
+
+    def test_a_locked_trial_never_gets_it(self, logger):
+        from desktop.app_controller import DesktopController
+
+        app = DesktopController(logger)
+        app.launch_app(clean_state=True, show_first_run=True, extra_args=["--expire-trial"])
+        app.connect_window()
+        try:
+            time.sleep(1.5)
+            assert app.exists("LockBuyButton", timeout=3)
+            assert not app.exists("FirstRunSkipButton", timeout=1), "the welcome covered the lock screen"
+        finally:
+            app.close_app()
+
+
 # ======================================================= one instance (1.3)
 
 def launch_again(*extra: str) -> int:

@@ -173,6 +173,9 @@ public class AppSettings
     public bool HardKillModeEnabled { get; set; }
     public bool MinimizeToTrayOnClose { get; set; } = true;
 
+    /// <summary>The first-run welcome (F18) has been shown, finished or skipped.</summary>
+    public bool FirstRunCompleted { get; set; }
+
     // ---- licensing ------------------------------------------------------
     public string LicenseKey { get; set; } = "";
     public string LicenseEmail { get; set; } = "";

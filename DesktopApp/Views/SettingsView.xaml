@@ -129,6 +129,12 @@
                         <Run Text="{Binding SettingsFilePath, Mode=OneWay}" Foreground="{StaticResource InkDim}"/>
                     </TextBlock>
 
+                    <Button Style="{StaticResource BtnQuiet}" Content="Show the welcome again"
+                            HorizontalAlignment="Left" Margin="-10,10,0,0"
+                            Command="{Binding DataContext.ShowFirstRunCommand,
+                                      RelativeSource={RelativeSource AncestorType=Window}}"
+                            AutomationProperties.AutomationId="ShowFirstRunButton"/>
+
                     <Button Style="{StaticResource BtnQuiet}" Content="Open diagnostic log"
                             HorizontalAlignment="Left" Margin="-10,10,0,0"
                             Command="{Binding OpenLogCommand}"

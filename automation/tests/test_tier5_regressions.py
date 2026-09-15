@@ -1040,6 +1040,38 @@ class TestActivationLinkWorks:
         assert "ViewModel.HandleLink(DeepLink.FindLink(launchArgs))" in app, "already running"
 
 
+# ============ a new user's first sprint blocked nothing (F18, #68)
+
+class TestFirstRunNeverNags:
+    """
+    New installs opened on an empty Today page, so the first sprint blocked
+    nothing. The welcome that fixes it must never reach existing users.
+    """
+
+    @staticmethod
+    def read(*parts) -> str:
+        return (Path(DESKTOP_DIR).joinpath(*parts)).read_text(encoding="utf-8")
+
+    def test_existing_users_are_marked_done_instead_of_shown(self):
+        vm = self.read("ViewModels", "FirstRunViewModel.cs")
+        show_if_new = vm.split("public void ShowIfNew()")[1].split("\n    }")[0]
+        assert show_if_new.index("IsExistingUser(s)") < show_if_new.index("ShouldShow(")
+        assert "s.FirstRunCompleted = true;" in show_if_new
+
+    def test_seen_counts_as_done(self):
+        show = self.read("ViewModels", "FirstRunViewModel.cs").split("public void Show()")[1].split("IsVisible = true;")[0]
+        assert "_main.Settings.FirstRunCompleted = true;" in show and "_main.SaveSettings();" in show
+
+    def test_decided_after_the_trial_flags(self):
+        app = self.read("App.xaml.cs")
+        assert app.index("--expire-trial") < app.index("ViewModel.FirstRun.ShowIfNew()"), \
+            "a trial expired by the flag would get the welcome over its lock screen"
+
+    def test_the_ui_suite_skips_it_unless_asked(self):
+        controller = (Path(DESKTOP_DIR).parent / "automation" / "desktop" / "app_controller.py").read_text(encoding="utf-8")
+        assert 'args.append("--skip-first-run")' in controller
+
+
 # ============ blocking Steam left steamwebhelper running (F8, #58)
 
 class TestEveryProcessOfAnAppIsBlocked:

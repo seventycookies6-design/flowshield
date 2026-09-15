@@ -97,7 +97,7 @@ roadmap item below has exactly one owner. Tracking issues: #37 (Keenan) and
 | F8 | App picker with student and gamer suggestions (Roadmap 2.2) (done, #58) | M |
 | F9 | Blocklist profiles (Roadmap 3.8) | M |
 | F16 | History and weekly view (Roadmap 3.1, 3.6) | M |
-| F18 | Three-step first run (Roadmap 2.1) | M |
+| F18 | Three-step first run (Roadmap 2.1) (done, #68) | M |
 | F19 | Native notifications and tray (Roadmap 2.5, 2.7) | S |
 | F23 | Privacy promise: in-app "Your data" and the claims test (Roadmap 4.5); Miles writes the website section | S |
 | F25 | Code signing in the release script (after the certificate is bought) | M |
@@ -568,7 +568,7 @@ The recommendation is (b) plus the honest message (F26), unless early users say 
 
 ### F18 — A three-step first run · **Launch** · M · Roadmap 2.1
 
-- [ ] Done
+- [x] Done (#68): a panel over the main window; only suggestions found on this PC are preticked (never browsers); Sealed is offered with its note, Firm selected. "Settings → Help" is the **Show the welcome again** button under Settings → Advanced. Shield wording updates with F1.
 
 **Assigned:** Keenan (seventycookies6-design), built with Claude Code
 
