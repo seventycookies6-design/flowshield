@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import os
+import struct
 import subprocess
 import sys
 import time
@@ -24,6 +25,53 @@ from core import state_verifier as verify
 
 NODE = r"C:\Program Files\nodejs\node.exe"
 NODE_EXE = NODE if Path(NODE).exists() else "node"
+
+
+# ====================== the app uses one branded icon system everywhere
+
+class TestBrandedAppIcon:
+    REQUIRED_SIZES = {16, 20, 24, 32, 40, 48, 64, 128, 256}
+
+    @staticmethod
+    def icon_sizes(path: Path) -> set[int]:
+        data = path.read_bytes()
+        reserved, image_type, count = struct.unpack_from("<HHH", data)
+        assert (reserved, image_type) == (0, 1), f"{path.name} is not a Windows icon"
+        return {
+            data[6 + index * 16] or 256
+            for index in range(count)
+        }
+
+    def test_idle_and_running_icons_have_all_required_sizes(self):
+        assets = Path(DESKTOP_DIR) / "Assets"
+        idle = assets / "FlowShield.ico"
+        running = assets / "FlowShield.Running.ico"
+
+        assert self.icon_sizes(idle) == self.REQUIRED_SIZES
+        assert self.icon_sizes(running) == self.REQUIRED_SIZES
+        assert idle.read_bytes() != running.read_bytes(), \
+            "the running tray state must be visually distinct"
+
+    def test_app_window_and_installer_use_the_brand_icon(self):
+        project = (Path(DESKTOP_DIR) / "FlowShield.csproj").read_text(encoding="utf-8")
+        window = (Path(DESKTOP_DIR) / "MainWindow.xaml").read_text(encoding="utf-8-sig")
+        pack = (Path(DESKTOP_DIR).parent / "tools" / "build_release.ps1").read_text(
+            encoding="utf-8")
+
+        assert r"<ApplicationIcon>Assets\FlowShield.ico</ApplicationIcon>" in project
+        assert 'Icon="Assets/FlowShield.ico"' in window
+        assert "--icon 'DesktopApp\\Assets\\FlowShield.ico'" in pack
+
+    def test_tray_switches_to_the_running_variant_and_disposes_both(self):
+        window = (Path(DESKTOP_DIR) / "MainWindow.xaml.cs").read_text(encoding="utf-8")
+
+        assert 'LoadIcon("FlowShield.ico")' in window
+        assert 'LoadIcon("FlowShield.Running.ico")' in window
+        assert "Vm?.Today.IsRunning == true ? _trayRunningIcon : _trayIdleIcon" in window
+        assert "nameof(TodayViewModel.IsRunning)" in window
+        assert "_trayIdleIcon?.Dispose()" in window
+        assert "_trayRunningIcon?.Dispose()" in window
+        assert "SystemIcons.Shield" not in window
 
 
 # ====================== the site only sells implemented features

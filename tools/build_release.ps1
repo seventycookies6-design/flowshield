@@ -62,6 +62,7 @@ Step "Packaging $Version"
     --mainExe 'FlowShield.exe' `
     --packTitle 'FlowShield' `
     --packAuthors 'FlowShield' `
+    --icon 'DesktopApp\Assets\FlowShield.ico' `
     --outputDir 'dist\releases'
 if ($LASTEXITCODE -ne 0) { Fail 'vpk pack failed' }
 

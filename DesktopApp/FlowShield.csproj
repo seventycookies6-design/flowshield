@@ -9,7 +9,7 @@
     <UseWindowsForms>true</UseWindowsForms>
     <AssemblyName>FlowShield</AssemblyName>
     <RootNamespace>FlowShield</RootNamespace>
-    <ApplicationIcon></ApplicationIcon>
+    <ApplicationIcon>Assets\FlowShield.ico</ApplicationIcon>
     <Version>1.0.0</Version>
     <Product>FlowShield</Product>
     <Company>FlowShield</Company>
@@ -27,6 +27,11 @@
          Program.Main above. -->
     <ApplicationDefinition Remove="App.xaml" />
     <Page Include="App.xaml" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets\FlowShield.ico" />
+    <Resource Include="Assets\FlowShield.Running.ico" />
   </ItemGroup>
 
   <ItemGroup>
