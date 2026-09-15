@@ -158,3 +158,17 @@ has never run on a clean machine without .NET or developer tooling present.
 These are deliberately separate. The installer **deletes** its own directory on
 install and uninstall — settings kept there would take the customer's licence
 key with them. An earlier build did exactly that; `tier5` now guards it.
+
+Uninstalling also removes FlowShield's two registry entries, both under the
+user's own `HKEY_CURRENT_USER`: the *Start with Windows* value in
+`Software\Microsoft\Windows\CurrentVersion\Run` and the `flowshield://` link in
+`Software\Classes\flowshield`.
+
+**Deleting everything (for customers who ask):**
+
+1. If FlowShield was bought and this device should free its seat, open
+   *Settings → Deactivate* first.
+2. Uninstall FlowShield from *Windows Settings → Apps*.
+3. Press `Win+R`, enter `%APPDATA%\FlowShield`, and delete that folder. This
+   removes settings, sprint history, the saved licence key and logs. The licence
+   itself isn't cancelled: keep a copy of the key to activate it again later.
