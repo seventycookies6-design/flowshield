@@ -25,7 +25,7 @@ public static class Program
             VelopackApp.Build()
                 .OnAfterInstallFastCallback(_ => RegisterLink())
                 .OnAfterUpdateFastCallback(_ => RegisterLink())
-                .OnBeforeUninstallFastCallback(_ => DeepLink.Unregister())
+                .OnBeforeUninstallFastCallback(_ => Uninstall.CleanUp())
                 .Run();
         }
         catch (Exception ex)

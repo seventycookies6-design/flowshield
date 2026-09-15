@@ -1015,7 +1015,7 @@ class TestActivationLinkWorks:
         program = self.read("Program.cs")
         assert ".OnAfterInstallFastCallback(_ => RegisterLink())" in program
         assert ".OnAfterUpdateFastCallback(_ => RegisterLink())" in program
-        assert ".OnBeforeUninstallFastCallback(_ => DeepLink.Unregister())" in program
+        assert ".OnBeforeUninstallFastCallback(_ => Uninstall.CleanUp())" in program
         link = self.read("Services", "DeepLink.cs")
         assert r'@"Software\Classes\" + Scheme' in link, "must be per user (HKCU), never machine-wide"
         assert "Registry.LocalMachine" not in link
@@ -1038,6 +1038,81 @@ class TestActivationLinkWorks:
         app = self.read("App.xaml.cs")
         assert "ViewModel.HandleLink(DeepLink.FindLink(args))" in app, "cold start"
         assert "ViewModel.HandleLink(DeepLink.FindLink(launchArgs))" in app, "already running"
+
+
+# ============ uninstalling left registry entries behind (roadmap 1.5, #54)
+
+class TestUninstallCleansUp:
+    """
+    Velopack deletes the app folder but not the registry, so "Start with
+    Windows" pointed at a missing exe on every sign-in, and flowshield:// at nothing.
+    """
+
+    RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
+    LINK_KEY = r"Software\Classes\flowshield"
+
+    def test_the_uninstall_hook_removes_both_entries(self):
+        uninstall = (Path(DESKTOP_DIR) / "Services" / "StartupEntry.cs").read_text(encoding="utf-8")
+        clean_up = uninstall.split("public static void CleanUp()")[1].split("\n    }")[0]
+        assert "StartupEntry.Set(false)" in clean_up and "DeepLink.Unregister()" in clean_up
+        assert "APPDATA" not in clean_up and "Directory.Delete" not in clean_up, \
+            "uninstall must keep the user's licence and history"
+
+    def test_running_the_real_uninstall_hook_removes_them(self):
+        """Runs the built exe the way Velopack's uninstaller does, with the real registry restored after."""
+        import subprocess
+        import winreg
+
+        from config import APP_EXE
+        from core.settings_guard import preserve_user_settings
+
+        if not Path(APP_EXE).exists():
+            pytest.skip("build the app first")
+
+        def read_run():
+            try:
+                with winreg.OpenKey(winreg.HKEY_CURRENT_USER, self.RUN_KEY) as k:
+                    return winreg.QueryValueEx(k, "FlowShield")[0]
+            except FileNotFoundError:
+                return None
+
+        def link_exists():
+            try:
+                winreg.CloseKey(winreg.OpenKey(winreg.HKEY_CURRENT_USER, self.LINK_KEY))
+                return True
+            except FileNotFoundError:
+                return False
+
+        def link_command():
+            try:
+                with winreg.OpenKey(winreg.HKEY_CURRENT_USER, self.LINK_KEY + r"\shell\open\command") as k:
+                    return winreg.QueryValueEx(k, "")[0]
+            except FileNotFoundError:
+                return None
+
+        saved_run, saved_link = read_run(), link_command()
+        try:
+            with winreg.CreateKey(winreg.HKEY_CURRENT_USER, self.RUN_KEY) as k:
+                winreg.SetValueEx(k, "FlowShield", 0, winreg.REG_SZ, f'"{APP_EXE}" --tray')
+            with winreg.CreateKey(winreg.HKEY_CURRENT_USER, self.LINK_KEY + r"\shell\open\command") as k:
+                winreg.SetValueEx(k, "", 0, winreg.REG_SZ, f'"{APP_EXE}" "%1"')
+
+            with preserve_user_settings():
+                result = subprocess.run([str(APP_EXE), "--veloapp-uninstall", "1.0.0"],
+                                        cwd=str(Path(APP_EXE).parent), timeout=60)
+            assert result.returncode == 0
+            assert read_run() is None, "Start with Windows survived uninstall"
+            assert not link_exists(), "flowshield:// survived uninstall"
+        finally:
+            if saved_run is not None:
+                with winreg.CreateKey(winreg.HKEY_CURRENT_USER, self.RUN_KEY) as k:
+                    winreg.SetValueEx(k, "FlowShield", 0, winreg.REG_SZ, saved_run)
+            if saved_link is not None:
+                with winreg.CreateKey(winreg.HKEY_CURRENT_USER, self.LINK_KEY + r"\shell\open\command") as k:
+                    winreg.SetValueEx(k, "", 0, winreg.REG_SZ, saved_link)
+                with winreg.CreateKey(winreg.HKEY_CURRENT_USER, self.LINK_KEY) as k:
+                    winreg.SetValueEx(k, "", 0, winreg.REG_SZ, "URL:FlowShield")
+                    winreg.SetValueEx(k, "URL Protocol", 0, winreg.REG_SZ, "")
 
 
 # ============ opening FlowShield twice ran two copies (roadmap 1.3, #49)

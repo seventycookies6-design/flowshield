@@ -7,9 +7,6 @@ namespace FlowShield.ViewModels;
 
 public class SettingsViewModel : ViewModelBase
 {
-    private const string RunKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
-    private const string RunValueName = "FlowShield";
-
     private readonly MainViewModel _main;
     private readonly LicenseService _license;
 
@@ -283,29 +280,7 @@ public class SettingsViewModel : ViewModelBase
 
     public string SettingsFilePath => _main.SettingsService.SettingsPath;
 
-    private static void ApplyStartWithWindows(bool enabled)
-    {
-        try
-        {
-            using var key = Registry.CurrentUser.OpenSubKey(RunKey, writable: true);
-            if (key is null) return;
-
-            if (enabled)
-            {
-                var exe = Environment.ProcessPath;
-                if (!string.IsNullOrEmpty(exe)) key.SetValue(RunValueName, $"\"{exe}\" --tray");
-            }
-            else
-            {
-                key.DeleteValue(RunValueName, throwOnMissingValue: false);
-            }
-            Log.Info($"start-with-Windows {(enabled ? "registered" : "removed")}");
-        }
-        catch (Exception ex)
-        {
-            Log.Error("could not update the Run key", ex);
-        }
-    }
+    private static void ApplyStartWithWindows(bool enabled) => StartupEntry.Set(enabled);
 
     private void OpenLog() => _main.OpenUrl(Log.Path);
 }
