@@ -162,8 +162,8 @@ public class AppBlockerService : IDisposable
         var targets = new Dictionary<string, BlockedApp>(StringComparer.OrdinalIgnoreCase);
         foreach (var app in candidates)
         {
-            if (!app.IsEnabled || string.IsNullOrWhiteSpace(app.ProcessName)) continue;
-            targets[app.ProcessName.Trim()] = app;
+            if (!app.IsEnabled) continue;
+            foreach (var processName in app.AllProcessNames) targets[processName] = app;
         }
 
         if (targets.Count == 0) return;

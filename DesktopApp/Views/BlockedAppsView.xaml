@@ -30,7 +30,7 @@
                                 AutomationProperties.AutomationId="AddAppButton"
                                 AutomationProperties.Name="Add blocked app"/>
                     </Grid>
-                    <TextBlock Text="Type a process name — “slack”, “steam”, “chrome” — or paste a full path to an .exe."
+                    <TextBlock Text="Find your app on the right, or type a process name here (“steam”) or paste the path to an .exe."
                                Style="{StaticResource Caption}" Margin="2,8,0,0"/>
                 </StackPanel>
 
@@ -90,7 +90,7 @@
                                         <TextBlock Text="{Binding DisplayName}" Foreground="{StaticResource Ink}"
                                                    FontSize="13.5" FontWeight="SemiBold"/>
                                         <TextBlock Style="{StaticResource Caption}">
-                                            <Run Text="{Binding ProcessName, Mode=OneWay}"/><Run Text=".exe"/>
+                                            <Run Text="{Binding ProcessSummary, Mode=OneWay}"/>
                                         </TextBlock>
                                     </StackPanel>
 
@@ -119,32 +119,78 @@
             </DockPanel>
         </Border>
 
-        <!-- ============================================== running processes -->
+        <!-- ====================================================== app picker (F8) -->
         <Border Grid.Column="1" Style="{StaticResource Card}" Padding="20">
             <DockPanel>
                 <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
                     <Grid>
-                        <TextBlock Text="RUNNING NOW" Style="{StaticResource Eyebrow}" VerticalAlignment="Center"/>
+                        <TextBlock Text="FIND AN APP" Style="{StaticResource Eyebrow}" VerticalAlignment="Center"/>
                         <Button Style="{StaticResource BtnQuiet}" Content="↻" FontSize="14"
                                 HorizontalAlignment="Right" Padding="6,0"
                                 Command="{Binding RefreshRunningCommand}"
                                 AutomationProperties.AutomationId="RefreshProcessesButton"
-                                AutomationProperties.Name="Refresh running processes"/>
+                                AutomationProperties.Name="Refresh installed and running apps"/>
                     </Grid>
-                    <TextBlock Text="Protected system processes are hidden — FlowShield will never close those."
-                               Style="{StaticResource Caption}" Margin="0,6,0,0"/>
+                    <TextBox Style="{StaticResource Field}" Margin="0,9,0,0"
+                             Text="{Binding PickerQuery, UpdateSourceTrigger=PropertyChanged}"
+                             IsEnabled="{Binding IsEditable}"
+                             AutomationProperties.AutomationId="AppSearchInput"
+                             AutomationProperties.Name="Search apps"
+                             AutomationProperties.HelpText="Discord, Steam, Minecraft…"/>
+                    <TextBlock Text="{Binding PickerNotice}" Style="{StaticResource Caption}" TextWrapping="Wrap"
+                               Foreground="{StaticResource Amber}" Margin="2,8,0,0"
+                               Visibility="{Binding HasPickerNotice, Converter={StaticResource BoolVis}}"
+                               AutomationProperties.AutomationId="AppSearchNotice"/>
                 </StackPanel>
 
-                <Button DockPanel.Dock="Bottom" Style="{StaticResource BtnGhost}" Content="Block selected"
-                        Command="{Binding AddRunningCommand}" Margin="0,12,0,0"
-                        AutomationProperties.AutomationId="BlockSelectedProcessButton"/>
-
-                <ListBox ItemsSource="{Binding RunningProcesses}"
-                         SelectedItem="{Binding SelectedRunning}"
+                <ListBox ItemsSource="{Binding PickerResults}"
                          Background="Transparent" BorderThickness="0"
-                         ItemContainerStyle="{StaticResource PickerItem}"
-                         AutomationProperties.AutomationId="RunningProcessesList"
-                         AutomationProperties.Name="Running processes"/>
+                         ItemContainerStyle="{StaticResource PlainItem}"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         VirtualizingPanel.IsVirtualizing="True"
+                         AutomationProperties.AutomationId="AppPickerList"
+                         AutomationProperties.Name="Apps you can block">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <Grid Margin="0,0,0,8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+
+                                <Grid Grid.Column="0" Width="28" Height="28" Margin="0,0,10,0" VerticalAlignment="Top">
+                                    <Border CornerRadius="8" Background="{StaticResource PrimarySoft}"
+                                            Visibility="{Binding HasIcon, Converter={StaticResource InvBoolVis}}">
+                                        <TextBlock Text="{Binding Initial}" FontWeight="SemiBold"
+                                                   Foreground="{StaticResource Ink}"
+                                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Border>
+                                    <Image Source="{Binding Icon}" Width="24" Height="24"
+                                           RenderOptions.BitmapScalingMode="HighQuality"/>
+                                </Grid>
+
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding Name}" Foreground="{StaticResource Ink}"
+                                               FontSize="13" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock Text="{Binding SourceLabel}" Style="{StaticResource Caption}"/>
+                                    <TextBlock Text="{Binding Note}" Style="{StaticResource Caption}" TextWrapping="Wrap"
+                                               Foreground="{StaticResource Amber}"
+                                               Visibility="{Binding HasNote, Converter={StaticResource BoolVis}}"/>
+                                </StackPanel>
+
+                                <Button Grid.Column="2" Style="{StaticResource BtnGhost}" Padding="12,5"
+                                        VerticalAlignment="Top" Margin="8,0,0,0"
+                                        Content="{Binding ActionLabel}"
+                                        Command="{Binding DataContext.PickCommand,
+                                                  RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                        CommandParameter="{Binding}"
+                                        AutomationProperties.AutomationId="{Binding AutomationId}"
+                                        AutomationProperties.Name="{Binding ActionName}"/>
+                            </Grid>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
             </DockPanel>
         </Border>
     </Grid>

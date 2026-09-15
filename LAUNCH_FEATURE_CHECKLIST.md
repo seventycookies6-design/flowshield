@@ -94,7 +94,7 @@ roadmap item below has exactly one owner. Tracking issues: #37 (Keenan) and
 | F4 | Start a sprint from the tray or keyboard (Roadmap 3.9) | S |
 | F5 | Breaks and study cycles (Roadmap 3.4) | M |
 | F6 | Study templates and scheduled sprints | M |
-| F8 | App picker with student and gamer suggestions (Roadmap 2.2) | M |
+| F8 | App picker with student and gamer suggestions (Roadmap 2.2) (done, #58) | M |
 | F9 | Blocklist profiles (Roadmap 3.8) | M |
 | F16 | History and weekly view (Roadmap 3.1, 3.6) | M |
 | F18 | Three-step first run (Roadmap 2.1) | M |
@@ -362,7 +362,7 @@ A summary of the research, to explain the choices below.
 
 ### F8 — An app picker built for students and gamers · **Launch** · M · Roadmap 2.2
 
-- [ ] Done
+- [x] Done (#58): browsers included with the whole-browser warning; existing single-process entries are upgraded to the full app. Process names marked `"verified": false` in `DesktopApp/Data/app_suggestions.json` still need checking on a clean install.
 
 **Assigned:** Keenan (seventycookies6-design), built with Claude Code
 

@@ -1040,6 +1040,65 @@ class TestActivationLinkWorks:
         assert "ViewModel.HandleLink(DeepLink.FindLink(launchArgs))" in app, "already running"
 
 
+# ============ blocking Steam left steamwebhelper running (F8, #58)
+
+class TestEveryProcessOfAnAppIsBlocked:
+    """
+    A blocklist entry held one process name, so blocking Steam closed steam.exe
+    and left steamwebhelper (the store and chat windows) running.
+    """
+
+    @staticmethod
+    def read(*parts) -> str:
+        return (Path(DESKTOP_DIR).joinpath(*parts)).read_text(encoding="utf-8")
+
+    def test_the_blocker_matches_every_process_of_an_entry(self):
+        blocker = self.read("Services", "AppBlockerService.cs")
+        assert "foreach (var processName in app.AllProcessNames) targets[processName] = app;" in blocker
+
+    def test_old_single_process_entries_are_upgraded_on_load(self):
+        vm = self.read("ViewModels", "BlockedAppsViewModel.cs")
+        ctor = vm.split("public BlockedAppsViewModel(MainViewModel main)")[1].split("\n    }")[0]
+        assert "UpgradeToFullSuggestions(main.Settings.BlockedApps)" in ctor
+        assert ctor.index("UpgradeToFullSuggestions") < ctor.index("Apps = new ObservableCollection")
+
+    def test_older_settings_files_still_load(self):
+        model = self.read("Models", "AppSettings.cs")
+        assert "public List<string> ExtraProcessNames { get; set; } = new();" in model
+
+    @pytest.mark.ui
+    def test_a_firm_sprint_closes_steams_helper_too(self, fresh_app, tmp_path):
+        import shutil
+        import subprocess
+
+        import psutil
+
+        # A harmless stand-in: Windows' own ping, renamed to Steam's helper.
+        helper = tmp_path / "steamwebhelper.exe"
+        shutil.copy(Path(r"C:\Windows\System32\PING.EXE"), helper)
+        proc = subprocess.Popen([str(helper), "-n", "600", "127.0.0.1"],
+                                stdout=subprocess.DEVNULL, creationflags=subprocess.CREATE_NO_WINDOW)
+        try:
+            fresh_app.navigate_to_tab("Blocked Apps")
+            fresh_app.set_text("AppSearchInput", "steam")
+            time.sleep(0.6)
+            fresh_app.click("PickApp_steam")
+            time.sleep(0.8)
+
+            fresh_app.navigate_to_tab("Today")
+            fresh_app.select_shield("Firm")
+            time.sleep(0.4)
+            fresh_app.start_sprint()
+
+            deadline = time.time() + 15
+            while time.time() < deadline and psutil.pid_exists(proc.pid) and proc.poll() is None:
+                time.sleep(0.5)
+            assert proc.poll() is not None, "steamwebhelper kept running during a Firm sprint on Steam"
+        finally:
+            if proc.poll() is None:
+                proc.kill()
+
+
 # ============ uninstalling left registry entries behind (roadmap 1.5, #54)
 
 class TestUninstallCleansUp:

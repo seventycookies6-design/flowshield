@@ -13,24 +13,183 @@ public class BlockedAppsViewModel : ViewModelBase
     public BlockedAppsViewModel(MainViewModel main)
     {
         _main = main;
+        if (UpgradeToFullSuggestions(main.Settings.BlockedApps)) main.SettingsService.Save(main.Settings);
         Apps = new ObservableCollection<BlockedApp>(main.Settings.BlockedApps);
 
         AddCommand = new RelayCommand(AddApp, CanAdd);
         RemoveCommand = new RelayCommand(p => RemoveApp(p as BlockedApp), p => p is BlockedApp && !IsSealed);
-        RefreshRunningCommand = new RelayCommand(LoadRunningProcesses);
-        AddRunningCommand = new RelayCommand(AddSelectedRunning, () => SelectedRunning is not null && CanAdd());
+        RefreshRunningCommand = new RelayCommand(RefreshPicker);
+        PickCommand = new RelayCommand(p => Pick(p as PickerEntry),
+            p => p is PickerEntry { IsAdded: false } && IsEditable && !_main.IsLocked);
 
-        LoadRunningProcesses();
+        _allEntries = AppPicker.Suggestions(IsProtected);
+        ApplyFilter();
+        RefreshPicker();
         RefreshStatus();
     }
 
     public ObservableCollection<BlockedApp> Apps { get; }
-    public ObservableCollection<string> RunningProcesses { get; } = new();
 
     public RelayCommand AddCommand { get; }
     public RelayCommand RemoveCommand { get; }
     public RelayCommand RefreshRunningCommand { get; }
-    public RelayCommand AddRunningCommand { get; }
+    public RelayCommand PickCommand { get; }
+
+    // ----------------------------------------------------------- picker (F8)
+
+    private List<PickerEntry> _allEntries;
+
+    /// <summary>What the picker shows for the current search.</summary>
+    public ObservableCollection<PickerEntry> PickerResults { get; } = new();
+
+    private string _pickerQuery = "";
+    public string PickerQuery
+    {
+        get => _pickerQuery;
+        set { if (Set(ref _pickerQuery, value)) ApplyFilter(); }
+    }
+
+    private string _pickerNotice = "";
+    /// <summary>Explains an empty or protected search.</summary>
+    public string PickerNotice
+    {
+        get => _pickerNotice;
+        private set { if (Set(ref _pickerNotice, value)) Raise(nameof(HasPickerNotice)); }
+    }
+
+    public bool HasPickerNotice => PickerNotice.Length > 0;
+
+    private static bool IsProtected(string processName) =>
+        AppBlockerService.CriticalProcesses.Contains(NormalizeProcessName(processName));
+
+    private void RefreshPicker()
+    {
+        var suggestions = AppPicker.Suggestions(IsProtected);
+        Task.Run(() =>
+        {
+            var discovered = AppCatalog.Discover();
+            var merged = AppPicker.Merge(suggestions, discovered, IsProtected);
+            var icons = merged.Select(e => (Entry: e, Icon: AppCatalog.IconFor(e.ExePath))).ToList();
+            Log.Info($"app picker: {discovered.Count} found on this PC, {merged.Count} listed, "
+                     + $"{icons.Count(i => i.Icon is not null)} with icons");
+            System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
+            {
+                foreach (var (entry, icon) in icons) entry.Icon = icon;
+                _allEntries = merged;
+                ApplyFilter();
+            });
+        });
+    }
+
+    private void ApplyFilter()
+    {
+        var results = AppPicker.Filter(_allEntries, PickerQuery);
+        PickerResults.Clear();
+        foreach (var entry in results)
+        {
+            entry.IsAdded = IsOnList(entry);
+            PickerResults.Add(entry);
+        }
+
+        var query = NormalizeProcessName(PickerQuery ?? "");
+        PickerNotice = query.Length > 0 && IsProtected(query)
+            ? AppPicker.ProtectedMessage
+            : results.Count == 0 && query.Length > 0
+                ? $"No app called “{PickerQuery!.Trim()}” found. Type its process name in the box on the left."
+                : "";
+    }
+
+    private bool IsOnList(PickerEntry entry) =>
+        entry.Processes.All(p => Apps.Any(a => a.AllProcessNames.Contains(p, StringComparer.OrdinalIgnoreCase)));
+
+    private void Pick(PickerEntry? entry)
+    {
+        if (entry is null || !CanEdit()) return;
+        var added = AddProcesses(entry.Name, entry.Processes, entry.ExePath);
+        if (added) _main.Toast($"{entry.Name} is on the shield.");
+        ApplyFilter();
+    }
+
+    /// <summary>
+    /// Adds an app with all its processes, or tops up the entry that already
+    /// has one of them. Returns false if nothing changed.
+    /// </summary>
+    private bool AddProcesses(string name, IEnumerable<string> processes, string? iconPath)
+    {
+        var names = processes.Select(NormalizeProcessName)
+            .Where(p => p.Length > 0 && !IsProtected(p))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (names.Count == 0) return false;
+
+        var existing = Apps.FirstOrDefault(a =>
+            a.AllProcessNames.Any(p => names.Contains(p, StringComparer.OrdinalIgnoreCase)));
+        if (existing is not null)
+        {
+            var missing = names.Where(n => !existing.AllProcessNames.Contains(n, StringComparer.OrdinalIgnoreCase)).ToList();
+            if (missing.Count == 0)
+            {
+                _main.Toast($"{existing.DisplayName} is already on the list.");
+                return false;
+            }
+            existing.ExtraProcessNames.AddRange(missing);
+            existing.IconPath ??= iconPath;
+        }
+        else
+        {
+            var app = new BlockedApp
+            {
+                Name = name,
+                ProcessName = names[0],
+                ExtraProcessNames = names.Skip(1).ToList(),
+                IconPath = iconPath,
+                IsEnabled = true,
+            };
+            Apps.Add(app);
+            _main.Settings.BlockedApps.Add(app);
+        }
+
+        _main.SaveSettings();
+        RefreshStatus();
+        Log.Info($"blocked app added: {string.Join(", ", names)}");
+        return true;
+    }
+
+    /// <summary>
+    /// Gives existing single-process entries the rest of their app's processes,
+    /// so a Steam block saved before F8 stops leaking through steamwebhelper.
+    /// </summary>
+    public static bool UpgradeToFullSuggestions(List<BlockedApp> apps)
+    {
+        var changed = false;
+        foreach (var app in apps)
+        {
+            var suggestion = AppPicker.SuggestionFor(app.ProcessName, IsProtected);
+            if (suggestion is null) continue;
+            foreach (var process in suggestion.Processes)
+            {
+                if (app.AllProcessNames.Contains(process, StringComparer.OrdinalIgnoreCase)) continue;
+                app.ExtraProcessNames.Add(process);
+                changed = true;
+            }
+        }
+        return changed;
+    }
+
+    private bool CanEdit()
+    {
+        if (IsSealed)
+        {
+            _main.Toast("The blocklist is sealed until this sprint ends.");
+            return false;
+        }
+        if (_main.IsLocked)
+        {
+            _main.Toast("Your free trial has ended. Buy FlowShield to edit the blocklist.");
+            return false;
+        }
+        return true;
+    }
 
     private string _newAppName = "";
     public string NewAppName
@@ -48,9 +207,6 @@ public class BlockedAppsViewModel : ViewModelBase
             System.Windows.Input.CommandManager.InvalidateRequerySuggested();
         }
     }
-
-    private string? _selectedRunning;
-    public string? SelectedRunning { get => _selectedRunning; set => Set(ref _selectedRunning, value); }
 
     private BlockedApp? _selectedApp;
     public BlockedApp? SelectedApp { get => _selectedApp; set => Set(ref _selectedApp, value); }
@@ -73,17 +229,7 @@ public class BlockedAppsViewModel : ViewModelBase
         var raw = (NewAppName ?? "").Trim();
         if (raw.Length == 0) return;
 
-        if (IsSealed)
-        {
-            _main.Toast("The blocklist is sealed until this sprint ends.");
-            return;
-        }
-
-        if (_main.IsLocked)
-        {
-            _main.Toast("Your free trial has ended. Buy FlowShield to edit the blocklist.");
-            return;
-        }
+        if (!CanEdit()) return;
 
         var processName = NormalizeProcessName(raw);
 
@@ -93,33 +239,16 @@ public class BlockedAppsViewModel : ViewModelBase
             return;
         }
 
-        if (Apps.Any(a => string.Equals(a.ProcessName, processName, StringComparison.OrdinalIgnoreCase)))
-        {
-            _main.Toast($"{processName} is already on the list.");
-            return;
-        }
+        // Typing "steam" gets the whole of Steam, with the typed name kept first.
+        var suggestion = AppPicker.SuggestionFor(processName, IsProtected);
+        var processes = suggestion is null
+            ? new List<string> { processName }
+            : suggestion.Processes.Where(p => !p.Equals(processName, StringComparison.OrdinalIgnoreCase))
+                .Prepend(processName).ToList();
 
-        var app = new BlockedApp
-        {
-            Name = Prettify(processName),
-            ProcessName = processName,
-            IsEnabled = true,
-        };
-
-        Apps.Add(app);
-        _main.Settings.BlockedApps.Add(app);
-        _main.SaveSettings();
-
-        NewAppName = "";
-        RefreshStatus();
-        Log.Info($"blocked app added: {processName}");
-    }
-
-    private void AddSelectedRunning()
-    {
-        if (SelectedRunning is null) return;
-        NewAppName = SelectedRunning;
-        AddApp();
+        if (AddProcesses(suggestion?.Name ?? Prettify(processName), processes, null))
+            NewAppName = "";
+        ApplyFilter();
     }
 
     private void RemoveApp(BlockedApp? app)
@@ -136,6 +265,7 @@ public class BlockedAppsViewModel : ViewModelBase
             string.Equals(a.ProcessName, app.ProcessName, StringComparison.OrdinalIgnoreCase));
         _main.SaveSettings();
         RefreshStatus();
+        ApplyFilter();
         Log.Info($"blocked app removed: {app.ProcessName}");
     }
 
@@ -144,31 +274,6 @@ public class BlockedAppsViewModel : ViewModelBase
         app.IsEnabled = !app.IsEnabled;
         _main.SaveSettings();
         RefreshStatus();
-    }
-
-    private void LoadRunningProcesses()
-    {
-        RunningProcesses.Clear();
-        try
-        {
-            var names = Process.GetProcesses()
-                .Select(p =>
-                {
-                    try { return p.ProcessName; } catch { return null; }
-                    finally { p.Dispose(); }
-                })
-                .Where(n => !string.IsNullOrWhiteSpace(n))
-                .Select(n => n!)
-                .Where(n => !AppBlockerService.CriticalProcesses.Contains(n))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .OrderBy(n => n, StringComparer.OrdinalIgnoreCase);
-
-            foreach (var n in names) RunningProcesses.Add(n);
-        }
-        catch (Exception ex)
-        {
-            Log.Error("failed to enumerate running processes", ex);
-        }
     }
 
     public void RefreshStatus()

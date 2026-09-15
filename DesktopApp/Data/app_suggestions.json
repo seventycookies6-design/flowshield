@@ -1,0 +1,52 @@
+{
+  "_about": "Suggested apps for the Blocked Apps picker (launch checklist F8). Each app lists every process it runs, without .exe. 'verified': false marks process names still to be confirmed on a clean install (issue #53). Never list anything on AppBlockerService.CriticalProcesses; tier 1 checks.",
+  "groups": [
+    {
+      "name": "Chat",
+      "apps": [
+        { "name": "Discord", "processes": ["Discord"], "verified": true },
+        { "name": "Slack", "processes": ["slack"], "verified": true },
+        { "name": "WhatsApp", "processes": ["WhatsApp", "WhatsApp.Root"], "verified": false },
+        { "name": "Telegram", "processes": ["Telegram"], "verified": true },
+        { "name": "Messenger", "processes": ["Messenger"], "verified": false }
+      ]
+    },
+    {
+      "name": "Games & launchers",
+      "apps": [
+        { "name": "Steam", "processes": ["steam", "steamwebhelper"], "verified": true },
+        { "name": "Epic Games Launcher", "processes": ["EpicGamesLauncher", "EpicWebHelper"], "verified": true },
+        { "name": "Battle.net", "processes": ["Battle.net"], "verified": true },
+        { "name": "Riot Client", "processes": ["RiotClientServices", "RiotClientUx", "RiotClientUxRender"], "verified": true },
+        { "name": "League of Legends", "processes": ["LeagueClient", "LeagueClientUx", "LeagueClientUxRender", "League of Legends"], "verified": true },
+        { "name": "VALORANT", "processes": ["VALORANT", "VALORANT-Win64-Shipping"], "verified": true },
+        { "name": "Minecraft Launcher", "processes": ["MinecraftLauncher", "Minecraft.Windows"], "verified": false },
+        { "name": "Roblox", "processes": ["RobloxPlayerBeta"], "verified": true },
+        { "name": "Fortnite", "processes": ["FortniteClient-Win64-Shipping", "FortniteLauncher"], "verified": true },
+        { "name": "EA app", "processes": ["EADesktop"], "verified": true },
+        { "name": "Ubisoft Connect", "processes": ["UbisoftConnect", "upc"], "verified": true },
+        { "name": "Xbox app", "processes": ["XboxPcApp"], "verified": false }
+      ]
+    },
+    {
+      "name": "Video & music",
+      "apps": [
+        { "name": "Netflix", "processes": ["Netflix"], "verified": false },
+        { "name": "Disney+", "processes": ["DisneyPlus"], "verified": false },
+        { "name": "Spotify", "processes": ["Spotify"], "verified": true },
+        { "name": "Twitch Studio", "processes": ["Twitch Studio"], "verified": false }
+      ]
+    },
+    {
+      "name": "Browsers",
+      "note": "Closes the whole browser, every tab and window.",
+      "apps": [
+        { "name": "Google Chrome", "processes": ["chrome"], "verified": true },
+        { "name": "Microsoft Edge", "processes": ["msedge"], "verified": true },
+        { "name": "Firefox", "processes": ["firefox"], "verified": true },
+        { "name": "Opera GX", "processes": ["opera"], "verified": true },
+        { "name": "Brave", "processes": ["brave"], "verified": true }
+      ]
+    }
+  ]
+}

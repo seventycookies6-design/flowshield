@@ -36,6 +36,26 @@ public class BlockedApp : INotifyPropertyChanged
     /// <summary>Process name without extension, e.g. "slack". Matched case-insensitively.</summary>
     public string ProcessName { get; set; } = "";
 
+    /// <summary>
+    /// The app's other processes, e.g. steamwebhelper for Steam (F8). Without
+    /// them, blocking Steam left its helper running. Empty in older settings files.
+    /// </summary>
+    public List<string> ExtraProcessNames { get; set; } = new();
+
+    /// <summary>Where the icon came from, if known. Display only.</summary>
+    public string? IconPath { get; set; }
+
+    /// <summary>Every process name this entry blocks.</summary>
+    [JsonIgnore]
+    public IEnumerable<string> AllProcessNames =>
+        new[] { ProcessName }.Concat(ExtraProcessNames)
+            .Where(n => !string.IsNullOrWhiteSpace(n))
+            .Select(n => n.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase);
+
+    [JsonIgnore]
+    public string ProcessSummary => string.Join(", ", AllProcessNames.Select(n => n + ".exe"));
+
     private bool _isEnabled = true;
     public bool IsEnabled
     {
