@@ -270,6 +270,7 @@
         seal.innerHTML = iconCheck();
       }
       if (title) title.textContent = 'FlowShield is yours';
+      var canEmail = !!result.email && result.emailConfigured !== false;
       if (blurb) {
         // Only claim an email was sent when the server actually reports one.
         // The page must never promise delivery it cannot vouch for.
@@ -277,7 +278,9 @@
         // account's receipt emails are switched on, which this page can't see.
         var mailed = result.emailSent
           ? ' A copy is on its way to <b>' + escapeHtml(result.email || 'your inbox') + '</b>.'
-          : ' Save this key now — it isn’t emailed to you.';
+          : canEmail
+            ? ' You can copy the key, have it emailed to you, or activate it below.'
+            : ' You can copy the key or activate it below.';
 
         blurb.innerHTML =
           'Payment received' +
@@ -287,6 +290,11 @@
       }
       if (keyVal) keyVal.textContent = result.licenseKey;
       if (actions) actions.style.display = 'flex';
+      // Only offer "Email me this key" when the server says it can send mail
+      // and knows the buyer's address; a button that always fails is worse
+      // than none.
+      var emailKeyBtn = document.getElementById('email-key');
+      if (emailKeyBtn && !canEmail) emailKeyBtn.style.display = 'none';
 
       // Expose for the automation suite to read deterministically.
       document.body.setAttribute('data-license-key', result.licenseKey);
@@ -369,6 +377,41 @@
         } catch (e) {
           if (note) note.textContent = 'Select the key above and copy it manually.';
         }
+      });
+    }
+
+    var emailBtn = document.getElementById('email-key');
+    if (emailBtn) {
+      emailBtn.addEventListener('click', async function () {
+        var note = document.getElementById('email-note');
+        var sessionId = params.get('session_id') || '';
+        var license = window.FlowShield && window.FlowShield.license;
+        var email = (license && license.email) || '';
+        if (!email) {
+          if (note) note.textContent = 'No email address available for this purchase.';
+          return;
+        }
+        emailBtn.disabled = true;
+        emailBtn.textContent = 'Sending…';
+        try {
+          var res = await fetch(SERVER + '/resend-license', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: email, sessionId: sessionId }),
+          });
+          var payload = null;
+          try { payload = await res.json(); } catch (e) { /* non-JSON */ }
+          if (res.ok && payload && payload.ok !== false) {
+            if (note) note.textContent = 'Key sent to ' + email + '.';
+          } else {
+            var msg = (payload && payload.message) || 'Could not send the email. Please try again.';
+            if (note) note.textContent = msg;
+          }
+        } catch (err) {
+          if (note) note.textContent = 'Could not reach the license server.';
+        }
+        emailBtn.disabled = false;
+        emailBtn.textContent = 'Email me this key';
       });
     }
 

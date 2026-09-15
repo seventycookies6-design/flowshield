@@ -1846,3 +1846,40 @@ class TestWebsiteAccessibilityStyles:
             f"{page} needs exactly one <main> landmark for screen-reader navigation"
         assert html.index("</main>") < html.index("<footer>"), \
             f"{page}: the footer must sit outside <main>"
+
+
+# ============ the success page must always offer key recovery actions
+
+class TestSuccessPageKeyRecovery:
+    """
+    Roadmap 5.3: the Stripe checkout success page must never lose the license
+    key. Once the key resolves, the page must offer Copy, Email, Activate, and
+    Download actions so the buyer can always recover it.
+    """
+
+    def test_success_page_offers_key_recovery_actions(self):
+        source = (Path(WEBSITE_DIR) / "success.html").read_text(encoding="utf-8")
+        assert 'id="copy-key"' in source, "the Copy license key button is missing"
+        assert 'id="email-key"' in source, "the Email me this key button is missing"
+        assert 'id="activate-link"' in source, "the Activate in FlowShield button is missing"
+        assert 'id="download-link"' in source, "the Download FlowShield button is missing"
+        assert "resend-license" not in source or "checkout.js" in source, \
+            "the email handler must live in checkout.js, not inline in the HTML"
+
+    def test_the_email_button_is_only_offered_when_the_server_can_send(self):
+        """
+        /resend-license answers 503 when no mail provider is configured, so
+        the button would fail every time on such a server. get-license reports
+        emailConfigured; the page hides the button — and stops saying "have it
+        emailed to you" — when that is false or the buyer's address is unknown.
+        """
+        js = (Path(WEBSITE_DIR) / "checkout.js").read_text(encoding="utf-8")
+        assert "result.emailConfigured !== false" in js
+        assert "emailKeyBtn.style.display = 'none'" in js
+        assert "You can copy, email, or activate the key below." not in js
+
+    def test_checkout_js_has_no_byte_order_mark(self):
+        # A PowerShell edit once prepended U+FEFF; browsers tolerate it but
+        # every later diff of the file shows a phantom first-line change.
+        raw = (Path(WEBSITE_DIR) / "checkout.js").read_bytes()
+        assert not raw.startswith(b"\xef\xbb\xbf"), "checkout.js starts with a UTF-8 BOM"

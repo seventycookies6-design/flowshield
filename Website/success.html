@@ -44,7 +44,10 @@
   <div class="success-actions" id="success-actions" style="display:none">
     <a class="btn btn-primary btn-lg btn-block" id="activate-link" href="flowshield://activate">Activate in FlowShield</a>
     <button class="btn btn-ghost btn-block" id="copy-key">Copy license key</button>
+    <button class="btn btn-ghost btn-block" id="email-key">Email me this key</button>
+    <a class="btn btn-ghost btn-block" id="download-link" href="https://github.com/seventycookies6-design/flowshield/releases/latest/download/FlowShield-win-Setup.exe">Download FlowShield</a>
   </div>
+  <p class="copy-note" id="email-note"></p>
 
   <div class="steps">
     <h2>Activating manually</h2>
@@ -74,7 +77,7 @@
      keep serving the previous build from disk cache.
      config.js must load first — checkout.js reads its values at start-up. -->
 <script src="config.js?v=4"></script>
-<script src="checkout.js?v=4"></script>
+<script src="checkout.js?v=5"></script>
 <script>
   // Point the deep link at the real key once it resolves.
   document.addEventListener('DOMContentLoaded', function () {
