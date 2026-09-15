@@ -1789,3 +1789,31 @@ class TestNoDeveloperTextOnCustomerSurfaces:
         source = (Path(DESKTOP_DIR) / "App.xaml.cs").read_text(encoding="utf-8")
         assert '"--dev"' in source, "App.xaml.cs must recognise the --dev flag"
         assert "DevMode" in source, "App must expose a DevMode property"
+
+    @pytest.mark.ui
+    def test_a_customer_launch_hides_the_dev_fields_but_keeps_the_log_button(self, logger):
+        """Launched the way a customer does (no --dev), Settings shows no
+        licence-server box or settings path, but Open diagnostic log — which
+        support.html tells people to use — is still there."""
+        from desktop.app_controller import DesktopController
+
+        ctrl = DesktopController(logger)
+        try:
+            ctrl.launch_app(clean_state=True, dev_fields=False)
+            ctrl.connect_window()
+            time.sleep(1.0)
+            ctrl.focus(force=True)
+            ctrl.navigate_to_tab("Settings")
+            assert not ctrl.exists("LicenseServerUrlInput", timeout=1.5), \
+                "the licence-server URL box is visible to customers"
+            assert ctrl.exists("OpenLogButton", timeout=3), \
+                "Open diagnostic log disappeared with the dev fields"
+        finally:
+            ctrl.close_app()
+
+    @pytest.mark.ui
+    def test_the_suite_launch_still_reaches_the_dev_fields(self, fresh_app):
+        # tier 4 types a dead URL into this box; verify_deployed.py reads it.
+        fresh_app.navigate_to_tab("Settings")
+        assert fresh_app.exists("LicenseServerUrlInput", timeout=3), \
+            "the controller must pass --dev so tests can reach the URL box"
