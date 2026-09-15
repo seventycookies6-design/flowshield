@@ -705,6 +705,11 @@ section.band,
   font-size: clamp(1.25rem, 1.1rem + 0.6vw, 1.55rem);
   margin-bottom: var(--space-2);
 }
+.level .promise {
+  color: var(--color-text);
+  font-weight: 700;
+  margin-bottom: var(--space-2);
+}
 .level .scenario {
   font-size: var(--text-base);
   color: var(--color-text-muted);

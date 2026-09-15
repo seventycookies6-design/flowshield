@@ -172,6 +172,9 @@
                     <TextBlock Text="{Binding ShieldDescription}" Style="{StaticResource Caption}"
                                Margin="0,10,0,0"
                                AutomationProperties.AutomationId="ShieldDescriptionText"/>
+                    <TextBlock Text="{Binding ShieldBestFor}" Style="{StaticResource Caption}"
+                               Foreground="{StaticResource InkDim}" Margin="0,3,0,0"
+                               AutomationProperties.AutomationId="ShieldBestForText"/>
                     <TextBlock Style="{StaticResource Caption}" Margin="0,6,0,0" TextWrapping="Wrap"
                                Foreground="{StaticResource Amber}"
                                Visibility="{Binding SealedRestartHintVisible, Converter={StaticResource BoolVis}}"
