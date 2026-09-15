@@ -4,7 +4,7 @@
         xmlns:views="clr-namespace:FlowShield.Views"
         xmlns:vm="clr-namespace:FlowShield.ViewModels"
         xmlns:models="clr-namespace:FlowShield.Models"
-        Title="FlowShield"
+        Title="FlowShield" Icon="Assets/FlowShield.ico"
         Height="760" Width="1180"
         MinHeight="620" MinWidth="900"
         WindowStartupLocation="CenterScreen"

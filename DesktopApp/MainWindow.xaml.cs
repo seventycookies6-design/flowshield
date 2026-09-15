@@ -13,6 +13,8 @@ public partial class MainWindow : Window
     private const int DWMWA_USE_IMMERSIVE_DARK_MODE = 20;
 
     private Forms.NotifyIcon? _tray;
+    private System.Drawing.Icon? _trayIdleIcon;
+    private System.Drawing.Icon? _trayRunningIcon;
     private bool _reallyClosing;
 
     /// <summary>Quit was asked for during a Firm or Sealed sprint; quit once that sprint ends (F2).</summary>
@@ -24,6 +26,7 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        DataContextChanged += OnDataContextChanged;
         SetUpTray();
     }
 
@@ -50,9 +53,11 @@ public partial class MainWindow : Window
     {
         try
         {
+            _trayIdleIcon = LoadIcon("FlowShield.ico");
+            _trayRunningIcon = LoadIcon("FlowShield.Running.ico");
             _tray = new Forms.NotifyIcon
             {
-                Icon = System.Drawing.SystemIcons.Shield,
+                Icon = _trayIdleIcon,
                 Visible = false,
                 Text = "FlowShield",
             };
@@ -67,7 +72,47 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
+            _trayIdleIcon?.Dispose();
+            _trayIdleIcon = null;
+            _trayRunningIcon?.Dispose();
+            _trayRunningIcon = null;
             Log.Error("tray icon setup failed", ex);
+        }
+    }
+
+    private static System.Drawing.Icon LoadIcon(string name)
+    {
+        var uri = new Uri($"pack://application:,,,/Assets/{name}", UriKind.Absolute);
+        using var stream = Application.GetResourceStream(uri)?.Stream
+            ?? throw new InvalidOperationException($"missing icon resource: {name}");
+        using var icon = new System.Drawing.Icon(stream);
+        return (System.Drawing.Icon)icon.Clone();
+    }
+
+    private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
+    {
+        if (e.OldValue is MainViewModel oldVm)
+        {
+            oldVm.Today.PropertyChanged -= OnTodayChanged;
+            oldVm.Today.EndAbandoned -= OnEndAbandoned;
+        }
+
+        if (e.NewValue is MainViewModel newVm)
+        {
+            newVm.Today.PropertyChanged += OnTodayChanged;
+            newVm.Today.EndAbandoned += OnEndAbandoned;
+        }
+
+        UpdateTrayIcon();
+    }
+
+    private void OnEndAbandoned(object? sender, EventArgs e) => _quitWhenSprintEnds = false;
+
+    private void UpdateTrayIcon()
+    {
+        if (_tray is not null)
+        {
+            _tray.Icon = Vm?.Today.IsRunning == true ? _trayRunningIcon : _trayIdleIcon;
         }
     }
 
@@ -101,21 +146,14 @@ public partial class MainWindow : Window
 
     private void OnTodayChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (_quitWhenSprintEnds && e.PropertyName == nameof(TodayViewModel.IsRunning) && Vm?.Today.IsRunning == false)
+        if (e.PropertyName != nameof(TodayViewModel.IsRunning)) return;
+
+        UpdateTrayIcon();
+        if (_quitWhenSprintEnds && Vm?.Today.IsRunning == false)
         {
             _quitWhenSprintEnds = false;
             _reallyClosing = true;
             Close();
-        }
-    }
-
-    protected override void OnContentRendered(EventArgs e)
-    {
-        base.OnContentRendered(e);
-        if (Vm is { } vm)
-        {
-            vm.Today.PropertyChanged += OnTodayChanged;
-            vm.Today.EndAbandoned += (_, _) => _quitWhenSprintEnds = false;
         }
     }
 
@@ -167,6 +205,11 @@ public partial class MainWindow : Window
 
         try
         {
+            if (Vm is { } currentVm)
+            {
+                currentVm.Today.PropertyChanged -= OnTodayChanged;
+                currentVm.Today.EndAbandoned -= OnEndAbandoned;
+            }
             Vm?.SaveSettings();
             if (_tray is not null)
             {
@@ -174,6 +217,10 @@ public partial class MainWindow : Window
                 _tray.Dispose();
                 _tray = null;
             }
+            _trayIdleIcon?.Dispose();
+            _trayIdleIcon = null;
+            _trayRunningIcon?.Dispose();
+            _trayRunningIcon = null;
         }
         catch (Exception ex)
         {

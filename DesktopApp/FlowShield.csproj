@@ -9,7 +9,7 @@
     <UseWindowsForms>true</UseWindowsForms>
     <AssemblyName>FlowShield</AssemblyName>
     <RootNamespace>FlowShield</RootNamespace>
-    <ApplicationIcon></ApplicationIcon>
+    <ApplicationIcon>Assets\FlowShield.ico</ApplicationIcon>
     <Version>1.0.0</Version>
     <Product>FlowShield</Product>
     <Company>FlowShield</Company>
@@ -32,6 +32,8 @@
   <ItemGroup>
     <!-- The app picker's suggestions (F8). Plain data so anyone can add an app. -->
     <EmbeddedResource Include="Data\app_suggestions.json" LogicalName="FlowShield.app_suggestions.json" />
+    <Resource Include="Assets\FlowShield.ico" />
+    <Resource Include="Assets\FlowShield.Running.ico" />
   </ItemGroup>
 
   <ItemGroup>
