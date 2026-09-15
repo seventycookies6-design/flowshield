@@ -1,4 +1,4 @@
-/* FlowShield — checkout + license retrieval glue.
+﻿/* FlowShield — checkout + license retrieval glue.
    Talks to the license server; no Stripe.js needed since Checkout is hosted. */
 
 (function () {
@@ -277,7 +277,7 @@
         // account's receipt emails are switched on, which this page can't see.
         var mailed = result.emailSent
           ? ' A copy is on its way to <b>' + escapeHtml(result.email || 'your inbox') + '</b>.'
-          : ' Save this key now — it isn’t emailed to you.';
+          : ' You can copy, email, or activate the key below.';
 
         blurb.innerHTML =
           'Payment received' +
@@ -369,6 +369,41 @@
         } catch (e) {
           if (note) note.textContent = 'Select the key above and copy it manually.';
         }
+      });
+    }
+
+    var emailBtn = document.getElementById('email-key');
+    if (emailBtn) {
+      emailBtn.addEventListener('click', async function () {
+        var note = document.getElementById('email-note');
+        var sessionId = params.get('session_id') || '';
+        var license = window.FlowShield && window.FlowShield.license;
+        var email = (license && license.email) || '';
+        if (!email) {
+          if (note) note.textContent = 'No email address available for this purchase.';
+          return;
+        }
+        emailBtn.disabled = true;
+        emailBtn.textContent = 'Sending…';
+        try {
+          var res = await fetch(SERVER + '/resend-license', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: email, sessionId: sessionId }),
+          });
+          var payload = null;
+          try { payload = await res.json(); } catch (e) { /* non-JSON */ }
+          if (res.ok && payload && payload.ok !== false) {
+            if (note) note.textContent = 'Key sent to ' + email + '.';
+          } else {
+            var msg = (payload && payload.message) || 'Could not send the email. Please try again.';
+            if (note) note.textContent = msg;
+          }
+        } catch (err) {
+          if (note) note.textContent = 'Could not reach the license server.';
+        }
+        emailBtn.disabled = false;
+        emailBtn.textContent = 'Email me this key';
       });
     }
 

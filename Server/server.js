@@ -724,6 +724,7 @@ app.post('/validate', limiter.middleware('validate'), async (req, res) => {
  */
 app.post('/resend-license', limiter.middleware('resend-license'), async (req, res) => {
   const email = typeof req.body?.email === 'string' ? req.body.email.trim() : '';
+  const sessionId = typeof req.body?.sessionId === 'string' ? req.body.sessionId.trim() : '';
   const generic = {
     ok: true,
     message: 'If that address bought FlowShield, the licence key is on its way.',
@@ -740,6 +741,13 @@ app.post('/resend-license', limiter.middleware('resend-license'), async (req, re
   }
 
   let row = db.findByEmail(email);
+
+  if (!row && sessionId) {
+    const bySession = db.findBySession(sessionId);
+    if (bySession && bySession.email === email) {
+      row = bySession;
+    }
+  }
 
   if (!row && stripe) {
     const found = await recoverFromStripe({ email });

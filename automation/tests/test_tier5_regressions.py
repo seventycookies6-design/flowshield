@@ -1846,3 +1846,22 @@ class TestWebsiteAccessibilityStyles:
             f"{page} needs exactly one <main> landmark for screen-reader navigation"
         assert html.index("</main>") < html.index("<footer>"), \
             f"{page}: the footer must sit outside <main>"
+
+
+# ============ the success page must always offer key recovery actions
+
+class TestSuccessPageKeyRecovery:
+    """
+    Roadmap 5.3: the Stripe checkout success page must never lose the license
+    key. Once the key resolves, the page must offer Copy, Email, Activate, and
+    Download actions so the buyer can always recover it.
+    """
+
+    def test_success_page_offers_key_recovery_actions(self):
+        source = (Path(WEBSITE_DIR) / "success.html").read_text(encoding="utf-8")
+        assert 'id="copy-key"' in source, "the Copy license key button is missing"
+        assert 'id="email-key"' in source, "the Email me this key button is missing"
+        assert 'id="activate-link"' in source, "the Activate in FlowShield button is missing"
+        assert 'id="download-link"' in source, "the Download FlowShield button is missing"
+        assert "resend-license" not in source or "checkout.js" in source, \
+            "the email handler must live in checkout.js, not inline in the HTML"

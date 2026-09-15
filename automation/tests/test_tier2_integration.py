@@ -344,3 +344,44 @@ class TestCreateCheckout:
         session = json.loads(result.stdout.strip().splitlines()[-1])
         assert session["mode"] == "payment", session
         assert session["recurring"] is None, "the configured price is still a subscription price"
+
+
+# ========================================================= resend-license
+
+class TestResendLicense:
+    def test_missing_email_is_a_400(self, server):
+        response = requests.post(f"{server}/resend-license",
+                                 json={"sessionId": "cs_test_fake"}, timeout=10)
+        assert response.status_code == 400
+        assert response.json()["error"] == "missing_email"
+
+    def test_missing_session_id_still_returns_generic_response(self, server):
+        health = requests.get(f"{server}/health", timeout=10).json()
+        if not health["email"]["configured"]:
+            response = requests.post(f"{server}/resend-license",
+                                     json={"email": "nobody@example.com"}, timeout=10)
+            assert response.status_code == 503
+            assert response.json()["error"] == "email_not_configured"
+        else:
+            response = requests.post(f"{server}/resend-license",
+                                     json={"email": "nobody@example.com"}, timeout=10)
+            assert response.status_code == 200
+            body = response.json()
+            assert body["ok"] is True
+
+    def test_rate_limiting_is_applied(self):
+        source = (Path(SERVER_DIR) / "server.js").read_text(encoding="utf-8")
+        assert "'/resend-license', limiter.middleware('resend-license')" in source, \
+            "/resend-license must be rate limited like other customer endpoints"
+
+    def test_happy_path_with_email_configured(self, server):
+        health = requests.get(f"{server}/health", timeout=10).json()
+        if not health["email"]["configured"]:
+            pytest.skip("email not configured on this server")
+        response = requests.post(f"{server}/resend-license",
+                                 json={"email": "testbuyer@example.com",
+                                       "sessionId": "cs_test_nonexistent"},
+                                 timeout=15)
+        assert response.status_code == 200
+        body = response.json()
+        assert body["ok"] is True
