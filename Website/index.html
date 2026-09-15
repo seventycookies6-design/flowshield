@@ -74,7 +74,7 @@
         saved with your one-line “what moved?” note.
       </p>
       <div class="hero-cta">
-        <a class="btn btn-primary btn-lg"
+        <a class="btn btn-primary btn-lg" data-download-guide
            href="https://github.com/seventycookies6-design/flowshield/releases/latest/download/FlowShield-win-Setup.exe">
           Start free trial
         </a>
@@ -345,7 +345,7 @@
           <li class="on" data-feature="trial-unlocks-everything"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M20 6 9 17l-5-5"/></svg> Every feature unlocked during the trial</li>
           <li class="on" data-feature="locks-after-trial"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M20 6 9 17l-5-5"/></svg> Asks you to buy when the week is up</li>
         </ul>
-        <a class="btn btn-ghost btn-block"
+        <a class="btn btn-ghost btn-block" data-download-guide
            href="https://github.com/seventycookies6-design/flowshield/releases/latest/download/FlowShield-win-Setup.exe">
           Start the free trial
         </a>
@@ -390,6 +390,47 @@
   </div>
 </footer>
 
+<!-- ------------------------------------------------------- download guide -->
+<dialog class="download-panel" id="download-panel" aria-labelledby="download-panel-title">
+  <div class="download-panel-card">
+    <button class="download-panel-close" type="button" data-download-close aria-label="Close download guide">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+    <p class="label">What happens next</p>
+    <h2 id="download-panel-title">After you click Download</h2>
+    <ol class="download-steps">
+      <li>
+        <span class="n">01</span>
+        <div>
+          <strong>SmartScreen</strong>
+          <p>Windows may show a “Windows protected your PC” warning because the installer isn’t code-signed yet. Click <b>More info</b>, then <b>Run anyway</b>.</p>
+        </div>
+      </li>
+      <li>
+        <span class="n">02</span>
+        <div>
+          <strong>Installer</strong>
+          <p>The FlowShield installer runs and places the app in your Start Menu.</p>
+        </div>
+      </li>
+      <li>
+        <span class="n">03</span>
+        <div>
+          <strong>First run</strong>
+          <p>The first time FlowShield opens, a short welcome asks for your blocklist and default sprint, then starts the first sprint.</p>
+        </div>
+      </li>
+    </ol>
+    <div class="download-panel-actions">
+      <a class="btn btn-primary btn-lg btn-block"
+         href="https://github.com/seventycookies6-design/flowshield/releases/latest/download/FlowShield-win-Setup.exe">
+        Download FlowShield
+      </a>
+      <button class="btn btn-ghost btn-block" type="button" data-download-close>Back</button>
+    </div>
+  </div>
+</dialog>
+
 <!-- config.js must load first: checkout.js reads window.FLOWSHIELD_CONFIG at start-up. -->
 <script src="config.js?v=4"></script>
 <script src="checkout.js?v=4"></script>
@@ -403,6 +444,28 @@
         try { localStorage.setItem('flowshield-theme', next); } catch (e) {}
       });
     });
+
+    var panel = document.getElementById('download-panel');
+    if (panel) {
+      function openPanel() {
+        if (panel.open) return;
+        if (typeof panel.showModal === 'function') panel.showModal();
+        else panel.setAttribute('open', '');
+      }
+      function closePanel() {
+        if (typeof panel.close === 'function') panel.close();
+        else panel.removeAttribute('open');
+      }
+      document.querySelectorAll('[data-download-guide]').forEach(function (el) {
+        el.addEventListener('click', function (e) {
+          e.preventDefault();
+          openPanel();
+        });
+      });
+      document.querySelectorAll('[data-download-close]').forEach(function (el) {
+        el.addEventListener('click', closePanel);
+      });
+    }
   })();
 </script>
 </body>

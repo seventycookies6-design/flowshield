@@ -1073,6 +1073,92 @@ footer p {
   margin-bottom: var(--space-2);
 }
 
+/* ------------------------------------------------------------ download guide */
+
+.download-panel {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  max-width: 520px;
+  width: calc(100% - 2 * var(--space-6));
+  margin: auto;
+  color: var(--color-text);
+}
+.download-panel::backdrop {
+  background: color-mix(in srgb, var(--color-bg) 92%, transparent);
+  backdrop-filter: blur(2px);
+}
+
+.download-panel-card {
+  position: relative;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lift);
+  padding: var(--space-8);
+}
+.download-panel-card .label { margin-bottom: var(--space-2); }
+.download-panel-card h2 { margin-bottom: var(--space-5); }
+
+.download-panel-close {
+  position: absolute;
+  top: var(--space-4);
+  right: var(--space-4);
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+.download-panel-close:hover {
+  border-color: var(--color-border-strong);
+  color: var(--color-text);
+}
+.download-panel-close svg { width: 16px; height: 16px; }
+
+.download-steps {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+.download-steps li {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-4);
+  align-items: start;
+}
+.download-steps .n {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--text-sm);
+  color: var(--color-primary);
+  padding-top: 2px;
+}
+.download-steps strong {
+  display: block;
+  color: var(--color-text);
+  font-weight: 600;
+  margin-bottom: var(--space-1);
+}
+.download-steps p {
+  margin: 0;
+  font-size: var(--text-sm);
+}
+
+.download-panel-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
 /* ---------------------------------------------------------------- responsive */
 
 @media (max-width: 900px) {
@@ -1098,6 +1184,7 @@ footer p {
   .mock-foot { grid-template-columns: 1fr; }
   .nav-actions .btn { display: none; }
   .tl-block { grid-template-columns: 44px 1fr; }
+  .download-panel-card { padding: var(--space-6); }
 }
 
 @media (prefers-reduced-motion: reduce) {

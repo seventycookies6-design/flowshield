@@ -1883,3 +1883,29 @@ class TestSuccessPageKeyRecovery:
         # every later diff of the file shows a phantom first-line change.
         raw = (Path(WEBSITE_DIR) / "checkout.js").read_bytes()
         assert not raw.startswith(b"\xef\xbb\xbf"), "checkout.js starts with a UTF-8 BOM"
+
+
+# ============ the download guide explains what happens next (roadmap 6.3)
+
+class TestDownloadGuidePanel:
+    """
+    Clicking Download shows a short "What happens next" panel: the SmartScreen
+    step (until the build is signed), running the installer, and the first-run
+    welcome. The panel's own Download button must still reach the installer.
+    """
+
+    INSTALLER_URL = (
+        "https://github.com/seventycookies6-design/flowshield/releases/latest/"
+        "download/FlowShield-win-Setup.exe"
+    )
+
+    def test_download_guide_panel_mentions_setup_steps(self):
+        site = (Path(WEBSITE_DIR) / "index.html").read_text(encoding="utf-8")
+        assert 'id="download-panel"' in site, "the download guide panel is missing"
+        panel = site.split('id="download-panel"', 1)[1].split("</dialog>", 1)[0]
+        lower = panel.lower()
+        for phrase in ("smartscreen", "installer", "first run"):
+            assert phrase in lower, f"the download guide must mention {phrase!r}"
+        assert self.INSTALLER_URL in panel, (
+            "the panel's Download button must point at the installer URL"
+        )
