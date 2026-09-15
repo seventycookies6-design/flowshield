@@ -48,14 +48,19 @@ class TestStartWithWindowsSource:
         assert "_tray.Visible = true" in start_in_tray
         assert "Show();" not in start_in_tray
 
-    def test_an_enabled_run_value_is_refreshed_on_every_launch(self):
+    def test_only_an_installed_copy_refreshes_an_enabled_run_value(self):
         app = (Path(DESKTOP_DIR) / "App.xaml.cs").read_text(encoding="utf-8")
         registration = (
-            Path(DESKTOP_DIR) / "Services" / "StartupRegistrationService.cs"
+            Path(DESKTOP_DIR) / "Services" / "StartupEntry.cs"
         ).read_text(encoding="utf-8")
 
-        assert "StartupRegistrationService.RefreshIfEnabled(" in app
+        assert "StartupEntry.RefreshIfEnabled(" in app
         assert "ViewModel.Settings.StartWithWindows" in app
+        assert "new UpdateService().IsSupported" in app
+        refresh = registration.split("public static void RefreshIfEnabled")[1].split(
+            "\n    }", 1
+        )[0]
+        assert "enabled && isInstalled" in refresh
         assert '$"\\"{executablePath}\\" --tray"' in registration
 
 
@@ -84,13 +89,14 @@ class TestStartWithWindowsBehaviour:
         finally:
             ctrl.close_app()
 
-    def test_each_launch_repairs_an_enabled_run_value(self, logger):
+    def test_a_dev_launch_leaves_an_installed_run_value_untouched(self, logger):
         import winreg
 
         from desktop.app_controller import DesktopController
 
         run_key = r"Software\Microsoft\Windows\CurrentVersion\Run"
-        expected = f'"{Path(APP_EXE).resolve()}" --tray'
+        dev_command = f'"{Path(APP_EXE).resolve()}" --tray'
+        installed_command = r'"C:\Program Files\FlowShield\FlowShield.exe" --tray'
 
         first = DesktopController(logger)
         try:
@@ -100,14 +106,14 @@ class TestStartWithWindowsBehaviour:
             assert first.set_toggle("StartWithWindowsToggle", True) is True
 
             with winreg.OpenKey(winreg.HKEY_CURRENT_USER, run_key) as key:
-                assert winreg.QueryValueEx(key, "FlowShield")[0] == expected
+                assert winreg.QueryValueEx(key, "FlowShield")[0] == dev_command
 
             with winreg.OpenKey(
                 winreg.HKEY_CURRENT_USER, run_key, access=winreg.KEY_SET_VALUE
             ) as key:
                 winreg.SetValueEx(
                     key, "FlowShield", 0, winreg.REG_SZ,
-                    r'"C:\obsolete\FlowShield.exe" --tray',
+                    installed_command,
                 )
         finally:
             first.close_app()
@@ -117,7 +123,7 @@ class TestStartWithWindowsBehaviour:
             second.launch_app(clean_state=False)
             second.connect_window()
             with winreg.OpenKey(winreg.HKEY_CURRENT_USER, run_key) as key:
-                assert winreg.QueryValueEx(key, "FlowShield")[0] == expected
+                assert winreg.QueryValueEx(key, "FlowShield")[0] == installed_command
         finally:
             second.close_app()
 

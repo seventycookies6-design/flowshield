@@ -48,7 +48,11 @@ public partial class App : Application
 
         var licenseService = new LicenseService(settingsService);
         ViewModel = new MainViewModel(settingsService, licenseService);
-        StartupRegistrationService.RefreshIfEnabled(ViewModel.Settings.StartWithWindows);
+        // Repair an enabled Run value only from an installed copy. A dev build
+        // shares these settings and must not redirect sign-in into bin/.
+        StartupEntry.RefreshIfEnabled(
+            ViewModel.Settings.StartWithWindows,
+            new UpdateService().IsSupported);
 
         // --server=http://host:port lets tests point at a throwaway server.
         var serverArg = args.FirstOrDefault(a => a.StartsWith("--server=", StringComparison.OrdinalIgnoreCase));

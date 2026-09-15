@@ -228,7 +228,9 @@ public class SettingsViewModel : ViewModelBase
         {
             if (_main.Settings.StartWithWindows == value) return;
             _main.Settings.StartWithWindows = value;
-            StartupRegistrationService.SetEnabled(value);
+            // This is an explicit user action, so it applies to whichever copy
+            // is running. Only the automatic launch-time repair is install-only.
+            StartupEntry.Set(value);
             _main.SaveSettings();
             Raise();
         }
