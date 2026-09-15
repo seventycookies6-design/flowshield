@@ -17,10 +17,11 @@ import time
 from html.parser import HTMLParser
 from pathlib import Path
 
+import psutil
 import pytest
 import requests
 
-from config import DESKTOP_DIR, SERVER_DIR, TEST_BLOCK_APP, WEBSITE_DIR
+from config import APP_EXE, DESKTOP_DIR, SERVER_DIR, TEST_BLOCK_APP, WEBSITE_DIR
 from core import state_verifier as verify
 
 NODE = r"C:\Program Files\nodejs\node.exe"
@@ -72,6 +73,107 @@ class TestBrandedAppIcon:
         assert "_trayIdleIcon?.Dispose()" in window
         assert "_trayRunningIcon?.Dispose()" in window
         assert "SystemIcons.Shield" not in window
+
+
+# ======================== Windows startup stays quiet and current
+
+class TestStartWithWindowsSource:
+    """The sign-in command used to promise --tray while startup ignored it."""
+
+    def test_tray_argument_selects_hidden_startup(self):
+        app = (Path(DESKTOP_DIR) / "App.xaml.cs").read_text(encoding="utf-8")
+
+        assert 'a.Equals("--tray", StringComparison.OrdinalIgnoreCase)' in app
+        assert "window.StartInTray()" in app
+        assert "ShutdownMode.OnExplicitShutdown" in app
+
+    def test_the_tray_icon_is_made_visible_without_showing_the_window(self):
+        window = (Path(DESKTOP_DIR) / "MainWindow.xaml.cs").read_text(encoding="utf-8")
+        start_in_tray = window.split("public bool StartInTray()", 1)[1].split(
+            "\n    }", 1
+        )[0]
+
+        assert "_tray.Visible = true" in start_in_tray
+        assert "Show();" not in start_in_tray
+
+    def test_only_an_installed_copy_refreshes_an_enabled_run_value(self):
+        app = (Path(DESKTOP_DIR) / "App.xaml.cs").read_text(encoding="utf-8")
+        registration = (
+            Path(DESKTOP_DIR) / "Services" / "StartupEntry.cs"
+        ).read_text(encoding="utf-8")
+
+        assert "StartupEntry.RefreshIfEnabled(" in app
+        assert "ViewModel.Settings.StartWithWindows" in app
+        assert "new UpdateService().IsSupported" in app
+        refresh = registration.split("public static void RefreshIfEnabled")[1].split(
+            "\n    }", 1
+        )[0]
+        assert "enabled && isInstalled" in refresh
+        assert '$"\\"{executablePath}\\" --tray"' in registration
+
+
+@pytest.mark.ui
+class TestStartWithWindowsBehaviour:
+    def test_tray_launch_has_an_icon_but_no_visible_window(self, logger):
+        from desktop.app_controller import DesktopController
+
+        ctrl = DesktopController(logger)
+        try:
+            ctrl.launch_app(clean_state=True, extra_args=["--tray"])
+            time.sleep(2.0)
+
+            assert ctrl.pid and psutil.pid_exists(ctrl.pid), \
+                "FlowShield exited instead of staying available in the tray"
+            assert not ctrl.main_window_is_visible(), \
+                "--tray displayed FlowShield's main window"
+
+            tray_icon = ctrl.find_tray_icon()
+            assert tray_icon is not None, "FlowShield's notification-area icon is missing"
+
+            tray_icon.double_click_input()
+            ctrl.connect_window()
+            assert ctrl.main_window_is_visible(), \
+                "double-clicking the tray icon did not restore FlowShield"
+        finally:
+            ctrl.close_app()
+
+    def test_a_dev_launch_leaves_an_installed_run_value_untouched(self, logger):
+        import winreg
+
+        from desktop.app_controller import DesktopController
+
+        run_key = r"Software\Microsoft\Windows\CurrentVersion\Run"
+        dev_command = f'"{Path(APP_EXE).resolve()}" --tray'
+        installed_command = r'"C:\Program Files\FlowShield\FlowShield.exe" --tray'
+
+        first = DesktopController(logger)
+        try:
+            first.launch_app(clean_state=True)
+            first.connect_window()
+            first.navigate_to_tab("Settings")
+            assert first.set_toggle("StartWithWindowsToggle", True) is True
+
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, run_key) as key:
+                assert winreg.QueryValueEx(key, "FlowShield")[0] == dev_command
+
+            with winreg.OpenKey(
+                winreg.HKEY_CURRENT_USER, run_key, access=winreg.KEY_SET_VALUE
+            ) as key:
+                winreg.SetValueEx(
+                    key, "FlowShield", 0, winreg.REG_SZ,
+                    installed_command,
+                )
+        finally:
+            first.close_app()
+
+        second = DesktopController(logger)
+        try:
+            second.launch_app(clean_state=False)
+            second.connect_window()
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, run_key) as key:
+                assert winreg.QueryValueEx(key, "FlowShield")[0] == installed_command
+        finally:
+            second.close_app()
 
 
 # ====================== the site only sells implemented features
@@ -475,6 +577,9 @@ class TestSuiteLeavesUserSettingsAlone:
         monkeypatch.setattr(settings_guard, "BACKUP_PATH",
                             settings.with_name("settings.json.pre-tests"))
         monkeypatch.setattr(settings_guard, "_stop_dev_build", lambda: None)
+        # These tests exercise file preservation in isolation; the session's
+        # outer guard separately protects the real Windows Run value.
+        monkeypatch.setattr(settings_guard, "winreg", None)
         return settings_guard
 
     def test_existing_settings_come_back_byte_for_byte(self, guard):
@@ -514,6 +619,13 @@ class TestSuiteLeavesUserSettingsAlone:
                 f"{script} launches the app but doesn't preserve the owner's settings"
         conftest = (automation / "tests" / "conftest.py").read_text(encoding="utf-8")
         assert "autouse=True" in conftest and "preserve_user_settings()" in conftest
+
+    def test_the_startup_entry_is_also_backed_up_and_restored(self):
+        guard = (Path(__file__).resolve().parent.parent / "core" /
+                 "settings_guard.py").read_text(encoding="utf-8")
+        assert "_back_up_startup_registration()" in guard
+        assert "_restore_startup_registration()" in guard
+        assert 'RUN_VALUE_NAME = "FlowShield"' in guard
 
 
 # ============ a lost database must not revoke anyone's subscription
