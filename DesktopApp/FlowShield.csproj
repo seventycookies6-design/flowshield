@@ -30,6 +30,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- The app picker's suggestions (F8). Plain data so anyone can add an app. -->
+    <EmbeddedResource Include="Data\app_suggestions.json" LogicalName="FlowShield.app_suggestions.json" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0" />
     <!-- Installer + auto-update. Without an update channel a shipped bug is
          permanent for everyone who already installed. -->

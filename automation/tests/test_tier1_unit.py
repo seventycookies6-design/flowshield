@@ -645,6 +645,120 @@ def phrase_matches(typed: str) -> bool:
     return " ".join((typed or "").split()).lower() == "end my sprint"
 
 
+class TestAppSuggestions:
+    """The picker's built-in suggestions (F8)."""
+
+    DESKTOP = Path(SERVER_DIR).parent / "DesktopApp"
+
+    @classmethod
+    def data(cls) -> dict:
+        import json
+
+        return json.loads((cls.DESKTOP / "Data" / "app_suggestions.json").read_text(encoding="utf-8"))
+
+    @classmethod
+    def critical(cls) -> set[str]:
+        import re
+
+        source = (cls.DESKTOP / "Services" / "AppBlockerService.cs").read_text(encoding="utf-8")
+        block = source.split("CriticalProcesses = new(")[1].split("};")[0]
+        return {name.lower() for name in re.findall(r'"([^"]+)"', block)}
+
+    def apps(self):
+        return [(g, a) for g in self.data()["groups"] for a in g["apps"]]
+
+    def test_the_groups_the_checklist_asks_for(self):
+        names = [g["name"] for g in self.data()["groups"]]
+        assert names[:2] == ["Chat", "Games & launchers"]
+        assert "Browsers" in names
+
+    def test_every_app_has_a_name_and_processes(self):
+        for _, app in self.apps():
+            assert app["name"].strip(), app
+            assert app["processes"], f"{app['name']} has no processes"
+            assert isinstance(app["verified"], bool), app["name"]
+            for process in app["processes"]:
+                assert process == process.strip() and process, app["name"]
+                assert not process.lower().endswith(".exe"), f"{process}: no .exe suffix"
+                assert "\\" not in process and "/" not in process
+
+    def test_nothing_protected_is_ever_suggested(self):
+        critical = self.critical()
+        assert "explorer" in critical and "flowshield" in critical   # the parse worked
+        for _, app in self.apps():
+            for process in app["processes"]:
+                assert process.lower() not in critical, f"{app['name']} suggests protected {process}"
+
+    def test_no_process_belongs_to_two_apps(self):
+        seen = {}
+        for _, app in self.apps():
+            for process in app["processes"]:
+                assert process.lower() not in seen, f"{process} is in {seen.get(process.lower())} and {app['name']}"
+                seen[process.lower()] = app["name"]
+
+    def test_app_names_are_unique(self):
+        names = [a["name"].lower() for _, a in self.apps()]
+        assert len(names) == len(set(names))
+
+    def test_steam_covers_its_helper(self):
+        steam = next(a for _, a in self.apps() if a["name"] == "Steam")
+        assert {p.lower() for p in steam["processes"]} == {"steam", "steamwebhelper"}
+
+    def test_browsers_warn_that_the_whole_browser_closes(self):
+        browsers = next(g for g in self.data()["groups"] if g["name"] == "Browsers")
+        assert "whole browser" in browsers["note"].lower()
+        assert {"chrome", "msedge", "firefox"} <= {p for a in browsers["apps"] for p in a["processes"]}
+
+    def test_the_file_is_built_into_the_app(self):
+        project = (self.DESKTOP / "FlowShield.csproj").read_text(encoding="utf-8")
+        assert 'EmbeddedResource Include="Data\\app_suggestions.json"' in project
+        picker = (self.DESKTOP / "Models" / "AppPicker.cs").read_text(encoding="utf-8")
+        assert '"FlowShield.app_suggestions.json"' in picker
+
+
+def picker_filter(entries: list[dict], query: str) -> list[str]:
+    """Mirror of AppPicker.Filter: name-prefix first, then suggested, installed, running."""
+    q = query.strip()
+    if q.lower().endswith(".exe"):
+        q = q[:-4]
+    order = {"Suggested": 0, "Installed": 1, "Running": 2}
+    ql = q.lower()
+    matches = [e for e in entries if not q
+               or ql in e["name"].lower() or any(ql in p.lower() for p in e["processes"])]
+    matches.sort(key=lambda e: (0 if q and e["name"].lower().startswith(ql) else 1,
+                                order[e["source"]],
+                                "" if e["source"] == "Suggested" else e["name"].lower()))
+    return [e["name"] for e in matches]
+
+
+class TestPickerSearch:
+    ENTRIES = [
+        {"name": "Discord", "processes": ["Discord"], "source": "Suggested"},
+        {"name": "Steam", "processes": ["steam", "steamwebhelper"], "source": "Suggested"},
+        {"name": "Microsoft Edge", "processes": ["msedge"], "source": "Suggested"},
+        {"name": "Obsidian", "processes": ["Obsidian"], "source": "Installed"},
+        {"name": "Adobe Reader", "processes": ["AcroRd32"], "source": "Running"},
+    ]
+
+    @pytest.mark.parametrize("query,expected", [
+        ("", ["Discord", "Steam", "Microsoft Edge", "Obsidian", "Adobe Reader"]),
+        ("steam", ["Steam"]),
+        ("webhelper", ["Steam"]),                  # finds an app by any of its processes
+        ("msedge.exe", ["Microsoft Edge"]),
+        ("o", ["Obsidian", "Discord", "Microsoft Edge", "Adobe Reader"]),
+        ("zzz", []),
+    ])
+    def test_matches_and_order(self, query, expected):
+        assert picker_filter(self.ENTRIES, query) == expected
+
+    def test_the_mirror_matches_the_app(self):
+        source = (Path(SERVER_DIR).parent / "DesktopApp" / "Models" / "AppPicker.cs").read_text(encoding="utf-8")
+        filt = source.split("public static List<PickerEntry> Filter(")[1]
+        assert "e.Name.StartsWith(q, StringComparison.OrdinalIgnoreCase) ? 0 : 1" in filt
+        assert ".ThenBy(e => e.Source)" in filt
+        assert "e.Processes.Any(p => p.Contains(q, StringComparison.OrdinalIgnoreCase))" in filt
+
+
 def activation_key(link: str) -> str | None:
     """Mirror of DeepLink.ParseActivationKey."""
     import re

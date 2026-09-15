@@ -434,6 +434,49 @@ class TestEndingASprint:
         assert settings["Sessions"] == [] and settings.get("ActiveSprint")
 
 
+# ============================================================ app picker (F8)
+
+class TestAppPicker:
+    def _saved(self, process: str) -> dict:
+        apps = verify.read_settings()["BlockedApps"]
+        return next(a for a in apps if a["ProcessName"].lower() == process)
+
+    def test_blocking_steam_from_suggestions_saves_all_its_processes(self, fresh_app):
+        fresh_app.navigate_to_tab("Blocked Apps")
+        fresh_app.set_text("AppSearchInput", "steam")
+        time.sleep(0.6)
+        fresh_app.click("PickApp_steam")
+        time.sleep(1.0)
+
+        steam = self._saved("steam")
+        assert steam["Name"] == "Steam"
+        assert [p.lower() for p in steam["ExtraProcessNames"]] == ["steamwebhelper"]
+        assert any("Steam" in n for n in fresh_app.blocked_app_names())
+        assert fresh_app.text_of("PickApp_steam") == "Steam is blocked"
+        assert fresh_app.is_control_enabled("PickApp_steam") is False, "Steam could be added twice"
+
+    def test_typing_a_known_process_gets_the_whole_app(self, fresh_app):
+        fresh_app.navigate_to_tab("Blocked Apps")
+        fresh_app.add_blocked_app("steamwebhelper")
+        time.sleep(1.0)
+        helper = self._saved("steamwebhelper")
+        assert helper["Name"] == "Steam" and [p.lower() for p in helper["ExtraProcessNames"]] == ["steam"]
+
+    def test_searching_for_a_protected_process_explains_why_it_is_missing(self, fresh_app):
+        fresh_app.navigate_to_tab("Blocked Apps")
+        fresh_app.set_text("AppSearchInput", "explorer")
+        time.sleep(0.6)
+        assert "never closes windows system processes" in fresh_app.text_of("AppSearchNotice").lower()
+        assert not fresh_app.exists("PickApp_explorer", timeout=1)
+
+    def test_browsers_carry_the_warning(self, fresh_app):
+        fresh_app.navigate_to_tab("Blocked Apps")
+        fresh_app.set_text("AppSearchInput", "chrome")
+        time.sleep(0.6)
+        texts = " ".join(t for item in fresh_app.element("AppPickerList").children() for t in item.texts())
+        assert "closes the whole browser" in texts.lower(), texts
+
+
 # ======================================================= one instance (1.3)
 
 def launch_again(*extra: str) -> int:
