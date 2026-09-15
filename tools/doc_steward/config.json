@@ -15,6 +15,7 @@
   ],
 
   "report_only": [
+    "MERGE_REVIEW_2026-09-15.md",
     "FINAL_REPORT.md",
     "Website/index.html",
     "Website/success.html",
@@ -23,6 +24,7 @@
   ],
 
   "historical": [
+    "MERGE_REVIEW_2026-09-15.md",
     "FINAL_REPORT.md"
   ],
 
