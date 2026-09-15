@@ -49,7 +49,7 @@ timer, and apps on your blocklist are dealt with until it ends.
 | Payments | Stripe | **Test mode only.** Account named FlowShield. |
 | Tests | `automation/`, pytest + pywinauto + Playwright, tiers 1–7 | 247 tests. See Phase 2 for the current baselines. |
 | Tools | `tools/` | `setup_stripe_store.js`, `publish_site.ps1`, `build_release.ps1`, `db_admin.js`, `fix_mojibake.py`, and `doc_steward/` (keeps the docs consistent with the code; see "Doc steward" in `CLAUDE.md`) |
-| Roadmap | `CUSTOMER_EXPERIENCE_PROMPT.md`, issues #1–#6; `LAUNCH_FEATURE_CHECKLIST.md` and `DESIGN_SYSTEM.md` | A customer's-eye audit (31 problems) and six phases of fixes, plus a launch feature checklist and design system from competitor research (#35). The work is split evenly: Keenan with Claude Code (#37) and Miles with Codex and Cursor (#38); see "Who builds what" in the checklist. 1.1 (site claims) is done and live; 1.2 (Start with Windows in the tray) is in review. The file's Progress table is the current status. |
+| Roadmap | `CUSTOMER_EXPERIENCE_PROMPT.md`, issues #1–#6; `LAUNCH_FEATURE_CHECKLIST.md` and `DESIGN_SYSTEM.md` | A customer's-eye audit (31 problems) and six phases of fixes, plus a launch feature checklist and design system from competitor research (#35). The work is split evenly: Keenan with Claude Code (#37) and Miles with Codex and Cursor (#38); see "Who builds what" in the checklist. 1.1 (site claims) is done and live; 1.2 (Start with Windows in the tray) is done. The file's Progress table is the current status. |
 
 ### Installer, as a customer sees it
 
@@ -277,7 +277,7 @@ go-ahead.
    advertises unbuilt features (item 1.1, live since 13 September 2026), but the
    rest of Phase 1 still matters most: Sealed can be ended with one click,
    blocked apps are killed with no warning, the journal can't be read back,
-   "Start with Windows" opens the full window (fix in review, #14), and the
+   and the
    thank-you page's "Activate in FlowShield" button does nothing.
 2. **Stripe business name** (owner; found in a test purchase on 13 September
    2026). Checkout and the billing portal show "Focus Unlock sandbox". The

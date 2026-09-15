@@ -138,7 +138,7 @@ roadmap item below has exactly one owner. Tracking issues: #37 (Keenan) and
 | Design §6 | Shield glyphs everywhere | M |
 | Design §7 | Quiet and destructive button variants | S |
 | Design §8–9 | Reduced motion, and the copy pass | S |
-| Roadmap 1.2 | Start with Windows in the tray (#13, pull request #14, in review) | M |
+| Roadmap 1.2 | Start with Windows in the tray (#13, pull request #14, done) | M |
 | Roadmap 1.6 | A real app icon | S |
 | Roadmap 1.13 | Fit small screens | S |
 | Roadmap 1.14 | Friendly errors | S |
