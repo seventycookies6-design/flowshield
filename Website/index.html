@@ -37,12 +37,23 @@
       </svg>
       FlowShield
     </a>
-    <nav class="nav-links" aria-label="Primary">
+    <nav class="nav-links" id="primary-nav" aria-label="Primary">
       <a href="#features">Features</a>
       <a href="#shields">Shield levels</a>
       <a href="#pricing">Pricing</a>
+      <span class="nav-links-sep" aria-hidden="true"></span>
+      <a class="page-link" href="legal.html#terms">Terms</a>
+      <a class="page-link" href="legal.html#privacy">Privacy</a>
+      <a class="page-link" href="legal.html#refunds">Refunds</a>
+      <a class="page-link" href="changelog.html">Changelog</a>
+      <a class="page-link" href="support.html">Support</a>
     </nav>
     <div class="nav-actions">
+      <button class="menu-toggle" type="button" data-menu-toggle aria-label="Open menu" aria-expanded="false" aria-controls="primary-nav">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+          <path d="M4 7h16M4 12h16M4 17h16"/>
+        </svg>
+      </button>
       <button class="theme-toggle" type="button" data-theme-toggle aria-label="Toggle color theme">
         <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true" focusable="false">
           <circle cx="12" cy="12" r="4"/><path d="M12 2v2.2M12 19.8V22M4.2 12H2M22 12h-2.2M5.6 5.6l1.6 1.6M16.8 16.8l1.6 1.6M18.4 5.6l-1.6 1.6M7.2 16.8l-1.6 1.6"/>
@@ -74,12 +85,16 @@
         saved with your one-line “what moved?” note.
       </p>
       <div class="hero-cta">
-        <a class="btn btn-primary btn-lg" data-download-guide
+        <a class="btn btn-primary btn-lg" data-download-guide data-download-direct
            href="https://github.com/seventycookies6-design/flowshield/releases/latest/download/FlowShield-win-Setup.exe">
           Start free trial
         </a>
+        <button class="btn btn-primary btn-lg" type="button" data-download-copy>
+          Get the download link
+        </button>
         <button class="btn btn-ghost btn-lg" data-checkout>Buy once — $4.99</button>
       </div>
+      <p class="copy-confirm" data-copy-confirm role="status" aria-live="polite"></p>
       <p class="hero-note">
         7 days free, then $4.99 once · Windows 10 &amp; 11 · No .NET install needed ·
         <a href="legal.html">Terms &amp; privacy</a>
@@ -464,6 +479,39 @@
       });
       document.querySelectorAll('[data-download-close]').forEach(function (el) {
         el.addEventListener('click', closePanel);
+      });
+    }
+
+    var menuToggle = document.querySelector('[data-menu-toggle]');
+    if (menuToggle) {
+      menuToggle.addEventListener('click', function () {
+        var open = document.body.classList.toggle('menu-open');
+        menuToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+        menuToggle.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
+      });
+    }
+
+    var copyBtn = document.querySelector('[data-download-copy]');
+    if (copyBtn) {
+      var direct = document.querySelector('[data-download-direct]');
+      var confirmEl = document.querySelector('[data-copy-confirm]');
+      var installerUrl = direct ? direct.href : '';
+      copyBtn.addEventListener('click', function () {
+        function mailtoFallback() {
+          window.location.href = 'mailto:?subject=FlowShield%20download&body=' +
+            encodeURIComponent(installerUrl);
+        }
+        function showCopied() {
+          if (!confirmEl) return;
+          confirmEl.textContent = 'Link copied';
+          confirmEl.classList.add('show');
+          setTimeout(function () { confirmEl.classList.remove('show'); }, 2500);
+        }
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(installerUrl).then(showCopied).catch(mailtoFallback);
+        } else {
+          mailtoFallback();
+        }
       });
     }
   })();
