@@ -882,3 +882,49 @@ class TestEndSprintPolicy:
     ])
     def test_phrase(self, typed, ok):
         assert phrase_matches(typed) is ok
+
+
+# ============================================ custom sprint lengths (roadmap 2.3)
+
+CUSTOM_MIN = 5
+CUSTOM_MAX = 240
+
+
+def custom_minutes_valid(value: int) -> bool:
+    """Mirror of TodayViewModel.IsCustomMinutesValid."""
+    return CUSTOM_MIN <= value <= CUSTOM_MAX
+
+
+class TestCustomSprintLengths:
+    SOURCE = Path(SERVER_DIR).parent / "DesktopApp" / "Models" / "AppSettings.cs"
+
+    def test_settings_round_trips_last_custom_sprint_minutes(self):
+        source = self.SOURCE.read_text(encoding="utf-8")
+        assert "public int LastCustomSprintMinutes { get; set; } = 30;" in source
+
+    @pytest.mark.parametrize("minutes", [5, 30, 120, 240])
+    def test_validation_accepts_values_in_range(self, minutes):
+        assert custom_minutes_valid(minutes) is True
+
+    @pytest.mark.parametrize("minutes", [0, 1, 4, 241, 300, -5])
+    def test_validation_rejects_values_outside_range(self, minutes):
+        assert custom_minutes_valid(minutes) is False
+
+    def test_the_viewmodel_exposes_the_bounds(self):
+        vm = (Path(SERVER_DIR).parent / "DesktopApp" / "ViewModels"
+              / "TodayViewModel.cs").read_text(encoding="utf-8")
+        assert "CustomMinMinutes = 5" in vm
+        assert "CustomMaxMinutes = 240" in vm
+
+    def test_selecting_custom_without_access_opens_the_upgrade_page(self):
+        vm = (Path(SERVER_DIR).parent / "DesktopApp" / "ViewModels"
+              / "TodayViewModel.cs").read_text(encoding="utf-8")
+        select = vm.split("private void SelectCustom()")[1].split("\n    }")[0]
+        assert "_main.IsLocked" in select
+        assert "_main.OpenUpgradePage()" in select
+
+    def test_a_valid_custom_value_is_persisted(self):
+        vm = (Path(SERVER_DIR).parent / "DesktopApp" / "ViewModels"
+              / "TodayViewModel.cs").read_text(encoding="utf-8")
+        select = vm.split("private void SelectCustom()")[1].split("\n    }")[0]
+        assert "S.LastCustomSprintMinutes = _customMinutes" in select

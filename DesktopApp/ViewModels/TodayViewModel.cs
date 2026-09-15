@@ -34,6 +34,10 @@ public class TodayViewModel : ViewModelBase
         KeepGoingCommand = new RelayCommand(() => CloseEndPanel(keepGoing: true));
         EndAnywayCommand = new RelayCommand(EndAnyway);
         SaveJournalCommand = new RelayCommand(SaveJournal, () => JournalPromptVisible);
+        SelectCustomCommand = new RelayCommand(SelectCustom);
+        GetProCommand = new RelayCommand(() => _main.OpenUpgradePage());
+
+        _customMinutes = S.LastCustomSprintMinutes;
 
         RefreshStats();
     }
@@ -248,7 +252,74 @@ public class TodayViewModel : ViewModelBase
     public int SelectedMinutes
     {
         get => _selectedMinutes;
-        set { if (Set(ref _selectedMinutes, value)) UpdateIdleDisplay(); }
+        set
+        {
+            if (!Set(ref _selectedMinutes, value)) return;
+            if (!_isCustomSelected && SprintLengths.Contains(value))
+            {
+                IsCustomSelected = false;
+            }
+            UpdateIdleDisplay();
+        }
+    }
+
+    public const int CustomMinMinutes = 5;
+    public const int CustomMaxMinutes = 240;
+
+    private int _customMinutes = 30;
+    public int CustomMinutes
+    {
+        get => _customMinutes;
+        set
+        {
+            if (!Set(ref _customMinutes, value)) return;
+            Raise(nameof(IsCustomMinutesValid));
+            if (IsCustomSelected)
+            {
+                SelectedMinutes = IsCustomMinutesValid ? value : SelectedMinutes;
+            }
+        }
+    }
+
+    public bool IsCustomMinutesValid =>
+        _customMinutes >= CustomMinMinutes && _customMinutes <= CustomMaxMinutes;
+
+    private bool _isCustomSelected;
+    public bool IsCustomSelected
+    {
+        get => _isCustomSelected;
+        set
+        {
+            if (!Set(ref _isCustomSelected, value)) return;
+            if (value && IsCustomMinutesValid)
+            {
+                _selectedMinutes = _customMinutes;
+                Raise(nameof(SelectedMinutes));
+                UpdateIdleDisplay();
+            }
+            Raise(nameof(CustomInputVisible));
+        }
+    }
+
+    public bool CustomInputVisible => _isCustomSelected;
+
+    public RelayCommand SelectCustomCommand { get; }
+    public RelayCommand GetProCommand { get; }
+
+    private void SelectCustom()
+    {
+        if (_main.IsLocked)
+        {
+            _main.OpenUpgradePage();
+            return;
+        }
+
+        IsCustomSelected = true;
+        if (IsCustomMinutesValid)
+        {
+            S.LastCustomSprintMinutes = _customMinutes;
+            _main.SaveSettings();
+        }
     }
 
     public ShieldLevel[] ShieldLevels { get; } = { ShieldLevel.Soft, ShieldLevel.Firm, ShieldLevel.Sealed };

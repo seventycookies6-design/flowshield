@@ -287,7 +287,7 @@ class TestWebsiteClaimsMatchTheApp:
         # Remove an entry only when that feature ships and gains an implementation
         # marker above; deleting a phrase merely to weaken this test is not a fix.
         for claim in (
-            "youtube.com", "custom sprint lengths", "momentum analytics",
+            "youtube.com", "momentum analytics",
             "journal export", "full-screen reminder", "can't unlock it early",
             "escape hatch is gone", "no three-second grace window",
             "months later", "nothing is uploaded", "dismissible reminder",
@@ -1621,3 +1621,24 @@ class TestSmallScreenLayout:
         start = xaml.find('AutomationId="GetProNavButton"')
         element = xaml[xaml.rfind("<", 0, start):xaml.find(">", start)]
         assert "{Binding IsNotPro" in element
+
+
+# ============ custom sprint lengths must be wired up (roadmap 2.3)
+
+class TestCustomSprintLengthsWired:
+    """The Custom option must exist in the view and be bound to the viewmodel."""
+
+    def test_the_view_has_a_custom_sprint_option(self):
+        view = (Path(DESKTOP_DIR) / "Views" / "TodayView.xaml").read_text(encoding="utf-8")
+        assert 'AutomationProperties.AutomationId="SprintLength_Custom"' in view
+        assert "Custom…" in view
+
+    def test_the_custom_input_is_bound(self):
+        view = (Path(DESKTOP_DIR) / "Views" / "TodayView.xaml").read_text(encoding="utf-8")
+        assert 'AutomationProperties.AutomationId="CustomMinutesInput"' in view
+        assert "{Binding CustomMinutes" in view
+
+    def test_the_existing_presets_are_still_present(self):
+        view = (Path(DESKTOP_DIR) / "Views" / "TodayView.xaml").read_text(encoding="utf-8")
+        for length in (15, 25, 45, 60, 90):
+            assert f'SprintLength_{length}' in view, f"preset {length} min was removed"

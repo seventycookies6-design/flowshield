@@ -207,6 +207,7 @@ public class AppSettings
 
     // ---- sessions & momentum -------------------------------------------
     public int DefaultSprintMinutes { get; set; } = 25;
+    public int LastCustomSprintMinutes { get; set; } = 30;
     public ShieldLevel DefaultShield { get; set; } = ShieldLevel.Firm;
     public List<FocusSession> Sessions { get; set; } = new();
 
