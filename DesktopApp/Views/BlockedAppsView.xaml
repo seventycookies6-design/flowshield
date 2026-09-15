@@ -77,6 +77,7 @@
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="Auto"/>
                                         <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
 
                                     <Border Grid.Column="0" Width="34" Height="34" CornerRadius="10"
@@ -111,6 +112,19 @@
                                                                                 StringFormat=RemoveApp_{0}}"
                                             AutomationProperties.Name="{Binding DisplayName,
                                                                        StringFormat=Remove {0}}"/>
+
+                                    <CheckBox Grid.Column="4" Style="{StaticResource Switch}"
+                                              VerticalAlignment="Center" Margin="14,0,0,0"
+                                              IsChecked="{Binding IsEnabled, Mode=TwoWay}"
+                                              IsEnabled="{Binding DataContext.CanEditApps,
+                                                          RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                              Command="{Binding DataContext.ToggleAppCommand,
+                                                        RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                              CommandParameter="{Binding}"
+                                              AutomationProperties.AutomationId="{Binding ProcessName,
+                                                                                  StringFormat=AppEnabledSwitch_{0}}"
+                                              AutomationProperties.Name="{Binding DisplayName,
+                                                                         StringFormat=Enable {0}}"/>
                                 </Grid>
                             </Border>
                         </DataTemplate>

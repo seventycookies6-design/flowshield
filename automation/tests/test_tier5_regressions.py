@@ -1693,3 +1693,31 @@ class TestCustomSprintLengthBehaviour:
         assert fresh_app.sprint_timer() == "25:00"
         assert not fresh_app.exists("CustomMinutesInput", timeout=1)
         assert fresh_app.is_control_enabled("StartSprintButton")
+
+
+# ============ the per-app switch must not unlock a Sealed blocklist (roadmap 2.4)
+
+class TestPerAppSwitchGuard:
+    """
+    The per-app on/off switch is a second way to edit the blocklist, so it must
+    be disabled while a Sealed sprint holds the list shut — the same guard the
+    Add box and Remove button already obey.
+    """
+
+    XAML = Path(DESKTOP_DIR) / "Views" / "BlockedAppsView.xaml"
+    VM = Path(DESKTOP_DIR) / "ViewModels" / "BlockedAppsViewModel.cs"
+
+    def test_the_switch_binds_is_enabled_to_a_guard_property(self):
+        xaml = self.XAML.read_text(encoding="utf-8")
+        assert 'IsEnabled="{Binding DataContext.CanEditApps' in xaml, (
+            "the switch must bind IsEnabled to a guard property on the viewmodel"
+        )
+
+    def test_the_guard_depends_on_the_sealed_state(self):
+        vm = self.VM.read_text(encoding="utf-8")
+        assert "CanEditApps => !IsSealed" in vm, (
+            "CanEditApps must be false while a Sealed sprint is running"
+        )
+        assert "Raise(nameof(CanEditApps))" in vm, (
+            "CanEditApps must notify when sprint state changes"
+        )

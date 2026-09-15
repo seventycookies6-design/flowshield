@@ -21,6 +21,8 @@ public class BlockedAppsViewModel : ViewModelBase
         RefreshRunningCommand = new RelayCommand(RefreshPicker);
         PickCommand = new RelayCommand(p => Pick(p as PickerEntry),
             p => p is PickerEntry { IsAdded: false } && IsEditable && !_main.IsLocked);
+        ToggleAppCommand = new RelayCommand(p => ToggleApp(p as BlockedApp),
+            p => p is BlockedApp && CanEditApps);
 
         _allEntries = AppPicker.Suggestions(IsProtected);
         ApplyFilter();
@@ -34,6 +36,7 @@ public class BlockedAppsViewModel : ViewModelBase
     public RelayCommand RemoveCommand { get; }
     public RelayCommand RefreshRunningCommand { get; }
     public RelayCommand PickCommand { get; }
+    public RelayCommand ToggleAppCommand { get; }
 
     // ----------------------------------------------------------- picker (F8)
 
@@ -233,6 +236,9 @@ public class BlockedAppsViewModel : ViewModelBase
 
     public bool IsEditable => !IsSealed;
 
+    /// <summary>False while a Sealed sprint holds the blocklist shut.</summary>
+    public bool CanEditApps => !IsSealed;
+
     private bool CanAdd() => IsEditable && !_main.IsLocked && !string.IsNullOrWhiteSpace(NewAppName);
 
     private void AddApp()
@@ -280,9 +286,16 @@ public class BlockedAppsViewModel : ViewModelBase
         Log.Info($"blocked app removed: {app.ProcessName}");
     }
 
-    public void ToggleApp(BlockedApp app)
+    public void ToggleApp(BlockedApp? app)
     {
-        app.IsEnabled = !app.IsEnabled;
+        if (app is null) return;
+        if (IsSealed)
+        {
+            _main.Toast("The blocklist is sealed until this sprint ends.");
+            return;
+        }
+        // The switch's two-way IsChecked binding has already written the new
+        // value into app.IsEnabled; this command persists it and refreshes.
         _main.SaveSettings();
         RefreshStatus();
     }
@@ -297,6 +310,7 @@ public class BlockedAppsViewModel : ViewModelBase
 
         Raise(nameof(IsSealed));
         Raise(nameof(IsEditable));
+        Raise(nameof(CanEditApps));
     }
 
     /// <summary>"C:\path\Slack.exe", "Slack.exe" and "slack" all normalise the same way.</summary>
