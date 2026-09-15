@@ -23,6 +23,7 @@ phase), with an issue per item as work starts.
 | 2.3 Custom sprint lengths | **Done**: a Custom… option accepts 5–240 minutes, is validated with an error message, persists across restarts, and is gated behind the trial lock | |
 | 1.9 Sealed means sealed, with an honest escape hatch | **Done** as launch checklist F2 | #47 |
 | 1.10 Sprints survive restarts | **Done** as launch checklist F3 | #43 |
+| 6.6 Changelog and support pages | **Done**: `changelog.html` and `support.html` added, linked from every page footer; footer links covered by tier 5 | #6 |
 | Everything else | Not started | #1–#6 |
 
 The audit table below is the state on 13 September 2026, before any fixes. For
