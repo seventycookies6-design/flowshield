@@ -1480,3 +1480,29 @@ class TestFooterLinksPointToRealPages:
             paths = {href.split("#", 1)[0] for href in self.footer_links(name)}
             for page in self.NEW_PAGES:
                 assert page in paths, f"{name} footer has no link to {page}"
+
+
+class TestSupportPageDescribesTheShippedApp:
+    """
+    The first draft of support.html told customers to send a "diagnostics
+    bundle" built from the Settings screen. No such feature exists; Settings has
+    an "Open diagnostic log" button. Support instructions must name controls
+    that are actually in the app.
+    """
+
+    def test_no_diagnostics_bundle_is_promised(self):
+        page = (Path(WEBSITE_DIR) / "support.html").read_text(encoding="utf-8")
+        assert "diagnostics bundle" not in page.lower()
+        assert "build one for you" not in page
+
+    def test_the_named_settings_control_exists(self):
+        page = (Path(WEBSITE_DIR) / "support.html").read_text(encoding="utf-8")
+        settings = (Path(DESKTOP_DIR) / "Views" / "SettingsView.xaml").read_text(
+            encoding="utf-8-sig")
+        assert "Open diagnostic log" in page
+        assert 'Content="Open diagnostic log"' in settings
+
+    def test_the_changelog_dates_the_first_release_correctly(self):
+        # v1.0.0 was published on 11 September 2026; the draft said the 14th.
+        page = (Path(WEBSITE_DIR) / "changelog.html").read_text(encoding="utf-8")
+        assert "1.0.0 <span class=\"date\">11 September 2026</span>" in page
