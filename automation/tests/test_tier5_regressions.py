@@ -1817,3 +1817,32 @@ class TestNoDeveloperTextOnCustomerSurfaces:
         fresh_app.navigate_to_tab("Settings")
         assert fresh_app.exists("LicenseServerUrlInput", timeout=3), \
             "the controller must pass --dev so tests can reach the URL box"
+
+
+# ============ the site is keyboard-accessible and motion-safe (roadmap 6.7)
+
+class TestWebsiteAccessibilityStyles:
+    """
+    Roadmap 6.7: interactive elements need a visible keyboard focus style, and
+    non-essential motion must be disabled for users who ask for reduced motion.
+    """
+
+    def test_website_has_focus_and_reduced_motion_styles(self):
+        css = (Path(WEBSITE_DIR) / "styles.css").read_text(encoding="utf-8")
+
+        assert ":focus-visible" in css or ":focus" in css, (
+            "styles.css must define a keyboard focus style for interactive elements"
+        )
+        assert "@media (prefers-reduced-motion: reduce)" in css, (
+            "styles.css must disable non-essential motion for reduced-motion users"
+        )
+
+    @pytest.mark.parametrize("page", [
+        "index.html", "legal.html", "success.html", "changelog.html", "support.html",
+    ])
+    def test_every_public_page_has_one_main_landmark(self, page):
+        html = (Path(WEBSITE_DIR) / page).read_text(encoding="utf-8")
+        assert html.count("<main>") == 1 and html.count("</main>") == 1, \
+            f"{page} needs exactly one <main> landmark for screen-reader navigation"
+        assert html.index("</main>") < html.index("<footer>"), \
+            f"{page}: the footer must sit outside <main>"
