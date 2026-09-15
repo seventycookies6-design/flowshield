@@ -1506,3 +1506,29 @@ class TestSupportPageDescribesTheShippedApp:
         # v1.0.0 was published on 11 September 2026; the draft said the 14th.
         page = (Path(WEBSITE_DIR) / "changelog.html").read_text(encoding="utf-8")
         assert "1.0.0 <span class=\"date\">11 September 2026</span>" in page
+
+
+# ============ a crash shows a friendly dialog, not a raw exception dump (roadmap 1.14)
+
+class TestFriendlyErrorDialog:
+    """
+    An unhandled UI exception used to pop a raw MessageBox with the exception
+    message and a log path. It now shows a calm dialog that keeps the sprint
+    promise, copies the details, and links to support.
+    """
+
+    def test_the_friendly_dialog_replaced_the_raw_message(self):
+        app = (Path(DESKTOP_DIR) / "App.xaml.cs").read_text(encoding="utf-8")
+        dialog = (Path(DESKTOP_DIR) / "Views" / "FriendlyErrorDialog.xaml").read_text(
+            encoding="utf-8")
+        code_behind = (Path(DESKTOP_DIR) / "Views" / "FriendlyErrorDialog.xaml.cs").read_text(
+            encoding="utf-8")
+
+        assert "FlowShield hit an unexpected error" not in app, \
+            "the raw exception MessageBox must be gone"
+        assert "FriendlyErrorDialog" in app, \
+            "App.xaml.cs must show the friendly dialog on an unhandled exception"
+        assert "Something went wrong. FlowShield is still guarding your sprint." in dialog, \
+            "the friendly dialog must keep the sprint promise"
+        assert "seventycookies6-design.github.io/flowshield/support.html" in code_behind, \
+            "the friendly dialog must link to the support page"

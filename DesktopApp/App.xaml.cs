@@ -129,9 +129,7 @@ public partial class App : Application
     private static void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
     {
         Log.Error("unhandled UI exception", e.Exception);
-        MessageBox.Show(
-            $"FlowShield hit an unexpected error:\n\n{e.Exception.Message}\n\nDetails were written to:\n{Log.Path}",
-            "FlowShield", MessageBoxButton.OK, MessageBoxImage.Error);
+        new Views.FriendlyErrorDialog(e.Exception).ShowDialog();
         e.Handled = true;
     }
 
