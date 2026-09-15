@@ -1,5 +1,4 @@
 using System.Net.Http.Json;
-using Microsoft.Win32;
 using FlowShield.Infrastructure;
 using FlowShield.Services;
 
@@ -229,7 +228,7 @@ public class SettingsViewModel : ViewModelBase
         {
             if (_main.Settings.StartWithWindows == value) return;
             _main.Settings.StartWithWindows = value;
-            ApplyStartWithWindows(value);
+            StartupRegistrationService.SetEnabled(value);
             _main.SaveSettings();
             Raise();
         }
@@ -279,8 +278,6 @@ public class SettingsViewModel : ViewModelBase
     }
 
     public string SettingsFilePath => _main.SettingsService.SettingsPath;
-
-    private static void ApplyStartWithWindows(bool enabled) => StartupEntry.Set(enabled);
 
     private void OpenLog() => _main.OpenUrl(Log.Path);
 }

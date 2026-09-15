@@ -141,6 +141,29 @@ public partial class MainWindow : Window
         if (_tray is not null) _tray.Visible = false;
     }
 
+    /// <summary>
+    /// Starts the already-initialized application without displaying its main
+    /// window. Returns false when the shell tray icon is unavailable so startup
+    /// can fall back to a normal visible window.
+    /// </summary>
+    public bool StartInTray()
+    {
+        if (_tray is null) return false;
+
+        try
+        {
+            _tray.Visible = true;
+            Hide();
+            Log.Info("started in tray");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Log.Error("could not start in tray", ex);
+            return false;
+        }
+    }
+
     protected override void OnClosing(CancelEventArgs e)
     {
         // Closing hides to tray by default; the tray menu's Quit really exits.

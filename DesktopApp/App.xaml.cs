@@ -48,6 +48,7 @@ public partial class App : Application
 
         var licenseService = new LicenseService(settingsService);
         ViewModel = new MainViewModel(settingsService, licenseService);
+        StartupRegistrationService.RefreshIfEnabled(ViewModel.Settings.StartWithWindows);
 
         // --server=http://host:port lets tests point at a throwaway server.
         var serverArg = args.FirstOrDefault(a => a.StartsWith("--server=", StringComparison.OrdinalIgnoreCase));
@@ -80,7 +81,21 @@ public partial class App : Application
 
         var window = new MainWindow { DataContext = ViewModel };
         MainWindow = window;
-        window.Show();
+
+        var trayLaunch = args.Any(a => a.Equals("--tray", StringComparison.OrdinalIgnoreCase));
+        if (trayLaunch)
+        {
+            // A hidden window must not cause WPF to end the message loop; the
+            // tray menu's Quit action remains the explicit shutdown path.
+            ShutdownMode = ShutdownMode.OnExplicitShutdown;
+        }
+
+        if (!trayLaunch || !window.StartInTray())
+        {
+            // Never strand a background process if Windows cannot create a tray
+            // icon. A visible window is the safe, recoverable fallback.
+            window.Show();
+        }
 
         // A later launch brings this copy forward instead of starting another.
         Instance?.Listen(launchArgs =>
