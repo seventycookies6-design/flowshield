@@ -13,6 +13,7 @@ import subprocess
 from pathlib import Path
 
 import pytest
+from PIL import Image
 
 from config import SERVER_DIR
 
@@ -714,6 +715,46 @@ class TestAppSuggestions:
         assert 'EmbeddedResource Include="Data\\app_suggestions.json"' in project
         picker = (self.DESKTOP / "Models" / "AppPicker.cs").read_text(encoding="utf-8")
         assert '"FlowShield.app_suggestions.json"' in picker
+
+
+class TestAppIcon:
+    """Roadmap 1.6: a real, multi-resolution app icon and a running-sprint tray variant."""
+
+    DESKTOP = Path(SERVER_DIR).parent / "DesktopApp"
+    REPO = DESKTOP.parent
+
+    def test_icon_files_exist_with_required_sizes(self):
+        normal = self.DESKTOP / "Assets" / "FlowShield.ico"
+        running = self.DESKTOP / "Assets" / "FlowShieldRunning.ico"
+        assert normal.exists(), "FlowShield.ico missing"
+        assert running.exists(), "FlowShieldRunning.ico missing"
+
+        for path in [normal, running]:
+            with Image.open(path) as img:
+                sizes = img.info.get("sizes", set())
+                for size in [16, 32, 64, 128, 256]:
+                    assert (size, size) in sizes, f"{path.name} missing {size}x{size}"
+
+    def test_csproj_uses_the_icon(self):
+        project = (self.DESKTOP / "FlowShield.csproj").read_text(encoding="utf-8")
+        assert "<ApplicationIcon>Assets\\FlowShield.ico</ApplicationIcon>" in project
+        assert '<Resource Include="Assets\\FlowShield.ico" />' in project
+        assert '<Resource Include="Assets\\FlowShieldRunning.ico" />' in project
+
+    def test_window_uses_the_branded_icon(self):
+        xaml = (self.DESKTOP / "MainWindow.xaml").read_text(encoding="utf-8")
+        assert 'Icon="/Assets/FlowShield.ico"' in xaml
+
+    def test_tray_no_longer_uses_the_generic_shield(self):
+        code = (self.DESKTOP / "MainWindow.xaml.cs").read_text(encoding="utf-8")
+        assert "SystemIcons.Shield" not in code, "tray should not hard-code the generic shield"
+        assert "FlowShieldRunning.ico" in code
+        assert "UpdateTrayIcon" in code
+
+    def test_release_script_passes_the_icon_to_vpk(self):
+        script = (self.REPO / "tools" / "build_release.ps1").read_text(encoding="utf-8")
+        assert "--icon" in script
+        assert "FlowShield.ico" in script
 
 
 def picker_filter(entries: list[dict], query: str) -> list[str]:

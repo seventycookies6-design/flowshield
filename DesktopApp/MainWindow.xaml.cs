@@ -13,6 +13,8 @@ public partial class MainWindow : Window
     private const int DWMWA_USE_IMMERSIVE_DARK_MODE = 20;
 
     private Forms.NotifyIcon? _tray;
+    private System.Drawing.Icon? _trayNormalIcon;
+    private System.Drawing.Icon? _trayRunningIcon;
     private bool _reallyClosing;
 
     /// <summary>Quit was asked for during a Firm or Sealed sprint; quit once that sprint ends (F2).</summary>
@@ -50,12 +52,15 @@ public partial class MainWindow : Window
     {
         try
         {
+            _trayNormalIcon = LoadTrayIcon("FlowShield.ico");
+            _trayRunningIcon = LoadTrayIcon("FlowShieldRunning.ico");
+
             _tray = new Forms.NotifyIcon
             {
-                Icon = System.Drawing.SystemIcons.Shield,
                 Visible = false,
                 Text = "FlowShield",
             };
+            if (_trayNormalIcon is not null) _tray.Icon = _trayNormalIcon;
 
             var menu = new Forms.ContextMenuStrip();
             menu.Items.Add("Open FlowShield", null, (_, _) => RestoreFromTray());
@@ -69,6 +74,36 @@ public partial class MainWindow : Window
         {
             Log.Error("tray icon setup failed", ex);
         }
+    }
+
+    private static System.Drawing.Icon? LoadTrayIcon(string name)
+    {
+        try
+        {
+            var uri = new Uri($"pack://application:,,,/Assets/{name}");
+            var stream = Application.GetResourceStream(uri);
+            if (stream is null)
+            {
+                Log.Warn($"icon resource not found: {name}");
+                return null;
+            }
+            return new System.Drawing.Icon(stream.Stream);
+        }
+        catch (Exception ex)
+        {
+            Log.Warn($"could not load tray icon {name}: {ex.Message}");
+            return null;
+        }
+    }
+
+    private void UpdateTrayIcon()
+    {
+        if (_tray is null) return;
+        var running = Vm?.Today.IsRunning == true;
+        _tray.Icon = running
+            ? (_trayRunningIcon ?? _trayNormalIcon)
+            : _trayNormalIcon;
+        _tray.Text = running ? "FlowShield — sprint running" : "FlowShield";
     }
 
     /// <summary>
@@ -101,6 +136,11 @@ public partial class MainWindow : Window
 
     private void OnTodayChanged(object? sender, PropertyChangedEventArgs e)
     {
+        if (e.PropertyName == nameof(TodayViewModel.IsRunning))
+        {
+            UpdateTrayIcon();
+        }
+
         if (_quitWhenSprintEnds && e.PropertyName == nameof(TodayViewModel.IsRunning) && Vm?.Today.IsRunning == false)
         {
             _quitWhenSprintEnds = false;
@@ -116,6 +156,7 @@ public partial class MainWindow : Window
         {
             vm.Today.PropertyChanged += OnTodayChanged;
             vm.Today.EndAbandoned += (_, _) => _quitWhenSprintEnds = false;
+            UpdateTrayIcon();
         }
     }
 
@@ -174,6 +215,10 @@ public partial class MainWindow : Window
                 _tray.Dispose();
                 _tray = null;
             }
+            _trayNormalIcon?.Dispose();
+            _trayNormalIcon = null;
+            _trayRunningIcon?.Dispose();
+            _trayRunningIcon = null;
         }
         catch (Exception ex)
         {
