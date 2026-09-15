@@ -645,6 +645,53 @@ def phrase_matches(typed: str) -> bool:
     return " ".join((typed or "").split()).lower() == "end my sprint"
 
 
+def activation_key(link: str) -> str | None:
+    """Mirror of DeepLink.ParseActivationKey."""
+    import re
+    from urllib.parse import unquote, urlsplit
+
+    try:
+        parts = urlsplit(link.strip())
+    except ValueError:
+        return None
+    if parts.scheme.lower() != "flowshield":
+        return None
+    if (parts.netloc + parts.path).strip("/").lower() != "activate":
+        return None
+    key = None
+    for pair in filter(None, parts.query.split("&")):
+        name, _, value = pair.partition("=")
+        if _ and name.lower() == "key":
+            key = unquote(value).strip().upper()
+    shape = r"^FS-(?:[0-9A-HJKMNP-TV-Z]{4}-){3}[0-9A-HJKMNP-TV-Z]{4}$"
+    return key if key and re.match(shape, key) else None
+
+
+class TestActivationLinkParsing:
+    SOURCE = Path(SERVER_DIR).parent / "DesktopApp" / "Services" / "DeepLink.cs"
+
+    @pytest.mark.parametrize("link,key", [
+        ("flowshield://activate?key=FS-ABCD-EFGH-JKMN-PQR5", "FS-ABCD-EFGH-JKMN-PQR5"),
+        ("flowshield://activate/?key=fs-abcd-efgh-jkmn-pqr5", "FS-ABCD-EFGH-JKMN-PQR5"),
+        ("FLOWSHIELD://Activate?key=FS-ABCD-EFGH-JKMN-PQR5", "FS-ABCD-EFGH-JKMN-PQR5"),
+        ("flowshield://activate?key=FS%2DABCD%2DEFGH%2DJKMN%2DPQR5", "FS-ABCD-EFGH-JKMN-PQR5"),
+        ("flowshield://activate", None),
+        ("flowshield://activate?key=", None),
+        ("flowshield://activate?key=FS-ABCD-EFGH-JKMN-PQRI", None),     # I isn't in the alphabet
+        ("flowshield://activate?key=FS-ABCD-EFGH-JKMN", None),
+        ("flowshield://settings?key=FS-ABCD-EFGH-JKMN-PQR5", None),
+        ("https://activate?key=FS-ABCD-EFGH-JKMN-PQR5", None),
+        ("flowshield://activate?key=FS-ABCD-EFGH-JKMN-PQR5;calc", None),
+    ])
+    def test_only_activation_links_with_a_key_shaped_key(self, link, key):
+        assert activation_key(link) == key
+
+    def test_the_app_uses_the_same_alphabet_as_the_server(self):
+        server = (Path(SERVER_DIR) / "licensekey.js").read_text(encoding="utf-8")
+        assert "const ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';" in server
+        assert "[0-9A-HJKMNP-TV-Z]{4}" in self.SOURCE.read_text(encoding="utf-8")
+
+
 class TestEndSprintPolicy:
     SOURCE = Path(SERVER_DIR).parent / "DesktopApp" / "Models" / "EndSprintPolicy.cs"
 

@@ -103,7 +103,7 @@ roadmap item below has exactly one owner. Tracking issues: #37 (Keenan) and
 | F25 | Code signing in the release script (after the certificate is bought) | M |
 | Design §14 | `design/tokens.json`, the XAML and CSS generator, and the parity test | M |
 | Roadmap 1.3 | One instance only (done, #49) | S |
-| Roadmap 1.4 | Register `flowshield://` | S |
+| Roadmap 1.4 | Register `flowshield://` (done, #51) | S |
 | Roadmap 1.5 | Uninstall cleans up | S |
 | Roadmap 4.1 | Updates that just happen | M |
 | Roadmap 5.1 | Buy from inside the app with no key to copy (server) | M |

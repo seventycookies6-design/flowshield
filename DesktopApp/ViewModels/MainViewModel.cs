@@ -87,6 +87,60 @@ public class MainViewModel : ViewModelBase
 
     public bool IsSprintRunning => Today.IsRunning;
 
+    // ------------------------------------------------- flowshield:// links (1.4)
+
+    private string? _pendingActivationKey;
+    /// <summary>A key from an activation link, waiting for the user to confirm it.</summary>
+    public string? PendingActivationKey
+    {
+        get => _pendingActivationKey;
+        private set
+        {
+            if (!Set(ref _pendingActivationKey, value)) return;
+            Raise(nameof(ActivationPromptVisible));
+        }
+    }
+
+    public bool ActivationPromptVisible => PendingActivationKey is not null;
+
+    private RelayCommand? _confirmActivationCommand;
+    public RelayCommand ConfirmActivationCommand => _confirmActivationCommand ??= new RelayCommand(ConfirmActivation);
+
+    private RelayCommand? _dismissActivationCommand;
+    public RelayCommand DismissActivationCommand => _dismissActivationCommand ??= new RelayCommand(() =>
+    {
+        PendingActivationKey = null;
+        Log.Info("activation link dismissed");
+    });
+
+    /// <summary>
+    /// Handles a flowshield:// link. It only ever fills in the key and asks;
+    /// activating always takes the user's click on ConfirmActivationCommand.
+    /// </summary>
+    public void HandleLink(string? link)
+    {
+        if (link is null) return;
+        var key = DeepLink.ParseActivationKey(link);
+        if (key is null)
+        {
+            Log.Info("ignored a flowshield:// link that isn't a valid activation link");
+            return;
+        }
+
+        CurrentPage = AppPage.Settings;
+        SettingsPage.LicenseKeyInput = key;
+        PendingActivationKey = key;
+        Log.Info("activation link received; waiting for confirmation");
+    }
+
+    private void ConfirmActivation()
+    {
+        if (PendingActivationKey is not { } key) return;
+        PendingActivationKey = null;
+        SettingsPage.LicenseKeyInput = key;
+        SettingsPage.ActivateCommand.Execute(null);
+    }
+
     // ------------------------------------------------------------ navigation
 
     private AppPage _currentPage = AppPage.Today;

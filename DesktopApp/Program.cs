@@ -20,7 +20,13 @@ public static class Program
     {
         try
         {
-            VelopackApp.Build().Run();
+            // Only installed copies register flowshield://, so a dev build run
+            // from bin/ can never take the link over from the installed app.
+            VelopackApp.Build()
+                .OnAfterInstallFastCallback(_ => RegisterLink())
+                .OnAfterUpdateFastCallback(_ => RegisterLink())
+                .OnBeforeUninstallFastCallback(_ => DeepLink.Unregister())
+                .Run();
         }
         catch (Exception ex)
         {
@@ -43,5 +49,10 @@ public static class Program
         var app = new App { Instance = instance };
         app.InitializeComponent();
         app.Run();
+    }
+
+    private static void RegisterLink()
+    {
+        if (Environment.ProcessPath is { } exe) DeepLink.Register(exe);
     }
 }
