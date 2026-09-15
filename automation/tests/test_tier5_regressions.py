@@ -1921,3 +1921,36 @@ class TestDownloadGuidePanel:
         assert 'StepText => $"Step {Step} of 3"' in vm
         assert "three-step welcome" in panel
         assert "then starts the first sprint" not in panel
+
+
+# ============ phone visitors get a menu and a copyable download link (roadmap 6.4)
+
+class TestPhoneVisitorMarkup:
+    """
+    Roadmap 6.4: on small screens the nav collapses behind a hamburger and the
+    hero's direct installer link is replaced by a "Get the download link" button
+    that copies the URL, falling back to a mailto: link when the clipboard is
+    unavailable. The desktop direct link must stay intact.
+    """
+
+    def test_phone_visitor_markup(self):
+        site = (Path(WEBSITE_DIR) / "index.html").read_text(encoding="utf-8")
+        css = (Path(WEBSITE_DIR) / "styles.css").read_text(encoding="utf-8")
+
+        # A hamburger/menu control exists and is wired to the nav links.
+        assert "data-menu-toggle" in site, "no hamburger/menu control on the page"
+        assert 'aria-controls="primary-nav"' in site, "menu button is not wired to the nav"
+        assert 'id="primary-nav"' in site, "the nav links have no id to toggle"
+
+        # The direct installer link is still present somewhere in the page.
+        assert "FlowShield-win-Setup.exe" in site, "the direct installer link was removed"
+
+        # A copy button with a mailto fallback exists for mobile.
+        assert "data-download-copy" in site, "no mobile copy-download button"
+        assert "data-download-direct" in site, "no direct download link to copy from"
+        assert "mailto:" in site, "no mailto fallback for phones without a clipboard"
+        assert "navigator.clipboard" in site, "no clipboard copy path"
+
+        # CSS hides the direct button on mobile and the copy button on desktop.
+        assert "[data-download-copy]" in css, "copy button is not hidden on desktop"
+        assert "data-download-direct" in css, "direct button is not hidden on mobile"

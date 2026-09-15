@@ -1161,6 +1161,39 @@ footer p {
 
 /* ---------------------------------------------------------------- responsive */
 
+/* --------------------------------------------------------------- mobile menu */
+
+.menu-toggle {
+  display: none;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+.menu-toggle:hover {
+  border-color: var(--color-border-strong);
+  color: var(--color-text);
+}
+.menu-toggle svg { width: 18px; height: 18px; }
+
+.nav-links .page-link,
+.nav-links-sep { display: none; }
+
+.copy-confirm {
+  display: none;
+  margin: 0 0 var(--space-4);
+  font-size: var(--text-sm);
+  color: var(--color-primary);
+}
+.copy-confirm.show { display: block; }
+
+[data-download-copy] { display: none; }
+
 @media (max-width: 900px) {
   .hero-grid,
   .story-grid,
@@ -1172,6 +1205,33 @@ footer p {
   .hero { padding: var(--space-10) 0 var(--space-8); }
   .hero .lede { max-width: none; }
   .nav-links { display: none; }
+  .menu-toggle { display: grid; }
+  .nav-links {
+    position: absolute;
+    top: 68px;
+    left: 0;
+    right: 0;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    background: var(--color-surface);
+    border-bottom: 1px solid var(--color-border);
+    box-shadow: var(--shadow-lift);
+    padding: var(--space-3) var(--space-6) var(--space-5);
+  }
+  body.menu-open .nav-links { display: flex; }
+  .nav-links .page-link,
+  .nav-links-sep { display: block; }
+  .nav-links a {
+    padding: var(--space-3) 0;
+    border-bottom: 1px solid var(--color-border);
+  }
+  .nav-links a:last-child { border-bottom: 0; }
+  .nav-links-sep {
+    height: 1px;
+    background: var(--color-border-strong);
+    margin: var(--space-2) 0;
+  }
   section { padding: var(--space-10) 0; }
   section.band { padding: var(--space-12) 0; }
   .level.flagship .behaviors { grid-template-columns: 1fr; }
@@ -1185,6 +1245,8 @@ footer p {
   .nav-actions .btn { display: none; }
   .tl-block { grid-template-columns: 44px 1fr; }
   .download-panel-card { padding: var(--space-6); }
+  [data-download-direct] { display: none; }
+  [data-download-copy] { display: inline-flex; }
 }
 
 @media (prefers-reduced-motion: reduce) {
