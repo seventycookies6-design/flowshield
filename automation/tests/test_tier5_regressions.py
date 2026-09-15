@@ -1642,3 +1642,54 @@ class TestCustomSprintLengthsWired:
         view = (Path(DESKTOP_DIR) / "Views" / "TodayView.xaml").read_text(encoding="utf-8")
         for length in (15, 25, 45, 60, 90):
             assert f'SprintLength_{length}' in view, f"preset {length} min was removed"
+
+    def test_presets_do_not_bind_to_the_live_length(self):
+        """
+        Presets bind to PresetMinutes, which is 0 while Custom is selected.
+        Bound to SelectedMinutes, typing "15" on the way to "150" lit the
+        15-minute preset and WPF's radio group unchecked Custom mid-keystroke.
+        """
+        view = (Path(DESKTOP_DIR) / "Views" / "TodayView.xaml").read_text(encoding="utf-8")
+        assert "{Binding SelectedMinutes, Converter={StaticResource IntEq}" not in view
+        assert view.count("{Binding PresetMinutes, Converter={StaticResource IntEq}") == 5
+
+
+class TestCustomSprintLengthBehaviour:
+    """
+    Merge review of the first draft found: typing a value never saved it
+    (only clicking the radio did), an out-of-range value silently kept the
+    previous length, and Start stayed enabled. These drive the real window.
+    """
+
+    @pytest.mark.ui
+    def test_typing_a_custom_length_sets_saves_and_validates(self, fresh_app):
+        fresh_app.navigate_to_tab("Today")
+        fresh_app.click("SprintLength_Custom")
+        assert fresh_app.exists("CustomMinutesInput", timeout=3)
+
+        fresh_app.set_text("CustomMinutesInput", "150")
+        time.sleep(0.5)
+        assert fresh_app.sprint_timer() == "150:00", "the typed length didn't become the sprint length"
+        assert verify.read_settings().get("LastCustomSprintMinutes") == 150, \
+            "the typed length was not saved"
+        assert fresh_app.is_control_enabled("StartSprintButton")
+
+        fresh_app.set_text("CustomMinutesInput", "300")
+        time.sleep(0.5)
+        assert fresh_app.exists("CustomMinutesError", timeout=3), "no message for an out-of-range value"
+        assert fresh_app.sprint_timer() == "150:00", "an invalid value changed the sprint length"
+        assert not fresh_app.is_control_enabled("StartSprintButton"), \
+            "Start must be disabled while the custom value is invalid"
+        assert verify.read_settings().get("LastCustomSprintMinutes") == 150
+
+        fresh_app.set_text("CustomMinutesInput", "abc")
+        time.sleep(0.5)
+        assert fresh_app.exists("CustomMinutesError", timeout=3)
+        assert not fresh_app.is_control_enabled("StartSprintButton")
+
+        # A preset click leaves custom mode and takes over cleanly.
+        fresh_app.click("SprintLength_25")
+        time.sleep(0.5)
+        assert fresh_app.sprint_timer() == "25:00"
+        assert not fresh_app.exists("CustomMinutesInput", timeout=1)
+        assert fresh_app.is_control_enabled("StartSprintButton")

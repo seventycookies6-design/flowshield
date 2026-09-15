@@ -29,14 +29,14 @@ public class TodayViewModel : ViewModelBase
         _tick = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         _tick.Tick += (_, _) => OnTick();
 
-        StartCommand = new RelayCommand(StartSprint, () => !IsRunning);
+        StartCommand = new RelayCommand(StartSprint, CanStart);
         StopCommand = new RelayCommand(() => RequestEnd(), () => IsRunning);
         KeepGoingCommand = new RelayCommand(() => CloseEndPanel(keepGoing: true));
         EndAnywayCommand = new RelayCommand(EndAnyway);
         SaveJournalCommand = new RelayCommand(SaveJournal, () => JournalPromptVisible);
-        SelectCustomCommand = new RelayCommand(SelectCustom);
         GetProCommand = new RelayCommand(() => _main.OpenUpgradePage());
 
+        _customMinutesText = S.LastCustomSprintMinutes.ToString();
         _customMinutes = S.LastCustomSprintMinutes;
 
         RefreshStats();
@@ -248,6 +248,7 @@ public class TodayViewModel : ViewModelBase
 
     public int[] SprintLengths { get; } = { 15, 25, 45, 60, 90 };
 
+    /// <summary>The length the next sprint will run, preset or custom.</summary>
     private int _selectedMinutes = 25;
     public int SelectedMinutes
     {
@@ -255,34 +256,74 @@ public class TodayViewModel : ViewModelBase
         set
         {
             if (!Set(ref _selectedMinutes, value)) return;
-            if (!_isCustomSelected && SprintLengths.Contains(value))
-            {
-                IsCustomSelected = false;
-            }
+            Raise(nameof(PresetMinutes));
             UpdateIdleDisplay();
         }
     }
 
-    public const int CustomMinMinutes = 5;
-    public const int CustomMaxMinutes = 240;
-
-    private int _customMinutes = 30;
-    public int CustomMinutes
+    /// <summary>
+    /// What the preset radio buttons bind to. While Custom is selected this is
+    /// 0, so no preset lights up even when the typed value happens to equal
+    /// one — otherwise WPF's radio group would uncheck Custom under the user
+    /// as they typed "15" on the way to "150". Choosing a preset writes here
+    /// and leaves custom mode.
+    /// </summary>
+    public int PresetMinutes
     {
-        get => _customMinutes;
+        get => _isCustomSelected ? 0 : _selectedMinutes;
         set
         {
-            if (!Set(ref _customMinutes, value)) return;
-            Raise(nameof(IsCustomMinutesValid));
-            if (IsCustomSelected)
+            if (!SprintLengths.Contains(value)) return;
+            if (_isCustomSelected)
             {
-                SelectedMinutes = IsCustomMinutesValid ? value : SelectedMinutes;
+                _isCustomSelected = false;
+                Raise(nameof(IsCustomSelected));
+                Raise(nameof(CustomInputVisible));
             }
+            SelectedMinutes = value;
+            Raise(nameof(PresetMinutes));
         }
     }
 
+    // ------------------------------------------- custom sprint length (roadmap 2.3)
+
+    public const int CustomMinMinutes = 5;
+    public const int CustomMaxMinutes = 240;
+
+    /// <summary>Parsed from <see cref="CustomMinutesText"/>; null when the text isn't a whole number.</summary>
+    private int? _customMinutes;
+    private string _customMinutesText = "";
+
+    /// <summary>
+    /// Bound to the text box as a string, so "abc" or "" is rejected with a
+    /// message rather than silently leaving the previous length in place.
+    /// </summary>
+    public string CustomMinutesText
+    {
+        get => _customMinutesText;
+        set
+        {
+            if (!Set(ref _customMinutesText, value ?? "")) return;
+            _customMinutes = int.TryParse(_customMinutesText.Trim(), out var parsed) ? parsed : null;
+            Raise(nameof(CustomMinutes));
+            Raise(nameof(IsCustomMinutesValid));
+            Raise(nameof(CustomMinutesError));
+            Raise(nameof(CustomMinutesErrorVisible));
+            ApplyCustomMinutes();
+        }
+    }
+
+    /// <summary>The custom length in minutes, or 0 if the text isn't a valid one.</summary>
+    public int CustomMinutes => IsCustomMinutesValid ? _customMinutes!.Value : 0;
+
     public bool IsCustomMinutesValid =>
-        _customMinutes >= CustomMinMinutes && _customMinutes <= CustomMaxMinutes;
+        _customMinutes is >= CustomMinMinutes and <= CustomMaxMinutes;
+
+    public string CustomMinutesError => IsCustomMinutesValid
+        ? ""
+        : $"Choose between {CustomMinMinutes} and {CustomMaxMinutes} minutes.";
+
+    public bool CustomMinutesErrorVisible => _isCustomSelected && !IsCustomMinutesValid;
 
     private bool _isCustomSelected;
     public bool IsCustomSelected
@@ -290,37 +331,50 @@ public class TodayViewModel : ViewModelBase
         get => _isCustomSelected;
         set
         {
-            if (!Set(ref _isCustomSelected, value)) return;
-            if (value && IsCustomMinutesValid)
+            if (value == _isCustomSelected) return;
+
+            // The radio's two-way binding writes true before any command runs,
+            // so the lock check has to live here or the trial-expired user gets
+            // the feature anyway.
+            if (value && _main.IsLocked)
             {
-                _selectedMinutes = _customMinutes;
-                Raise(nameof(SelectedMinutes));
-                UpdateIdleDisplay();
+                Raise(nameof(IsCustomSelected));
+                _main.OpenUpgradePage();
+                return;
             }
+
+            _isCustomSelected = value;
+            Raise(nameof(IsCustomSelected));
             Raise(nameof(CustomInputVisible));
+            Raise(nameof(CustomMinutesErrorVisible));
+            Raise(nameof(PresetMinutes));
+            if (value) ApplyCustomMinutes();
         }
     }
 
     public bool CustomInputVisible => _isCustomSelected;
 
-    public RelayCommand SelectCustomCommand { get; }
     public RelayCommand GetProCommand { get; }
 
-    private void SelectCustom()
+    /// <summary>
+    /// In custom mode with a valid number: make it the sprint length and
+    /// remember it, so it survives a restart and is the default next time.
+    /// Invalid input changes nothing and Start stays disabled.
+    /// </summary>
+    private void ApplyCustomMinutes()
     {
-        if (_main.IsLocked)
-        {
-            _main.OpenUpgradePage();
-            return;
-        }
+        if (!_isCustomSelected || !IsCustomMinutesValid) return;
 
-        IsCustomSelected = true;
-        if (IsCustomMinutesValid)
+        SelectedMinutes = _customMinutes!.Value;
+        if (S.LastCustomSprintMinutes != _customMinutes.Value)
         {
-            S.LastCustomSprintMinutes = _customMinutes;
+            S.LastCustomSprintMinutes = _customMinutes.Value;
             _main.SaveSettings();
         }
     }
+
+    /// <summary>Start is allowed unless custom mode is on with nothing valid typed.</summary>
+    private bool CanStart() => !IsRunning && (!_isCustomSelected || IsCustomMinutesValid);
 
     public ShieldLevel[] ShieldLevels { get; } = { ShieldLevel.Soft, ShieldLevel.Firm, ShieldLevel.Sealed };
 
@@ -389,7 +443,7 @@ public class TodayViewModel : ViewModelBase
 
     private void StartSprint()
     {
-        if (IsRunning) return;
+        if (!CanStart()) return;
 
         // The lock screen covers this button once the trial ends, but the tray
         // menu and keyboard can still reach it.
@@ -471,7 +525,19 @@ public class TodayViewModel : ViewModelBase
                 };
                 _selectedMinutes = saved.PlannedMinutes;
                 _selectedShield = saved.Shield;
+                if (!SprintLengths.Contains(saved.PlannedMinutes))
+                {
+                    // A custom-length sprint comes back in custom mode, so the
+                    // controls match the sprint that is actually running.
+                    _isCustomSelected = true;
+                    _customMinutes = saved.PlannedMinutes;
+                    _customMinutesText = saved.PlannedMinutes.ToString();
+                    Raise(nameof(IsCustomSelected));
+                    Raise(nameof(CustomInputVisible));
+                    Raise(nameof(CustomMinutesText));
+                }
                 Raise(nameof(SelectedMinutes));
+                Raise(nameof(PresetMinutes));
                 Raise(nameof(SelectedShield));
                 Raise(nameof(ShieldDescription));
 
