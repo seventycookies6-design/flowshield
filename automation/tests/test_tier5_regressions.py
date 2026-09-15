@@ -1507,6 +1507,16 @@ class TestSupportPageDescribesTheShippedApp:
         page = (Path(WEBSITE_DIR) / "changelog.html").read_text(encoding="utf-8")
         assert "1.0.0 <span class=\"date\">11 September 2026</span>" in page
 
+    def test_the_changelog_states_the_real_custom_length_range(self):
+        # The 1.0.7 entry said "1 to 180 minutes"; the app accepts 5 to 240.
+        import re
+
+        page = (Path(WEBSITE_DIR) / "changelog.html").read_text(encoding="utf-8")
+        today = (Path(DESKTOP_DIR) / "ViewModels" / "TodayViewModel.cs").read_text(encoding="utf-8")
+        low = re.search(r"CustomMinMinutes = (\d+);", today).group(1)
+        high = re.search(r"CustomMaxMinutes = (\d+);", today).group(1)
+        assert f"from {low} to {high} minutes" in page
+
 
 # ============ a crash shows a friendly dialog, not a raw exception dump (roadmap 1.14)
 
