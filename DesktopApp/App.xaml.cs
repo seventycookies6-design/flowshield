@@ -11,6 +11,8 @@ public partial class App : Application
 
     public MainViewModel? ViewModel { get; private set; }
 
+    public bool DevMode { get; private set; }
+
     /// <summary>The single-instance lock taken in Program.Main; null only if run another way.</summary>
     public SingleInstance? Instance { get; init; }
 
@@ -35,6 +37,12 @@ public partial class App : Application
         {
             Models.EndSprintPolicy.UseShortTimers = true;
             Log.Info("short end-sprint timers enabled by --short-timers flag");
+        }
+
+        if (args.Any(a => a.Equals("--dev", StringComparison.OrdinalIgnoreCase)))
+        {
+            DevMode = true;
+            Log.Info("dev mode enabled by --dev flag");
         }
 
         var settingsService = new SettingsService();
