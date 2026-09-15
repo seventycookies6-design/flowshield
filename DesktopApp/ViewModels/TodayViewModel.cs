@@ -386,6 +386,7 @@ public class TodayViewModel : ViewModelBase
         {
             if (!Set(ref _selectedShield, value)) return;
             Raise(nameof(ShieldDescription));
+            Raise(nameof(ShieldBestFor));
             Raise(nameof(SealedRestartHintVisible));
         }
     }
@@ -397,12 +398,9 @@ public class TodayViewModel : ViewModelBase
     public bool SealedRestartHintVisible =>
         !IsRunning && SelectedShield == ShieldLevel.Sealed && !S.StartWithWindows;
 
-    public string ShieldDescription => SelectedShield switch
-    {
-        ShieldLevel.Soft => "Blocked apps get a nudge you can dismiss.",
-        ShieldLevel.Firm => "Blocked apps are closed on sight.",
-        _ => "Closed on sight, and the blocklist locks for the rest of the sprint.",
-    };
+    public string ShieldDescription => ShieldCopy.Promise(SelectedShield);
+
+    public string ShieldBestFor => ShieldCopy.BestFor(SelectedShield);
 
     // ------------------------------------------------------------- journal
 

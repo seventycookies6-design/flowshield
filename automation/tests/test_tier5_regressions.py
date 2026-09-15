@@ -296,6 +296,67 @@ class TestWebsiteClaimsMatchTheApp:
             assert claim not in site, f"the site still claims unshipped behaviour: {claim}"
 
 
+class _ShieldPromiseParser(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.shield = None
+        self.in_promise = False
+        self.promises = {}
+
+    def handle_starttag(self, tag, attrs):
+        values = dict(attrs)
+        if tag == "article" and values.get("data-shield"):
+            self.shield = values["data-shield"]
+        elif tag == "p" and self.shield and "promise" in values.get("class", "").split():
+            self.in_promise = True
+            self.promises[self.shield] = ""
+
+    def handle_data(self, data):
+        if self.in_promise:
+            self.promises[self.shield] += data
+
+    def handle_endtag(self, tag):
+        if tag == "p" and self.in_promise:
+            self.promises[self.shield] = " ".join(
+                self.promises[self.shield].split())
+            self.in_promise = False
+        elif tag == "article":
+            self.shield = None
+
+
+class TestShieldCommitmentCopy:
+    PROMISES = {
+        "Soft": "Notes distractions and nudges you.",
+        "Firm": "Closes blocked apps.",
+        "Sealed": "Closes apps and locks the list until the sprint ends.",
+    }
+    BEST_FOR = {
+        "Soft": "Best for classes or light work.",
+        "Firm": "Best for homework.",
+        "Sealed": "Best for exams and deep work.",
+    }
+
+    def test_app_onboarding_and_website_share_the_same_promises(self):
+        model = (Path(DESKTOP_DIR) / "Models" / "ShieldCopy.cs").read_text(
+            encoding="utf-8")
+        welcome = (Path(DESKTOP_DIR) / "MainWindow.xaml").read_text(
+            encoding="utf-8-sig")
+        today = (Path(DESKTOP_DIR) / "Views" / "TodayView.xaml").read_text(
+            encoding="utf-8-sig")
+        parser = _ShieldPromiseParser()
+        parser.feed((Path(WEBSITE_DIR) / "index.html").read_text(encoding="utf-8"))
+
+        assert parser.promises == self.PROMISES
+        assert 'AutomationProperties.AutomationId="ShieldDescriptionText"' in today
+        assert 'AutomationProperties.AutomationId="ShieldBestForText"' in today
+        for shield, promise in self.PROMISES.items():
+            assert f'public const string {shield}Promise = "{promise}";' in model
+            assert f'{{x:Static models:ShieldCopy.{shield}Promise}}' in welcome
+            best_for = self.BEST_FOR[shield]
+            assert f'public const string {shield}BestFor = "{best_for}";' in model
+            assert f'{{x:Static models:ShieldCopy.{shield}BestFor}}' in welcome
+
+
 class TestSoftShieldWording:
     """Public and developer-facing descriptions must match today's Soft mode."""
 
@@ -860,9 +921,10 @@ class TestPurchaseFlowCopy:
             "re-running the setup script must correct an existing product's description"
 
     def test_the_app_describes_sealed_accurately(self):
-        today = (Path(DESKTOP_DIR) / "ViewModels" / "TodayViewModel.cs").read_text(encoding="utf-8")
-        assert "until the timer ends" not in today
-        assert "locks for the rest of the sprint" in today
+        copy = (Path(DESKTOP_DIR) / "Models" / "ShieldCopy.cs").read_text(
+            encoding="utf-8")
+        assert "until the timer ends" not in copy
+        assert "locks the list until the sprint ends" in copy
 
     def test_the_report_table_lists_only_shipped_pro_features(self):
         root = Path(DESKTOP_DIR).parent

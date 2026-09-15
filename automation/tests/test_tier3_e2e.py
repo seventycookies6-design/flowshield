@@ -27,6 +27,22 @@ class TestAppShell:
     def test_every_tab_is_reachable(self, app, tab):
         assert app.navigate_to_tab(tab) == tab
 
+    @pytest.mark.parametrize(("shield", "promise", "best_for"), [
+        ("Soft", "Notes distractions and nudges you.",
+         "Best for classes or light work."),
+        ("Firm", "Closes blocked apps.", "Best for homework."),
+        ("Sealed", "Closes apps and locks the list until the sprint ends.",
+         "Best for exams and deep work."),
+    ])
+    def test_each_shield_explains_its_commitment(self, fresh_app, shield,
+                                                 promise, best_for):
+        fresh_app.navigate_to_tab("Today")
+        fresh_app.select_shield(shield)
+        time.sleep(0.4)
+
+        assert fresh_app.text_of("ShieldDescriptionText") == promise
+        assert fresh_app.text_of("ShieldBestForText") == best_for
+
     def test_a_clean_install_starts_the_seven_day_trial(self, app):
         app.navigate_to_tab("Settings")
         assert "free trial — 7 days left" in app.get_license_status_text().lower()

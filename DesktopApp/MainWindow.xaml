@@ -302,7 +302,9 @@
                                              AutomationProperties.Name="Soft">
                                     <StackPanel Margin="6,0,0,0">
                                         <TextBlock Text="Soft" Foreground="{StaticResource Ink}" FontWeight="SemiBold"/>
-                                        <TextBlock Text="Blocked apps get a nudge you can dismiss." Style="{StaticResource Caption}"/>
+                                        <TextBlock Text="{x:Static models:ShieldCopy.SoftPromise}" Style="{StaticResource Caption}"/>
+                                        <TextBlock Text="{x:Static models:ShieldCopy.SoftBestFor}" Style="{StaticResource Caption}"
+                                                   Foreground="{StaticResource InkDim}"/>
                                     </StackPanel>
                                 </RadioButton>
                                 <RadioButton GroupName="FirstRunShield" Margin="0,0,0,12"
@@ -314,7 +316,9 @@
                                         <TextBlock Foreground="{StaticResource Ink}" FontWeight="SemiBold">
                                             <Run Text="Firm"/><Run Text="  recommended" Foreground="{StaticResource Primary}" FontWeight="Normal"/>
                                         </TextBlock>
-                                        <TextBlock Text="Blocked apps are closed on sight." Style="{StaticResource Caption}"/>
+                                        <TextBlock Text="{x:Static models:ShieldCopy.FirmPromise}" Style="{StaticResource Caption}"/>
+                                        <TextBlock Text="{x:Static models:ShieldCopy.FirmBestFor}" Style="{StaticResource Caption}"
+                                                   Foreground="{StaticResource InkDim}"/>
                                     </StackPanel>
                                 </RadioButton>
                                 <RadioButton GroupName="FirstRunShield"
@@ -325,7 +329,9 @@
                                     <StackPanel Margin="6,0,0,0">
                                         <TextBlock Text="Sealed" Foreground="{StaticResource Ink}" FontWeight="SemiBold"/>
                                         <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap"
-                                                   Text="Closed on sight, and the blocklist locks until the sprint ends. Ending early takes a 30-second wait."/>
+                                                   Text="{x:Static models:ShieldCopy.SealedPromise}"/>
+                                        <TextBlock Text="{x:Static models:ShieldCopy.SealedBestFor}" Style="{StaticResource Caption}"
+                                                   Foreground="{StaticResource InkDim}"/>
                                     </StackPanel>
                                 </RadioButton>
                             </StackPanel>
