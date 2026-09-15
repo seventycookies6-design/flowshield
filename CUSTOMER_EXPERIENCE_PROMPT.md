@@ -20,6 +20,7 @@ phase), with an issue per item as work starts.
 | 1.5 Uninstall cleans up | **Done**: uninstall removes the Run value and `flowshield://`; data stays, deletion steps in `SELLING.md` | #54 |
 | 2.1 First run | **Done** as launch checklist F18 | #68 |
 | 2.2 An app picker | **Done** as launch checklist F8 | #58 |
+| 2.3 Custom sprint lengths | **Done**: a Custom… option accepts 5–240 minutes, is validated with an error message, persists across restarts, and is gated behind the trial lock | |
 | 1.9 Sealed means sealed, with an honest escape hatch | **Done** as launch checklist F2 | #47 |
 | 1.10 Sprints survive restarts | **Done** as launch checklist F3 | #43 |
 | Everything else | Not started | #1–#6 |
