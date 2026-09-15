@@ -1817,3 +1817,22 @@ class TestNoDeveloperTextOnCustomerSurfaces:
         fresh_app.navigate_to_tab("Settings")
         assert fresh_app.exists("LicenseServerUrlInput", timeout=3), \
             "the controller must pass --dev so tests can reach the URL box"
+
+
+# ============ the site is keyboard-accessible and motion-safe (roadmap 6.7)
+
+class TestWebsiteAccessibilityStyles:
+    """
+    Roadmap 6.7: interactive elements need a visible keyboard focus style, and
+    non-essential motion must be disabled for users who ask for reduced motion.
+    """
+
+    def test_website_has_focus_and_reduced_motion_styles(self):
+        css = (Path(WEBSITE_DIR) / "styles.css").read_text(encoding="utf-8")
+
+        assert ":focus-visible" in css or ":focus" in css, (
+            "styles.css must define a keyboard focus style for interactive elements"
+        )
+        assert "@media (prefers-reduced-motion: reduce)" in css, (
+            "styles.css must disable non-essential motion for reduced-motion users"
+        )
