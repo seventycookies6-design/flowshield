@@ -98,7 +98,7 @@ roadmap item below has exactly one owner. Tracking issues: #37 (Keenan) and
 | F9 | Blocklist profiles (Roadmap 3.8) | M |
 | F16 | History and weekly view (Roadmap 3.1, 3.6) | M |
 | F18 | Three-step first run (Roadmap 2.1) (done, #68) | M |
-| F19 | Native notifications and tray (Roadmap 2.5, 2.7) | S |
+| F19 | Native notifications and tray (Roadmap 2.5, 2.7) (done, #95) | S |
 | F23 | Privacy promise: in-app "Your data" and the claims test (Roadmap 4.5); Miles writes the website section | S |
 | F25 | Code signing in the release script (after the certificate is bought) | M |
 | Design §14 | `design/tokens.json`, the XAML and CSS generator, and the parity test | M |
@@ -591,7 +591,7 @@ The recommendation is (b) plus the honest message (F26), unless early users say 
 
 ### F19 — Native notifications and a helpful tray · **Launch** · S · Roadmap 2.5, 2.7
 
-- [ ] Done
+- [x] Done (#95): tray notifications for sprint started, 5 minutes left, complete, interrupted and trial ending, each switchable in Settings; break-over and scheduled-sprint kinds are defined and wire up with F5 and F6. The tray icon counts down the minutes left, the tooltip names the shield and time, the taskbar button shows progress, and the window title carries the countdown (Windows 11 hides new tray icons in the overflow until the user drags one out).
 
 **Assigned:** Keenan (seventycookies6-design), built with Claude Code
 

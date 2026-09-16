@@ -260,6 +260,8 @@ public class MainViewModel : ViewModelBase
         {
             Raise(nameof(TierBadge));   // the days-left count changes daily
         }
+
+        MaybeNotifyTrialEnding();
     }
 
     /// <summary>Re-evaluates every gated surface after activation, deactivation or the trial ending.</summary>
@@ -279,6 +281,38 @@ public class MainViewModel : ViewModelBase
         BlockedApps.RefreshStatus();
         SleepBlocking.OnTierChanged();
         SettingsPage.RefreshLicenseStatus();
+    }
+
+    // ------------------------------------------------------ notifications (F19)
+
+    /// <summary>Raised when a notification should appear; MainWindow shows it from the tray.</summary>
+    public event EventHandler<Notification>? NotificationRequested;
+
+    /// <summary>Shows a notification if the user still wants that kind. Returns true if it was shown.</summary>
+    public bool Notify(NotificationKind kind, string title, string message,
+                       NotificationAction action = NotificationAction.OpenApp)
+    {
+        if (!NotificationPolicy.ShouldShow(kind, Settings, IsSprintRunning)) return false;
+        NotificationRequested?.Invoke(this, new Notification(kind, title, message, action));
+        Log.Info($"notification: {kind}");
+        return true;
+    }
+
+    /// <summary>
+    /// One notice on the last day of the trial, never during a sprint — it waits
+    /// for the next check instead, which is F20's promise as well.
+    /// </summary>
+    public void MaybeNotifyTrialEnding()
+    {
+        if (!IsTrial || TrialDaysLeft > 1) return;
+        var today = DateTime.Now.Date;
+        if (Settings.TrialEndingNotifiedLocal?.Date == today) return;
+        if (!Notify(NotificationKind.TrialEnding, "Your free trial ends tomorrow",
+                    "Buy FlowShield once for $4.99 to keep it — no subscription.",
+                    NotificationAction.OpenSettingsLicense)) return;
+
+        Settings.TrialEndingNotifiedLocal = today;
+        SaveSettings();
     }
 
     public void OnSprintStateChanged()

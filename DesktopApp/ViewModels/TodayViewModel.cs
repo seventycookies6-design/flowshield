@@ -232,6 +232,10 @@ public class TodayViewModel : ViewModelBase
 
     public bool NotRunning => !IsRunning;
 
+    private TimeSpan _remaining;
+    /// <summary>Time left in the running sprint; drives the tray countdown (F19).</summary>
+    public TimeSpan Remaining { get => _remaining; private set => Set(ref _remaining, value); }
+
     private string _remainingText = "25:00";
     public string RemainingText { get => _remainingText; private set => Set(ref _remainingText, value); }
 
@@ -474,6 +478,9 @@ public class TodayViewModel : ViewModelBase
 
         BeginRunning($"Shield {Roman(SelectedShield)} engaged");
         Log.Info($"sprint started: {SelectedMinutes}m at shield {SelectedShield}");
+
+        _main.Notify(NotificationKind.SprintStarted, "Sprint started",
+            $"{SelectedShield} shield on for {SelectedMinutes} minutes.");
     }
 
     private void BeginRunning(string stateText)
@@ -481,6 +488,7 @@ public class TodayViewModel : ViewModelBase
         _endsAtUtc = _current!.StartedUtc.AddMinutes(_current.PlannedMinutes);
         _lastHeartbeatUtc = DateTime.UtcNow;
         _blocksThisSprint = 0;
+        _endingSoonNotified = false;
         IsRunning = true;
         SessionStateText = stateText;
         JournalPromptVisible = false;
@@ -496,6 +504,9 @@ public class TodayViewModel : ViewModelBase
     public static readonly TimeSpan HeartbeatInterval = TimeSpan.FromSeconds(30);
 
     private DateTime _lastHeartbeatUtc;
+
+    /// <summary>"5 minutes left" fires once per sprint, not once a second.</summary>
+    private bool _endingSoonNotified;
 
     /// <summary>
     /// Pick up a sprint that was running when FlowShield last closed (F3).
@@ -572,6 +583,12 @@ public class TodayViewModel : ViewModelBase
                 _main.Toast(completed
                     ? "Your last sprint finished while FlowShield was closed."
                     : "Your last sprint was interrupted — FlowShield wasn't running for most of it.");
+                _main.Notify(
+                    completed ? NotificationKind.SprintComplete : NotificationKind.SprintInterrupted,
+                    completed ? "Sprint complete" : "Sprint interrupted",
+                    completed
+                        ? $"{session.PlannedMinutes} minutes finished while FlowShield was closed."
+                        : "FlowShield wasn't running for most of it, so nothing was enforced.");
                 break;
 
             default:
@@ -601,6 +618,17 @@ public class TodayViewModel : ViewModelBase
             _main.SaveSettings();
         }
 
+        // "5 minutes left", once, and never on a sprint barely longer than that.
+        if (!_endingSoonNotified
+            && remaining <= NotificationPolicy.EndingSoon
+            && !NotificationPolicy.TooShortForEndingSoon(_current?.PlannedMinutes ?? SelectedMinutes))
+        {
+            _endingSoonNotified = true;
+            _main.Notify(NotificationKind.FiveMinutesLeft, "5 minutes left",
+                "Nearly there — the shield comes down when the time is up.");
+        }
+
+        Remaining = remaining;
         RemainingText = remaining.TotalHours >= 1
             ? $"{(int)remaining.TotalHours}:{remaining.Minutes:00}:{remaining.Seconds:00}"
             : $"{(int)remaining.TotalMinutes:00}:{remaining.Seconds:00}";
@@ -638,6 +666,13 @@ public class TodayViewModel : ViewModelBase
         _main.OnSprintStateChanged();
 
         Log.Info($"sprint ended: completed={completed} momentum={S.MomentumScore:0.0}");
+
+        if (completed)
+        {
+            _main.Notify(NotificationKind.SprintComplete, "Sprint complete",
+                $"{_current.PlannedMinutes} minutes done. Momentum {S.MomentumScore:0.0}.",
+                NotificationAction.OpenJournal);
+        }
     }
 
     /// <summary>

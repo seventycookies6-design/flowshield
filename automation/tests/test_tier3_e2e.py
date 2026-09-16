@@ -477,6 +477,49 @@ class TestAppPicker:
         assert "closes the whole browser" in texts.lower(), texts
 
 
+# ========================================================= notifications (F19)
+
+class TestNotificationSettings:
+    TOGGLES = [
+        ("NotifySprintStartedToggle", "SprintStarted"),
+        ("NotifyFiveMinutesLeftToggle", "FiveMinutesLeft"),
+        ("NotifySprintCompleteToggle", "SprintComplete"),
+        ("NotifySprintInterruptedToggle", "SprintInterrupted"),
+        ("NotifyTrialEndingToggle", "TrialEnding"),
+    ]
+
+    def test_every_notification_is_on_for_a_new_install(self, fresh_app):
+        fresh_app.navigate_to_tab("Settings")
+        assert fresh_app.toggle_state("NotificationsToggle") is True
+        for toggle, _ in self.TOGGLES:
+            assert fresh_app.toggle_state(toggle) is True, toggle
+
+    def test_switching_one_off_is_saved(self, fresh_app):
+        fresh_app.navigate_to_tab("Settings")
+        fresh_app.set_toggle("NotifyFiveMinutesLeftToggle", False)
+        time.sleep(0.8)
+
+        kinds = verify.read_settings()["NotificationKinds"]
+        assert kinds["FiveMinutesLeft"] is False
+        assert verify.read_settings()["NotificationsEnabled"] is True
+
+    def test_the_master_switch_disables_the_rest(self, fresh_app):
+        fresh_app.navigate_to_tab("Settings")
+        fresh_app.set_toggle("NotificationsToggle", False)
+        time.sleep(0.8)
+        assert verify.read_settings()["NotificationsEnabled"] is False
+        assert fresh_app.is_control_enabled("NotifySprintStartedToggle") is False
+
+    def test_a_running_sprint_puts_the_countdown_in_the_title(self, fresh_app):
+        fresh_app.navigate_to_tab("Today")
+        fresh_app.click("SprintLength_15")
+        fresh_app.start_sprint()
+        time.sleep(1.5)
+        title = fresh_app.window.window_text()
+        assert title.startswith("FlowShield —"), title
+        assert ":" in title, title
+
+
 # ============================================================ first run (F18)
 
 class TestFirstRun:

@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Interop;
+using FlowShield.Models;
 using FlowShield.Services;
 using FlowShield.ViewModels;
 using Forms = System.Windows.Forms;
@@ -83,6 +84,7 @@ public partial class MainWindow : Window
 
             _tray.ContextMenuStrip = menu;
             _tray.DoubleClick += (_, _) => RestoreFromTray();
+            _tray.BalloonTipClicked += OnNotificationClicked;
         }
         catch (Exception ex)
         {
@@ -109,12 +111,14 @@ public partial class MainWindow : Window
         {
             oldVm.Today.PropertyChanged -= OnTodayChanged;
             oldVm.Today.EndAbandoned -= OnEndAbandoned;
+            oldVm.NotificationRequested -= OnNotificationRequested;
         }
 
         if (e.NewValue is MainViewModel newVm)
         {
             newVm.Today.PropertyChanged += OnTodayChanged;
             newVm.Today.EndAbandoned += OnEndAbandoned;
+            newVm.NotificationRequested += OnNotificationRequested;
         }
 
         UpdateTrayIcon();
@@ -122,13 +126,151 @@ public partial class MainWindow : Window
 
     private void OnEndAbandoned(object? sender, EventArgs e) => _quitWhenSprintEnds = false;
 
-    private void UpdateTrayIcon()
+    // ------------------------------------------------------ notifications (F19)
+
+    private Notification? _lastNotification;
+
+    private void OnNotificationRequested(object? sender, Notification notification)
     {
-        if (_tray is not null)
+        if (_tray is null) return;
+        try
         {
-            _tray.Icon = Vm?.Today.IsRunning == true ? _trayRunningIcon : _trayIdleIcon;
+            _lastNotification = notification;
+            // A hidden NotifyIcon can't raise a balloon, so show it for the
+            // duration — the tray is where a minimised FlowShield lives anyway.
+            _tray.Visible = true;
+            _tray.ShowBalloonTip(5000, notification.Title, notification.Message, Forms.ToolTipIcon.None);
+        }
+        catch (Exception ex)
+        {
+            Log.Warn($"could not show a notification: {ex.Message}");
         }
     }
+
+    private void OnNotificationClicked(object? sender, EventArgs e)
+    {
+        var notification = _lastNotification;
+        RestoreFromTray();
+        if (Vm is null || notification is null) return;
+
+        switch (notification.Action)
+        {
+            case NotificationAction.OpenJournal:
+                Vm.CurrentPage = AppPage.Today;
+                break;
+            case NotificationAction.OpenSettingsLicense:
+                Vm.CurrentPage = AppPage.Settings;
+                break;
+        }
+    }
+
+    /// <summary>
+    /// The tray icon, its tooltip and the taskbar progress bar, refreshed every
+    /// tick of a running sprint: the notification area itself becomes the timer.
+    /// </summary>
+    private void UpdateTrayIcon()
+    {
+        var running = Vm?.Today.IsRunning == true;
+        var remaining = Vm?.Today.Remaining ?? TimeSpan.Zero;
+
+        if (_tray is not null)
+        {
+            // While a sprint runs the tray icon stays visible even with the
+            // window open: it is the countdown.
+            if (running) _tray.Visible = true;
+
+            _tray.Text = NotificationPolicy.TrayText(running, Vm?.Today.SelectedShield ?? ShieldLevel.Firm, remaining);
+
+            var countdown = running ? NotificationPolicy.TrayIconText(remaining) : null;
+            if (countdown is null)
+            {
+                _tray.Icon = _trayIdleIcon;
+                _countdownText = null;
+            }
+            else if (countdown != _countdownText)
+            {
+                _countdownText = countdown;
+                var icon = CountdownIcon(countdown);
+                if (icon is not null)
+                {
+                    _tray.Icon = icon;
+                    _countdownIcon?.Dispose();
+                    _countdownIcon = icon;
+                }
+                else
+                {
+                    _tray.Icon = _trayRunningIcon;
+                }
+            }
+        }
+
+        // Windows 11 hides new tray icons in the overflow until the user drags
+        // one out, so the countdown also goes in the title: the taskbar button's
+        // tooltip and thumbnail then show the time left without any setup.
+        Title = running ? $"FlowShield — {Vm?.Today.RemainingText}" : "FlowShield";
+
+        // Taskbar button: a progress bar for as long as the sprint runs.
+        if (TaskbarItemInfo is not null)
+        {
+            TaskbarItemInfo.ProgressState = running
+                ? System.Windows.Shell.TaskbarItemProgressState.Normal
+                : System.Windows.Shell.TaskbarItemProgressState.None;
+            TaskbarItemInfo.ProgressValue = Vm?.Today.Progress ?? 0;
+        }
+    }
+
+    private string? _countdownText;
+    private System.Drawing.Icon? _countdownIcon;
+
+    /// <summary>Draws the minutes left as the tray icon. Null if drawing fails.</summary>
+    private static System.Drawing.Icon? CountdownIcon(string text)
+    {
+        try
+        {
+            using var bitmap = new System.Drawing.Bitmap(32, 32);
+            using (var g = System.Drawing.Graphics.FromImage(bitmap))
+            {
+                g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
+                g.Clear(System.Drawing.Color.Transparent);
+
+                using var background = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(0xFF, 0x3A, 0xA8, 0x92));
+                g.FillEllipse(background, 0, 0, 31, 31);
+
+                var size = text.Length >= 3 ? 13f : 17f;
+                using var font = new System.Drawing.Font("Segoe UI", size, System.Drawing.FontStyle.Bold,
+                    System.Drawing.GraphicsUnit.Pixel);
+                using var ink = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(0xFF, 0x0E, 0x14, 0x12));
+                using var format = new System.Drawing.StringFormat
+                {
+                    Alignment = System.Drawing.StringAlignment.Center,
+                    LineAlignment = System.Drawing.StringAlignment.Center,
+                };
+                g.DrawString(text, font, ink, new System.Drawing.RectangleF(0, 0, 32, 32), format);
+            }
+
+            var handle = bitmap.GetHicon();
+            try
+            {
+                // Clone, then free the handle GetHicon created — otherwise every
+                // minute of every sprint leaks a GDI icon handle.
+                using var shared = System.Drawing.Icon.FromHandle(handle);
+                return (System.Drawing.Icon)shared.Clone();
+            }
+            finally
+            {
+                DestroyIcon(handle);
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Warn($"countdown tray icon unavailable: {ex.Message}");
+            return null;
+        }
+    }
+
+    [System.Runtime.InteropServices.DllImport("user32.dll", SetLastError = true)]
+    private static extern bool DestroyIcon(IntPtr handle);
 
     /// <summary>
     /// Really exit. During a Firm or Sealed sprint (past its grace period) the
@@ -160,9 +302,13 @@ public partial class MainWindow : Window
 
     private void OnTodayChanged(object? sender, PropertyChangedEventArgs e)
     {
+        // Remaining ticks every second while a sprint runs; it is what keeps the
+        // countdown in the notification area current.
+        if (e.PropertyName is nameof(TodayViewModel.Remaining) or nameof(TodayViewModel.IsRunning))
+            UpdateTrayIcon();
+
         if (e.PropertyName != nameof(TodayViewModel.IsRunning)) return;
 
-        UpdateTrayIcon();
         if (_quitWhenSprintEnds && Vm?.Today.IsRunning == false)
         {
             _quitWhenSprintEnds = false;
@@ -190,7 +336,8 @@ public partial class MainWindow : Window
         Show();
         WindowState = WindowState.Normal;
         Activate();
-        if (_tray is not null) _tray.Visible = false;
+        // The countdown stays in the tray during a sprint; otherwise the icon goes.
+        if (_tray is not null) _tray.Visible = Vm?.Today.IsRunning == true;
     }
 
     /// <summary>
@@ -258,6 +405,8 @@ public partial class MainWindow : Window
             _trayIdleIcon = null;
             _trayRunningIcon?.Dispose();
             _trayRunningIcon = null;
+            _countdownIcon?.Dispose();
+            _countdownIcon = null;
         }
         catch (Exception ex)
         {

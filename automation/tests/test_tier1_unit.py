@@ -645,6 +645,61 @@ def phrase_matches(typed: str) -> bool:
     return " ".join((typed or "").split()).lower() == "end my sprint"
 
 
+def notification_allowed(kind: str, *, master=True, kind_on=True, sprint_running=False) -> bool:
+    """Mirror of NotificationPolicy.ShouldShow."""
+    interrupts_focus = {"TrialEnding"}
+    return master and kind_on and not (sprint_running and kind in interrupts_focus)
+
+
+class TestNotificationPolicy:
+    SOURCE = Path(SERVER_DIR).parent / "DesktopApp" / "Models" / "Notifications.cs"
+
+    @pytest.mark.parametrize("kind,kwargs,allowed", [
+        ("SprintStarted", {}, True),
+        ("SprintComplete", {"sprint_running": True}, True),      # about the sprint itself
+        ("FiveMinutesLeft", {"sprint_running": True}, True),
+        ("TrialEnding", {}, True),
+        ("TrialEnding", {"sprint_running": True}, False),        # never sell during a sprint (F20)
+        ("SprintStarted", {"kind_on": False}, False),
+        ("SprintComplete", {"master": False}, False),
+    ])
+    def test_when_flowshield_may_interrupt(self, kind, kwargs, allowed):
+        assert notification_allowed(kind, **kwargs) is allowed
+
+    def test_the_mirror_matches_the_app(self):
+        source = self.SOURCE.read_text(encoding="utf-8")
+        interrupts = source.split("public static bool InterruptsFocus(")[1].split(";")[0]
+        assert "NotificationKind.TrialEnding" in interrupts
+        for other in ("SprintStarted", "SprintComplete", "FiveMinutesLeft", "SprintInterrupted"):
+            assert other not in interrupts
+        should = source.split("public static bool ShouldShow(")[1].split(";")[0]
+        assert "settings.IsNotificationOn(kind)" in should
+        assert "!(sprintRunning && InterruptsFocus(kind))" in should
+
+    def test_notifications_are_on_until_switched_off(self):
+        settings = (Path(SERVER_DIR).parent / "DesktopApp" / "Models" / "AppSettings.cs").read_text(encoding="utf-8")
+        assert "public bool NotificationsEnabled { get; set; } = true;" in settings
+        is_on = settings.split("public bool IsNotificationOn(")[1].split(";")[0]
+        assert "!NotificationKinds.TryGetValue(kind.ToString(), out var on) || on" in is_on
+
+    @pytest.mark.parametrize("minutes,left,text", [
+        (25, 25 * 60, "25"), (25, 90, "2"), (25, 61, "2"), (25, 59, "1"), (25, 0, "0"),
+        (180, 180 * 60, "3h"), (90, 90 * 60, "90"),
+    ])
+    def test_the_tray_icon_shows_minutes_left(self, minutes, left, text):
+        # Mirror of NotificationPolicy.TrayIconText: minutes, rounded up; hours past 99.
+        import math
+
+        got = "0" if left <= 0 else (
+            f"{math.ceil(left / 60) // 60}h" if math.ceil(left / 60) >= 100 else str(math.ceil(left / 60)))
+        assert got == text
+
+    def test_five_minutes_left_is_skipped_on_a_short_sprint(self):
+        source = self.SOURCE.read_text(encoding="utf-8")
+        too_short = source.split("public static bool TooShortForEndingSoon(")[1].split(";")[0]
+        assert "EndingSoon.TotalMinutes + 1" in too_short, "a 5-minute sprint would notify the moment it starts"
+
+
 class TestAppSuggestions:
     """The picker's built-in suggestions (F8)."""
 
