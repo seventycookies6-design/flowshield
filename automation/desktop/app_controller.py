@@ -23,7 +23,7 @@ from pywinauto.uia_element_info import UIAElementInfo
 from config import (
     APP_EXE,
     APP_PROCESS_NAME,
-    APP_WINDOW_TITLE,
+    APP_WINDOW_TITLE,  # noqa: F401  (kept for callers; matching uses WINDOW_TITLE_RE)
     DESKTOP_DIR,
     SERVER_URL,
     SETTINGS_PATH,
@@ -31,6 +31,10 @@ from config import (
     WEBSITE_URL,
     WINDOW_CONNECT_TIMEOUT,
 )
+
+# A running sprint puts the countdown in the title ("FlowShield — 14:32", F19),
+# so windows are matched on the prefix rather than the exact title.
+WINDOW_TITLE_RE = rf"^{APP_WINDOW_TITLE}( .*)?$"
 
 TAB_IDS = {
     "today": "Tab_Today",
@@ -192,9 +196,9 @@ class DesktopController:
                     self.app = Application(backend="uia").connect(process=self.pid, timeout=2)
                 else:
                     self.app = Application(backend="uia").connect(
-                        title=APP_WINDOW_TITLE, timeout=2
+                        title_re=WINDOW_TITLE_RE, timeout=2
                     )
-                window = self.app.window(title=APP_WINDOW_TITLE, top_level_only=True)
+                window = self.app.window(title_re=WINDOW_TITLE_RE, top_level_only=True)
                 window.wait("exists visible ready", timeout=5)
                 self.window = window
                 self._say(f"connected to window (hwnd {window.handle}, pid {self.pid})")
@@ -214,7 +218,7 @@ class DesktopController:
             return False
         try:
             for window in Desktop(backend="uia").windows(
-                title=APP_WINDOW_TITLE, visible_only=True
+                title_re=WINDOW_TITLE_RE, visible_only=True
             ):
                 try:
                     if window.process_id() == self.pid:
@@ -536,7 +540,19 @@ class DesktopController:
                 control.click_input()
 
         time.sleep(0.45)
-        return self.toggle_state(auto_id)
+        reached = self.toggle_state(auto_id)
+        if reached != desired:
+            # A click can land while the page is still settling after the scroll,
+            # or on a row whose label doesn't reach the pointer. The toggle
+            # pattern is the same action without the aim.
+            self._say(f"'{auto_id}' didn't move on click — using the toggle pattern")
+            try:
+                self.element(auto_id).toggle()
+                time.sleep(0.45)
+                reached = self.toggle_state(auto_id)
+            except Exception as exc:
+                self._say(f"'{auto_id}' toggle pattern failed: {exc}")
+        return reached
 
     # ------------------------------------------------------------ navigation
 

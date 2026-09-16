@@ -1,5 +1,7 @@
 using System.Net.Http.Json;
+using System.Runtime.CompilerServices;
 using FlowShield.Infrastructure;
+using FlowShield.Models;
 using FlowShield.Services;
 
 namespace FlowShield.ViewModels;
@@ -280,6 +282,66 @@ public class SettingsViewModel : ViewModelBase
     }
 
     public string SettingsFilePath => _main.SettingsService.SettingsPath;
+
+    // ------------------------------------------------------ notifications (F19)
+
+    /// <summary>The master switch; turning it off silences every notification.</summary>
+    public bool NotificationsEnabled
+    {
+        get => _main.Settings.NotificationsEnabled;
+        set
+        {
+            if (_main.Settings.NotificationsEnabled == value) return;
+            _main.Settings.NotificationsEnabled = value;
+            _main.SaveSettings();
+            Raise();
+            Raise(nameof(NotifySprintStarted));
+            Raise(nameof(NotifyFiveMinutesLeft));
+            Raise(nameof(NotifySprintComplete));
+            Raise(nameof(NotifySprintInterrupted));
+            Raise(nameof(NotifyTrialEnding));
+        }
+    }
+
+    public bool NotifySprintStarted
+    {
+        get => IsOn(NotificationKind.SprintStarted);
+        set => SetNotification(NotificationKind.SprintStarted, value);
+    }
+
+    public bool NotifyFiveMinutesLeft
+    {
+        get => IsOn(NotificationKind.FiveMinutesLeft);
+        set => SetNotification(NotificationKind.FiveMinutesLeft, value);
+    }
+
+    public bool NotifySprintComplete
+    {
+        get => IsOn(NotificationKind.SprintComplete);
+        set => SetNotification(NotificationKind.SprintComplete, value);
+    }
+
+    public bool NotifySprintInterrupted
+    {
+        get => IsOn(NotificationKind.SprintInterrupted);
+        set => SetNotification(NotificationKind.SprintInterrupted, value);
+    }
+
+    public bool NotifyTrialEnding
+    {
+        get => IsOn(NotificationKind.TrialEnding);
+        set => SetNotification(NotificationKind.TrialEnding, value);
+    }
+
+    private bool IsOn(NotificationKind kind) => _main.Settings.IsNotificationOn(kind);
+
+    private void SetNotification(NotificationKind kind, bool on, [CallerMemberName] string? name = null)
+    {
+        if (IsOn(kind) == on) return;
+        _main.Settings.SetNotification(kind, on);
+        _main.SaveSettings();
+        Raise(name);
+    }
 
     private void OpenLog() => _main.OpenUrl(Log.Path);
 }

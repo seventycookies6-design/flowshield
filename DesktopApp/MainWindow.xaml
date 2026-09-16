@@ -14,6 +14,12 @@
         SizeChanged="OnSizeChanged"
         AutomationProperties.AutomationId="FlowShieldMainWindow">
 
+    <!-- Sprint progress on the taskbar button, updated from the tray code (F19). -->
+    <Window.TaskbarItemInfo>
+        <TaskbarItemInfo/>
+    </Window.TaskbarItemInfo>
+
+
     <Grid>
         <Grid.ColumnDefinitions>
             <ColumnDefinition x:Name="NavColumn" Width="238"/>

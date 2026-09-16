@@ -176,6 +176,23 @@ public class AppSettings
     /// <summary>The first-run welcome (F18) has been shown, finished or skipped.</summary>
     public bool FirstRunCompleted { get; set; }
 
+    // ---- notifications (F19) --------------------------------------------
+
+    /// <summary>The master switch. Off means FlowShield never notifies.</summary>
+    public bool NotificationsEnabled { get; set; } = true;
+
+    /// <summary>Which notifications are on. Anything missing counts as on.</summary>
+    public Dictionary<string, bool> NotificationKinds { get; set; } = new();
+
+    /// <summary>The day the "trial ends tomorrow" notice was shown, so it only happens once.</summary>
+    public DateTime? TrialEndingNotifiedLocal { get; set; }
+
+    public bool IsNotificationOn(NotificationKind kind) =>
+        NotificationsEnabled && (!NotificationKinds.TryGetValue(kind.ToString(), out var on) || on);
+
+    public void SetNotification(NotificationKind kind, bool on) =>
+        NotificationKinds[kind.ToString()] = on;
+
     // ---- licensing ------------------------------------------------------
     public string LicenseKey { get; set; } = "";
     public string LicenseEmail { get; set; } = "";

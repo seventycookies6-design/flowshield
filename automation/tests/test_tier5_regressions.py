@@ -68,7 +68,10 @@ class TestBrandedAppIcon:
 
         assert 'LoadIcon("FlowShield.ico")' in window
         assert 'LoadIcon("FlowShield.Running.ico")' in window
-        assert "Vm?.Today.IsRunning == true ? _trayRunningIcon : _trayIdleIcon" in window
+        # F19 replaced the running icon with a per-minute countdown icon; the
+        # branded running icon is still the fallback when drawing one fails.
+        assert "_tray.Icon = _trayIdleIcon;" in window, "an idle tray must show the plain brand icon"
+        assert "_tray.Icon = _trayRunningIcon;" in window, "the running variant is the countdown's fallback"
         assert "nameof(TodayViewModel.IsRunning)" in window
         assert "_trayIdleIcon?.Dispose()" in window
         assert "_trayRunningIcon?.Dispose()" in window
@@ -1198,6 +1201,58 @@ class TestActivationLinkWorks:
         app = self.read("App.xaml.cs")
         assert "ViewModel.HandleLink(DeepLink.FindLink(args))" in app, "cold start"
         assert "ViewModel.HandleLink(DeepLink.FindLink(launchArgs))" in app, "already running"
+
+
+# ============ FlowShield never nagged, and never told you anything either (F19, #95)
+
+class TestNotificationsStayQuiet:
+    """
+    The only notification used to be "still guarding" on minimise. Adding them
+    risks the opposite problem, so the quiet rules are pinned here.
+    """
+
+    @staticmethod
+    def read(*parts) -> str:
+        return (Path(DESKTOP_DIR).joinpath(*parts)).read_text(encoding="utf-8")
+
+    def test_nothing_about_buying_reaches_a_running_sprint(self):
+        main = self.read("ViewModels", "MainViewModel.cs")
+        notify = main.split("public bool Notify(")[1].split("\n    }")[0]
+        assert "NotificationPolicy.ShouldShow(kind, Settings, IsSprintRunning)" in notify, \
+            "every notification must go through the policy, with the sprint state"
+
+    def test_the_trial_notice_happens_once_a_day_at_most(self):
+        main = self.read("ViewModels", "MainViewModel.cs")
+        trial = main.split("public void MaybeNotifyTrialEnding()")[1].split("\n    }")[0]
+        assert "TrialEndingNotifiedLocal?.Date == today" in trial
+        assert trial.index("if (!Notify(") < trial.index("TrialEndingNotifiedLocal = today"), \
+            "a notice suppressed during a sprint must still be shown afterwards"
+
+    def test_five_minutes_left_fires_once_per_sprint(self):
+        today = self.read("ViewModels", "TodayViewModel.cs")
+        assert "_endingSoonNotified = false;" in today.split("private void BeginRunning(")[1], \
+            "the flag must reset when a sprint starts, or only the first sprint ever notifies"
+        tick = today.split("private void OnTick()")[1].split("\n    }")[0]
+        assert "!_endingSoonNotified" in tick and "_endingSoonNotified = true;" in tick
+
+    def test_the_countdown_icon_frees_its_handle(self):
+        window = self.read("MainWindow.xaml.cs")
+        countdown = window.split("private static System.Drawing.Icon? CountdownIcon(")[1].split("\n    }")[0]
+        assert "DestroyIcon(handle)" in countdown, \
+            "GetHicon leaks a GDI handle every minute of every sprint without this"
+
+    def test_the_tray_icon_and_title_follow_the_countdown(self):
+        window = self.read("MainWindow.xaml.cs")
+        changed = window.split("private void OnTodayChanged(")[1].split("\n    }")[0]
+        assert "nameof(TodayViewModel.Remaining)" in changed
+        update = window.split("private void UpdateTrayIcon()")[1].split("\n    }")[0]
+        assert "NotificationPolicy.TrayIconText(remaining)" in update
+        assert 'Title = running ? $"FlowShield — {Vm?.Today.RemainingText}" : "FlowShield";' in update
+
+    def test_the_test_driver_matches_the_countdown_title(self):
+        controller = (Path(DESKTOP_DIR).parent / "automation" / "desktop" / "app_controller.py").read_text(
+            encoding="utf-8")
+        assert "WINDOW_TITLE_RE" in controller and "title_re=WINDOW_TITLE_RE" in controller
 
 
 # ============ a new user's first sprint blocked nothing (F18, #68)
