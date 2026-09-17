@@ -341,6 +341,59 @@ class TestSoftShieldWording:
                 f"{name} still describes Soft as a full-screen nudge"
 
 
+# ============================ one shield wording, everywhere (F1, #93)
+
+class TestShieldWordingIsCanonical:
+    """
+    F1 gave the shields a one-line promise and a "best for" scenario. The
+    wording lives once, in Models/ShieldCopy.cs, and Today and the first
+    run bind to it — so the two screens and the website can't drift apart.
+    """
+
+    PROMISES = (
+        "Notes distractions and nudges you.",
+        "Closes blocked apps.",
+        "Closes apps and locks the list until the sprint ends.",
+    )
+    BEST_FOR = (
+        "Best for classes or light work.",
+        "Best for homework.",
+        "Best for exams and deep work.",
+    )
+
+    def _shield_source(self) -> str:
+        path = Path(DESKTOP_DIR) / "Models" / "ShieldCopy.cs"
+        assert path.exists(), "ShieldCopy.cs is the single source for shield wording (F1)"
+        return path.read_text(encoding="utf-8")
+
+    def test_every_shield_has_a_promise_and_a_scenario(self):
+        source = " ".join(self._shield_source().split())
+        for phrase in (*self.PROMISES, *self.BEST_FOR):
+            assert phrase in source, f"canonical shield wording lost {phrase!r}"
+
+    def test_the_app_surfaces_bind_to_the_single_source(self):
+        today_vm = (Path(DESKTOP_DIR) / "ViewModels" / "TodayViewModel.cs").read_text(encoding="utf-8")
+        assert "ShieldCopy.Promise(SelectedShield)" in " ".join(today_vm.split())
+        first_vm = (Path(DESKTOP_DIR) / "ViewModels" / "FirstRunViewModel.cs").read_text(encoding="utf-8")
+        for level in ("Soft", "Firm", "Sealed"):
+            assert f"ShieldCopy.Promise(ShieldLevel.{level})" in " ".join(first_vm.split())
+        for xaml in Path(DESKTOP_DIR).rglob("*.xaml"):
+            text = xaml.read_text(encoding="utf-8")
+            for old in ("Blocked apps get a nudge you can dismiss.",
+                        "Blocked apps are closed on sight."):
+                assert old not in text, f"{xaml.name} still carries its own shield wording"
+
+    def test_the_scenarios_match_the_site(self):
+        """The site's shield section is where the scenarios come from."""
+        site = " ".join((Path(WEBSITE_DIR) / "index.html").read_text(encoding="utf-8").split())
+        source = " ".join(self._shield_source().split()).lower()
+        for scenario in ("classes", "homework", "deep work"):
+            assert scenario in source, f"the app's shield wording lost {scenario!r}"
+            assert scenario in site.lower(), f"the site's shield section lost {scenario!r}"
+        assert "until the sprint ends" in source
+        assert "the blocklist locks until the sprint ends" in site
+
+
 # ============================ payment-link purchases get a licence key
 
 class TestPaymentLinkPurchase:
@@ -863,9 +916,12 @@ class TestPurchaseFlowCopy:
             "re-running the setup script must correct an existing product's description"
 
     def test_the_app_describes_sealed_accurately(self):
-        today = (Path(DESKTOP_DIR) / "ViewModels" / "TodayViewModel.cs").read_text(encoding="utf-8")
-        assert "until the timer ends" not in today
-        assert "locks for the rest of the sprint" in today
+        desktop = Path(DESKTOP_DIR)
+        sources = [p.read_text(encoding="utf-8")
+                   for p in desktop.rglob("*.cs")]
+        assert all("until the timer ends" not in source for source in sources)
+        shields = (desktop / "Models" / "ShieldCopy.cs").read_text(encoding="utf-8")
+        assert "until the sprint ends" in shields
 
     def test_the_report_table_lists_only_shipped_pro_features(self):
         root = Path(DESKTOP_DIR).parent
