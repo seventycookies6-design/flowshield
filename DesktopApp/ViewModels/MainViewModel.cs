@@ -332,7 +332,7 @@ public class MainViewModel : ViewModelBase
         {
             e.App.BlockCount++;
             Settings.RecordBlock();
-            Today.RecordBlock();
+            Today.RecordBlock(e.Terminated);
             Today.RefreshStats();
             SaveSettings();
 

@@ -87,6 +87,15 @@ public class FocusSession
     public bool Completed { get; set; }
     public int BlocksEnforced { get; set; }
 
+    /// <summary>Blocked apps the shield closed during the sprint (the firm side of BlocksEnforced).</summary>
+    public int AppsClosed { get; set; }
+
+    /// <summary>Nudges the shield sent during the sprint (the soft side of BlocksEnforced).</summary>
+    public int NudgesSent { get; set; }
+
+    /// <summary>Momentum when the sprint started, so the summary can show what changed.</summary>
+    public double MomentumAtStart { get; set; }
+
     /// <summary>The one-line "what moved?" answer captured when a sprint ends.</summary>
     public string Journal { get; set; } = "";
 
@@ -119,6 +128,9 @@ public class RunningSprint
     public DateTime StartedUtc { get; set; }
     public int PlannedMinutes { get; set; }
     public ShieldLevel Shield { get; set; } = ShieldLevel.Firm;
+
+    /// <summary>Momentum when the sprint started, restored if the sprint resumes (F12).</summary>
+    public double MomentumAtStart { get; set; }
 
     /// <summary>Last time FlowShield confirmed it was still running this sprint.</summary>
     public DateTime LastSeenUtc { get; set; }

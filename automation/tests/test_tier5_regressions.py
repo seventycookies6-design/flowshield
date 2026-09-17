@@ -1818,6 +1818,27 @@ class TestCustomSprintLengthBehaviour:
 
 # ============ the per-app switch must not unlock a Sealed blocklist (roadmap 2.4)
 
+# ============================ sprint summary card (F12)
+
+class TestSprintSummaryCard:
+    """The post-sprint card must appear and disappear with the journal prompt."""
+
+    def test_the_card_sits_between_the_shield_and_the_journal(self):
+        view = (Path(DESKTOP_DIR) / "Views" / "TodayView.xaml").read_text(encoding="utf-8")
+        card = view[view.find("sprint summary"):]
+        card = card[:card.find("journal prompt")]
+        for name in ("SummaryTitle", "SummaryMinutesValue", "SummaryDistractionsValue",
+                     "SummaryMomentumText", "SummaryStreakText"):
+            assert f'AutomationProperties.AutomationId="{name}"' in card, \
+                f"{name} is missing from the card"
+        assert "JournalPromptVisible" in card, "the card must share the journal prompt's visibility"
+
+    def test_the_abandoned_wording_stays_neutral(self):
+        viewmodel = (Path(DESKTOP_DIR) / "ViewModels" / "TodayViewModel.cs").read_text(encoding="utf-8")
+        assert "It'll recover." in viewmodel
+        assert "No distractions caught" in viewmodel
+
+
 class TestPerAppSwitchGuard:
     """
     The per-app on/off switch is a second way to edit the blocklist, so it must

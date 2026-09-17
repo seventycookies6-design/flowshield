@@ -21,6 +21,8 @@ public class TodayViewModel : ViewModelBase
     /// after the first.
     /// </summary>
     private int _blocksThisSprint;
+    private int _closedThisSprint;
+    private int _nudgesThisSprint;
 
     public TodayViewModel(MainViewModel main)
     {
@@ -427,6 +429,26 @@ public class TodayViewModel : ViewModelBase
     private string _journalText = "";
     public string JournalText { get => _journalText; set => Set(ref _journalText, value); }
 
+    // --------------------------------------------------- sprint summary (F12)
+
+    private string _summaryTitle = "";
+    public string SummaryTitle { get => _summaryTitle; private set => Set(ref _summaryTitle, value); }
+
+    private string _summaryMinutesText = "";
+    public string SummaryMinutesText { get => _summaryMinutesText; private set => Set(ref _summaryMinutesText, value); }
+
+    private string _summaryDistractionsText = "";
+    public string SummaryDistractionsText { get => _summaryDistractionsText; private set => Set(ref _summaryDistractionsText, value); }
+
+    private string _summaryMomentumText = "";
+    public string SummaryMomentumText { get => _summaryMomentumText; private set => Set(ref _summaryMomentumText, value); }
+
+    private string _summaryStreakText = "";
+    public string SummaryStreakText { get => _summaryStreakText; private set => Set(ref _summaryStreakText, value); }
+
+    private bool _summaryStreakVisible;
+    public bool SummaryStreakVisible { get => _summaryStreakVisible; private set => Set(ref _summaryStreakVisible, value); }
+
     // --------------------------------------------------------------- stats
 
     private int _sessionsToday;
@@ -470,6 +492,7 @@ public class TodayViewModel : ViewModelBase
             StartedUtc = now,
             PlannedMinutes = SelectedMinutes,
             Shield = SelectedShield,
+            MomentumAtStart = S.MomentumScore,
         };
 
         // Saved before enforcement begins, so a crash one second in still
@@ -480,6 +503,7 @@ public class TodayViewModel : ViewModelBase
             PlannedMinutes = SelectedMinutes,
             Shield = SelectedShield,
             LastSeenUtc = now,
+            MomentumAtStart = S.MomentumScore,
         };
         _main.SaveSettings();
 
@@ -495,6 +519,8 @@ public class TodayViewModel : ViewModelBase
         _endsAtUtc = _current!.StartedUtc.AddMinutes(_current.PlannedMinutes);
         _lastHeartbeatUtc = DateTime.UtcNow;
         _blocksThisSprint = 0;
+        _closedThisSprint = 0;
+        _nudgesThisSprint = 0;
         _endingSoonNotified = false;
         IsRunning = true;
         SessionStateText = stateText;
@@ -540,6 +566,7 @@ public class TodayViewModel : ViewModelBase
                     StartedUtc = saved.StartedUtc,
                     PlannedMinutes = saved.PlannedMinutes,
                     Shield = saved.Shield,
+                    MomentumAtStart = saved.MomentumAtStart,
                 };
                 _selectedMinutes = saved.PlannedMinutes;
                 _selectedShield = saved.Shield;
@@ -656,6 +683,8 @@ public class TodayViewModel : ViewModelBase
         _current.EndedUtc = DateTime.UtcNow;
         _current.Completed = completed;
         _current.BlocksEnforced = _blocksThisSprint;
+        _current.AppsClosed = _closedThisSprint;
+        _current.NudgesSent = _nudgesThisSprint;
 
         _main.Blocker.StopEnforcing();
 
@@ -666,6 +695,7 @@ public class TodayViewModel : ViewModelBase
         _main.SaveSettings();
 
         SessionStateText = completed ? "Sprint complete" : "Sprint ended early";
+        UpdateSummaryCard(completed, _current);
         JournalPromptVisible = true;
         JournalText = "";
         Progress = completed ? 1 : Progress;
@@ -682,6 +712,37 @@ public class TodayViewModel : ViewModelBase
                 NotificationAction.OpenJournal);
         }
     }
+
+    /// <summary>Fills the post-sprint card (F12) with what just happened.</summary>
+    private void UpdateSummaryCard(bool completed, FocusSession session)
+    {
+        // Rounded once, so the title and the line can't disagree, and a small
+        // loss never prints as "momentum −0".
+        var delta = (int)Math.Round(S.MomentumScore - session.MomentumAtStart);
+
+        SummaryTitle = completed
+            ? "Sprint complete"
+            : delta < 0
+                ? $"Ended early — momentum −{Math.Abs(delta)}. It'll recover."
+                : "Ended early. It'll recover.";
+        SummaryMinutesText = $"{(int)Math.Round(session.ActualMinutes)} minutes focused";
+        SummaryDistractionsText = DistractionSummary(session);
+        SummaryMomentumText = $"{delta:+0;-0;0} → {S.MomentumScore:0}";
+        SummaryStreakVisible = S.CurrentStreak > 0;
+        SummaryStreakText = S.CurrentStreak == 1 ? "Day 1" : $"Day {S.CurrentStreak}";
+    }
+
+    private static string DistractionSummary(FocusSession session)
+    {
+        if (session.AppsClosed > 0 || session.NudgesSent > 0)
+            return $"{session.AppsClosed} closed · {NudgeWord(session.NudgesSent)}";
+        if (session.BlocksEnforced > 0)
+            return CountWord(session.BlocksEnforced, "distraction") + " caught";
+        return "No distractions caught";
+    }
+
+    private static string NudgeWord(int count) => count == 1 ? "1 nudge" : $"{count} nudges";
+    private static string CountWord(int count, string word) => count == 1 ? $"1 {word}" : $"{count} {word}s";
 
     /// <summary>
     /// Momentum compounds on completion and decays — not resets — on an
@@ -732,9 +793,12 @@ public class TodayViewModel : ViewModelBase
     }
 
     /// <summary>Counts one enforcement against the running sprint.</summary>
-    public void RecordBlock()
+    public void RecordBlock(bool terminated)
     {
-        if (IsRunning) _blocksThisSprint++;
+        if (!IsRunning) return;
+        _blocksThisSprint++;
+        if (terminated) _closedThisSprint++;
+        else _nudgesThisSprint++;
     }
 
     public void RefreshStats()

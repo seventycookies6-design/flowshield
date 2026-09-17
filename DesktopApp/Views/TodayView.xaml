@@ -186,6 +186,28 @@
                                AutomationProperties.AutomationId="SoftHardKillHint"
                                Text="Hard kill mode is on (Settings), so Soft closes blocked apps instead of nudging."/>
 
+                    <!-- sprint summary (F12) -->
+                    <Border Style="{StaticResource RowCard}" Margin="0,22,0,0" Padding="16"
+                            Visibility="{Binding JournalPromptVisible, Converter={StaticResource BoolVis}}">
+                        <StackPanel>
+                            <TextBlock Text="{Binding SummaryTitle}" Style="{StaticResource H2}" FontSize="14"
+                                       AutomationProperties.AutomationId="SummaryTitle"/>
+                            <TextBlock Text="{Binding SummaryMinutesText}" Style="{StaticResource Body}"
+                                       Margin="0,8,0,0"
+                                       AutomationProperties.AutomationId="SummaryMinutesValue"/>
+                            <TextBlock Text="{Binding SummaryDistractionsText}" Style="{StaticResource Body}"
+                                       Margin="0,4,0,0"
+                                       AutomationProperties.AutomationId="SummaryDistractionsValue"/>
+                            <TextBlock Text="{Binding SummaryMomentumText}" Style="{StaticResource Body}"
+                                       Margin="0,4,0,0"
+                                       AutomationProperties.AutomationId="SummaryMomentumText"/>
+                            <TextBlock Text="{Binding SummaryStreakText}" Style="{StaticResource Body}"
+                                       Margin="0,4,0,0"
+                                       Visibility="{Binding SummaryStreakVisible, Converter={StaticResource BoolVis}}"
+                                       AutomationProperties.AutomationId="SummaryStreakText"/>
+                        </StackPanel>
+                    </Border>
+
                     <!-- journal prompt -->
                     <Border Style="{StaticResource RowCard}" Margin="0,22,0,0" Padding="16"
                             Visibility="{Binding JournalPromptVisible, Converter={StaticResource BoolVis}}">

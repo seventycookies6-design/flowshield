@@ -8,6 +8,7 @@ claims matches what was actually persisted to the DPAPI-encrypted settings file.
 from __future__ import annotations
 
 import time
+from datetime import datetime
 
 import pytest
 
@@ -183,6 +184,57 @@ class TestSprints:
 
         settings = verify.read_settings()
         assert settings["Sessions"][-1]["Journal"] == "shipped the licence server"
+
+    def test_ending_early_shows_the_neutral_summary_card(self, fresh_app):
+        fresh_app.navigate_to_tab("Today")
+        fresh_app.start_sprint()
+        time.sleep(1.5)
+        fresh_app.stop_sprint()
+        time.sleep(1.0)
+
+        title = fresh_app.text_of("SummaryTitle")
+        assert "ended early" in title.lower()
+        assert "it'll recover" in title.lower()
+        assert "−0" not in title, "no momentum was lost, so the card must not say 'momentum −0'"
+        assert fresh_app.text_of("SummaryDistractionsValue") == "No distractions caught"
+
+        settings = verify.read_settings()
+        assert fresh_app.text_of("SummaryMomentumText").endswith(f"→ {int(settings['MomentumScore'])}")
+
+    def test_finishing_a_sprint_shows_the_summary_card(self, fresh_app):
+        """The shortest sprint is five minutes; the card must show what settings stores."""
+        fresh_app.navigate_to_tab("Today")
+        fresh_app.click("SprintLength_Custom")
+        fresh_app.set_text("CustomMinutesInput", "5")
+        time.sleep(0.5)
+        fresh_app.start_sprint()
+
+        assert fresh_app.exists("SummaryTitle", timeout=340), \
+            "the 5-minute sprint finished but the summary card never appeared"
+
+        settings = verify.read_settings()
+        session = settings["Sessions"][-1]
+        assert session["Completed"] is True
+
+        assert fresh_app.text_of("SummaryTitle") == "Sprint complete"
+        started = datetime.fromisoformat(session["StartedUtc"].replace("Z", "+00:00"))
+        ended = datetime.fromisoformat(session["EndedUtc"].replace("Z", "+00:00"))
+        actual_minutes = round((ended - started).total_seconds() / 60)
+        assert fresh_app.text_of("SummaryMinutesValue") == \
+            f"{actual_minutes} minutes focused"
+
+        if session["BlocksEnforced"] == 0:
+            expected = "No distractions caught"
+        else:
+            nudges = session["NudgesSent"]
+            expected = (f"{session['AppsClosed']} closed · "
+                        f"{'1 nudge' if nudges == 1 else f'{nudges} nudges'}")
+        assert fresh_app.text_of("SummaryDistractionsValue") == expected
+
+        momentum = fresh_app.text_of("SummaryMomentumText")
+        assert momentum.endswith(f"→ {int(settings['MomentumScore'])}")
+        assert momentum.startswith("+"), "a finished sprint gained momentum"
+        assert fresh_app.text_of("SummaryStreakText") == "Day 1"
 
 
 # ==================================================== the trial unlocks all
