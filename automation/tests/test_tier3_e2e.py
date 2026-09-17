@@ -562,7 +562,8 @@ class TestFirstRun:
 
             app.set_text("FirstRunSearchInput", "steam")
             time.sleep(0.8)
-            app.click("FirstRunPickApp_steam")
+            # Steam may already be ticked for this PC, so drive it to checked rather than blind-clicking.
+            assert app.set_toggle("FirstRunPickApp_steam", True) is True, "Steam wouldn't stay ticked"
             app.click("FirstRunNextButton")
             time.sleep(0.4)
 
@@ -572,7 +573,7 @@ class TestFirstRun:
             time.sleep(0.4)
 
             app.click("FirstRunLength_45")
-            app.click("FirstRunStartWithWindows")
+            assert app.set_toggle("FirstRunStartWithWindows", True) is True, "Start-with-Windows wouldn't stay ticked"
             assert "unlocked for 7 days" in app.text_of("FirstRunTrialText").lower()
             app.click("FirstRunStartButton")
             time.sleep(1.5)
@@ -581,11 +582,16 @@ class TestFirstRun:
             assert app.exists("StopSprintButton", timeout=3), "the first sprint didn't start"
 
             s = verify.read_settings()
-            steam = next(a for a in s["BlockedApps"] if a["ProcessName"].lower() == "steam")
+            steam = next(
+                (a for a in s["BlockedApps"] if a["ProcessName"].lower() == "steam"),
+                None,
+            )
+            assert steam is not None, "Steam was not saved to the blocklist"
             assert [p.lower() for p in steam["ExtraProcessNames"]] == ["steamwebhelper"]
             assert s["DefaultShield"] in (3, "Sealed")
             assert s["DefaultSprintMinutes"] == 45
-            assert s["StartWithWindows"] is True and self._run_value(), "start with Windows wasn't applied"
+            assert s["StartWithWindows"] is True, "StartWithWindows setting was not saved"
+            assert self._run_value(), "start-with-Windows Run registry value was not written"
             assert s["FirstRunCompleted"] is True
             active = s["ActiveSprint"]
             assert active["PlannedMinutes"] == 45 and active["Shield"] in (3, "Sealed")
