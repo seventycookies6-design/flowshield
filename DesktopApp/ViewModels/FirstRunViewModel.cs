@@ -114,6 +114,15 @@ public class FirstRunViewModel : ViewModelBase
     private ShieldLevel _shield = ShieldLevel.Firm;
     public ShieldLevel Shield { get => _shield; set => Set(ref _shield, value); }
 
+    // The same canonical wording Today shows (F1) — first run and Today never
+    // describe the shields differently.
+    public string SoftPromise => ShieldCopy.Promise(ShieldLevel.Soft);
+    public string SoftBestFor => ShieldCopy.BestFor(ShieldLevel.Soft);
+    public string FirmPromise => ShieldCopy.Promise(ShieldLevel.Firm);
+    public string FirmBestFor => ShieldCopy.BestFor(ShieldLevel.Firm);
+    public string SealedPromise => ShieldCopy.Promise(ShieldLevel.Sealed);
+    public string SealedBestFor => ShieldCopy.BestFor(ShieldLevel.Sealed);
+
     // ---------------------------------------------------- step 3: first sprint
 
     private int _minutes = 25;

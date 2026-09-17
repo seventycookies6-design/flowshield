@@ -306,33 +306,41 @@
                                                          ConverterParameter={x:Static models:ShieldLevel.Soft}}"
                                              AutomationProperties.AutomationId="FirstRunShield_Soft"
                                              AutomationProperties.Name="Soft">
-                                    <StackPanel Margin="6,0,0,0">
-                                        <TextBlock Text="Soft" Foreground="{StaticResource Ink}" FontWeight="SemiBold"/>
-                                        <TextBlock Text="Blocked apps get a nudge you can dismiss." Style="{StaticResource Caption}"/>
-                                    </StackPanel>
+                                     <StackPanel Margin="6,0,0,0">
+                                         <TextBlock Text="Soft" Foreground="{StaticResource Ink}" FontWeight="SemiBold"/>
+                                         <TextBlock Text="{Binding SoftPromise}" Style="{StaticResource Caption}"
+                                                    AutomationProperties.AutomationId="FirstRunSoftPromise"/>
+                                         <TextBlock Text="{Binding SoftBestFor}" Style="{StaticResource Caption}"
+                                                    AutomationProperties.AutomationId="FirstRunSoftBestFor"/>
+                                     </StackPanel>
                                 </RadioButton>
                                 <RadioButton GroupName="FirstRunShield" Margin="0,0,0,12"
                                              IsChecked="{Binding Shield, Converter={StaticResource EnumEq},
                                                          ConverterParameter={x:Static models:ShieldLevel.Firm}}"
                                              AutomationProperties.AutomationId="FirstRunShield_Firm"
                                              AutomationProperties.Name="Firm (recommended)">
-                                    <StackPanel Margin="6,0,0,0">
-                                        <TextBlock Foreground="{StaticResource Ink}" FontWeight="SemiBold">
-                                            <Run Text="Firm"/><Run Text="  recommended" Foreground="{StaticResource Primary}" FontWeight="Normal"/>
-                                        </TextBlock>
-                                        <TextBlock Text="Blocked apps are closed on sight." Style="{StaticResource Caption}"/>
-                                    </StackPanel>
+                                     <StackPanel Margin="6,0,0,0">
+                                         <TextBlock Foreground="{StaticResource Ink}" FontWeight="SemiBold">
+                                             <Run Text="Firm"/><Run Text="  recommended" Foreground="{StaticResource Primary}" FontWeight="Normal"/>
+                                         </TextBlock>
+                                         <TextBlock Text="{Binding FirmPromise}" Style="{StaticResource Caption}"
+                                                    AutomationProperties.AutomationId="FirstRunFirmPromise"/>
+                                         <TextBlock Text="{Binding FirmBestFor}" Style="{StaticResource Caption}"
+                                                    AutomationProperties.AutomationId="FirstRunFirmBestFor"/>
+                                     </StackPanel>
                                 </RadioButton>
                                 <RadioButton GroupName="FirstRunShield"
                                              IsChecked="{Binding Shield, Converter={StaticResource EnumEq},
                                                          ConverterParameter={x:Static models:ShieldLevel.Sealed}}"
                                              AutomationProperties.AutomationId="FirstRunShield_Sealed"
                                              AutomationProperties.Name="Sealed">
-                                    <StackPanel Margin="6,0,0,0">
-                                        <TextBlock Text="Sealed" Foreground="{StaticResource Ink}" FontWeight="SemiBold"/>
-                                        <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap"
-                                                   Text="Closed on sight, and the blocklist locks until the sprint ends. Ending early takes a 30-second wait."/>
-                                    </StackPanel>
+                                     <StackPanel Margin="6,0,0,0">
+                                         <TextBlock Text="Sealed" Foreground="{StaticResource Ink}" FontWeight="SemiBold"/>
+                                         <TextBlock Text="{Binding SealedPromise}" Style="{StaticResource Caption}" TextWrapping="Wrap"
+                                                    AutomationProperties.AutomationId="FirstRunSealedPromise"/>
+                                         <TextBlock Text="{Binding SealedBestFor}" Style="{StaticResource Caption}" TextWrapping="Wrap"
+                                                    AutomationProperties.AutomationId="FirstRunSealedBestFor"/>
+                                     </StackPanel>
                                 </RadioButton>
                             </StackPanel>
 

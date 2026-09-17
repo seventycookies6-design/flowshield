@@ -225,6 +225,7 @@ public class TodayViewModel : ViewModelBase
             Raise(nameof(PrimaryActionLabel));
             Raise(nameof(SessionStateText));
             Raise(nameof(SealedRestartHintVisible));
+            Raise(nameof(SoftHardKillHintVisible));
             Raise(nameof(EndButtonVisible));
             Raise(nameof(EndButtonLabel));
         }
@@ -390,7 +391,9 @@ public class TodayViewModel : ViewModelBase
         {
             if (!Set(ref _selectedShield, value)) return;
             Raise(nameof(ShieldDescription));
+            Raise(nameof(ShieldBestFor));
             Raise(nameof(SealedRestartHintVisible));
+            Raise(nameof(SoftHardKillHintVisible));
         }
     }
 
@@ -401,12 +404,16 @@ public class TodayViewModel : ViewModelBase
     public bool SealedRestartHintVisible =>
         !IsRunning && SelectedShield == ShieldLevel.Sealed && !S.StartWithWindows;
 
-    public string ShieldDescription => SelectedShield switch
-    {
-        ShieldLevel.Soft => "Blocked apps get a nudge you can dismiss.",
-        ShieldLevel.Firm => "Blocked apps are closed on sight.",
-        _ => "Closed on sight, and the blocklist locks for the rest of the sprint.",
-    };
+    public string ShieldDescription => ShieldCopy.Promise(SelectedShield);
+
+    public string ShieldBestFor => ShieldCopy.BestFor(SelectedShield);
+
+    /// <summary>
+    /// Soft only records and nudges while hard kill mode is off, so when it is
+    /// on the promise must not lie.
+    /// </summary>
+    public bool SoftHardKillHintVisible =>
+        !IsRunning && SelectedShield == ShieldLevel.Soft && S.HardKillModeEnabled;
 
     // ------------------------------------------------------------- journal
 
@@ -551,6 +558,7 @@ public class TodayViewModel : ViewModelBase
                 Raise(nameof(PresetMinutes));
                 Raise(nameof(SelectedShield));
                 Raise(nameof(ShieldDescription));
+                Raise(nameof(ShieldBestFor));
 
                 saved.LastSeenUtc = now;
                 _main.SaveSettings();
@@ -744,6 +752,7 @@ public class TodayViewModel : ViewModelBase
         MomentumText = S.MomentumScore.ToString("0");
         StreakText = S.CurrentStreak == 1 ? "1 day" : $"{S.CurrentStreak} days";
         Raise(nameof(SealedRestartHintVisible));
+        Raise(nameof(SoftHardKillHintVisible));
     }
 
     /// <summary>Called when access changes (purchase, deactivation, trial ending).</summary>
@@ -751,6 +760,7 @@ public class TodayViewModel : ViewModelBase
     {
         Raise(nameof(SelectedShield));
         Raise(nameof(ShieldDescription));
+        Raise(nameof(ShieldBestFor));
     }
 
     private static string Roman(ShieldLevel level) => level switch

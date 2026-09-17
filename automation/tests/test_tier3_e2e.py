@@ -211,6 +211,43 @@ class TestTrialUnlocksEverything:
         assert verify.read_settings()["HardKillModeEnabled"] is True
 
 
+# ==================================================== shield wording (F1)
+
+class TestShieldWording:
+    """F1: Today and first run show each shield's promise and scenario."""
+
+    EXPECTED = {
+        "Soft": ("Notes distractions and nudges you.", "Best for classes or light work."),
+        "Firm": ("Closes blocked apps.", "Best for homework."),
+        "Sealed": ("Closes apps and locks the list until the sprint ends.",
+                   "Best for exams and deep work."),
+    }
+
+    def test_today_shows_the_promise_and_scenario_for_each_shield(self, fresh_app):
+        fresh_app.navigate_to_tab("Today")
+        for level, (promise, best_for) in self.EXPECTED.items():
+            fresh_app.select_shield(level)
+            time.sleep(0.5)
+            assert fresh_app.text_of("ShieldDescriptionText") == promise, level
+            assert fresh_app.text_of("ShieldBestForText") == best_for, level
+
+    def test_first_run_uses_the_same_wording(self, fresh_app):
+        fresh_app.navigate_to_tab("Settings")
+        fresh_app.click("ShowFirstRunButton")
+        assert fresh_app.exists("FirstRunSkipButton", timeout=3)
+        fresh_app.click("FirstRunNextButton")
+        time.sleep(0.5)
+        assert fresh_app.text_of("FirstRunStepText") == "Step 2 of 3"
+        try:
+            for level, (promise, best_for) in self.EXPECTED.items():
+                assert fresh_app.text_of(f"FirstRun{level}Promise") == promise, level
+                assert fresh_app.text_of(f"FirstRun{level}BestFor") == best_for, level
+        finally:
+            fresh_app.click("FirstRunSkipButton")
+            time.sleep(0.5)
+            assert not fresh_app.exists("FirstRunSkipButton", timeout=1)
+
+
 # ================================================== after the trial ends
 
 class TestTrialEnded:
