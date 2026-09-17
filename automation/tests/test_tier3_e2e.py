@@ -273,6 +273,27 @@ class TestSprintIntention:
         assert not fresh_app.exists("SummaryIntentionText", timeout=1)
         assert fresh_app.text_of("JournalPromptTitle") == "What moved?"
 
+    def test_a_long_intention_is_capped_and_stays_on_one_line(self, fresh_app):
+        long_one = ("finish the entire chapter three problem set and then review every single "
+                    "lecture slide from week nine before the exam tomorrow morning")
+        fresh_app.navigate_to_tab("Today")
+        fresh_app.set_text("IntentionInput", long_one)
+        time.sleep(0.4)
+
+        typed = fresh_app.text_of("IntentionInput")
+        assert len(typed) == 80, f"the input accepted {len(typed)} characters"
+        assert typed == long_one[:80]
+
+        fresh_app.start_sprint()
+        time.sleep(1.2)
+
+        # The ring's line must not grow taller than a single caption line.
+        line = fresh_app.element("SprintIntentionText").rectangle()
+        assert line.height() < 24, f"the intention wrapped inside the ring ({line.height()}px tall)"
+
+        fresh_app.cancel_sprint()
+        time.sleep(0.8)
+
     def test_cancelling_a_sprint_clears_the_intention_input(self, fresh_app):
         fresh_app.navigate_to_tab("Today")
         fresh_app.set_text("IntentionInput", "write the report")

@@ -41,9 +41,12 @@
                             <TextBlock Text="{Binding SessionStateText}" Style="{StaticResource Caption}"
                                        HorizontalAlignment="Center" Margin="0,2,0,0"
                                        AutomationProperties.AutomationId="SessionStateText"/>
+                            <!-- NoWrap so the trimming applies: the caption style wraps by
+                                 default, and a long intention pushed itself out of the ring. -->
                             <TextBlock Text="{Binding IntentionDisplayText}" Style="{StaticResource Caption}"
                                        HorizontalAlignment="Center" Margin="0,2,0,0" MaxWidth="150"
-                                       TextTrimming="CharacterEllipsis"
+                                       TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"
+                                       ToolTip="{Binding IntentionDisplayText}"
                                        Visibility="{Binding IntentionDisplayVisible, Converter={StaticResource BoolVis}}"
                                        AutomationProperties.AutomationId="SprintIntentionText"/>
                         </StackPanel>
@@ -193,7 +196,7 @@
 
                     <!-- intention (F13) -->
                     <TextBlock Text="INTENTION" Style="{StaticResource Eyebrow}" Margin="0,26,0,9"/>
-                    <TextBox Style="{StaticResource Field}"
+                    <TextBox Style="{StaticResource Field}" MaxLength="80"
                              Text="{Binding IntentionText, UpdateSourceTrigger=PropertyChanged}"
                              IsEnabled="{Binding IsRunning, Converter={StaticResource InvBool}}"
                              AutomationProperties.AutomationId="IntentionInput"
