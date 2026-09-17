@@ -229,6 +229,17 @@ class DesktopController:
             pass
         return False
 
+    @staticmethod
+    def _explorer_pids() -> set[int]:
+        pids = set()
+        for proc in psutil.process_iter(["name", "pid"]):
+            try:
+                if (proc.info["name"] or "").lower() == "explorer.exe":
+                    pids.add(proc.info["pid"])
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                continue
+        return pids
+
     def find_tray_icon(self, timeout: float = UI_ACTION_TIMEOUT):
         """Return FlowShield's real Windows notification-area button."""
         deadline = time.time() + timeout
@@ -241,10 +252,12 @@ class DesktopController:
                     backend="uia",
                     top_level_only=False,
                 )
+                # The notification icon belongs to Explorer. Any other app can
+                # show a button whose name starts with "FlowShield" (a browser
+                # tab, an editor, a chat title), so only Explorer's count.
+                explorer = self._explorer_pids()
                 for element in elements:
-                    # The notification icon belongs to Explorer; exclude any
-                    # similarly named button inside FlowShield's own process.
-                    if element.process_id != self.pid:
+                    if element.process_id in explorer:
                         return UIAWrapper(element)
 
                 # Windows 11 keeps less-frequently-used icons in a XAML

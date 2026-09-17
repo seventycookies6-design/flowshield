@@ -35,8 +35,8 @@ timer, and apps on your blocklist are dealt with until it ends.
   first launch (`AppSettings.TrialDays`). After that, a lock screen offers
   **Buy FlowShield — $4.99** and licence-key activation, and no sprint can
   start. Buying (a one-time Stripe payment) unlocks everything for good:
-  unlimited apps, all three shields, 15–90-minute sprints, sleep blocking, hard
-  kill mode. A full refund revokes the licence. The trial start lives in the
+  unlimited apps, all three shields, 15–90-minute presets plus custom 5–240-minute
+  sprints, sleep blocking, hard kill mode. A full refund revokes the licence. The trial start lives in the
   encrypted settings file, so deleting that file restarts it — accepted, like the
   device cap, as not worth DRM. Licences bought on the old $4.99/month plan keep
   working. `--expire-trial` backdates the trial for the UI tests.
