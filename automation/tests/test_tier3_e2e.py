@@ -562,7 +562,8 @@ class TestFirstRun:
 
             app.set_text("FirstRunSearchInput", "steam")
             time.sleep(0.8)
-            app.click("FirstRunPickApp_steam")
+            # Steam may already be ticked for this PC, so drive it to checked rather than blind-clicking.
+            assert app.set_toggle("FirstRunPickApp_steam", True), "Steam wouldn't stay ticked"
             app.click("FirstRunNextButton")
             time.sleep(0.4)
 
