@@ -129,6 +129,9 @@ public class RunningSprint
     public int PlannedMinutes { get; set; }
     public ShieldLevel Shield { get; set; } = ShieldLevel.Firm;
 
+    /// <summary>Momentum when the sprint started, restored if the sprint resumes (F12).</summary>
+    public double MomentumAtStart { get; set; }
+
     /// <summary>Last time FlowShield confirmed it was still running this sprint.</summary>
     public DateTime LastSeenUtc { get; set; }
 

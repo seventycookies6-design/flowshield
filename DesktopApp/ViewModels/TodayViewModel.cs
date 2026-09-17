@@ -496,6 +496,7 @@ public class TodayViewModel : ViewModelBase
             PlannedMinutes = SelectedMinutes,
             Shield = SelectedShield,
             LastSeenUtc = now,
+            MomentumAtStart = S.MomentumScore,
         };
         _main.SaveSettings();
 
@@ -558,6 +559,7 @@ public class TodayViewModel : ViewModelBase
                     StartedUtc = saved.StartedUtc,
                     PlannedMinutes = saved.PlannedMinutes,
                     Shield = saved.Shield,
+                    MomentumAtStart = saved.MomentumAtStart,
                 };
                 _selectedMinutes = saved.PlannedMinutes;
                 _selectedShield = saved.Shield;
@@ -706,12 +708,14 @@ public class TodayViewModel : ViewModelBase
     /// <summary>Fills the post-sprint card (F12) with what just happened.</summary>
     private void UpdateSummaryCard(bool completed, FocusSession session)
     {
-        var delta = S.MomentumScore - session.MomentumAtStart;
+        // Rounded once, so the title and the line can't disagree, and a small
+        // loss never prints as "momentum −0".
+        var delta = (int)Math.Round(S.MomentumScore - session.MomentumAtStart);
 
         SummaryTitle = completed
             ? "Sprint complete"
             : delta < 0
-                ? $"Ended early — momentum −{Math.Abs(delta):0}. It'll recover."
+                ? $"Ended early — momentum −{Math.Abs(delta)}. It'll recover."
                 : "Ended early. It'll recover.";
         SummaryMinutesText = $"{(int)Math.Round(session.ActualMinutes)} minutes focused";
         SummaryDistractionsText = DistractionSummary(session);

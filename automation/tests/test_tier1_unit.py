@@ -947,6 +947,27 @@ class TestEndSprintPolicy:
 
 # ============================================= sprint summary card (F12)
 
+def summary_title(completed: bool, start_momentum: float, end_momentum: float) -> str:
+    """Mirror of TodayViewModel.UpdateSummaryCard's title rule."""
+    if completed:
+        return "Sprint complete"
+    delta = round(end_momentum - start_momentum)
+    if delta < 0:
+        return f"Ended early — momentum −{abs(delta)}. It'll recover."
+    return "Ended early. It'll recover."
+
+
+def distraction_summary(closed: int, nudged: int, total: int) -> str:
+    """Mirror of TodayViewModel.DistractionSummary."""
+    if closed or nudged:
+        nudges = "1 nudge" if nudged == 1 else f"{nudged} nudges"
+        return f"{closed} closed · {nudges}"
+    if total:
+        word = "1 distraction" if total == 1 else f"{total} distractions"
+        return f"{word} caught"
+    return "No distractions caught"
+
+
 class TestSprintSummaryCard:
     """The card (F12) reads per-sprint numbers the session must now remember."""
     MODEL = Path(SERVER_DIR).parent / "DesktopApp" / "Models" / "AppSettings.cs"
@@ -969,6 +990,38 @@ class TestSprintSummaryCard:
         assert "_closedThisSprint = 0" in source
         assert "_nudgesThisSprint = 0" in source
         assert "UpdateSummaryCard(completed, _current)" in source
+
+    def test_a_saved_sprint_remembers_its_start_momentum(self):
+        model = self.MODEL.read_text(encoding="utf-8")
+        viewmodel = self.VIEWMODEL.read_text(encoding="utf-8")
+        assert model.count("public double MomentumAtStart { get; set; }") == 2, \
+            "both FocusSession and RunningSprint must remember the start momentum"
+        assert "MomentumAtStart = saved.MomentumAtStart" in viewmodel, \
+            "a resumed sprint must keep the momentum it started with"
+
+    @pytest.mark.parametrize("start,end", [(0, 5), (40, 45)])
+    def test_completed_title(self, start, end):
+        assert summary_title(True, start, end) == "Sprint complete"
+
+    @pytest.mark.parametrize("start,end,title", [
+        (10, 0, "Ended early — momentum −10. It'll recover."),
+        (2.4, 0, "Ended early — momentum −2. It'll recover."),
+        (0.5, 0, "Ended early. It'll recover."),   # a small loss must not print "−0"
+        (0, 0, "Ended early. It'll recover."),
+    ])
+    def test_abandoned_title(self, start, end, title):
+        assert summary_title(False, start, end) == title
+
+    @pytest.mark.parametrize("closed,nudged,total,expected", [
+        (0, 0, 0, "No distractions caught"),
+        (2, 1, 3, "2 closed · 1 nudge"),
+        (0, 3, 3, "0 closed · 3 nudges"),
+        (1, 0, 1, "1 closed · 0 nudges"),
+        (0, 0, 4, "4 distractions caught"),
+        (0, 0, 1, "1 distraction caught"),
+    ])
+    def test_distraction_wording(self, closed, nudged, total, expected):
+        assert distraction_summary(closed, nudged, total) == expected
 
 
 # ============================================ custom sprint lengths (roadmap 2.3)
