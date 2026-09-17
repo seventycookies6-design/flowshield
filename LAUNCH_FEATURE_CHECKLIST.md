@@ -485,7 +485,7 @@ The recommendation is (b) plus the honest message (F26), unless early users say 
 
 ### F13 — Set an intention before a sprint · **Launch+** · S · Roadmap 3.3
 
-- [ ] Done
+- [x] Done
 
 **Assigned:** Miles (milessmart6-pixel), built with Codex and Cursor
 
