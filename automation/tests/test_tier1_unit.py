@@ -1049,6 +1049,13 @@ class TestSprintIntention:
         assert "Intention = saved.Intention" in viewmodel, \
             "a resumed sprint must keep the intention it started with"
 
+    def test_a_sprint_recorded_while_closed_keeps_its_intention_and_momentum(self):
+        viewmodel = self.VIEWMODEL.read_text(encoding="utf-8")
+        assert viewmodel.count("Intention = saved.Intention") == 2, \
+            "the resume path and the recorded-while-closed path must both carry the intention"
+        assert viewmodel.count("MomentumAtStart = saved.MomentumAtStart") == 2, \
+            "both saved-sprint paths must restore the start momentum"
+
     def test_the_prompt_repeats_the_intention(self):
         assert journal_prompt_title(None) == "What moved?"
         assert journal_prompt_title("   ") == "What moved?"

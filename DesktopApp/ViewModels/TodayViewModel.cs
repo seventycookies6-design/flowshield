@@ -208,6 +208,7 @@ public class TodayViewModel : ViewModelBase
         JournalPromptVisible = false;
         IntentionDisplayText = "";
         IntentionDisplayVisible = false;
+        IntentionText = "";
         Progress = 0;
         UpdateIdleDisplay();
         RefreshStats();
@@ -644,6 +645,8 @@ public class TodayViewModel : ViewModelBase
                     EndedUtc = saved.EndsUtc,
                     PlannedMinutes = saved.PlannedMinutes,
                     Shield = saved.Shield,
+                    MomentumAtStart = saved.MomentumAtStart,
+                    Intention = saved.Intention,
                     Completed = completed,
                     Interrupted = !completed,
                 };

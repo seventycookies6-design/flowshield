@@ -1876,6 +1876,13 @@ class TestSprintIntentionGuard:
         assert 'Text="What moved?"' not in journal, \
             "the prompt title must come from the viewmodel so it can repeat the intention"
 
+    def test_cancelling_a_sprint_clears_the_intention_input(self):
+        viewmodel = self.VM.read_text(encoding="utf-8")
+        cancel = viewmodel[viewmodel.find("private void CancelSprint"):]
+        cancel = cancel[:cancel.find("// ---------------------------------------------------------------- timer")]
+        assert 'IntentionText = ""' in cancel, \
+            "cancelling must clear the input so a stale intention is not captured by the next sprint"
+
 
 class TestPerAppSwitchGuard:
     """

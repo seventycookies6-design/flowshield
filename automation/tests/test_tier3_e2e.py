@@ -273,6 +273,19 @@ class TestSprintIntention:
         assert not fresh_app.exists("SummaryIntentionText", timeout=1)
         assert fresh_app.text_of("JournalPromptTitle") == "What moved?"
 
+    def test_cancelling_a_sprint_clears_the_intention_input(self, fresh_app):
+        fresh_app.navigate_to_tab("Today")
+        fresh_app.set_text("IntentionInput", "write the report")
+        time.sleep(0.4)
+        fresh_app.start_sprint()
+        time.sleep(1.2)
+        fresh_app.cancel_sprint()
+        time.sleep(0.8)
+
+        assert fresh_app.text_of("IntentionInput") == ""
+        settings = verify.read_settings()
+        assert settings["Sessions"] == []
+
 
 # ==================================================== the trial unlocks all
 
