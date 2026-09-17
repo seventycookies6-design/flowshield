@@ -41,6 +41,11 @@
                             <TextBlock Text="{Binding SessionStateText}" Style="{StaticResource Caption}"
                                        HorizontalAlignment="Center" Margin="0,2,0,0"
                                        AutomationProperties.AutomationId="SessionStateText"/>
+                            <TextBlock Text="{Binding IntentionDisplayText}" Style="{StaticResource Caption}"
+                                       HorizontalAlignment="Center" Margin="0,2,0,0" MaxWidth="150"
+                                       TextTrimming="CharacterEllipsis"
+                                       Visibility="{Binding IntentionDisplayVisible, Converter={StaticResource BoolVis}}"
+                                       AutomationProperties.AutomationId="SprintIntentionText"/>
                         </StackPanel>
                     </Grid>
 
@@ -186,6 +191,16 @@
                                AutomationProperties.AutomationId="SoftHardKillHint"
                                Text="Hard kill mode is on (Settings), so Soft closes blocked apps instead of nudging."/>
 
+                    <!-- intention (F13) -->
+                    <TextBlock Text="INTENTION" Style="{StaticResource Eyebrow}" Margin="0,26,0,9"/>
+                    <TextBox Style="{StaticResource Field}"
+                             Text="{Binding IntentionText, UpdateSourceTrigger=PropertyChanged}"
+                             IsEnabled="{Binding IsRunning, Converter={StaticResource InvBool}}"
+                             AutomationProperties.AutomationId="IntentionInput"
+                             AutomationProperties.Name="What are you working on?"/>
+                    <TextBlock Text="Optional. It's shown on the timer and again when the sprint ends."
+                               Style="{StaticResource Caption}" Margin="0,6,0,0"/>
+
                     <!-- sprint summary (F12) -->
                     <Border Style="{StaticResource RowCard}" Margin="0,22,0,0" Padding="16"
                             Visibility="{Binding JournalPromptVisible, Converter={StaticResource BoolVis}}">
@@ -205,6 +220,10 @@
                                        Margin="0,4,0,0"
                                        Visibility="{Binding SummaryStreakVisible, Converter={StaticResource BoolVis}}"
                                        AutomationProperties.AutomationId="SummaryStreakText"/>
+                            <TextBlock Text="{Binding SummaryIntentionText}" Style="{StaticResource Body}"
+                                       Margin="0,4,0,0"
+                                       Visibility="{Binding SummaryIntentionVisible, Converter={StaticResource BoolVis}}"
+                                       AutomationProperties.AutomationId="SummaryIntentionText"/>
                         </StackPanel>
                     </Border>
 
@@ -212,7 +231,8 @@
                     <Border Style="{StaticResource RowCard}" Margin="0,22,0,0" Padding="16"
                             Visibility="{Binding JournalPromptVisible, Converter={StaticResource BoolVis}}">
                         <StackPanel>
-                            <TextBlock Text="What moved?" Style="{StaticResource H2}" FontSize="14"/>
+                            <TextBlock Text="{Binding JournalPromptTitle}" Style="{StaticResource H2}" FontSize="14"
+                                       AutomationProperties.AutomationId="JournalPromptTitle"/>
                             <TextBlock Text="One line. You'll thank yourself in three months."
                                        Style="{StaticResource Caption}" Margin="0,2,0,10"/>
                             <TextBox Style="{StaticResource Field}"

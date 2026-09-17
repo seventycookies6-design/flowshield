@@ -1024,6 +1024,38 @@ class TestSprintSummaryCard:
         assert distraction_summary(closed, nudged, total) == expected
 
 
+# ================================================== sprint intention (F13)
+
+def journal_prompt_title(intention: str | None) -> str:
+    """Mirror of TodayViewModel.JournalPromptTitle."""
+    if intention is None or not intention.strip():
+        return "What moved?"
+    return f"You planned: {intention.strip()}. What moved?"
+
+
+class TestSprintIntention:
+    """F13: the optional one-line intention travels with the sprint it started."""
+    MODEL = Path(SERVER_DIR).parent / "DesktopApp" / "Models" / "AppSettings.cs"
+    VIEWMODEL = Path(SERVER_DIR).parent / "DesktopApp" / "ViewModels" / "TodayViewModel.cs"
+
+    def test_the_session_and_the_saved_sprint_both_remember_it(self):
+        model = self.MODEL.read_text(encoding="utf-8")
+        assert model.count('public string Intention { get; set; } = "";') == 2, \
+            "both FocusSession and RunningSprint must carry the intention"
+
+    def test_the_intention_is_captured_when_the_sprint_starts(self):
+        viewmodel = self.VIEWMODEL.read_text(encoding="utf-8")
+        assert "Intention = intention" in viewmodel
+        assert "Intention = saved.Intention" in viewmodel, \
+            "a resumed sprint must keep the intention it started with"
+
+    def test_the_prompt_repeats_the_intention(self):
+        assert journal_prompt_title(None) == "What moved?"
+        assert journal_prompt_title("   ") == "What moved?"
+        assert journal_prompt_title("finish chapter 3") == \
+            "You planned: finish chapter 3. What moved?"
+
+
 # ============================================ custom sprint lengths (roadmap 2.3)
 
 CUSTOM_MIN = 5

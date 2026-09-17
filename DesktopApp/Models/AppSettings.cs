@@ -96,6 +96,9 @@ public class FocusSession
     /// <summary>Momentum when the sprint started, so the summary can show what changed.</summary>
     public double MomentumAtStart { get; set; }
 
+    /// <summary>Optional one-line intention set before the sprint (F13). Empty when skipped.</summary>
+    public string Intention { get; set; } = "";
+
     /// <summary>The one-line "what moved?" answer captured when a sprint ends.</summary>
     public string Journal { get; set; } = "";
 
@@ -131,6 +134,9 @@ public class RunningSprint
 
     /// <summary>Momentum when the sprint started, restored if the sprint resumes (F12).</summary>
     public double MomentumAtStart { get; set; }
+
+    /// <summary>The sprint's intention, kept so a resumed sprint can still show it (F13).</summary>
+    public string Intention { get; set; } = "";
 
     /// <summary>Last time FlowShield confirmed it was still running this sprint.</summary>
     public DateTime LastSeenUtc { get; set; }

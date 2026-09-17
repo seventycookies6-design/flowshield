@@ -237,6 +237,43 @@ class TestSprints:
         assert fresh_app.text_of("SummaryStreakText") == "Day 1"
 
 
+# ================================================== sprint intention (F13)
+
+class TestSprintIntention:
+    """F13: the optional intention is saved with the sprint and shown back."""
+
+    def test_an_intention_is_saved_shown_on_the_timer_and_repeated(self, fresh_app):
+        fresh_app.navigate_to_tab("Today")
+        fresh_app.set_text("IntentionInput", "finish chapter 3")
+        time.sleep(0.4)
+        fresh_app.start_sprint()
+        time.sleep(1.2)
+
+        assert fresh_app.text_of("SprintIntentionText") == "finish chapter 3"
+
+        fresh_app.stop_sprint()
+        time.sleep(1.0)
+
+        settings = verify.read_settings()
+        assert settings["Sessions"][-1]["Intention"] == "finish chapter 3"
+        assert fresh_app.text_of("SummaryIntentionText") == "You planned: finish chapter 3"
+        assert fresh_app.text_of("JournalPromptTitle") == \
+            "You planned: finish chapter 3. What moved?"
+        assert fresh_app.text_of("IntentionInput") == ""
+
+    def test_an_empty_intention_leaves_everything_default(self, fresh_app):
+        fresh_app.navigate_to_tab("Today")
+        fresh_app.start_sprint()
+        time.sleep(1.2)
+        fresh_app.stop_sprint()
+        time.sleep(0.8)
+
+        settings = verify.read_settings()
+        assert settings["Sessions"][-1]["Intention"] == ""
+        assert not fresh_app.exists("SummaryIntentionText", timeout=1)
+        assert fresh_app.text_of("JournalPromptTitle") == "What moved?"
+
+
 # ==================================================== the trial unlocks all
 
 class TestTrialUnlocksEverything:

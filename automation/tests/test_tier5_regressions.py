@@ -1847,6 +1847,36 @@ class TestSprintSummaryCard:
         assert "No distractions caught" in viewmodel
 
 
+# ============================ sprint intention (F13)
+
+class TestSprintIntentionGuard:
+    """F13: the intention input, the ring line and the card line stay wired."""
+
+    XAML = Path(DESKTOP_DIR) / "Views" / "TodayView.xaml"
+    VM = Path(DESKTOP_DIR) / "ViewModels" / "TodayViewModel.cs"
+
+    def test_the_input_is_optional_and_locked_while_the_sprint_runs(self):
+        view = self.XAML.read_text(encoding="utf-8")
+        section = view[view.find("intention (F13)"):view.find("sprint summary")]
+        assert 'AutomationProperties.AutomationId="IntentionInput"' in section
+        assert 'IsEnabled="{Binding IsRunning, Converter={StaticResource InvBool}}"' in section
+
+    def test_the_ring_and_the_card_each_show_the_intention(self):
+        view = self.XAML.read_text(encoding="utf-8")
+        assert 'AutomationProperties.AutomationId="SprintIntentionText"' in view
+        card = view[view.find("sprint summary"):]
+        card = card[:card.find("journal prompt")]
+        assert 'AutomationProperties.AutomationId="SummaryIntentionText"' in card
+        assert "SummaryIntentionVisible" in card
+
+    def test_the_journal_prompt_title_is_bound_not_static(self):
+        view = self.XAML.read_text(encoding="utf-8")
+        journal = view[view.find("journal prompt"):]
+        assert "JournalPromptTitle" in journal
+        assert 'Text="What moved?"' not in journal, \
+            "the prompt title must come from the viewmodel so it can repeat the intention"
+
+
 class TestPerAppSwitchGuard:
     """
     The per-app on/off switch is a second way to edit the blocklist, so it must
