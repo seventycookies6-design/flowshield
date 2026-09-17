@@ -1305,6 +1305,14 @@ class TestNotificationsStayQuiet:
         assert "NotificationPolicy.TrayIconText(remaining)" in update
         assert 'Title = running ? $"FlowShield — {Vm?.Today.RemainingText}" : "FlowShield";' in update
 
+    def test_the_tray_search_only_trusts_explorer(self):
+        # A Claude desktop session titled "FlowShield …" was double-clicked as
+        # if it were the tray icon; any app can show a button with that name.
+        controller = (Path(DESKTOP_DIR).parent / "automation" / "desktop" / "app_controller.py").read_text(
+            encoding="utf-8")
+        find = controller.split("def find_tray_icon(")[1].split("\n    def ")[0]
+        assert "element.process_id in explorer" in find
+
     def test_the_test_driver_matches_the_countdown_title(self):
         controller = (Path(DESKTOP_DIR).parent / "automation" / "desktop" / "app_controller.py").read_text(
             encoding="utf-8")

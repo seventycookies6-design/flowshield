@@ -287,8 +287,22 @@ class TestShieldWording:
         fresh_app.navigate_to_tab("Settings")
         fresh_app.click("ShowFirstRunButton")
         assert fresh_app.exists("FirstRunSkipButton", timeout=3)
-        fresh_app.click("FirstRunNextButton")
-        time.sleep(0.5)
+
+        # In the full suite the Settings button is often scrolled out of view and
+        # invoked directly, so the welcome can still be opening when Next is
+        # pressed. Wait for step 1, then confirm the step actually moved.
+        deadline = time.time() + 5
+        while time.time() < deadline and fresh_app.text_of("FirstRunStepText") != "Step 1 of 3":
+            time.sleep(0.25)
+        assert fresh_app.text_of("FirstRunStepText") == "Step 1 of 3"
+
+        for _ in range(2):
+            fresh_app.click("FirstRunNextButton")
+            deadline = time.time() + 3
+            while time.time() < deadline and fresh_app.text_of("FirstRunStepText") != "Step 2 of 3":
+                time.sleep(0.25)
+            if fresh_app.text_of("FirstRunStepText") == "Step 2 of 3":
+                break
         assert fresh_app.text_of("FirstRunStepText") == "Step 2 of 3"
         try:
             for level, (promise, best_for) in self.EXPECTED.items():
