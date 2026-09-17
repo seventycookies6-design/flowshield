@@ -945,6 +945,32 @@ class TestEndSprintPolicy:
         assert phrase_matches(typed) is ok
 
 
+# ============================================= sprint summary card (F12)
+
+class TestSprintSummaryCard:
+    """The card (F12) reads per-sprint numbers the session must now remember."""
+    MODEL = Path(SERVER_DIR).parent / "DesktopApp" / "Models" / "AppSettings.cs"
+    VIEWMODEL = Path(SERVER_DIR).parent / "DesktopApp" / "ViewModels" / "TodayViewModel.cs"
+
+    def test_the_session_remembers_the_split_and_start_momentum(self):
+        source = self.MODEL.read_text(encoding="utf-8")
+        assert "public int AppsClosed { get; set; }" in source
+        assert "public int NudgesSent { get; set; }" in source
+        assert "public double MomentumAtStart { get; set; }" in source
+
+    def test_blocks_are_counted_as_closed_or_nudged(self):
+        source = self.VIEWMODEL.read_text(encoding="utf-8")
+        assert "public void RecordBlock(bool terminated)" in source
+        assert "_closedThisSprint++" in source and "_nudgesThisSprint++" in source
+        assert "MomentumAtStart = S.MomentumScore" in source
+
+    def test_the_card_is_fresh_for_every_sprint(self):
+        source = self.VIEWMODEL.read_text(encoding="utf-8")
+        assert "_closedThisSprint = 0" in source
+        assert "_nudgesThisSprint = 0" in source
+        assert "UpdateSummaryCard(completed, _current)" in source
+
+
 # ============================================ custom sprint lengths (roadmap 2.3)
 
 CUSTOM_MIN = 5
