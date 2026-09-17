@@ -206,6 +206,9 @@ public class TodayViewModel : ViewModelBase
 
         SessionStateText = "Sprint cancelled";
         JournalPromptVisible = false;
+        IntentionDisplayText = "";
+        IntentionDisplayVisible = false;
+        IntentionText = "";
         Progress = 0;
         UpdateIdleDisplay();
         RefreshStats();
@@ -250,6 +253,13 @@ public class TodayViewModel : ViewModelBase
 
     private string _sessionStateText = "Ready when you are";
     public string SessionStateText { get => _sessionStateText; private set => Set(ref _sessionStateText, value); }
+
+    private string _intentionDisplayText = "";
+    /// <summary>The running sprint's intention, shown under the timer (F13).</summary>
+    public string IntentionDisplayText { get => _intentionDisplayText; private set => Set(ref _intentionDisplayText, value); }
+
+    private bool _intentionDisplayVisible;
+    public bool IntentionDisplayVisible { get => _intentionDisplayVisible; private set => Set(ref _intentionDisplayVisible, value); }
 
     // ------------------------------------------------------------- controls
 
@@ -429,6 +439,25 @@ public class TodayViewModel : ViewModelBase
     private string _journalText = "";
     public string JournalText { get => _journalText; set => Set(ref _journalText, value); }
 
+    /// <summary>The optional "what are you working on?" line, captured when a sprint starts (F13).</summary>
+    private string _intentionText = "";
+    public string IntentionText { get => _intentionText; set => Set(ref _intentionText, value); }
+
+    /// <summary>The journal prompt repeats the intention when one was set (F13).</summary>
+    public string JournalPromptTitle =>
+        LastSessionIntention is null
+            ? "What moved?"
+            : $"You planned: {LastSessionIntention}. What moved?";
+
+    private string? LastSessionIntention
+    {
+        get
+        {
+            var last = S.Sessions.LastOrDefault();
+            return last is null || string.IsNullOrWhiteSpace(last.Intention) ? null : last.Intention.Trim();
+        }
+    }
+
     // --------------------------------------------------- sprint summary (F12)
 
     private string _summaryTitle = "";
@@ -448,6 +477,12 @@ public class TodayViewModel : ViewModelBase
 
     private bool _summaryStreakVisible;
     public bool SummaryStreakVisible { get => _summaryStreakVisible; private set => Set(ref _summaryStreakVisible, value); }
+
+    private string _summaryIntentionText = "";
+    public string SummaryIntentionText { get => _summaryIntentionText; private set => Set(ref _summaryIntentionText, value); }
+
+    private bool _summaryIntentionVisible;
+    public bool SummaryIntentionVisible { get => _summaryIntentionVisible; private set => Set(ref _summaryIntentionVisible, value); }
 
     // --------------------------------------------------------------- stats
 
@@ -487,12 +522,14 @@ public class TodayViewModel : ViewModelBase
         }
 
         var now = DateTime.UtcNow;
+        var intention = (IntentionText ?? "").Trim();
         _current = new FocusSession
         {
             StartedUtc = now,
             PlannedMinutes = SelectedMinutes,
             Shield = SelectedShield,
             MomentumAtStart = S.MomentumScore,
+            Intention = intention,
         };
 
         // Saved before enforcement begins, so a crash one second in still
@@ -504,6 +541,7 @@ public class TodayViewModel : ViewModelBase
             Shield = SelectedShield,
             LastSeenUtc = now,
             MomentumAtStart = S.MomentumScore,
+            Intention = intention,
         };
         _main.SaveSettings();
 
@@ -525,6 +563,8 @@ public class TodayViewModel : ViewModelBase
         IsRunning = true;
         SessionStateText = stateText;
         JournalPromptVisible = false;
+        IntentionDisplayText = string.IsNullOrWhiteSpace(_current.Intention) ? "" : _current.Intention;
+        IntentionDisplayVisible = IntentionDisplayText.Length > 0;
 
         _main.Blocker.BeginEnforcing(_current.Shield);
         _main.OnSprintStateChanged();
@@ -567,6 +607,7 @@ public class TodayViewModel : ViewModelBase
                     PlannedMinutes = saved.PlannedMinutes,
                     Shield = saved.Shield,
                     MomentumAtStart = saved.MomentumAtStart,
+                    Intention = saved.Intention,
                 };
                 _selectedMinutes = saved.PlannedMinutes;
                 _selectedShield = saved.Shield;
@@ -604,6 +645,8 @@ public class TodayViewModel : ViewModelBase
                     EndedUtc = saved.EndsUtc,
                     PlannedMinutes = saved.PlannedMinutes,
                     Shield = saved.Shield,
+                    MomentumAtStart = saved.MomentumAtStart,
+                    Intention = saved.Intention,
                     Completed = completed,
                     Interrupted = !completed,
                 };
@@ -698,6 +741,10 @@ public class TodayViewModel : ViewModelBase
         UpdateSummaryCard(completed, _current);
         JournalPromptVisible = true;
         JournalText = "";
+        IntentionDisplayText = "";
+        IntentionDisplayVisible = false;
+        IntentionText = "";
+        Raise(nameof(JournalPromptTitle));
         Progress = completed ? 1 : Progress;
         UpdateIdleDisplay();
         RefreshStats();
@@ -730,6 +777,10 @@ public class TodayViewModel : ViewModelBase
         SummaryMomentumText = $"{delta:+0;-0;0} → {S.MomentumScore:0}";
         SummaryStreakVisible = S.CurrentStreak > 0;
         SummaryStreakText = S.CurrentStreak == 1 ? "Day 1" : $"Day {S.CurrentStreak}";
+
+        var intention = session.Intention?.Trim() ?? "";
+        SummaryIntentionText = intention.Length == 0 ? "" : $"You planned: {intention}";
+        SummaryIntentionVisible = intention.Length > 0;
     }
 
     private static string DistractionSummary(FocusSession session)
