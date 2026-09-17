@@ -439,9 +439,26 @@ public class TodayViewModel : ViewModelBase
     private string _journalText = "";
     public string JournalText { get => _journalText; set => Set(ref _journalText, value); }
 
+    /// <summary>
+    /// Longest intention kept. A longer line wrapped inside the timer ring and
+    /// pushed the buttons off the card, so it is capped here rather than only
+    /// in the text box, which nothing enforces when the value is set or pasted
+    /// programmatically.
+    /// </summary>
+    public const int MaxIntentionLength = 80;
+
     /// <summary>The optional "what are you working on?" line, captured when a sprint starts (F13).</summary>
     private string _intentionText = "";
-    public string IntentionText { get => _intentionText; set => Set(ref _intentionText, value); }
+    public string IntentionText
+    {
+        get => _intentionText;
+        set
+        {
+            var capped = value ?? "";
+            if (capped.Length > MaxIntentionLength) capped = capped[..MaxIntentionLength];
+            Set(ref _intentionText, capped);
+        }
+    }
 
     /// <summary>The journal prompt repeats the intention when one was set (F13).</summary>
     public string JournalPromptTitle =>

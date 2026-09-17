@@ -1869,6 +1869,23 @@ class TestSprintIntentionGuard:
         assert 'AutomationProperties.AutomationId="SummaryIntentionText"' in card
         assert "SummaryIntentionVisible" in card
 
+    def test_a_long_intention_cannot_break_the_timer_ring(self):
+        # A long line wrapped to five lines inside the ring and pushed the
+        # buttons down: the caption style wraps, so trimming never applied.
+        view = self.XAML.read_text(encoding="utf-8")
+        section = view[view.find("intention (F13)"):view.find("sprint summary")]
+        assert 'MaxLength="80"' in section, "the input must cap what can be typed"
+
+        viewmodel = self.VM.read_text(encoding="utf-8")
+        assert "public const int MaxIntentionLength = 80;" in viewmodel
+        assert "capped[..MaxIntentionLength]" in viewmodel, \
+            "the cap must hold for pasted and programmatically set text too"
+
+        ring = view[:view.find("SPRINT LENGTH")]
+        line = ring[ring.find('AutomationId="SprintIntentionText"') - 600:]
+        assert 'TextWrapping="NoWrap"' in line and 'TextTrimming="CharacterEllipsis"' in line, \
+            "the line under the timer must stay on one line"
+
     def test_the_journal_prompt_title_is_bound_not_static(self):
         view = self.XAML.read_text(encoding="utf-8")
         journal = view[view.find("journal prompt"):]
