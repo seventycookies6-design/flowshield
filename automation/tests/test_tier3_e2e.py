@@ -1000,7 +1000,7 @@ class TestDailyGoal:
 
     def test_no_goal_is_set_on_a_fresh_install(self, fresh_app):
         fresh_app.navigate_to_tab("Settings")
-        assert fresh_app.toggle_state("GoalOffRadio") is True, \
+        assert fresh_app.is_selected("GoalOffRadio") is True, \
             "the goal is opt-in; a new install must not start with one"
 
     def test_the_bar_is_absent_until_a_goal_is_set(self, fresh_app):
@@ -1010,7 +1010,7 @@ class TestDailyGoal:
 
     def test_choosing_sprints_offers_a_target_and_saves_it(self, fresh_app):
         fresh_app.navigate_to_tab("Settings")
-        fresh_app.click("GoalSprintsRadio")
+        fresh_app.choose("GoalSprintsRadio")
         time.sleep(0.8)
 
         settings = verify.read_settings()
@@ -1020,18 +1020,18 @@ class TestDailyGoal:
 
     def test_switching_kind_does_not_carry_the_number_across(self, fresh_app):
         fresh_app.navigate_to_tab("Settings")
-        fresh_app.click("GoalMinutesRadio")
+        fresh_app.choose("GoalMinutesRadio")
         time.sleep(0.6)
         assert verify.read_settings()["DailyGoalTarget"] == 90
 
-        fresh_app.click("GoalSprintsRadio")
+        fresh_app.choose("GoalSprintsRadio")
         time.sleep(0.6)
         assert verify.read_settings()["DailyGoalTarget"] == 3, \
             "90 minutes is a normal day; 90 sprints is nobody's day"
 
     def test_a_target_out_of_range_is_reported_and_not_saved(self, fresh_app):
         fresh_app.navigate_to_tab("Settings")
-        fresh_app.click("GoalSprintsRadio")
+        fresh_app.choose("GoalSprintsRadio")
         time.sleep(0.6)
 
         fresh_app.set_text("GoalTargetInput", "999")
@@ -1043,7 +1043,7 @@ class TestDailyGoal:
 
     def test_the_bar_appears_on_today_once_a_goal_exists(self, fresh_app):
         fresh_app.navigate_to_tab("Settings")
-        fresh_app.click("GoalSprintsRadio")
+        fresh_app.choose("GoalSprintsRadio")
         time.sleep(0.6)
 
         fresh_app.navigate_to_tab("Today")
@@ -1052,7 +1052,7 @@ class TestDailyGoal:
 
     def test_finishing_a_sprint_moves_the_bar(self, fresh_app):
         fresh_app.navigate_to_tab("Settings")
-        fresh_app.click("GoalSprintsRadio")
+        fresh_app.choose("GoalSprintsRadio")
         time.sleep(0.6)
         fresh_app.set_text("GoalTargetInput", "2")
         time.sleep(0.6)
@@ -1072,7 +1072,7 @@ class TestDailyGoal:
 
     def test_taking_a_day_off_is_offered_once_a_week(self, fresh_app):
         fresh_app.navigate_to_tab("Settings")
-        fresh_app.click("GoalSprintsRadio")
+        fresh_app.choose("GoalSprintsRadio")
         time.sleep(0.6)
 
         assert "1 day off left" in fresh_app.text_of("SkipRemainingText")
@@ -1087,7 +1087,7 @@ class TestDailyGoal:
 
     def test_a_day_off_can_be_taken_back(self, fresh_app):
         fresh_app.navigate_to_tab("Settings")
-        fresh_app.click("GoalSprintsRadio")
+        fresh_app.choose("GoalSprintsRadio")
         time.sleep(0.6)
         fresh_app.click("SkipTodayButton")
         time.sleep(0.8)
