@@ -90,7 +90,18 @@ public partial class App : Application
         // trial never gets it. --skip-first-run keeps the UI tests on Today.
         if (args.Any(a => a.Equals("--skip-first-run", StringComparison.OrdinalIgnoreCase)))
             Models.FirstRunPolicy.SkipForTests = true;
-        ViewModel.FirstRun.ShowIfNew();
+
+        // --accept-terms records acceptance so the UI suite isn't stopped by the
+        // gate on every clean launch. It only skips the screen, never the record.
+        if (args.Any(a => a.Equals("--accept-terms", StringComparison.OrdinalIgnoreCase)))
+        {
+            Models.LegalTerms.Accept(ViewModel.Settings);
+            Log.Info("terms accepted by the --accept-terms flag");
+        }
+
+        // The terms come first: nothing else is usable until they are accepted,
+        // and the welcome opens from the gate once they are.
+        if (!ViewModel.ShowTermsGateIfNeeded()) ViewModel.FirstRun.ShowIfNew();
 
         // Persist immediately so a settings file always exists after first run.
         // Without this, a session where the user changes nothing leaves no file

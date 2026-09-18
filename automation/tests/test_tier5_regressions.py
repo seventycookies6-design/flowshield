@@ -96,6 +96,38 @@ class TestLegalPagesMatchTheProduct:
         for name in ("Stripe", "Render", "Resend"):
             assert name in policy, f"{name} processes customer data and must be named"
 
+    def test_the_terms_gate_covers_every_other_panel(self):
+        """
+        A gate under the lock screen or the welcome could be worked around, and
+        an agreement nobody had to pass is the browsewrap this replaced.
+        """
+        window = (Path(DESKTOP_DIR) / "MainWindow.xaml").read_text(encoding="utf-8-sig")
+        gate = window.find('AutomationId="TermsGatePanel"')
+        assert gate > 0
+        for panel in ('AutomationId="TrialEndedPanel"', 'AutomationId="FirstRunPanel"',
+                      "ActivationPromptVisible"):
+            assert window.find(panel) < gate, f"{panel} is drawn after the terms gate"
+
+    def test_nothing_starts_while_the_terms_are_unaccepted(self):
+        # The overlay only stops a mouse; a covered button can still be invoked
+        # by automation or a shortcut, so the refusal lives in the view model.
+        today = (Path(DESKTOP_DIR) / "ViewModels" / "TodayViewModel.cs").read_text(encoding="utf-8")
+        start = today.split("private void StartSprint()")[1].split("\n    }")[0]
+        assert "_main.TermsGateVisible" in start and "return;" in start
+
+    def test_acceptance_is_recorded_before_the_gate_closes(self):
+        main = (Path(DESKTOP_DIR) / "ViewModels" / "MainViewModel.cs").read_text(encoding="utf-8")
+        accept = main.split("private void AcceptTerms()")[1].split("\n    }")[0]
+        assert accept.index("SaveSettings()") < accept.index("TermsGateVisible = false"), \
+            "a crash between accepting and saving would ask again with no record"
+        assert "FirstRun.ShowIfNew()" in accept
+
+    def test_the_test_flag_skips_the_screen_but_not_the_record(self):
+        app = (Path(DESKTOP_DIR) / "App.xaml.cs").read_text(encoding="utf-8")
+        flag = app.split('"--accept-terms"')[1].split("// The terms come first")[0]
+        assert "LegalTerms.Accept(" in flag, \
+            "the flag must record acceptance, not bypass the check"
+
     def test_the_checklist_is_reviewed_with_the_release_script(self):
         rules = (self.ROOT / "CLAUDE.md").read_text(encoding="utf-8")
         assert "LEGAL_CHECKLIST.md" in rules, \

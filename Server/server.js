@@ -476,8 +476,22 @@ app.get('/health', (_req, res) => {
     // Never the API key or credentials — only whether sending is possible and
     // which backend would handle it.
     email: { configured: mail.isConfigured, provider: mail.providerName, from: mail.FROM },
+    // null until the first checkout; false means Stripe refused the terms box.
+    termsConsent: { working: tosConsent.working, lastError: tosConsent.lastError },
   });
 });
+
+/**
+ * Whether Stripe is accepting the terms-acceptance box, reported by /health so
+ * a missing terms-of-service URL on the account is visible rather than silent.
+ */
+const tosConsent = { working: null, lastError: null };
+
+/** A Stripe rejection that means "no terms-of-service URL on this account". */
+function isTermsConfigError(err) {
+  const message = String(err?.message || '').toLowerCase();
+  return message.includes('terms_of_service') || message.includes('terms of service');
+}
 
 app.post('/create-checkout', async (req, res) => {
   if (!requireStripe(res)) return;
@@ -491,7 +505,7 @@ app.post('/create-checkout', async (req, res) => {
     // A one-time purchase: payment mode against a one-time price. The key goes
     // on the PaymentIntent so it can be recovered from Stripe, and a customer
     // is always created so the purchase can also be found by email.
-    const session = await stripe.checkout.sessions.create({
+    const params = {
       mode: 'payment',
       line_items: [{ price: keys.price_id, quantity: 1 }],
       client_reference_id: licenseKeyValue,
@@ -502,7 +516,35 @@ app.post('/create-checkout', async (req, res) => {
       cancel_url: `${WEBSITE_URL}/index.html?checkout=cancelled`,
       payment_intent_data: { metadata: { license_key: licenseKeyValue, app: APP_NAME } },
       metadata: { license_key: licenseKeyValue, app: APP_NAME },
-    });
+      // The buyer ticks a box agreeing to the terms, and Stripe stores that
+      // with the payment. A liability limit nobody agreed to is worth little
+      // (legal checklist 2.2), and the terms say plainly that FlowShield
+      // closes programs.
+      consent_collection: { terms_of_service: 'required' },
+      custom_text: {
+        terms_of_service_acceptance: {
+          message: `I agree to the [${APP_NAME} terms](${WEBSITE_URL}/legal.html#terms),`
+            + ' including that FlowShield closes programs I block and that unsaved work in them can be lost.',
+        },
+      },
+    };
+
+    // Stripe only accepts the consent box once a terms-of-service URL is set on
+    // the account (Dashboard → Settings → Checkout). Until it is, take the
+    // payment rather than lose the sale, and say loudly what is missing.
+    let session;
+    try {
+      session = await stripe.checkout.sessions.create(params);
+      tosConsent.working = true;
+    } catch (err) {
+      if (!isTermsConfigError(err)) throw err;
+      tosConsent.working = false;
+      tosConsent.lastError = err.message;
+      log(`create-checkout: terms consent unavailable (${err.message}); `
+        + 'set a terms-of-service URL in the Stripe Dashboard → Settings → Checkout');
+      const { consent_collection: _c, custom_text: _t, ...withoutConsent } = params;
+      session = await stripe.checkout.sessions.create(withoutConsent);
+    }
 
     db.attachSession(licenseKeyValue, session.id);
     log(`create-checkout -> ${licenseKeyValue} session=${session.id}`);

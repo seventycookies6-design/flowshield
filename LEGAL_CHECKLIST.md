@@ -64,28 +64,25 @@ money is at stake, not something I can decide.
 | # | Item | Status |
 | --- | --- | --- |
 | 2.1 | Terms, privacy and refund policy exist and are readable | **OK** — `Website/legal.html`, linked from every page footer (tier 5 checks the links) |
-| 2.2 | The customer actively agrees before buying | **GAP** — checkout goes straight to Stripe; nothing records agreement |
-| 2.3 | The customer agrees before the software can close anything | **GAP** — the app never shows the terms; the first run (F18) asks about blocking but never links them |
-| 2.4 | A record of who agreed, to which version, and when | **GAP** — nothing is stored |
-| 2.5 | Terms are versioned and dated | **Partly** — dated ("Last updated"), not versioned |
+| 2.2 | The customer actively agrees before buying | **OK** — Stripe Checkout requires the terms box (`consent_collection`), with custom wording naming the closing-programs risk; Stripe stores the agreement with the payment. If the Stripe account has no terms-of-service URL yet, the sale still completes without the box and `/health` reports `termsConsent.working: false` — **OWNER: set that URL in Stripe → Settings → Checkout** |
+| 2.3 | The customer agrees before the software can close anything | **OK** — a gate over every page on first launch: what FlowShield closes, links to the terms and privacy policy, and **I understand and agree**. No sprint can start until it's accepted, enforced in the view model, not only by the overlay |
+| 2.4 | A record of who agreed, to which version, and when | **OK** — `TermsAcceptedVersion` and `TermsAcceptedUtc` in the encrypted settings, saved before the gate closes; shown on the Settings page |
+| 2.5 | Terms are versioned and dated | **OK, automated** — `LegalTerms.Version` and the legal page carry the same version; a tier 1 test keeps them equal, and bumping the version re-asks everyone |
 
 **Why it matters.** Disclaimers only protect you if the customer agreed to
 them. Courts routinely enforce "clickwrap" (a box you tick or a button that
 says you agree, next to a visible link) and routinely refuse "browsewrap" (a
-link in the footer nobody had to look at). FlowShield is browsewrap today, so
-its liability limit in section 6 of the terms is the part most likely to fail
-exactly when it's needed.
+link in the footer nobody had to look at). FlowShield was browsewrap until
+#108, which means the liability limit in the terms now rests on something a
+customer actually did.
 
-**Fix (code, about a day):**
+**What's left here:** the Stripe account needs a terms-of-service URL
+(`https://seventycookies6-design.github.io/flowshield/legal.html#terms`) set in
+**Settings → Checkout**, or the consent box is skipped. `/health` says which.
 
-- Stripe Checkout can require terms acceptance (`consent_collection`), which
-  stores the agreement with the payment. One line in `Server/server.js`.
-- Add a first-run step: "FlowShield closes programs you choose. Unsaved work in
-  them can be lost." with links to the terms and privacy policy and an
-  **I understand** button, saving `TermsAcceptedVersion` and the date into
-  settings.
-- Version the legal page (`v1, 17 September 2026`) so the record means
-  something.
+**When the terms change materially:** bump `LegalTerms.Version`, update the
+version line on `legal.html`, and everyone is asked again — that is what keeps
+each recorded acceptance tied to wording the person actually saw.
 
 ---
 
@@ -192,7 +189,7 @@ mundane, high-probability risk — higher than most of the exotic ones.
 | 9.1 | PCI handled by Stripe, never by us | **OK** — Stripe Checkout; no card data touches the server |
 | 9.2 | Sales tax and VAT | **GAP / OWNER** — see 3.4. As your own merchant of record with Stripe you owe VAT on EU sales from the first euro (no threshold for non-EU sellers) and US state sales tax once a state's threshold is met. Two honest options: turn on Stripe Tax and register where required, or sell through a merchant of record (Paddle, Lemon Squeezy, FastSpring) that takes that liability. At $4.99 the second is usually the sane one |
 | 9.3 | No claim that FlowShield is parental-control or enforcement software | **OK today, watch it** — it has no admin rights, no password lock and no website blocking, so any "stop your kid gaming" claim would be false and is also the most likely source of an angry-customer complaint |
-| 9.4 | Data-loss risk disclosed before it can happen | **Partly** — section 2 of the terms says it plainly, but nobody has to read the terms (see 2.3). This is the single most important sentence to put in front of a user before their first sprint |
+| 9.4 | Data-loss risk disclosed before it can happen | **OK** — the terms gate states it in the first line a new user sees, and Stripe's consent box repeats it at checkout |
 | 9.5 | The blocker stays timid | **OK, automated** — `CriticalProcesses` is never closed, no admin rights, no drivers, no hosts-file edits; tier 5 guards it |
 
 ---
@@ -236,14 +233,13 @@ mundane, high-probability risk — higher than most of the exotic ones.
 **Before the first real sale (blocking):**
 
 1. Fill in the operator name, address and support email (1.1, 4.6, 10.2).
-2. Add terms acceptance at checkout and a first-run "this closes programs"
-   agreement with a stored record (2.2–2.4, 9.4).
-3. Fix or remove the sales-tax sentence (3.4) and decide merchant-of-record
-   versus Stripe Tax (9.2).
-4. Disclose or remove the device identifier and device name (5.2).
+2. ~~Terms acceptance at checkout and in the app~~ — done in #108. Still needs
+   the terms-of-service URL set on the Stripe account (2.2).
+3. Decide merchant-of-record versus Stripe Tax (9.2). ~~The sales-tax
+   sentence~~ was removed in #107.
+4. ~~Disclose the device identifier and device name~~ — done in #107.
 5. Ship `THIRD-PARTY-NOTICES.txt` with the app and the server (8.2).
-6. Add the minimum-age line (6.3) and name the subprocessors and retention
-   periods (5.5, 5.6).
+6. ~~Minimum age, subprocessors, retention periods~~ — done in #107.
 7. Search the USPTO for "FlowShield" (8.1).
 
 **Soon after:**
@@ -274,6 +270,11 @@ These fail CI, so they can't regress quietly:
 - **New:** no `[placeholder]` remains on a customer-facing page (tier 5).
 - **New:** the privacy policy names every kind of data the client actually
   sends to the server (tier 5).
+- **New:** the terms gate sits above every other panel, records the version and
+  time before it closes, and no sprint can start until it's accepted (tier 5),
+  proved on screen by invoking the covered Start button (tier 3).
+- **New:** the app's terms version matches the version on the legal page
+  (tier 1), and checkout asks the buyer to agree (tier 1).
 
 Anything else on this list is a human check. Do it at the four moments listed
 at the top.

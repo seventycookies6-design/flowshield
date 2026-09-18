@@ -192,6 +192,25 @@
                         </TextBlock>
                     </StackPanel>
 
+                    <TextBlock Text="{Binding DataContext.TermsAcceptedText,
+                                     RelativeSource={RelativeSource AncestorType=Window}}"
+                               Style="{StaticResource Caption}" Margin="2,14,0,0" TextWrapping="Wrap"
+                               Visibility="{Binding DataContext.HasAcceptedTerms,
+                                            RelativeSource={RelativeSource AncestorType=Window},
+                                            Converter={StaticResource BoolVis}}"
+                               AutomationProperties.AutomationId="TermsAcceptedText"/>
+
+                    <StackPanel Orientation="Horizontal" Margin="-10,4,0,0">
+                        <Button Style="{StaticResource BtnQuiet}" Content="Terms of service"
+                                Command="{Binding DataContext.OpenTermsCommand,
+                                          RelativeSource={RelativeSource AncestorType=Window}}"
+                                AutomationProperties.AutomationId="SettingsTermsButton"/>
+                        <Button Style="{StaticResource BtnQuiet}" Content="Privacy policy"
+                                Command="{Binding DataContext.OpenPrivacyCommand,
+                                          RelativeSource={RelativeSource AncestorType=Window}}"
+                                AutomationProperties.AutomationId="SettingsPrivacyButton"/>
+                    </StackPanel>
+
                     <Button Style="{StaticResource BtnQuiet}" Content="Show the welcome again"
                             HorizontalAlignment="Left" Margin="-10,10,0,0"
                             Command="{Binding DataContext.ShowFirstRunCommand,
