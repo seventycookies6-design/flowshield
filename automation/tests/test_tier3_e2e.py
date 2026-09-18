@@ -651,6 +651,77 @@ class TestAppPicker:
         assert "closes the whole browser" in texts.lower(), texts
 
 
+# ===================================================== terms acceptance (legal)
+
+class TestTermsGate:
+    """A clean install must agree to the terms before FlowShield can do anything."""
+
+    def _launch(self, logger, clean=True):
+        from desktop.app_controller import DesktopController
+
+        app = DesktopController(logger)
+        app.launch_app(clean_state=clean, show_first_run=True)
+        app.connect_window()
+        time.sleep(1.5)
+        return app
+
+    def test_a_clean_install_must_agree_before_anything_else(self, logger):
+        app = self._launch(logger)
+        try:
+            assert app.exists("AcceptTermsButton", timeout=4), "no terms gate on a clean install"
+            assert "closes programs" in app.text_of("TermsDataLossText").lower()
+            assert "unsaved work" in app.text_of("TermsDataLossText").lower()
+            assert app.text_of("TermsVersionText").startswith("Version ")
+
+            # The page behind the gate must not act. The overlay stops a mouse,
+            # so this invokes the covered button directly — the harder case.
+            try:
+                app.element("StartSprintButton").invoke()
+            except Exception:
+                pass
+            time.sleep(1.0)
+            assert not app.exists("StopSprintButton", timeout=1), \
+                "a sprint started while the terms were still on screen"
+            assert verify.read_settings().get("ActiveSprint") is None
+
+            assert not app.exists("FirstRunSkipButton", timeout=1), \
+                "the welcome must wait behind the terms"
+            assert verify.read_settings().get("TermsAcceptedVersion", "") == ""
+
+            app.click("AcceptTermsButton")
+
+            deadline = time.time() + 8
+            settings = verify.read_settings()
+            while time.time() < deadline and not settings.get("TermsAcceptedVersion"):
+                time.sleep(0.5)
+                settings = verify.read_settings()
+            assert settings["TermsAcceptedVersion"].startswith("1.0 ("), settings["TermsAcceptedVersion"]
+            assert settings["TermsAcceptedUtc"], "the time of acceptance must be recorded"
+            assert not app.exists("AcceptTermsButton", timeout=1)
+            assert app.exists("FirstRunSkipButton", timeout=4), \
+                "the welcome should follow once the terms are accepted"
+        finally:
+            app.close_app()
+
+    def test_it_is_not_asked_again_after_accepting(self, logger):
+        app = self._launch(logger)
+        try:
+            app.accept_terms_if_shown()
+        finally:
+            app.close_app()
+
+        again = self._launch(logger, clean=False)
+        try:
+            assert not again.exists("AcceptTermsButton", timeout=2), "the gate came back"
+        finally:
+            again.close_app()
+
+    def test_settings_shows_when_the_terms_were_accepted(self, fresh_app):
+        fresh_app.navigate_to_tab("Settings")
+        text = fresh_app.text_of("TermsAcceptedText")
+        assert "accepted" in text.lower() and "1.0 (" in text, text
+
+
 # ========================================================= notifications (F19)
 
 class TestNotificationSettings:
@@ -706,6 +777,9 @@ class TestFirstRun:
         app.launch_app(clean_state=clean, show_first_run=True)
         app.connect_window()
         time.sleep(1.5)
+        # The terms gate comes before the welcome on a clean install; its own
+        # behaviour is covered by TestTermsGate.
+        app.accept_terms_if_shown()
         return app
 
     def _run_value(self):

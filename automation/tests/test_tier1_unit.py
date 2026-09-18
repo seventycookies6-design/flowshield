@@ -827,6 +827,55 @@ def first_run_shows(*, completed=False, blocked=0, sessions=0, active=False,
     return not skip_flag and not completed and not existing and has_access and not running
 
 
+def terms_accepted(recorded: str, current: str) -> bool:
+    """Mirror of LegalTerms.Accepted: an exact version match, nothing looser."""
+    return recorded == current
+
+
+class TestTermsAcceptance:
+    """The agreement that makes the liability limit worth something (legal 2.2-2.4)."""
+
+    SOURCE = Path(SERVER_DIR).parent / "DesktopApp" / "Models" / "LegalTerms.cs"
+    LEGAL = Path(SERVER_DIR).parent / "Website" / "legal.html"
+
+    def version(self) -> str:
+        source = self.SOURCE.read_text(encoding="utf-8")
+        return source.split('public const string Version = "')[1].split('"')[0]
+
+    @pytest.mark.parametrize("recorded,accepted", [
+        ("1.0 (17 September 2026)", True),
+        ("", False),
+        ("0.9 (1 January 2026)", False),      # older wording: ask again
+        ("1.0 (17 september 2026)", False),   # exact match only
+    ])
+    def test_only_the_current_version_counts(self, recorded, accepted):
+        assert terms_accepted(recorded, "1.0 (17 September 2026)") is accepted
+
+    def test_the_gate_states_the_risk_that_matters(self):
+        source = self.SOURCE.read_text(encoding="utf-8")
+        warning = source.split("DataLossWarning =")[1].split(";")[0].lower()
+        assert "closes programs" in warning and "unsaved work" in warning, \
+            "the one thing that can cost a customer must be on the gate, not only in the terms"
+        assert "system processes" in warning
+
+    def test_the_recorded_version_is_on_the_legal_page(self):
+        # A recorded acceptance is meaningless if nobody can tell which wording
+        # it refers to, so the page carries the same version string.
+        assert f"Version {self.version()}" in self.LEGAL.read_text(encoding="utf-8")
+
+    def test_accepting_records_the_version_and_the_time(self):
+        source = self.SOURCE.read_text(encoding="utf-8")
+        accept = source.split("public static void Accept(")[1].split("\n    }")[0]
+        assert "TermsAcceptedVersion = Version" in accept
+        assert "TermsAcceptedUtc" in accept
+
+    def test_checkout_asks_the_buyer_to_agree(self):
+        server = (Path(SERVER_DIR) / "server.js").read_text(encoding="utf-8")
+        assert "consent_collection: { terms_of_service: 'required' }" in server
+        consent = server.split("custom_text: {")[1].split("},")[0].lower()
+        assert "closes programs" in consent and "unsaved work" in consent
+
+
 class TestFirstRunPolicy:
     SOURCE = Path(SERVER_DIR).parent / "DesktopApp" / "Models" / "FirstRunPolicy.cs"
 

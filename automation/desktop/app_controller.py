@@ -173,8 +173,10 @@ class DesktopController:
             # Shrinks the end-sprint grace period and countdowns (F2) to seconds.
             args.append("--short-timers")
         if not show_first_run:
-            # A clean install opens the first-run welcome (F18) over every page.
+            # A clean install opens the terms gate and then the first-run
+            # welcome (F18) over every page.
             args.append("--skip-first-run")
+            args.append("--accept-terms")
         if dev_fields:
             args.append("--dev")
         if extra_args:
@@ -239,6 +241,14 @@ class DesktopController:
             except (psutil.NoSuchProcess, psutil.AccessDenied):
                 continue
         return pids
+
+    def accept_terms_if_shown(self, timeout: float = 4.0) -> bool:
+        """Clear the terms gate when a launch shows it. Returns True if it was there."""
+        if not self.exists("AcceptTermsButton", timeout=timeout):
+            return False
+        self.click("AcceptTermsButton")
+        time.sleep(0.6)
+        return True
 
     def find_tray_icon(self, timeout: float = UI_ACTION_TIMEOUT):
         """Return FlowShield's real Windows notification-area button."""

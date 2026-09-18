@@ -408,6 +408,51 @@
                 </Border>
             </Border>
 
+            <!-- ============================================ terms gate (legal 2.3) -->
+            <!-- Above every other panel, including the lock screen: nothing in
+                 FlowShield should be usable before this is accepted. -->
+            <Border Grid.Row="0" Grid.RowSpan="2" Background="#F7121110"
+                    Visibility="{Binding TermsGateVisible, Converter={StaticResource BoolVis}}"
+                    AutomationProperties.AutomationId="TermsGatePanel">
+                <Border Style="{StaticResource Card}" Padding="30,26" Width="560" MaxWidth="560" Margin="24"
+                        HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <StackPanel>
+                        <TextBlock Text="BEFORE YOU START" Style="{StaticResource Eyebrow}"/>
+                        <TextBlock Text="FlowShield closes programs" Style="{StaticResource H1}" Margin="0,6,0,0"/>
+
+                        <TextBlock Text="{Binding TermsDataLossWarning}" Style="{StaticResource Body}"
+                                   TextWrapping="Wrap" Margin="0,14,0,0"
+                                   AutomationProperties.AutomationId="TermsDataLossText"/>
+
+                        <TextBlock Text="{Binding TermsAgreementLine}" Style="{StaticResource Body}"
+                                   TextWrapping="Wrap" Margin="0,14,0,0"
+                                   AutomationProperties.AutomationId="TermsAgreementText"/>
+
+                        <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                            <Button Style="{StaticResource BtnQuiet}" Content="Read the terms"
+                                    Command="{Binding OpenTermsCommand}" Margin="-10,0,0,0"
+                                    AutomationProperties.AutomationId="OpenTermsButton"/>
+                            <Button Style="{StaticResource BtnQuiet}" Content="Read the privacy policy"
+                                    Command="{Binding OpenPrivacyCommand}"
+                                    AutomationProperties.AutomationId="OpenPrivacyButton"/>
+                        </StackPanel>
+
+                        <TextBlock Text="{Binding TermsVersionText}" Style="{StaticResource Caption}"
+                                   Margin="0,14,0,0"
+                                   AutomationProperties.AutomationId="TermsVersionText"/>
+
+                        <Button Style="{StaticResource BtnPrimary}" Content="I understand and agree"
+                                Padding="26,12" Margin="0,18,0,0" HorizontalAlignment="Left"
+                                Command="{Binding AcceptTermsCommand}"
+                                AutomationProperties.AutomationId="AcceptTermsButton"
+                                AutomationProperties.Name="I understand and agree"/>
+
+                        <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,10,0,0"
+                                   Text="If you don't agree, close FlowShield and uninstall it; if you have bought it, ask for a refund."/>
+                    </StackPanel>
+                </Border>
+            </Border>
+
             <!-- toast -->
             <Border Grid.Row="1" VerticalAlignment="Bottom" HorizontalAlignment="Center"
                     Margin="0,0,0,20" CornerRadius="12" Padding="18,11"

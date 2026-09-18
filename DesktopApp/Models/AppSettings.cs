@@ -194,6 +194,18 @@ public class AppSettings
     /// <summary>The first-run welcome (F18) has been shown, finished or skipped.</summary>
     public bool FirstRunCompleted { get; set; }
 
+    // ---- terms ----------------------------------------------------------
+
+    /// <summary>
+    /// The version of the terms this user accepted, or empty. See
+    /// <see cref="LegalTerms"/>: the record is what makes the agreement mean
+    /// something later.
+    /// </summary>
+    public string TermsAcceptedVersion { get; set; } = "";
+
+    /// <summary>When they accepted, in UTC.</summary>
+    public DateTime? TermsAcceptedUtc { get; set; }
+
     // ---- notifications (F19) --------------------------------------------
 
     /// <summary>The master switch. Off means FlowShield never notifies.</summary>

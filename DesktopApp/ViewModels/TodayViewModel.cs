@@ -528,6 +528,15 @@ public class TodayViewModel : ViewModelBase
 
     private void StartSprint()
     {
+        // The terms gate covers the page, but a covered button can still be
+        // invoked by automation or a stray keyboard shortcut. Nothing may start
+        // before the terms are accepted (legal checklist 2.3).
+        if (_main.TermsGateVisible)
+        {
+            Log.Info("sprint refused: the terms have not been accepted");
+            return;
+        }
+
         if (!CanStart()) return;
 
         // The lock screen covers this button once the trial ends, but the tray

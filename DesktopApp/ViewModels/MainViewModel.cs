@@ -93,6 +93,56 @@ public class MainViewModel : ViewModelBase
 
     public bool IsSprintRunning => Today.IsRunning;
 
+    // ------------------------------------------------------ terms gate (legal 2.3)
+
+    private bool _termsGateVisible;
+    /// <summary>Covers everything until the terms on screen have been accepted.</summary>
+    public bool TermsGateVisible { get => _termsGateVisible; private set => Set(ref _termsGateVisible, value); }
+
+    public string TermsVersionText => $"Version {LegalTerms.Version}";
+    public string TermsDataLossWarning => LegalTerms.DataLossWarning;
+    public string TermsAgreementLine => LegalTerms.AgreementLine;
+
+    /// <summary>"Accepted 17 September 2026" on the Settings page, or empty.</summary>
+    public string TermsAcceptedText => Settings.TermsAcceptedUtc is { } when
+        ? $"Terms {Settings.TermsAcceptedVersion} accepted {when.ToLocalTime():d MMMM yyyy}"
+        : "";
+
+    public bool HasAcceptedTerms => TermsAcceptedText.Length > 0;
+
+    private RelayCommand? _acceptTermsCommand;
+    public RelayCommand AcceptTermsCommand => _acceptTermsCommand ??= new RelayCommand(AcceptTerms);
+
+    private RelayCommand? _openTermsCommand;
+    public RelayCommand OpenTermsCommand =>
+        _openTermsCommand ??= new RelayCommand(() => OpenUrl(LegalTerms.TermsUrl(Settings)));
+
+    private RelayCommand? _openPrivacyCommand;
+    public RelayCommand OpenPrivacyCommand =>
+        _openPrivacyCommand ??= new RelayCommand(() => OpenUrl(LegalTerms.PrivacyUrl(Settings)));
+
+    /// <summary>Shows the gate unless this version has already been accepted.</summary>
+    public bool ShowTermsGateIfNeeded()
+    {
+        if (LegalTerms.Accepted(Settings)) return false;
+        TermsGateVisible = true;
+        Log.Info($"terms gate shown for version {LegalTerms.Version}");
+        return true;
+    }
+
+    private void AcceptTerms()
+    {
+        LegalTerms.Accept(Settings);
+        SaveSettings();
+        TermsGateVisible = false;
+        Raise(nameof(TermsAcceptedText));
+        Raise(nameof(HasAcceptedTerms));
+        Log.Info($"terms {LegalTerms.Version} accepted");
+
+        // The welcome waits behind the gate, so a new user sees one thing at a time.
+        FirstRun.ShowIfNew();
+    }
+
     // ------------------------------------------------- flowshield:// links (1.4)
 
     private string? _pendingActivationKey;
