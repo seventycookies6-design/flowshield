@@ -1005,7 +1005,10 @@ class TestDailyGoal:
 
     def test_the_bar_is_absent_until_a_goal_is_set(self, fresh_app):
         fresh_app.navigate_to_tab("Today")
-        assert fresh_app.exists("DailyGoalPanel") is False, \
+        # The ProgressBar, not the StackPanel around it: WPF does not surface a
+        # bare panel as a UIA element, so asserting on the panel passes whether
+        # the bar is there or not.
+        assert fresh_app.exists("DailyGoalBar") is False, \
             "a goal-less user must not see an empty progress bar"
 
     def test_choosing_sprints_offers_a_target_and_saves_it(self, fresh_app):
@@ -1047,7 +1050,7 @@ class TestDailyGoal:
         time.sleep(0.6)
 
         fresh_app.navigate_to_tab("Today")
-        assert fresh_app.exists("DailyGoalPanel") is True
+        assert fresh_app.exists("DailyGoalBar") is True
         assert "/ 3 sprints" in fresh_app.text_of("DailyGoalProgressText")
 
     def test_finishing_a_sprint_moves_the_bar(self, fresh_app):
@@ -1060,7 +1063,7 @@ class TestDailyGoal:
         fresh_app.navigate_to_tab("Today")
         assert fresh_app.text_of("DailyGoalProgressText").startswith("0 /")
 
-        fresh_app.select_sprint_length(5)
+        fresh_app.select_sprint_length(15)
         fresh_app.start_sprint()
         time.sleep(1.0)
         fresh_app.stop_sprint()
