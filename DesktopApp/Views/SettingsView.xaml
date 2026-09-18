@@ -113,6 +113,57 @@
                 </StackPanel>
             </Border>
 
+            <!-- ================================================ daily goal -->
+            <Border Style="{StaticResource Card}" Padding="24" Margin="0,0,0,16">
+                <StackPanel>
+                    <TextBlock Text="DAILY GOAL" Style="{StaticResource Eyebrow}" Margin="0,0,0,6"/>
+                    <TextBlock Text="With a goal set, a day counts towards your streak only once you reach it."
+                               Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,16"/>
+
+                    <RadioButton GroupName="DailyGoal" Content="No goal" IsChecked="{Binding GoalOff}"
+                                 Foreground="{StaticResource Ink}" FontSize="13.5" Margin="0,0,0,10"
+                                 AutomationProperties.AutomationId="GoalOffRadio"/>
+                    <RadioButton GroupName="DailyGoal" Content="Minutes focused" IsChecked="{Binding GoalInMinutes}"
+                                 Foreground="{StaticResource Ink}" FontSize="13.5" Margin="0,0,0,10"
+                                 AutomationProperties.AutomationId="GoalMinutesRadio"/>
+                    <RadioButton GroupName="DailyGoal" Content="Sprints completed" IsChecked="{Binding GoalInSprints}"
+                                 Foreground="{StaticResource Ink}" FontSize="13.5"
+                                 AutomationProperties.AutomationId="GoalSprintsRadio"/>
+
+                    <StackPanel Margin="0,16,0,0"
+                                Visibility="{Binding GoalTargetVisible, Converter={StaticResource BoolVis}}">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBox Width="72" Text="{Binding GoalTargetText, UpdateSourceTrigger=PropertyChanged}"
+                                     Style="{StaticResource Field}"
+                                     AutomationProperties.AutomationId="GoalTargetInput"
+                                     AutomationProperties.Name="Daily goal target"/>
+                            <TextBlock Text="{Binding GoalUnitLabel}" Style="{StaticResource Body}"
+                                       VerticalAlignment="Center" Margin="10,0,0,0"
+                                       AutomationProperties.AutomationId="GoalUnitLabel"/>
+                        </StackPanel>
+                        <TextBlock Text="{Binding GoalTargetError}" Style="{StaticResource Caption}"
+                                   Foreground="{StaticResource Rose}" Margin="0,8,0,0"
+                                   Visibility="{Binding GoalTargetErrorVisible, Converter={StaticResource BoolVis}}"
+                                   AutomationProperties.AutomationId="GoalTargetError"/>
+
+                        <Border Height="1" Background="{StaticResource Edge}" Margin="0,16,0,16"/>
+
+                        <TextBlock Text="A planned day off keeps your streak without counting as focus."
+                                   Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,10"/>
+                        <StackPanel Orientation="Horizontal">
+                            <Button Command="{Binding SkipTodayCommand}"
+                                    Style="{StaticResource BtnQuiet}"
+                                    AutomationProperties.AutomationId="SkipTodayButton">
+                                <TextBlock Text="{Binding SkipButtonText}"/>
+                            </Button>
+                            <TextBlock Text="{Binding SkipRemainingText}" Style="{StaticResource Caption}"
+                                       VerticalAlignment="Center" Margin="12,0,0,0"
+                                       AutomationProperties.AutomationId="SkipRemainingText"/>
+                        </StackPanel>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
             <!-- ============================================== notifications -->
             <Border Style="{StaticResource Card}" Padding="24" Margin="0,0,0,16">
                 <StackPanel>

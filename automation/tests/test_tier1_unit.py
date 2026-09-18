@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+from datetime import date, timedelta
 from pathlib import Path
 
 import pytest
@@ -1201,3 +1202,254 @@ class TestPerAppSwitch:
         vm = self.VM.read_text(encoding="utf-8")
         assert "ToggleApp" in vm, "BlockedAppsViewModel must expose ToggleApp"
         assert "ToggleAppCommand" in vm, "ToggleApp must be reachable as a command"
+
+
+# ============================================================ daily goal (F15)
+
+GOAL_NONE, GOAL_MINUTES, GOAL_SPRINTS = 0, 1, 2
+
+SKIPS_PER_WEEK = 1
+SKIP_WINDOW_DAYS = 7
+
+
+class Goal:
+    """
+    Mirror of DesktopApp/Models/DailyGoal.cs.
+
+    Days are plain date objects; sessions are (date, minutes, completed).
+    """
+
+    def __init__(self, kind=GOAL_NONE, target=0, sessions=None, skips=None,
+                 streak=0, settled=None, met_day=None):
+        self.kind = kind
+        self.target = target
+        self.sessions = sessions or []
+        self.skips = set(skips or [])
+        self.streak = streak
+        self.settled = settled
+        self.met_day = met_day
+
+    # ---- rules
+
+    def is_set(self) -> bool:
+        return self.kind != GOAL_NONE and self.target > 0
+
+    def progress_on(self, day):
+        if not self.is_set():
+            return (0, 0)
+        todays = [s for s in self.sessions if s[0] == day]
+        if self.kind == GOAL_MINUTES:
+            done = round(sum(s[1] for s in todays))
+        else:
+            done = sum(1 for s in todays if s[2])
+        return (done, self.target)
+
+    def met_on(self, day) -> bool:
+        if not self.is_set():
+            return False
+        done, target = self.progress_on(day)
+        return done >= target
+
+    def had_completed_sprint_on(self, day) -> bool:
+        return any(s[0] == day and s[2] for s in self.sessions)
+
+    def is_skipped(self, day) -> bool:
+        return day in self.skips
+
+    def skips_used_in_window(self, day) -> int:
+        start = day - timedelta(days=SKIP_WINDOW_DAYS - 1)
+        return sum(1 for d in self.skips if start <= d <= day)
+
+    def can_skip(self, day) -> bool:
+        return (self.is_set() and not self.is_skipped(day)
+                and self.skips_used_in_window(day) < SKIPS_PER_WEEK)
+
+    def judge(self, day) -> str:
+        if self.is_skipped(day):
+            return "skipped"
+        counted = self.met_on(day) if self.is_set() else self.had_completed_sprint_on(day)
+        return "counted" if counted else "missed"
+
+    def settle(self, today):
+        if self.settled is None:
+            self.settled = today
+            if self.judge(today) == "counted":
+                self.streak = max(self.streak, 1)
+            return
+        if today <= self.settled:
+            if today == self.settled and self.judge(today) == "counted":
+                self.streak = max(self.streak, 1)
+            return
+
+        day = self.settled + timedelta(days=1)
+        while day <= today:
+            verdict = self.judge(day)
+            if day == today:
+                if verdict == "counted":
+                    self.streak += 1
+                break
+            if verdict == "counted":
+                self.streak += 1
+            elif verdict == "missed":
+                self.streak = 0
+            day += timedelta(days=1)
+        self.settled = today
+
+
+DAY = date(2026, 9, 18)
+
+
+class TestDailyGoalProgress:
+    """F15: progress counts the right thing for each kind of goal."""
+
+    def test_no_goal_means_no_progress_and_no_bar(self):
+        g = Goal(sessions=[(DAY, 50, True)])
+        assert not g.is_set()
+        assert g.progress_on(DAY) == (0, 0)
+
+    def test_a_zero_target_is_not_a_goal(self):
+        g = Goal(kind=GOAL_MINUTES, target=0)
+        assert not g.is_set(), "a kind without a target must not switch the feature on"
+
+    def test_minutes_count_time_actually_focused(self):
+        g = Goal(GOAL_MINUTES, 90, [(DAY, 25, True), (DAY, 20, False)])
+        assert g.progress_on(DAY) == (45, 90)
+
+    def test_minutes_include_a_sprint_ended_early(self):
+        g = Goal(GOAL_MINUTES, 30, [(DAY, 30, False)])
+        assert g.met_on(DAY), "those minutes happened, even though the sprint was abandoned"
+
+    def test_sprints_count_completed_ones_only(self):
+        g = Goal(GOAL_SPRINTS, 2, [(DAY, 25, True), (DAY, 25, False)])
+        assert g.progress_on(DAY) == (1, 2)
+        assert not g.met_on(DAY)
+
+    def test_overshooting_still_counts_as_met(self):
+        g = Goal(GOAL_SPRINTS, 2, [(DAY, 25, True)] * 5)
+        assert g.met_on(DAY)
+
+    def test_yesterdays_sessions_do_not_count_towards_today(self):
+        g = Goal(GOAL_SPRINTS, 1, [(DAY - timedelta(days=1), 25, True)])
+        assert not g.met_on(DAY)
+
+
+class TestDailyGoalSkips:
+    """F15: a planned day off, at most once in any seven days."""
+
+    def test_one_skip_is_allowed(self):
+        g = Goal(GOAL_SPRINTS, 2)
+        assert g.can_skip(DAY)
+
+    def test_a_second_skip_in_the_same_week_is_refused(self):
+        g = Goal(GOAL_SPRINTS, 2, skips=[DAY - timedelta(days=2)])
+        assert not g.can_skip(DAY), "the allowance is one in seven days"
+
+    def test_the_window_is_rolling_not_a_calendar_week(self):
+        g = Goal(GOAL_SPRINTS, 2, skips=[DAY - timedelta(days=6)])
+        assert not g.can_skip(DAY), "six days ago is still inside the seven-day window"
+        g2 = Goal(GOAL_SPRINTS, 2, skips=[DAY - timedelta(days=7)])
+        assert g2.can_skip(DAY), "seven days ago has left the window"
+
+    def test_a_day_cannot_be_skipped_twice(self):
+        g = Goal(GOAL_SPRINTS, 2, skips=[DAY])
+        assert not g.can_skip(DAY)
+
+    def test_skipping_needs_a_goal(self):
+        g = Goal()
+        assert not g.can_skip(DAY), "a day off is meaningless without a goal to miss"
+
+
+class TestDailyGoalStreak:
+    """F15: the streak counts days that met the goal, and settles without a sprint."""
+
+    def test_meeting_the_goal_counts_the_day(self):
+        g = Goal(GOAL_SPRINTS, 1, [(DAY, 25, True)], settled=DAY - timedelta(days=1), streak=3)
+        g.settle(DAY)
+        assert g.streak == 4
+
+    def test_falling_short_does_not_count_today_but_does_not_break_it_either(self):
+        g = Goal(GOAL_SPRINTS, 3, [(DAY, 25, True)], settled=DAY - timedelta(days=1), streak=3)
+        g.settle(DAY)
+        assert g.streak == 3, "today is not over; a short day so far must not break the streak"
+
+    def test_a_missed_yesterday_breaks_the_streak_with_no_sprint_to_notice(self):
+        g = Goal(GOAL_SPRINTS, 1, [], settled=DAY - timedelta(days=3), streak=9)
+        g.settle(DAY)
+        assert g.streak == 0, "the whole point of settling: nothing ran on those days"
+
+    def test_a_skipped_day_holds_the_streak_without_adding_to_it(self):
+        g = Goal(GOAL_SPRINTS, 1, [], skips=[DAY - timedelta(days=1)],
+                 settled=DAY - timedelta(days=2), streak=5)
+        g.settle(DAY)
+        assert g.streak == 5, "a day off keeps the streak; it is not a day of focus"
+
+    def test_a_skip_wins_over_a_stray_sprint_on_the_same_day(self):
+        g = Goal(GOAL_SPRINTS, 1, [(DAY, 25, True)], skips=[DAY])
+        assert g.judge(DAY) == "skipped", \
+            "otherwise a two-minute sprint on a rest day spends the skip for nothing"
+
+    def test_settling_twice_changes_nothing(self):
+        g = Goal(GOAL_SPRINTS, 1, [(DAY, 25, True)], settled=DAY - timedelta(days=1), streak=2)
+        g.settle(DAY)
+        first = g.streak
+        g.settle(DAY)
+        assert g.streak == first, "settle runs on launch, at midnight and after every sprint"
+
+    def test_a_clock_moved_backwards_does_not_walk_backwards(self):
+        g = Goal(GOAL_SPRINTS, 1, [], settled=DAY, streak=4)
+        g.settle(DAY - timedelta(days=3))
+        assert g.streak == 4, "a corrected clock must not silently destroy a streak"
+
+    def test_without_a_goal_the_old_rule_still_applies(self):
+        g = Goal(sessions=[(DAY, 5, True)], settled=DAY - timedelta(days=1), streak=2)
+        g.settle(DAY)
+        assert g.streak == 3, "no goal set: any completed sprint counts the day, as before"
+
+    def test_without_a_goal_a_missed_day_still_breaks_it(self):
+        g = Goal(sessions=[], settled=DAY - timedelta(days=2), streak=6)
+        g.settle(DAY)
+        assert g.streak == 0
+
+    def test_a_first_run_takes_the_existing_streak_as_given(self):
+        g = Goal(GOAL_SPRINTS, 1, [], streak=11, settled=None)
+        g.settle(DAY)
+        assert g.streak == 11, "an upgrade must not recompute history that is not in Sessions"
+        assert g.settled == DAY
+
+
+class TestDailyGoalSource:
+    """The C# the mirror above stands in for."""
+
+    MODEL = Path(SERVER_DIR).parent / "DesktopApp" / "Models" / "DailyGoal.cs"
+    SETTINGS = Path(SERVER_DIR).parent / "DesktopApp" / "Models" / "AppSettings.cs"
+    TODAY_VM = Path(SERVER_DIR).parent / "DesktopApp" / "ViewModels" / "TodayViewModel.cs"
+    TODAY_XAML = Path(SERVER_DIR).parent / "DesktopApp" / "Views" / "TodayView.xaml"
+    SETTINGS_XAML = Path(SERVER_DIR).parent / "DesktopApp" / "Views" / "SettingsView.xaml"
+
+    def test_the_settings_carry_the_goal_and_its_bookkeeping(self):
+        source = self.SETTINGS.read_text(encoding="utf-8")
+        for field in ("DailyGoalKind", "DailyGoalTarget", "StreakSettledDayLocal",
+                      "GoalMetDayLocal", "SkipDatesLocal"):
+            assert field in source, f"AppSettings must persist {field}"
+
+    def test_the_allowance_is_one_day_off_per_rolling_week(self):
+        source = self.MODEL.read_text(encoding="utf-8")
+        assert "SkipsPerWeek = 1" in source
+        assert "SkipWindowDays = 7" in source
+
+    def test_the_streak_is_settled_rather_than_nudged(self):
+        vm = self.TODAY_VM.read_text(encoding="utf-8")
+        assert "DailyGoal.Settle" in vm, "RefreshStats must settle the streak"
+        assert "DailyGoal.NoteProgress" in vm, "a finished sprint must settle the day"
+        assert "gap switch" not in vm, "the old gap-based streak must be gone"
+
+    def test_the_bar_is_hidden_when_no_goal_is_set(self):
+        xaml = self.TODAY_XAML.read_text(encoding="utf-8")
+        assert 'AutomationProperties.AutomationId="DailyGoalPanel"' in xaml
+        assert "GoalVisible" in xaml, "the panel must bind its visibility to GoalVisible"
+
+    def test_the_settings_page_offers_both_kinds_and_a_day_off(self):
+        xaml = self.SETTINGS_XAML.read_text(encoding="utf-8")
+        for automation_id in ("GoalOffRadio", "GoalMinutesRadio", "GoalSprintsRadio",
+                              "GoalTargetInput", "SkipTodayButton"):
+            assert f'AutomationProperties.AutomationId="{automation_id}"' in xaml

@@ -298,6 +298,27 @@
                                        Foreground="{StaticResource Ink}" FontWeight="SemiBold"
                                        AutomationProperties.AutomationId="BlocksTodayValue"/>
                         </Grid>
+
+                        <!-- Daily goal (F15). Hidden entirely when no goal is set. -->
+                        <StackPanel Margin="0,16,0,0"
+                                    Visibility="{Binding GoalVisible, Converter={StaticResource BoolVis}}"
+                                    AutomationProperties.AutomationId="DailyGoalPanel">
+                            <Grid>
+                                <TextBlock Text="Daily goal" Style="{StaticResource Body}"/>
+                                <TextBlock Text="{Binding GoalProgressText}" HorizontalAlignment="Right"
+                                           Foreground="{StaticResource Ink}" FontWeight="SemiBold"
+                                           AutomationProperties.AutomationId="DailyGoalProgressText"/>
+                            </Grid>
+                            <ProgressBar Height="6" Margin="0,8,0,0" Minimum="0" Maximum="1"
+                                         Value="{Binding GoalFraction, Mode=OneWay}"
+                                         Style="{StaticResource GoalBar}"
+                                         AutomationProperties.AutomationId="DailyGoalBar"
+                                         AutomationProperties.Name="{Binding GoalProgressText}"/>
+                            <TextBlock Text="{Binding GoalNoteText}" Style="{StaticResource Caption}"
+                                       Margin="0,8,0,0"
+                                       Visibility="{Binding GoalNoteText, Converter={StaticResource NonEmptyVis}}"
+                                       AutomationProperties.AutomationId="DailyGoalNote"/>
+                        </StackPanel>
                     </StackPanel>
                 </Border>
             </StackPanel>

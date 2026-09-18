@@ -2275,3 +2275,92 @@ class TestPhoneVisitorMarkup:
         # CSS hides the direct button on mobile and the copy button on desktop.
         assert "[data-download-copy]" in css, "copy button is not hidden on desktop"
         assert "data-download-direct" in css, "direct button is not hidden on mobile"
+
+
+# ==================================================== daily goal guards (F15)
+
+class TestDailyGoalRegressions:
+    """
+    F15 added a daily goal, and with it a streak that has to settle itself.
+
+    Two things could quietly break: the streak for the people who never set a
+    goal, and the bar appearing for them at all.
+    """
+
+    MODEL = DESKTOP_DIR / "Models" / "DailyGoal.cs"
+    TODAY_VM = DESKTOP_DIR / "ViewModels" / "TodayViewModel.cs"
+    TODAY_XAML = DESKTOP_DIR / "Views" / "TodayView.xaml"
+
+    def test_the_streak_settles_somewhere_that_runs_without_a_sprint(self):
+        """
+        The bug this guards: the streak was only ever recalculated inside
+        ApplyMomentum, which runs when a sprint completes. A missed day was
+        therefore invisible until the next completed sprint — so a week off
+        still showed the old streak. With a goal, that becomes wrong rather
+        than merely stale, because a day can now fail by falling short.
+        """
+        vm = self.TODAY_VM.read_text(encoding="utf-8")
+        refresh = vm.split("public void RefreshStats()", 1)
+        assert len(refresh) == 2, "RefreshStats must still exist"
+        assert "DailyGoal.Settle" in refresh[1][:900], \
+            "RefreshStats must settle the streak: it is the path that runs on launch " \
+            "and when the day rolls over, with no sprint to trigger it"
+
+    def test_the_goal_bar_is_bound_to_visibility_not_just_emptied(self):
+        """
+        A goal-less user must not see an empty bar. Hiding it by blanking the
+        text would leave the track and the padding behind.
+        """
+        xaml = self.TODAY_XAML.read_text(encoding="utf-8")
+        panel = xaml.split('AutomationProperties.AutomationId="DailyGoalPanel"', 1)
+        assert len(panel) == 2, "the daily goal panel must be present"
+        before = panel[0][-400:]
+        assert "GoalVisible" in before and "BoolVis" in before, \
+            "the panel itself must collapse when no goal is set"
+
+    def test_a_skipped_day_cannot_be_turned_into_a_counted_one(self):
+        """
+        Judge checks the skip first. Reversing that order would let a stray
+        two-minute sprint on a planned day off consume the weekly allowance
+        and count the day, which is the opposite of what the user asked for.
+        """
+        model = self.MODEL.read_text(encoding="utf-8")
+        judge = model.split("public static DayVerdict Judge", 1)
+        assert len(judge) == 2, "Judge must exist"
+        body = judge[1][:400]
+        skip_at = body.find("IsSkipped")
+        met_at = body.find("MetOn")
+        assert skip_at != -1 and met_at != -1
+        assert skip_at < met_at, "a skip must be judged before the goal is measured"
+
+    def test_the_weekly_allowance_is_not_a_calendar_week(self):
+        """
+        A fixed week boundary allows two days off back to back — Sunday and
+        Monday — from an allowance that reads as one per week.
+        """
+        model = self.MODEL.read_text(encoding="utf-8")
+        used = model.split("public static int SkipsUsedInWindow", 1)
+        assert len(used) == 2
+        assert "AddDays(-(SkipWindowDays - 1))" in used[1][:400], \
+            "the window must be measured back from the day, not from a week boundary"
+
+    def test_settling_is_idempotent_in_source(self):
+        """
+        Settle runs on launch, on rollover and after every sprint. If it did not
+        record where it got to, each call would re-walk the same days and count
+        them again.
+        """
+        model = self.MODEL.read_text(encoding="utf-8")
+        assert "StreakSettledDayLocal = date" in model, \
+            "Settle must record the day it settled through"
+
+    def test_today_is_never_judged_as_missed(self):
+        """
+        Today is still in progress. Breaking the streak at 9am because the goal
+        is not met yet would be absurd.
+        """
+        model = self.MODEL.read_text(encoding="utf-8")
+        settle = model.split("public static bool Settle", 1)
+        assert len(settle) == 2
+        assert "if (day == date)" in settle[1][:1600], \
+            "the loop must treat today specially: it can add to the streak, never break it"

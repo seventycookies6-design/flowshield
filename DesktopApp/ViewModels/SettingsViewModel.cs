@@ -29,6 +29,7 @@ public class SettingsViewModel : ViewModelBase
         GetProCommand = new RelayCommand(() => _main.OpenUpgradePage());
         DeactivateCommand = new AsyncRelayCommand(DeactivateAsync, () => IsPro);
         OpenLogCommand = new RelayCommand(OpenLog);
+        SkipTodayCommand = new RelayCommand(ToggleSkipToday, () => CanSkipToday || SkippedToday);
 
         RefreshLicenseStatus();
     }
@@ -282,6 +283,151 @@ public class SettingsViewModel : ViewModelBase
     }
 
     public string SettingsFilePath => _main.SettingsService.SettingsPath;
+
+    // -------------------------------------------------------- daily goal (F15)
+
+    public bool GoalOff
+    {
+        get => _main.Settings.DailyGoalKind == DailyGoalKind.None;
+        set { if (value) SetGoalKind(DailyGoalKind.None); }
+    }
+
+    public bool GoalInMinutes
+    {
+        get => _main.Settings.DailyGoalKind == DailyGoalKind.Minutes;
+        set { if (value) SetGoalKind(DailyGoalKind.Minutes); }
+    }
+
+    public bool GoalInSprints
+    {
+        get => _main.Settings.DailyGoalKind == DailyGoalKind.Sprints;
+        set { if (value) SetGoalKind(DailyGoalKind.Sprints); }
+    }
+
+    /// <summary>
+    /// Switching kind re-reads the target rather than carrying it across:
+    /// "90" as minutes is a normal day, "90" as sprints is nobody's day.
+    /// </summary>
+    private void SetGoalKind(DailyGoalKind kind)
+    {
+        if (_main.Settings.DailyGoalKind == kind) return;
+        _main.Settings.DailyGoalKind = kind;
+
+        _main.Settings.DailyGoalTarget = kind switch
+        {
+            DailyGoalKind.Minutes => 90,
+            DailyGoalKind.Sprints => 3,
+            _ => 0,
+        };
+        _goalTargetText = _main.Settings.DailyGoalTarget.ToString();
+
+        _main.SaveSettings();
+        RaiseGoalState();
+    }
+
+    private string _goalTargetText = "";
+
+    /// <summary>
+    /// Free text so a half-typed number doesn't fight the user. Anything that
+    /// isn't a number in range is rejected and reported, not silently coerced.
+    /// </summary>
+    public string GoalTargetText
+    {
+        get => string.IsNullOrEmpty(_goalTargetText)
+            ? _main.Settings.DailyGoalTarget.ToString()
+            : _goalTargetText;
+        set
+        {
+            _goalTargetText = value ?? "";
+            Raise();
+
+            var kind = _main.Settings.DailyGoalKind;
+            if (kind == DailyGoalKind.None) return;
+
+            if (!int.TryParse(_goalTargetText.Trim(), out var parsed))
+            {
+                GoalTargetError = "Enter a number.";
+                return;
+            }
+
+            var clamped = DailyGoal.ClampTarget(kind, parsed);
+            if (clamped != parsed)
+            {
+                GoalTargetError = kind == DailyGoalKind.Minutes
+                    ? $"Between {DailyGoal.MinMinutes} and {DailyGoal.MaxMinutes} minutes."
+                    : $"Between {DailyGoal.MinSprints} and {DailyGoal.MaxSprints} sprints.";
+                return;
+            }
+
+            GoalTargetError = "";
+            if (_main.Settings.DailyGoalTarget == clamped) return;
+            _main.Settings.DailyGoalTarget = clamped;
+            _main.SaveSettings();
+            RaiseGoalState();
+        }
+    }
+
+    private string _goalTargetError = "";
+    public string GoalTargetError
+    {
+        get => _goalTargetError;
+        private set { Set(ref _goalTargetError, value); Raise(nameof(GoalTargetErrorVisible)); }
+    }
+
+    public bool GoalTargetErrorVisible => !string.IsNullOrEmpty(GoalTargetError);
+
+    public string GoalUnitLabel =>
+        _main.Settings.DailyGoalKind == DailyGoalKind.Sprints ? "sprints per day" : "minutes per day";
+
+    public bool GoalTargetVisible => _main.Settings.DailyGoalKind != DailyGoalKind.None;
+
+    /// <summary>Days off left in the rolling week, for the button's caption.</summary>
+    public string SkipRemainingText
+    {
+        get
+        {
+            var used = DailyGoal.SkipsUsedInWindow(_main.Settings, DateTime.Now);
+            var left = Math.Max(0, DailyGoal.SkipsPerWeek - used);
+            return left == 1 ? "1 day off left this week" : $"{left} days off left this week";
+        }
+    }
+
+    public bool SkippedToday => DailyGoal.IsSkipped(_main.Settings, DateTime.Now);
+
+    public bool CanSkipToday => DailyGoal.CanSkip(_main.Settings, DateTime.Now);
+
+    public string SkipButtonText => SkippedToday ? "Undo day off" : "Take today off";
+
+    public RelayCommand SkipTodayCommand { get; private set; } = null!;
+
+    private void ToggleSkipToday()
+    {
+        var today = DateTime.Now;
+
+        if (DailyGoal.IsSkipped(_main.Settings, today)) DailyGoal.Unskip(_main.Settings, today);
+        else if (!DailyGoal.Skip(_main.Settings, today)) return;
+
+        _main.SaveSettings();
+        RaiseGoalState();
+        _main.Today.RefreshStats();
+    }
+
+    private void RaiseGoalState()
+    {
+        Raise(nameof(GoalOff));
+        Raise(nameof(GoalInMinutes));
+        Raise(nameof(GoalInSprints));
+        Raise(nameof(GoalTargetText));
+        Raise(nameof(GoalTargetVisible));
+        Raise(nameof(GoalUnitLabel));
+        Raise(nameof(SkipRemainingText));
+        Raise(nameof(SkippedToday));
+        Raise(nameof(CanSkipToday));
+        Raise(nameof(SkipButtonText));
+        // RelayCommand rides CommandManager.RequerySuggested, so the button's
+        // enabled state follows without being told.
+        _main.Today.RefreshStats();
+    }
 
     // ------------------------------------------------------ notifications (F19)
 
