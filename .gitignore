@@ -9,7 +9,12 @@ __pycache__/
 *.pyc
 .pytest_cache/
 logs/
-reports/
+# reports/* rather than reports/, so the VM bench results below can be
+# re-included: git will not descend into an excluded directory.
+reports/*
+# VM bench results are a shared record rather than local run output — nobody
+# but Miles can reproduce them. See VM_TESTING.md.
+!reports/vm/
 
 # Screenshots are local run artefacts. They are deliberately not published:
 # the Blocked Apps capture lists the running processes on the machine that
