@@ -96,7 +96,7 @@ exactly when it's needed.
 | 3.1 | No feature is advertised that the build doesn't have | **OK, automated** — tier 5 `TestWebsiteClaimsMatchTheApp`, plus the changelog/limits tests added in #90 and #102 |
 | 3.2 | "No analytics, telemetry, tracking pixels or advertising" is true | **OK** — no analytics anywhere in `Website/` or the app; worth an automated guard |
 | 3.3 | "We never see or store your card details" is true | **OK** — Stripe Checkout only; the server stores ids, not cards |
-| 3.4 | "Plus sales tax where it applies, shown at checkout" is true | **GAP** — Stripe Tax is **not** enabled (`automatic_tax` absent in `Server/server.js`), so no tax is shown or charged. Either turn Stripe Tax on or delete the sentence |
+| 3.4 | "Plus sales tax where it applies, shown at checkout" is true | **OK** — the pricing card no longer mentions sales tax; it says "The price you see is the price you pay" (tier 5 checks this matches the server) |
 | 3.5 | Competitor comparisons are accurate and dated | **OK for now** — the site names no competitor; `LAUNCH_FEATURE_CHECKLIST.md` requires re-checking a source before any claim (F24's "$30–$60 a year" line is unnamed and safe) |
 | 3.6 | Screenshots show the real product | **OK** — the site uses no fake screenshots today (F27 will add real ones) |
 | 3.7 | No fake reviews, fake testimonials or invented user counts | **OK** — none on the site. **Never add any**: the FTC's 2024 rule makes fake reviews individually finable |
@@ -126,11 +126,11 @@ penalties run to about **$53,000 per violation**.
 | # | Item | Status |
 | --- | --- | --- |
 | 5.1 | A privacy policy that matches the code | **Mostly OK** — but see 5.2 |
-| 5.2 | Every piece of personal data is disclosed | **GAP** — the policy doesn't mention the **device identifier** (a salted hash of the Windows MachineGuid) or the **device name**, which is `MachineName (UserName)` and often contains a real name. Both are sent to the licence server and stored in `devices` |
+| 5.2 | Every piece of personal data is disclosed | **OK** — the privacy policy now discloses the device identifier (a one-way hash of a Windows installation id) and the device name (computer name and Windows user name, which may contain the user's name) |
 | 5.3 | Blocklists, sessions and journals stay local | **OK** — DPAPI-encrypted in `%APPDATA%`, never uploaded; tier 3 proves the file is encrypted |
 | 5.4 | Access, correction and deletion requests answered | **Partly** — the policy promises 30 days; there's no process or tooling yet. F23 ("Your data") covers the app side |
-| 5.5 | Named subprocessors | **Partly** — "our hosting provider" and "our email provider" are unnamed. Render and Resend should be named |
-| 5.6 | Retention periods | **Partly** — "as long as tax rules require" is vague; give a number (e.g. 7 years for payment records, device rows deleted on deactivation) |
+| 5.5 | Named subprocessors | **OK** — the privacy policy names Stripe, Inc., Render Services, Inc., and Resend (Plus Five Five, Inc.) with their roles |
+| 5.6 | Retention periods | **OK** — the privacy policy specifies: licence record kept while licence exists plus 7 years for tax/accounting; device rows removed on deactivation or with licence record; payment records under Stripe's own retention rules |
 | 5.7 | EU representative (GDPR Article 27) | **OWNER** — required for a non-EU seller that targets EU consumers. Services cost roughly €200–500/year. The alternative is to **not sell to the EU**, which is a business decision, not a technical one |
 | 5.8 | Cookie/consent banner | **OK, and don't add one** — the site sets no cookies; it stores only a theme choice in `localStorage`, which is a user preference, not tracking |
 | 5.9 | Data breach plan | **GAP** — no documented steps. Minimum: who is told, in what order, within 72 hours for EU data |
@@ -148,7 +148,7 @@ or disclose it plainly in the policy. I'd do the first.
 | --- | --- | --- |
 | 6.1 | Not directed at under-13s | **OK** — the product is a paid Windows focus timer, marketed to students and gamers |
 | 6.2 | No knowing collection of under-13 data | **OK** — email plus a device id, only at purchase |
-| 6.3 | Terms state a minimum age | **GAP** — add "You must be 13 or older to buy FlowShield, or the age of digital consent in your country" |
+| 6.3 | Terms state a minimum age | **OK** — the terms now state: "You must be at least 13 years old to buy or use FlowShield, or older if your country sets a higher age for agreeing to online services on your own" |
 | 6.4 | Marketing never targets children | **OWNER** — this is about where you advertise. Anything aimed at parents buying it *for* a child changes the analysis, and would also be a false claim today (see 9.3) |
 
 COPPA penalties are about **$53,000 per violation**, so the cheap move is to
@@ -238,13 +238,9 @@ mundane, high-probability risk — higher than most of the exotic ones.
 1. Fill in the operator name, address and support email (1.1, 4.6, 10.2).
 2. Add terms acceptance at checkout and a first-run "this closes programs"
    agreement with a stored record (2.2–2.4, 9.4).
-3. Fix or remove the sales-tax sentence (3.4) and decide merchant-of-record
-   versus Stripe Tax (9.2).
-4. Disclose or remove the device identifier and device name (5.2).
-5. Ship `THIRD-PARTY-NOTICES.txt` with the app and the server (8.2).
-6. Add the minimum-age line (6.3) and name the subprocessors and retention
-   periods (5.5, 5.6).
-7. Search the USPTO for "FlowShield" (8.1).
+3. Decide merchant-of-record versus Stripe Tax (9.2).
+4. Ship `THIRD-PARTY-NOTICES.txt` with the app and the server (8.2).
+5. Search the USPTO for "FlowShield" (8.1).
 
 **Soon after:**
 
