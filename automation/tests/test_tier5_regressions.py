@@ -28,6 +28,80 @@ NODE = r"C:\Program Files\nodejs\node.exe"
 NODE_EXE = NODE if Path(NODE).exists() else "node"
 
 
+# ============================ the legal pages must match what the code does
+
+class TestLegalPagesMatchTheProduct:
+    """
+    `LEGAL_CHECKLIST.md` lists how this product could be sued or fined. The
+    items that can be checked by reading the code live here, so they fail CI
+    instead of reaching a customer.
+    """
+
+    ROOT = Path(DESKTOP_DIR).parent
+    LEGAL = Path(WEBSITE_DIR) / "legal.html"
+
+    def checklist(self) -> str:
+        return (self.ROOT / "LEGAL_CHECKLIST.md").read_text(encoding="utf-8")
+
+    def test_the_privacy_policy_names_every_kind_of_data_the_app_sends(self):
+        """
+        The client sends a device id and device name with every licence check.
+        Personal data that isn't in the policy is the classic privacy complaint.
+        """
+        client = (Path(DESKTOP_DIR) / "Services" / "LicenseService.cs").read_text(encoding="utf-8")
+        sent = {field for field in ("email", "licenseKey", "deviceId", "deviceName")
+                if f"{field} =" in client}
+        assert {"deviceId", "deviceName"} <= sent, "the client stopped sending devices; update this test"
+
+        policy = self.LEGAL.read_text(encoding="utf-8").lower()
+        assert "device identifier" in policy and "device name" in policy, \
+            "the privacy policy must disclose the device identifier and device name"
+        assert "email address" in policy
+
+    def test_no_placeholder_is_left_unflagged_on_a_customer_page(self):
+        """
+        `[operator name]` and friends are still on the site. That is a known gap
+        (checklist 1.1), so the rule is: if a placeholder exists it must be
+        flagged there; if it's filled in, the checklist must stop calling it a gap.
+        """
+        import re
+
+        pages = {p.name: p.read_text(encoding="utf-8") for p in Path(WEBSITE_DIR).glob("*.html")}
+        found = {m for text in pages.values() for m in re.findall(r"\[[a-z][a-z ]+\]", text)}
+        checklist = self.checklist()
+
+        for placeholder in found:
+            assert placeholder in checklist, \
+                f"{placeholder} is on the site but not flagged in LEGAL_CHECKLIST.md"
+        if not found:
+            assert "**GAP / OWNER** — `legal.html` still says" not in checklist, \
+                "the placeholders are filled in; update checklist item 1.1"
+
+    def test_the_site_does_not_promise_tax_handling_the_server_does_not_do(self):
+        # "Plus sales tax where it applies" was on the pricing card while
+        # Stripe Tax was off, so no tax was ever calculated or charged.
+        server = (Path(SERVER_DIR) / "server.js").read_text(encoding="utf-8")
+        index = (Path(WEBSITE_DIR) / "index.html").read_text(encoding="utf-8").lower()
+        if "automatic_tax" not in server:
+            assert "sales tax" not in index and "vat" not in index, \
+                "the site claims tax is handled at checkout, but Stripe Tax is not enabled"
+
+    def test_the_terms_state_a_minimum_age(self):
+        terms = self.LEGAL.read_text(encoding="utf-8").lower()
+        assert "at least 13 years old" in terms, \
+            "COPPA exposure: the terms must set a minimum age"
+
+    def test_the_policy_names_its_subprocessors(self):
+        policy = self.LEGAL.read_text(encoding="utf-8")
+        for name in ("Stripe", "Render", "Resend"):
+            assert name in policy, f"{name} processes customer data and must be named"
+
+    def test_the_checklist_is_reviewed_with_the_release_script(self):
+        rules = (self.ROOT / "CLAUDE.md").read_text(encoding="utf-8")
+        assert "LEGAL_CHECKLIST.md" in rules, \
+            "every agent must be told to re-check the legal list before a release or publish"
+
+
 # ====================== the app uses one branded icon system everywhere
 
 class TestBrandedAppIcon:
@@ -903,10 +977,21 @@ class TestPurchaseFlowCopy:
         assert "Stripe has emailed your receipt" not in source
         assert "shown here only once" not in source
 
-    def test_the_pricing_mentions_sales_tax(self):
+    def test_the_pricing_says_what_actually_happens_about_tax(self):
+        """
+        The card used to say "plus sales tax … shown at checkout" while Stripe
+        Tax was off, so no tax was ever added: the price shown was the price
+        charged. Whichever is true, the card has to say that one.
+        """
         site = (Path(WEBSITE_DIR) / "index.html").read_text(encoding="utf-8")
-        pricing = site.split('<section id="pricing">', 1)[1].split("</section>", 1)[0]
-        assert "sales tax" in pricing.lower()
+        pricing = site.split('<section id="pricing">', 1)[1].split("</section>", 1)[0].lower()
+        server = (Path(SERVER_DIR) / "server.js").read_text(encoding="utf-8")
+
+        if "automatic_tax" in server:
+            assert "tax" in pricing, "Stripe Tax is on, so say tax is added at checkout"
+        else:
+            assert "the price you see is the price you pay" in pricing
+            assert "sales tax" not in pricing
 
     def test_the_stripe_product_description_is_true_and_kept_current(self):
         script = (Path(DESKTOP_DIR).parent / "tools" / "setup_stripe_store.js").read_text(encoding="utf-8")

@@ -114,6 +114,26 @@ customer, so **say so on the issue first and do one at a time**:
 | GitHub Releases / auto-update feed | The repo owner, or whoever they name | `pwsh tools/build_release.ps1 -Version x.y.z -Publish` from an up-to-date `main` |
 | Stripe test account | Anyone, test mode only | Don't rename or delete products; don't archive "Focus Unlock Pro" |
 
+## Legal exposure
+
+`LEGAL_CHECKLIST.md` lists how this product could be sued, fined or forced to
+refund, what is already handled, and what is still missing. It is not legal
+advice and it cannot make anyone lawsuit-proof; it exists so nothing is
+forgotten twice.
+
+- **Re-check it before every release, every site publish, before live Stripe
+  keys, and whenever a change collects, sends or stores something new.** Say in
+  the pull request which items the change touches.
+- **Never add a claim the shipped build can't back** — on the site, in the app,
+  in an email, or in anything given to a creator to say. Fake reviews,
+  testimonials and invented user numbers are never acceptable.
+- **Anything new that leaves the machine** (a field sent to the server, a new
+  provider, a new log line) must be added to the privacy policy in the same
+  pull request. Tier 5 checks the policy against what the client sends.
+- **Items marked OWNER** (the legal entity, trademark clearance, tax handling,
+  an EU representative, a lawyer's review) are Keenan's to decide. Prepare them,
+  then ask; never guess.
+
 ## Rules that always apply
 
 - **Stripe stays in test mode.** Never use or ask for `sk_live_` keys.
