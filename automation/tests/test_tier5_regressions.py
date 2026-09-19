@@ -1969,6 +1969,39 @@ class TestSprintSummaryCard:
 
 # ============================ sprint intention (F13)
 
+class TestSummaryCardSeesTheSettledStreak:
+    """
+    F12's card shows the streak; F15 is what advances it. They were built
+    separately, and the card was filled in before DailyGoal.Settle ran — so on
+    the day a streak started, the line was collapsed and the person who had
+    just earned "Day 1" saw a card with no streak on it.
+    """
+
+    VM = Path(DESKTOP_DIR) / "ViewModels" / "TodayViewModel.cs"
+
+    def test_stats_are_refreshed_before_the_card_is_built(self):
+        source = self.VM.read_text(encoding="utf-8")
+        end_sprint = source.split("_main.Blocker.StopEnforcing();", 1)[1]
+        end_sprint = end_sprint.split("private void UpdateSummaryCard", 1)[0]
+
+        refresh = end_sprint.find("RefreshStats();")
+        card = end_sprint.find("UpdateSummaryCard(")
+        assert refresh != -1, "EndSprint no longer refreshes stats"
+        assert card != -1, "EndSprint no longer builds the summary card"
+        assert refresh < card, (
+            "the summary card is built before RefreshStats, so it reads a "
+            "CurrentStreak that DailyGoal.Settle has not updated yet"
+        )
+
+    def test_the_streak_line_is_still_conditional(self):
+        """
+        Hiding the line at zero is right — "Day 0" is not a thing. The bug was
+        the value being stale, not the condition.
+        """
+        source = self.VM.read_text(encoding="utf-8")
+        assert "SummaryStreakVisible = S.CurrentStreak > 0;" in source
+
+
 class TestSprintIntentionGuard:
     """F13: the intention input, the ring line and the card line stay wired."""
 
@@ -2367,36 +2400,3 @@ class TestDailyGoalRegressions:
         assert len(settle) == 2
         assert "if (day == date)" in settle[1][:1600], \
             "the loop must treat today specially: it can add to the streak, never break it"
-
-
-class TestSummaryCardSeesTheSettledStreak:
-    """
-    F12's card shows the streak; F15 is what advances it. They were built
-    separately, and the card was filled in before DailyGoal.Settle ran — so on
-    the day a streak started, the line was collapsed and the person who had
-    just earned "Day 1" saw a card with no streak on it.
-    """
-
-    VM = Path(DESKTOP_DIR) / "ViewModels" / "TodayViewModel.cs"
-
-    def test_stats_are_refreshed_before_the_card_is_built(self):
-        source = self.VM.read_text(encoding="utf-8")
-        end_sprint = source.split("_main.Blocker.StopEnforcing();", 1)[1]
-        end_sprint = end_sprint.split("private void UpdateSummaryCard", 1)[0]
-
-        refresh = end_sprint.find("RefreshStats();")
-        card = end_sprint.find("UpdateSummaryCard(")
-        assert refresh != -1, "EndSprint no longer refreshes stats"
-        assert card != -1, "EndSprint no longer builds the summary card"
-        assert refresh < card, (
-            "the summary card is built before RefreshStats, so it reads a "
-            "CurrentStreak that DailyGoal.Settle has not updated yet"
-        )
-
-    def test_the_streak_line_is_still_conditional(self):
-        """
-        Hiding the line at zero is right — "Day 0" is not a thing. The bug was
-        the value being stale, not the condition.
-        """
-        source = self.VM.read_text(encoding="utf-8")
-        assert "SummaryStreakVisible = S.CurrentStreak > 0;" in source
