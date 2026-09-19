@@ -2313,6 +2313,19 @@ class TestHonestLimitsAndPriceComparison:
             "the blocker now mentions URLs — update the FAQ's website answer"
         )
 
+    def test_the_data_answer_names_what_activation_sends(self):
+        """
+        The first FAQ said only the payment provider receives anything, but
+        activation sends the device ID and name to the licence server, which
+        the privacy policy already disclosed. The FAQ must not say less.
+        """
+        license_service = (Path(DESKTOP_DIR) / "Services" / "LicenseService.cs").read_text(
+            encoding="utf-8")
+        assert "DeviceIdentity.Name" in license_service
+        answer = self._site().split("Where does my data go?", 1)[1].split("</details>", 1)[0]
+        for words in ("licence server", "device ID", "user name", "privacy.html"):
+            assert words in answer, f"the FAQ's data answer no longer mentions {words!r}"
+
     def test_the_price_comparison_is_a_range_and_names_nobody(self):
         site = self._site()
         assert "$30&ndash;$60 every year" in site or "$30–$60 every year" in site, (
