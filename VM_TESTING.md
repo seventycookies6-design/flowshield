@@ -64,3 +64,36 @@ proves it works — more, usually.
   A pass here means "works on a clean Windows 11", not "works everywhere".
 - **Timing under real load.** The VM shares a host; don't read performance
   numbers from it.
+
+## Gotchas the bench has already cost someone
+
+- **The bridge serves one request at a time.** A long poll (waiting on a done
+  flag inside the guest) holds the connection, and every other `lab.ps1` call
+  during it fails with "lab bridge is down" — which is a lie. Check the bridge
+  PID and `lab-bridge.log` before believing it; the process is usually alive and
+  busy. Don't issue a second call while a wait is in flight.
+- **`screenshot` used to photograph its own terminal.** Capture runs as an
+  interactive scheduled task, which opens a console window and then captures
+  the screen with that window on top of whatever mattered. Fixed in `lab.ps1`:
+  the capture script minimises every terminal window and waits for the
+  compositor before it shoots. Note that `GetConsoleWindow()` is *not* the
+  window to minimise — with Windows Terminal as the default host it returns the
+  hidden pseudo-console, and minimising that changes nothing on screen. Go for
+  `WindowsTerminal.exe` and `conhost.exe` by process instead.
+- **Give every wait a deadline.** A `while (-not (Test-Path $flag))` loop with
+  no timeout, run through `guest`, holds the bridge's single connection until
+  the flag appears — which, if the thing that writes it has already failed,
+  is never. That cost a whole night of a blocked bench once. Write the done
+  flag in a `finally`, and bound the wait on the host side too.
+- **Write the runner from a host file.** `lab.ps1 stage -Path <host file> -As
+  run-f15-ui.ps1` then copy it into place inside the guest. Building the runner
+  with a nested here-string through `guest -Script` fails silently and the
+  *previous* runner runs instead, which looks like a test that ignored your
+  change.
+- **The `F15UI` task has an interactive principal and no stored password.**
+  `schtasks /IT` plus `/RP` registers but then fails to start with "Element not
+  found". PS Direct has no desktop, so anything that draws or captures the
+  screen has to go through that task.
+- **A bare `StackPanel` is not surfaced to UI Automation.** `exists()` on one
+  passes whether its content is there or not. Assert on a real control — a
+  `ProgressBar`, a `Button`, a `TextBlock` with an AutomationId.

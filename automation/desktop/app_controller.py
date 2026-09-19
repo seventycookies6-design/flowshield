@@ -927,6 +927,82 @@ class DesktopController:
 
     # -------------------------------------------------------------- dialogs
 
+    @staticmethod
+    def _as_keystrokes(text: str) -> str:
+        """Escape a literal string for type_keys, which reads +^%~(){} as syntax."""
+        return "".join("{" + ch + "}" if ch in "+^%~(){}[]" else ch for ch in text)
+
+    def save_dialog_to(self, path: str, timeout: float = 20.0) -> bool:
+        """
+        Drive the native Save As dialog to a path and confirm it.
+
+        The export writes only where the customer chose, so there is no way to
+        check the file's contents without going through the real dialog — and
+        "tests check the files' contents" is the requirement (roadmap 3.5).
+
+        Four things make this harder than it looks, each of which cost a
+        separate debugging round (#117):
+
+        1. WPF's SaveFileDialog is owned by the main window and UI Automation
+           reports it as a *child* of it, not as a top-level window, so
+           enumerating the desktop the way dismiss_dialog does never finds it.
+        2. The file-name box is not the first Edit. The dialog also has the
+           address bar, a search box and four column headers. A path typed into
+           the address bar produces a Save that succeeds — writing the *default*
+           name to the *default* folder — so the test then looks for a file
+           nobody created. The Win32 common-dialog ids are stable: 1001 is the
+           file-name box, 1 is Save, 2 is Cancel.
+        3. The "Save As" lookup matches two elements and pywinauto raises rather
+           than choosing, so found_index=0 settles it.
+        4. **set_edit_text does not work here, and fails silently.** It puts the
+           text in the Edit — reading control 1001 back afterwards returns the
+           path — but the shell dialog keeps its own notion of the current file
+           name, updated from input notifications the direct write never sends.
+           Save then acts on the unchanged internal name and the dialog just
+           sits there. Real keystrokes are what the dialog listens to, which is
+           also what the customer does. Enter in the file-name box is Save.
+
+        Deliberately not wrapped in one try/except: an earlier version reported
+        "no Save dialog appeared" no matter which of these steps threw, which
+        hid every one of them.
+        """
+        dialog = self.window.child_window(
+            title="Save As", control_type="Window", found_index=0)
+        if not dialog.exists(timeout=timeout):
+            self._say("no Save dialog appeared")
+            return False
+
+        edit = dialog.child_window(auto_id="1001", control_type="Edit", found_index=0)
+        edit.wait("ready", timeout=10)
+
+        edit.click_input()
+        edit.type_keys("^a{BACKSPACE}", pause=0.05)
+        edit.type_keys(self._as_keystrokes(path), with_spaces=True, pause=0.01)
+        time.sleep(0.4)
+
+        # Read it back before committing. The dialog ignoring the name is the
+        # failure this helper exists to avoid, and it is invisible otherwise.
+        typed = ""
+        try:
+            typed = edit.legacy_properties().get("Value") or ""
+        except Exception as exc:
+            self._say(f"could not read the file-name box back: {exc}")
+        if typed and typed != path:
+            self._say(f"the file-name box holds {typed!r}, not {path!r}")
+            return False
+
+        edit.type_keys("{ENTER}")
+
+        # The dialog closing is what says the name was accepted.
+        for _ in range(40):
+            if not dialog.exists(timeout=0.3):
+                self._say(f"saved through the dialog to {path}")
+                return True
+            time.sleep(0.25)
+
+        self._say("the Save dialog stayed open — the name was rejected")
+        return False
+
     def dismiss_dialog(self, timeout: float = 5.0) -> str | None:
         """
         Close any modal window the app raised (e.g. the crash MessageBox).

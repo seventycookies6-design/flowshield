@@ -7,6 +7,7 @@ Newest first. One file per run, named `YYYY-MM-DD-<build>-<subject>.md`.
 
 | Date | Build | Subject | Outcome |
 | --- | --- | --- | --- |
+| 2026-09-18 | main + 5 branches | [Overnight tier 3 sweep](2026-09-18-overnight-tier3.md) | Cascade fixed; two real bugs found |
 | 2026-09-18 | 1.0.7 → 1.0.8 (local) | Fresh install; update path blocked | Partial — see below |
 | 2026-09-15 | 1.0.7 | Fresh install, activation, uninstall (original #53 pass) | Steps 1–6, 8 pass; step 7 not runnable |
 
