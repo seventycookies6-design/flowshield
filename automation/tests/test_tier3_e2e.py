@@ -1099,3 +1099,30 @@ class TestDailyGoal:
 
         assert "1 day off left" in fresh_app.text_of("SkipRemainingText")
         assert verify.read_settings()["SkipDatesLocal"] == []
+# ======================================================= journal export (F17)
+
+class TestJournalExport:
+    """
+    F17: sprints and journal lines saved as a file the customer keeps.
+
+    The point of doing this end to end is the file itself — the formatters are
+    unit-tested, but nothing else proves the bytes that land on disk.
+    """
+
+    def _one_sprint_with_a_journal_line(self, app, line):
+        app.navigate_to_tab("Today")
+        app.start_sprint()
+        time.sleep(1.2)
+        app.stop_sprint()
+        time.sleep(0.8)
+        app.set_text("JournalInput", line)
+        app.click("SaveJournalButton")
+        time.sleep(1.0)
+
+    def test_the_export_card_counts_the_sprints_in_range(self, fresh_app):
+        fresh_app.navigate_to_tab("Settings")
+        assert "0 sprints" in fresh_app.text_of("ExportRangeText")
+
+        self._one_sprint_with_a_journal_line(fresh_app, "wrote the exporter")
+        fresh_app.navigate_to_tab("Settings")
+        assert "1 sprint in this range" in fresh_app.text_of("ExportRangeText")

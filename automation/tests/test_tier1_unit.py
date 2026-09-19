@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import subprocess
 from datetime import date, timedelta
+from datetime import date
 from pathlib import Path
 
 import pytest
@@ -1452,4 +1453,156 @@ class TestDailyGoalSource:
         xaml = self.SETTINGS_XAML.read_text(encoding="utf-8")
         for automation_id in ("GoalOffRadio", "GoalMinutesRadio", "GoalSprintsRadio",
                               "GoalTargetInput", "SkipTodayButton"):
+            assert f'AutomationProperties.AutomationId="{automation_id}"' in xaml
+
+
+# ======================================================= journal export (F17)
+
+def defuse(value: str) -> str:
+    """Mirror of JournalExport.Defuse."""
+    if not value:
+        return value
+    return "'" + value if value[0] in "=+-@\t\r" else value
+
+
+def escape_csv(value: str) -> str:
+    """Mirror of JournalExport.EscapeCsv."""
+    text = defuse(value or "")
+    if not any(c in text for c in ',"\r\n'):
+        return text
+    return '"' + text.replace('"', '""') + '"'
+
+
+def escape_markdown(value: str) -> str:
+    """Mirror of JournalExport.EscapeMarkdown."""
+    text = (value or "").replace("\r", " ").replace("\n", " ").strip()
+    if not text:
+        return text
+    return "\\" + text if text[0] in "#-*>+|`" else text
+
+
+def suggested_name(start: date, end: date, fmt: str) -> str:
+    """Mirror of JournalExport.SuggestedFileName."""
+    if end < start:
+        start, end = end, start
+    ext = "csv" if fmt == "csv" else "md"
+    return f"FlowShield journal {start:%Y-%m-%d} to {end:%Y-%m-%d}.{ext}"
+
+
+class TestJournalExportFormulaInjection:
+    """
+    F17: a journal line is free text, and a spreadsheet runs a cell that starts
+    with =, +, -, @, tab or carriage return. That is the one way an export can
+    hurt the person who opens it.
+    """
+
+    @pytest.mark.parametrize("payload", [
+        "=cmd|'/c calc'!A1",
+        "+1+1",
+        "-2+3",
+        "@SUM(A1:A9)",
+        "\tsneaky",
+        "\rsneaky",
+    ])
+    def test_a_formula_is_defused(self, payload):
+        assert defuse(payload).startswith("'"), payload
+
+    def test_ordinary_text_is_left_alone(self):
+        for safe in ("finished chapter 3", "10am standup", "a - b", "x = y"):
+            assert defuse(safe) == safe, safe
+
+    def test_defusing_happens_before_quoting(self):
+        # Otherwise the apostrophe lands outside the quotes and does nothing.
+        assert escape_csv('=HYPERLINK("http://x","click")').startswith('"\'=')
+
+    def test_an_empty_cell_stays_empty(self):
+        assert defuse("") == ""
+        assert escape_csv("") == ""
+
+
+class TestJournalExportCsv:
+    """F17: the CSV has to survive journal lines that contain anything."""
+
+    def test_a_comma_is_quoted(self):
+        assert escape_csv("read, then wrote") == '"read, then wrote"'
+
+    def test_a_quote_is_doubled(self):
+        assert escape_csv('he said "no"') == '"he said ""no"""'
+
+    def test_a_newline_is_quoted_not_stripped(self):
+        assert escape_csv("line one\nline two") == '"line one\nline two"'
+
+    def test_plain_text_is_not_quoted(self):
+        assert escape_csv("shipped the parser") == "shipped the parser"
+
+
+class TestJournalExportMarkdown:
+    """F17: a journal line must not become document structure."""
+
+    @pytest.mark.parametrize("payload", ["# done", "- fixed it", "* starred",
+                                         "> quoted", "| table", "`code"])
+    def test_structure_characters_are_escaped(self, payload):
+        assert escape_markdown(payload).startswith("\\"), payload
+
+    def test_a_newline_inside_a_journal_line_is_flattened(self):
+        assert "\n" not in escape_markdown("first\nsecond")
+
+    def test_ordinary_text_is_untouched(self):
+        assert escape_markdown("wrote the export") == "wrote the export"
+
+
+class TestJournalExportFileName:
+    """F17: the file says what it is and what it covers."""
+
+    def test_the_name_carries_both_dates(self):
+        assert suggested_name(date(2026, 9, 1), date(2026, 9, 18), "csv") == \
+            "FlowShield journal 2026-09-01 to 2026-09-18.csv"
+
+    def test_markdown_gets_the_md_extension(self):
+        assert suggested_name(date(2026, 9, 1), date(2026, 9, 18), "md").endswith(".md")
+
+    def test_a_backwards_range_is_put_in_order(self):
+        assert suggested_name(date(2026, 9, 18), date(2026, 9, 1), "csv") == \
+            "FlowShield journal 2026-09-01 to 2026-09-18.csv"
+
+
+class TestJournalExportSource:
+    """The C# behind the mirrors above."""
+
+    MODEL = Path(SERVER_DIR).parent / "DesktopApp" / "Models" / "JournalExport.cs"
+    SERVICE = Path(SERVER_DIR).parent / "DesktopApp" / "Services" / "JournalExportService.cs"
+    SETTINGS_XAML = Path(SERVER_DIR).parent / "DesktopApp" / "Views" / "SettingsView.xaml"
+
+    def test_the_csv_names_the_outcome_not_just_completed(self):
+        source = self.MODEL.read_text(encoding="utf-8")
+        assert '"ended early"' in source and '"interrupted"' in source, \
+            "completed=false alone hides giving up versus losing the sprint to a crash"
+
+    def test_the_csv_is_written_with_a_bom_and_markdown_without(self):
+        service = self.SERVICE.read_text(encoding="utf-8")
+        assert "encoderShouldEmitUTF8Identifier: true" in service, \
+            "Excel needs the BOM or it mangles accents and emoji"
+        assert "encoderShouldEmitUTF8Identifier: false" in service, \
+            "a BOM shows up as stray characters in Markdown renderers"
+
+    def test_the_csv_uses_crlf(self):
+        source = self.MODEL.read_text(encoding="utf-8")
+        assert '"\\r\\n"' in source, "Excel on Windows expects CRLF"
+
+    def test_dates_are_local_and_say_so(self):
+        source = self.MODEL.read_text(encoding="utf-8")
+        assert "date (local)" in source and "start (local)" in source
+        assert "ToLocalTime()" in source, \
+            "the customer picked the dates off a local calendar"
+
+    def test_the_export_only_writes_where_the_user_chose(self):
+        service = self.SERVICE.read_text(encoding="utf-8")
+        assert "File.WriteAllText(path" in service
+        assert "GetTempPath" not in service and "Upload" not in service, \
+            "nothing may leave the machine; the privacy policy says so"
+
+    def test_settings_offers_a_range_a_format_and_a_button(self):
+        xaml = self.SETTINGS_XAML.read_text(encoding="utf-8")
+        for automation_id in ("ExportFromDate", "ExportToDate", "ExportCsvRadio",
+                              "ExportMarkdownRadio", "ExportJournalButton"):
             assert f'AutomationProperties.AutomationId="{automation_id}"' in xaml

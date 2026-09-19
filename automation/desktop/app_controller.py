@@ -391,13 +391,21 @@ class DesktopController:
         except Exception:
             return False
 
-    def _scroll_into_view(self, control, auto_id: str | None = None, attempts: int = 6):
+    def _scroll_into_view(self, control, auto_id: str | None = None, attempts: int = 24):
         """
         Bring a control fully into view the way a user would.
 
         Tries the ScrollItem pattern first (ListBox items implement it), then
         falls back to the mouse wheel over the window, re-resolving the control
         each time because scrolling moves its rectangle.
+
+        The attempt budget is generous on purpose: at three lines a turn, six
+        turns only moved 18 lines, which stopped reaching the foot of the
+        Settings page as cards were added to it. Running out of attempts is
+        silent — click() then clicks where the control would have been — so the
+        cost of too few is a confusing failure somewhere else entirely, while
+        the cost of too many is a few hundred milliseconds on a control that is
+        already visible (the loop exits as soon as it is).
         """
         try:
             control.iface_scroll_item.ScrollIntoView()
@@ -417,8 +425,16 @@ class DesktopController:
         for _ in range(attempts):
             rect = control.rectangle()
             direction = "down" if rect.bottom > window_rect.bottom else "up"
+
+            # Close the distance in pages while the control is far away, then
+            # line by line, so a long page doesn't need dozens of turns but a
+            # nearly-visible control doesn't overshoot past it.
+            gap = (rect.top - window_rect.bottom if direction == "down"
+                   else window_rect.top - rect.bottom)
+            amount = "page" if gap > window_rect.height() else "line"
+
             try:
-                self.window.scroll(direction, "line", 3)
+                self.window.scroll(direction, amount, 1 if amount == "page" else 3)
             except Exception:
                 try:
                     import pywinauto.mouse as mouse
