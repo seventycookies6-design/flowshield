@@ -327,6 +327,66 @@ html[data-theme="dark"] .theme-toggle .icon-moon { display: block; }
 }
 .btn-block { width: 100%; }
 
+/* ----------------------------------------------------------------------- faq */
+
+.price-compare {
+  margin: var(--space-3) 0 0;
+  color: var(--color-text-muted);
+}
+
+.faq {
+  display: grid;
+  gap: var(--space-3);
+  max-width: 46rem;
+}
+
+.faq-item {
+  padding: 0;
+}
+
+.faq-item > summary {
+  cursor: pointer;
+  padding: var(--space-4) var(--space-5);
+  font-weight: 600;
+  color: var(--color-text);
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+/* The default marker sits outside the padding and clips on Safari. */
+.faq-item > summary::-webkit-details-marker { display: none; }
+
+.faq-item > summary::after {
+  content: "+";
+  font-size: var(--text-lg);
+  line-height: 1;
+  color: var(--color-primary);
+  transition: transform 120ms ease;
+}
+
+.faq-item[open] > summary::after {
+  content: "2";  /* minus */
+}
+
+.faq-item > summary:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+  border-radius: var(--radius);
+}
+
+.faq-item > p {
+  margin: 0;
+  padding: 0 var(--space-5) var(--space-5);
+  color: var(--color-text-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .faq-item > summary::after { transition: none; }
+}
+
 /* ------------------------------------------------------------------ surfaces */
 
 .surface {
