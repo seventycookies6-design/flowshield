@@ -2001,6 +2001,18 @@ class TestSummaryCardSeesTheSettledStreak:
         source = self.VM.read_text(encoding="utf-8")
         assert "SummaryStreakVisible = S.CurrentStreak > 0;" in source
 
+    def test_the_move_left_cancel_alone_and_refreshed_once(self):
+        """
+        The first version of this fix deleted the identical RefreshStats line
+        in CancelSprint instead of EndSprint's later one, so a cancel stopped
+        refreshing and a finished sprint refreshed twice.
+        """
+        source = self.VM.read_text(encoding="utf-8")
+        cancel = source.split("private void CancelSprint()", 1)[1].split("\n    }", 1)[0]
+        end = source.split("private void EndSprint(", 1)[1].split("private void UpdateSummaryCard", 1)[0]
+        assert "RefreshStats();" in cancel, "CancelSprint no longer refreshes stats"
+        assert end.count("RefreshStats();") == 1, "EndSprint should refresh stats exactly once"
+
 
 class TestSprintIntentionGuard:
     """F13: the intention input, the ring line and the card line stay wired."""

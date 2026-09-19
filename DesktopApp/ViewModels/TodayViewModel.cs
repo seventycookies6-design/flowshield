@@ -211,6 +211,7 @@ public class TodayViewModel : ViewModelBase
         IntentionText = "";
         Progress = 0;
         UpdateIdleDisplay();
+        RefreshStats();
         _main.OnSprintStateChanged();
         Raise(nameof(EndButtonVisible));
         Log.Info("sprint cancelled within the grace period");
@@ -806,7 +807,6 @@ public class TodayViewModel : ViewModelBase
         Raise(nameof(JournalPromptTitle));
         Progress = completed ? 1 : Progress;
         UpdateIdleDisplay();
-        RefreshStats();
         _main.OnSprintStateChanged();
 
         Log.Info($"sprint ended: completed={completed} momentum={S.MomentumScore:0.0}");
