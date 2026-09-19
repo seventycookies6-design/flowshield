@@ -75,7 +75,7 @@ failures measured on 14 September 2026 (see "Contrast" below).
 
 ### Rules
 
-- **Remove the legacy names.** The app's `Theme.xaml` still carries `Violet`, `VioletBright`, `Cyan`, `Glass`, `Accent` and similar as aliases for teal, and `styles.css` has `--violet`, `--cyan` and `--grad`. Replace every use with the token names above, then delete the aliases, so no new code reaches for a colour that no longer means anything.
+- **No legacy names.** `Violet`, `VioletBright`, `Cyan`, `Glass*`, `Accent` and `WindowBg` are gone from `Theme.xaml`, and `--violet`, `--violet-bright`, `--cyan`, `--grad` and `--glass*` are gone from `styles.css`. Colours are referenced by the token names above and nothing else, so no new code reaches for a colour that no longer means anything. (The site keeps a short alias block — `--bg`, `--ink`, `--edge` and friends — for the legal and success pages; those are token names under a shorter spelling, not dead colours.)
 - **No hard-coded colours in views.** Every colour in XAML and CSS comes from a token. (Today, for example, the lock screen's backdrop is a literal hex value in `MainWindow.xaml`.)
 - **Teal is scarce.** On any screen, teal should mark at most the primary action, the active selection and the timer. If everything is teal, nothing is.
 - **Status colours are for status only.** Amber and rose never decorate. `ok` green is for "done", not for "go".

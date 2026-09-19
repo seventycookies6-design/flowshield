@@ -10,25 +10,6 @@
         <ResourceDictionary Source="Tokens.xaml"/>
     </ResourceDictionary.MergedDictionaries>
 
-    <!-- Legacy aliases (were violet/cyan) → primary teal. Kept so views that still
-         reference them pick up teal; DESIGN_SYSTEM.md §2 has them removed. -->
-    <Color x:Key="VioletColor">#FF3AA892</Color>
-    <Color x:Key="VioletBrightColor">#FF4FBEA7</Color>
-    <Color x:Key="CyanColor">#FF3AA892</Color>
-
-    <SolidColorBrush x:Key="Violet" Color="{StaticResource PrimaryColor}"/>
-    <SolidColorBrush x:Key="VioletBright" Color="{StaticResource PrimaryHoverColor}"/>
-    <SolidColorBrush x:Key="Cyan" Color="{StaticResource PrimaryColor}"/>
-
-    <SolidColorBrush x:Key="Glass" Color="{StaticResource Surface2Color}"/>
-    <SolidColorBrush x:Key="GlassStrong" Color="{StaticResource Surface2Color}"/>
-
-    <!-- Solid primary (site .btn-primary) — kept as brush named Accent for existing refs -->
-    <SolidColorBrush x:Key="Accent" Color="{StaticResource PrimaryColor}"/>
-
-    <SolidColorBrush x:Key="WindowBg" Color="{StaticResource BgColor}"/>
-    <SolidColorBrush x:Key="GlassFill" Color="{StaticResource SurfaceColor}"/>
-
     <!-- ========================================================= converters -->
 
     <inf:InverseBooleanConverter x:Key="InvBool"/>
@@ -212,7 +193,7 @@
                             <ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center"/>
                         </Border>
                         <Border x:Name="bar" Width="3" HorizontalAlignment="Left" Margin="0,9"
-                                CornerRadius="2" Background="{StaticResource Accent}" Opacity="0"/>
+                                CornerRadius="2" Background="{StaticResource Primary}" Opacity="0"/>
                     </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
