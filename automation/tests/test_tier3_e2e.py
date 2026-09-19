@@ -992,6 +992,46 @@ class TestActivationLinks:
 
 # =========================================================== daily goal (F15)
 
+# ============================================ momentum explained (F14 / 3.2)
+class TestMomentumTrendAndExplainer:
+    """F14: the score is on screen with the rule behind it and 30 days of shape."""
+
+    def test_the_explainer_opens_and_closes(self, fresh_app):
+        fresh_app.navigate_to_tab("Today")
+        assert not fresh_app.exists("MomentumExplainerText", timeout=1),             "the card leads with the number, not with the essay"
+
+        fresh_app.click("MomentumExplainerButton")
+        time.sleep(0.5)
+        assert fresh_app.exists("MomentumExplainerText", timeout=3)
+
+        fresh_app.click("MomentumExplainerButton")
+        time.sleep(0.5)
+        assert not fresh_app.exists("MomentumExplainerText", timeout=1)
+
+    def test_the_chart_stays_hidden_until_there_is_momentum(self, fresh_app):
+        """
+        Not "until there is a sprint". Ending one early leaves the score at
+        zero, and a line on the bottom gridline reads as broken.
+
+        Asserted on the captions, not on the Grid that holds the line: a layout
+        panel is not surfaced to UI Automation, so exists() on one answers the
+        same either way.
+
+        The *visible* case cannot be reached from here — momentum only moves on
+        a finished sprint, and the shortest is 15 real minutes, which no tier 3
+        test can wait for. It is covered at tier 1 instead, on the same rules.
+        """
+        fresh_app.navigate_to_tab("Today")
+        assert not fresh_app.exists("MomentumTrendRange", timeout=1),             "a clean install has nothing to plot"
+
+        fresh_app.start_sprint()
+        time.sleep(1.2)
+        fresh_app.stop_sprint()
+        time.sleep(1.0)
+
+        assert not fresh_app.exists("MomentumTrendRange", timeout=2),             "a sprint ended early leaves momentum at zero, so there is still nothing to draw"
+
+
 class TestDailyGoal:
     """
     F15: an optional daily goal, a bar on Today, and a streak that only counts

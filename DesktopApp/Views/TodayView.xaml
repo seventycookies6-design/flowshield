@@ -271,6 +271,59 @@
                         </TextBlock>
                         <TextBlock Text="Finished sprints compound. Abandoned ones decay — they don't reset."
                                    Style="{StaticResource Caption}" Margin="0,10,0,0"/>
+
+                        <!-- F14: the 30-day trend. DESIGN_SYSTEM.md "Charts" —
+                             one series in primary at 2 px, no area fill,
+                             horizontal gridlines in border, captions faint. -->
+                        <StackPanel Margin="0,16,0,0"
+                                    Visibility="{Binding TrendVisible, Converter={StaticResource BoolVis}}">
+                            <!-- No AutomationId on this Grid: a layout panel is
+                                 not surfaced to UI Automation, so an id here
+                                 can never be found and a test looking for it
+                                 would pass or fail for the wrong reason. The
+                                 two captions below are real controls, and they
+                                 carry the chart's accessible description —
+                                 which a screen reader can actually use, unlike
+                                 a name on a drawn line. -->
+                            <Grid Height="64" Width="250" HorizontalAlignment="Left">
+                                <Line X1="0" Y1="0" X2="250" Y2="0"
+                                      Stroke="{StaticResource Edge}" StrokeThickness="1"/>
+                                <Line X1="0" Y1="32" X2="250" Y2="32"
+                                      Stroke="{StaticResource Edge}" StrokeThickness="1"/>
+                                <Line X1="0" Y1="63" X2="250" Y2="63"
+                                      Stroke="{StaticResource Edge}" StrokeThickness="1"/>
+                                <Polyline Points="{Binding TrendPoints}"
+                                          Stroke="{StaticResource Primary}" StrokeThickness="2"
+                                          StrokeLineJoin="Round"/>
+                            </Grid>
+                            <Grid Margin="0,6,0,0" Width="250" HorizontalAlignment="Left">
+                                <TextBlock Text="{Binding TrendRangeText}" Style="{StaticResource Caption}"
+                                           HorizontalAlignment="Left"
+                                           AutomationProperties.Name="{Binding TrendDescription}"
+                                           AutomationProperties.AutomationId="MomentumTrendRange"/>
+                                <TextBlock Text="{Binding TrendCeilingText}" Style="{StaticResource Caption}"
+                                           HorizontalAlignment="Right"
+                                           AutomationProperties.AutomationId="MomentumTrendPeak"/>
+                            </Grid>
+                        </StackPanel>
+
+                        <!-- F14: the rule in plain words, folded away by default
+                             so the card still leads with the number. -->
+                        <Button Style="{StaticResource BtnQuiet}" HorizontalAlignment="Left"
+                                Margin="-10,8,0,0"
+                                Content="{Binding ExplainerToggleText}"
+                                Command="{Binding ToggleExplainerCommand}"
+                                AutomationProperties.AutomationId="MomentumExplainerButton"/>
+                        <ItemsControl ItemsSource="{Binding MomentumExplanation}" Margin="0,4,0,0"
+                                      Visibility="{Binding ExplainerVisible, Converter={StaticResource BoolVis}}"
+                                      AutomationProperties.AutomationId="MomentumExplainerText">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding}" Style="{StaticResource Caption}"
+                                               TextWrapping="Wrap" Margin="0,0,0,8"/>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
                     </StackPanel>
                 </Border>
 
