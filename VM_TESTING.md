@@ -64,3 +64,23 @@ proves it works — more, usually.
   A pass here means "works on a clean Windows 11", not "works everywhere".
 - **Timing under real load.** The VM shares a host; don't read performance
   numbers from it.
+
+## Gotchas the bench has already cost someone
+
+- **The bridge serves one request at a time.** A long poll (waiting on a done
+  flag inside the guest) holds the connection, and every other `lab.ps1` call
+  during it fails with "lab bridge is down" — which is a lie. Check the bridge
+  PID and `lab-bridge.log` before believing it; the process is usually alive and
+  busy. Don't issue a second call while a wait is in flight.
+- **Write the runner from a host file.** `lab.ps1 stage -Path <host file> -As
+  run-f15-ui.ps1` then copy it into place inside the guest. Building the runner
+  with a nested here-string through `guest -Script` fails silently and the
+  *previous* runner runs instead, which looks like a test that ignored your
+  change.
+- **The `F15UI` task has an interactive principal and no stored password.**
+  `schtasks /IT` plus `/RP` registers but then fails to start with "Element not
+  found". PS Direct has no desktop, so anything that draws or captures the
+  screen has to go through that task.
+- **A bare `StackPanel` is not surfaced to UI Automation.** `exists()` on one
+  passes whether its content is there or not. Assert on a real control — a
+  `ProgressBar`, a `Button`, a `TextBlock` with an AutomationId.
