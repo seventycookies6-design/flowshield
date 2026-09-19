@@ -890,11 +890,27 @@ class DesktopController:
                 if dialog.exists(timeout=0.5):
                     dialog.wait("ready", timeout=5)
 
-                    # The file-name box is the only editable field in the dialog.
-                    edit = dialog.child_window(control_type="Edit", found_index=0)
+                    # Target the file-name box by name. The dialog also holds an
+                    # address bar and a search box, and the first Edit in tree
+                    # order is not the one you want: typing the path into the
+                    # address bar still leaves a Save that succeeds, writing the
+                    # default name to the default folder.
+                    edit = None
+                    for title in ("File name:", "File name"):
+                        candidate = dialog.child_window(title=title, control_type="Edit")
+                        if candidate.exists(timeout=0.5):
+                            edit = candidate
+                            break
+                    if edit is None:
+                        edit = dialog.child_window(control_type="Edit", found_index=0)
+
                     edit.wait("ready", timeout=5)
                     edit.set_edit_text(path)
                     time.sleep(0.3)
+
+                    typed = (edit.get_value() or "").strip('"')
+                    if typed.lower() != path.lower():
+                        self._say(f"file name box holds {typed!r}, not {path!r}")
 
                     save = dialog.child_window(title="Save", control_type="Button")
                     save.wait("ready", timeout=5)
