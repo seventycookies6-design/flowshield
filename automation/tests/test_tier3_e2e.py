@@ -149,27 +149,26 @@ class TestDistractionsAreCountedPerApp:
     """
 
     TARGET = "flowshield-test-target"
-    HELPER = "flowshield-test-helper"
 
-    def _decoys(self, tmp_path):
+    def _decoys(self, tmp_path, count=3):
         """
-        Two long-lived processes named after one blocklist entry.
+        Several processes of ONE blocked app.
 
+        They share an executable name on purpose: that is what makes them one
+        app with several processes, which is the case this test exists for.
         Copies of ping, which sits quietly for as long as it is asked to and
-        has no window to steal focus. Named as a pair so they look to the
-        blocker exactly like an app and its helper.
+        has no window to steal focus.
         """
         import shutil
-        source = Path(os.environ["WINDIR"]) / "System32" / "PING.EXE"
-        started = []
-        for name in (self.TARGET, self.HELPER):
-            exe = tmp_path / f"{name}.exe"
-            shutil.copy2(source, exe)
-            started.append(subprocess.Popen(
+        exe = tmp_path / f"{self.TARGET}.exe"
+        shutil.copy2(Path(os.environ["WINDIR"]) / "System32" / "PING.EXE", exe)
+        return [
+            subprocess.Popen(
                 [str(exe), "-n", "300", "127.0.0.1"],
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0)))
-        return started
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+            for _ in range(count)
+        ]
 
     def test_closing_one_app_counts_one_distraction(self, fresh_app, tmp_path):
         processes = self._decoys(tmp_path)
@@ -185,20 +184,24 @@ class TestDistractionsAreCountedPerApp:
             time.sleep(0.4)
             fresh_app.start_sprint()
 
-            # The blocker sweeps every two seconds; give it a few.
-            deadline = time.time() + 20
+            # The blocker sweeps every two seconds; give it several.
+            deadline = time.time() + 25
             while time.time() < deadline:
                 if all(p.poll() is not None for p in processes):
                     break
                 time.sleep(1)
 
-            assert all(p.poll() is not None for p in processes),                 "both processes should have been closed"
+            alive = [p.pid for p in processes if p.poll() is None]
+            assert not alive, (
+                f"every process of a blocked app must be closed; {len(alive)} "
+                f"survived. Deduplicating the count must never skip a kill."
+            )
 
             time.sleep(2.5)
             counted = fresh_app.text_of("BlocksTodayValue")
             assert counted == "1", (
-                f"two processes of one blocked app were closed; the customer "
-                f"should see one distraction, not {counted}"
+                f"{len(processes)} processes of one blocked app were closed; the "
+                f"customer should see one distraction, not {counted}"
             )
         finally:
             for p in processes:
