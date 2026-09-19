@@ -871,63 +871,6 @@ class DesktopController:
 
     # -------------------------------------------------------------- dialogs
 
-    def save_dialog_to(self, path: str, timeout: float = 20.0) -> bool:
-        """
-        Drive the native Save As dialog to a path and confirm it.
-
-        The export writes only where the customer chose, so there is no way to
-        check the file's contents without going through the real dialog — and
-        "tests check the files' contents" is the requirement (roadmap 3.5).
-        WPF's SaveFileDialog is owned by the main window and UI Automation
-        reports it as a *child* of it, not as a separate top-level window — so
-        enumerating the desktop (the way dismiss_dialog finds a MessageBox)
-        never sees it. It is found under the app window instead.
-
-        The control ids are the Win32 common-dialog ones and are stable across
-        Windows versions: 1001 is the file-name box, 1 is Save. Matching those
-        rather than display names also sidesteps the dialog's other Edits (the
-        address bar, the search box, the column headers), where a path types in
-        happily and Save then writes the default name to the default folder.
-        """
-        # found_index: the dialog nests a second element of the same name and
-        # type, and an ambiguous match raises rather than picking one.
-        dialog = self.window.child_window(
-            title="Save As", control_type="Window", found_index=0)
-        if not dialog.exists(timeout=timeout):
-            self._say("no Save dialog appeared")
-            return False
-
-        try:
-            edit = dialog.child_window(auto_id="1001", control_type="Edit", found_index=0)
-            edit.wait("ready", timeout=10)
-
-            try:
-                edit.set_edit_text(path)
-            except Exception:
-                # Some builds refuse SetValue on the hosted edit; typing works.
-                edit.click_input()
-                edit.type_keys("^a{BACKSPACE}", pause=0.05)
-                edit.type_keys(path, with_spaces=True, pause=0.01)
-
-            time.sleep(0.4)
-
-            save = dialog.child_window(auto_id="1", control_type="Button", found_index=0)
-            save.wait("ready", timeout=10)
-            save.click_input()
-        except Exception as exc:
-            self._say(f"driving the Save dialog failed: {exc}")
-            return False
-
-        # The dialog closing is what says the name was accepted.
-        for _ in range(40):
-            if not dialog.exists(timeout=0.3):
-                self._say(f"saved through the dialog to {path}")
-                return True
-            time.sleep(0.25)
-
-        self._say("the Save dialog stayed open — the name was probably rejected")
-        return False
-
     def dismiss_dialog(self, timeout: float = 5.0) -> str | None:
         """
         Close any modal window the app raised (e.g. the crash MessageBox).
