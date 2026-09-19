@@ -116,7 +116,7 @@ These are in `CLAUDE.md` too; they're repeated because breaking them is costly.
   covers Stripe keys, webhook secrets, Resend/SMTP credentials and passwords.
   Get the page ready and let a person paste.
 - **Never commit** `.stripe_keys.json`, `*.db`, `node_modules/`, `bin/`, `obj/`,
-  `dist/`, `logs/`, `reports/` or `screenshots/`.
+  `dist/`, `logs/`, `reports/` or `screenshots/` — except `reports/vm/`, the shared VM test results, which are committed on purpose.
 - **Don't archive or delete the old "Focus Unlock Pro" product** in Stripe.
 - **Don't edit text files with PowerShell** `Get-Content`/`Set-Content`. Use the
   file edit tools; `python tools/fix_mojibake.py <file>` repairs damage.
