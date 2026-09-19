@@ -60,6 +60,18 @@ public class AppBlockerService : IDisposable
 
     private readonly HashSet<int> _handled = new();
 
+    /// <summary>
+    /// Blocklist entries that had at least one process running last sweep.
+    ///
+    /// "Distractions blocked" is a count the customer reads as "times something
+    /// tried to pull me away", so it counts *apps*, not processes. Steam runs
+    /// seven of them; closing it once was reporting seven distractions, and the
+    /// number grew with however many processes an app happened to spawn rather
+    /// than with anything the customer did. An entry counts when it appears,
+    /// and cannot count again until it has gone away.
+    /// </summary>
+    private readonly HashSet<string> _present = new(StringComparer.OrdinalIgnoreCase);
+
     public event EventHandler<BlockEvent>? Blocked;
 
     /// <summary>True while a sprint is running or the sleep window is open.</summary>
@@ -107,6 +119,7 @@ public class AppBlockerService : IDisposable
             IsEnforcing = true;
             ActiveShield = shield;
             _handled.Clear();
+            _present.Clear();
         }
         Log.Info($"blocker enforcing at shield {shield}");
     }
@@ -117,6 +130,7 @@ public class AppBlockerService : IDisposable
         {
             IsEnforcing = false;
             _handled.Clear();
+            _present.Clear();
         }
         Log.Info("blocker stood down");
     }
@@ -168,6 +182,10 @@ public class AppBlockerService : IDisposable
 
         if (targets.Count == 0) return;
 
+        // Which entries are running this sweep, so one that has gone away can
+        // count again the next time it is opened.
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
         foreach (var process in SafeGetProcesses())
         {
             try
@@ -175,6 +193,12 @@ public class AppBlockerService : IDisposable
                 var name = process.ProcessName;
                 if (CriticalProcesses.Contains(name)) continue;
                 if (!targets.TryGetValue(name, out var app)) continue;
+
+                // Recorded before the pid check: an app whose first process was
+                // already handled is still present, and must not be treated as
+                // having gone away.
+                var key = app.DisplayName;
+                seen.Add(key);
 
                 lock (_gate)
                 {
@@ -192,6 +216,14 @@ public class AppBlockerService : IDisposable
                     Log.Info($"nudged blocked process {name} (pid {process.Id}) at shield {shield}");
                 }
 
+                // One event per app, not per process. Every process is still
+                // closed above; what is deduplicated is the *reporting*, so
+                // closing Steam once is one distraction rather than seven —
+                // and, at Soft shield, one nudge rather than seven.
+                bool firstSighting;
+                lock (_gate) firstSighting = _present.Add(key);
+                if (!firstSighting) continue;
+
                 // BlockCount is bound to the UI, so it is incremented by the
                 // subscriber on the dispatcher rather than from this thread.
                 EnforcementCount++;
@@ -208,6 +240,10 @@ public class AppBlockerService : IDisposable
                 process.Dispose();
             }
         }
+
+        // Entries with nothing running any more are forgotten, so reopening one
+        // counts as a fresh distraction — which is what the label promises.
+        lock (_gate) _present.IntersectWith(seen);
     }
 
     private static IEnumerable<Process> SafeGetProcesses()
