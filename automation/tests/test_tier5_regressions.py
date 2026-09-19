@@ -2190,6 +2190,84 @@ class TestNoDeveloperTextOnCustomerSurfaces:
 
 # ============ the site is keyboard-accessible and motion-safe (roadmap 6.7)
 
+# ================= the site says what FlowShield doesn't do (F26) and what it
+# ================= costs compared with the category (F24)
+class TestHonestLimitsAndPriceComparison:
+    """
+    F26 asks the site to state the limits plainly, in a FAQ and near the price,
+    rather than letting a buyer discover them afterwards. F24 asks for one
+    general price-comparison line.
+
+    The limits are checked against the app rather than merely being present:
+    a FAQ that still says "no website blocking" after F10 ships would be a
+    worse lie than saying nothing, so these tests fail the day that changes.
+    """
+
+    def _site(self):
+        return (Path(WEBSITE_DIR) / "index.html").read_text(encoding="utf-8")
+
+    def _faq(self):
+        site = self._site()
+        assert 'id="faq"' in site, "the site has no FAQ section"
+        return site.split('id="faq"', 1)[1].split("</section>", 1)[0]
+
+    def test_the_faq_is_reachable_from_the_nav_and_the_footer(self):
+        site = self._site()
+        assert site.count('href="#faq"') >= 2, (
+            "the FAQ needs a link in the nav and in the footer; a section nobody "
+            "can find answers nobody"
+        )
+
+    def test_every_faq_entry_is_a_question_with_an_answer(self):
+        faq = self._faq()
+        questions = faq.count("<summary>")
+        assert questions >= 5, f"only {questions} FAQ entries"
+        assert faq.count("</summary>") == questions
+        assert faq.count("<details") == questions, "every answer needs its own details"
+
+    def test_the_limits_are_stated_plainly(self):
+        lower = self._faq().lower()
+        for phrase in (
+            "not today",          # websites inside the browser, and the platform
+            "windows 10 and 11",  # the only platform
+            "no mac app",
+            "no browser extension",
+        ):
+            assert phrase in lower, f"the FAQ does not state the limit: {phrase!r}"
+
+    def test_the_browser_limit_matches_what_the_blocker_does(self):
+        """
+        The claim "it doesn't block websites yet" has to stay true. The blocker
+        works on processes; when it learns about URLs, this test should fail and
+        the FAQ should be rewritten in the same change.
+        """
+        blocker = (Path(DESKTOP_DIR) / "Services" / "AppBlockerService.cs").read_text(
+            encoding="utf-8")
+        assert "ProcessName" in blocker
+        assert "Url" not in blocker, (
+            "the blocker now mentions URLs — update the FAQ's website answer"
+        )
+
+    def test_the_price_comparison_is_a_range_and_names_nobody(self):
+        site = self._site()
+        assert "$30&ndash;$60 every year" in site or "$30–$60 every year" in site, (
+            "F24 asks for a general comparison line near the price"
+        )
+        # Naming a competitor needs a re-checked price and a dated comment, so
+        # the safe default is that none appear at all.
+        lower = site.lower()
+        for rival in ("cold turkey", "freedom.to", "blocksite", "opal", "focusme", "forest app"):
+            assert rival not in lower, (
+                f"{rival!r} is named on the site; F24 says an unnamed range only, "
+                "unless the price was re-checked and dated in a comment"
+            )
+
+    def test_the_price_claim_agrees_with_the_rest_of_the_site(self):
+        site = " ".join(self._site().split())
+        assert "$4.99, once, for up to 3 PCs" in site
+        assert "3 PCs" in site
+
+
 class TestWebsiteAccessibilityStyles:
     """
     Roadmap 6.7: interactive elements need a visible keyboard focus style, and
