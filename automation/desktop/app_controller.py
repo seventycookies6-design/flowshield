@@ -889,13 +889,16 @@ class DesktopController:
         address bar, the search box, the column headers), where a path types in
         happily and Save then writes the default name to the default folder.
         """
-        dialog = self.window.child_window(title="Save As", control_type="Window")
+        # found_index: the dialog nests a second element of the same name and
+        # type, and an ambiguous match raises rather than picking one.
+        dialog = self.window.child_window(
+            title="Save As", control_type="Window", found_index=0)
         if not dialog.exists(timeout=timeout):
             self._say("no Save dialog appeared")
             return False
 
         try:
-            edit = dialog.child_window(auto_id="1001", control_type="Edit")
+            edit = dialog.child_window(auto_id="1001", control_type="Edit", found_index=0)
             edit.wait("ready", timeout=10)
 
             try:
@@ -908,7 +911,7 @@ class DesktopController:
 
             time.sleep(0.4)
 
-            save = dialog.child_window(auto_id="1", control_type="Button")
+            save = dialog.child_window(auto_id="1", control_type="Button", found_index=0)
             save.wait("ready", timeout=10)
             save.click_input()
         except Exception as exc:
