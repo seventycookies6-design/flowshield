@@ -396,8 +396,11 @@ class TestWebsiteClaimsMatchTheApp:
         # Remove an entry only when that feature ships and gains an implementation
         # marker above; deleting a phrase merely to weaken this test is not a fix.
         for claim in (
+            # "journal export" came off this list when F17 shipped it — the site
+            # now says "Export your journal to CSV or Markdown", which the build
+            # backs (JournalExport + the Settings card).
             "youtube.com", "momentum analytics",
-            "journal export", "full-screen reminder", "can't unlock it early",
+            "full-screen reminder", "can't unlock it early",
             "escape hatch is gone", "no three-second grace window",
             "months later", "nothing is uploaded", "dismissible reminder",
             "until the timer ends",

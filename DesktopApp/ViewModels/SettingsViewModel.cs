@@ -30,6 +30,7 @@ public class SettingsViewModel : ViewModelBase
         DeactivateCommand = new AsyncRelayCommand(DeactivateAsync, () => IsPro);
         OpenLogCommand = new RelayCommand(OpenLog);
         SkipTodayCommand = new RelayCommand(ToggleSkipToday, () => CanSkipToday || SkippedToday);
+        ExportJournalCommand = new RelayCommand(ExportJournal);
 
         RefreshLicenseStatus();
     }
@@ -427,6 +428,110 @@ public class SettingsViewModel : ViewModelBase
         // RelayCommand rides CommandManager.RequerySuggested, so the button's
         // enabled state follows without being told.
         _main.Today.RefreshStats();
+    // ---------------------------------------------------- journal export (F17)
+
+    private DateTime _exportFrom = DateTime.Now.Date.AddDays(-29);
+    public DateTime ExportFrom
+    {
+        get => _exportFrom;
+        set { if (Set(ref _exportFrom, value)) RaiseExportState(); }
+    }
+
+    private DateTime _exportTo = DateTime.Now.Date;
+    public DateTime ExportTo
+    {
+        get => _exportTo;
+        set { if (Set(ref _exportTo, value)) RaiseExportState(); }
+    }
+
+    private ExportFormat _exportFormat = ExportFormat.Csv;
+
+    public bool ExportAsCsv
+    {
+        get => _exportFormat == ExportFormat.Csv;
+        set { if (value) SetExportFormat(ExportFormat.Csv); }
+    }
+
+    public bool ExportAsMarkdown
+    {
+        get => _exportFormat == ExportFormat.Markdown;
+        set { if (value) SetExportFormat(ExportFormat.Markdown); }
+    }
+
+    private void SetExportFormat(ExportFormat format)
+    {
+        if (_exportFormat == format) return;
+        _exportFormat = format;
+        RaiseExportState();
+    }
+
+    private string _exportStatusText = "";
+    public string ExportStatusText
+    {
+        get => _exportStatusText;
+        private set { Set(ref _exportStatusText, value); Raise(nameof(ExportStatusVisible)); }
+    }
+
+    public bool ExportStatusVisible => !string.IsNullOrEmpty(ExportStatusText);
+
+    /// <summary>How many sessions the chosen range covers, before saving anything.</summary>
+    public string ExportRangeText
+    {
+        get
+        {
+            var count = JournalExport.InRange(_main.Settings.Sessions, ExportFrom, ExportTo).Count;
+            return count == 1 ? "1 sprint in this range" : $"{count} sprints in this range";
+        }
+    }
+
+    public RelayCommand ExportJournalCommand { get; private set; } = null!;
+
+    private void ExportJournal()
+    {
+        var dialog = new Microsoft.Win32.SaveFileDialog
+        {
+            FileName = JournalExport.SuggestedFileName(ExportFrom, ExportTo, _exportFormat),
+            Filter = _exportFormat == ExportFormat.Csv
+                ? "CSV (spreadsheet)|*.csv"
+                : "Markdown|*.md",
+            AddExtension = true,
+            OverwritePrompt = true,
+        };
+
+        // No default directory is set: the file goes where the customer says,
+        // and nowhere else.
+        if (dialog.ShowDialog() != true)
+        {
+            ExportStatusText = "";
+            return;
+        }
+
+        try
+        {
+            var written = JournalExportService.Write(
+                dialog.FileName, _main.Settings.Sessions, ExportFrom, ExportTo, _exportFormat);
+
+            // An empty range still writes the file, with its header and nothing
+            // under it — saying "nothing to export" after a save dialog would
+            // leave someone wondering whether it failed.
+            ExportStatusText = written == 0
+                ? "Saved. No sprints in that range, so the file has headings only."
+                : $"Saved {written} sprint{(written == 1 ? "" : "s")}.";
+            _main.Toast("Journal exported.");
+        }
+        catch (Exception ex)
+        {
+            Log.Info($"journal export failed: {ex.Message}");
+            ExportStatusText = "Could not save that file. Try another folder.";
+        }
+    }
+
+    private void RaiseExportState()
+    {
+        Raise(nameof(ExportAsCsv));
+        Raise(nameof(ExportAsMarkdown));
+        Raise(nameof(ExportRangeText));
+        ExportStatusText = "";
     }
 
     // ------------------------------------------------------ notifications (F19)

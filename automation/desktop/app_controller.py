@@ -855,6 +855,46 @@ class DesktopController:
 
     # -------------------------------------------------------------- dialogs
 
+    def save_dialog_to(self, path: str, timeout: float = 20.0) -> bool:
+        """
+        Drive the native Save As dialog to a path and confirm it.
+
+        The export writes only where the customer chose, so there is no way to
+        check the file's contents without going through the real dialog — and
+        "tests check the files' contents" is the requirement (roadmap 3.5).
+        The dialog belongs to the app's process but is a separate top-level
+        window, so it is found the same way dismiss_dialog finds a MessageBox.
+        """
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            for win in Desktop(backend="uia").windows():
+                try:
+                    if win.handle == self.hwnd:
+                        continue
+                    if (win.process_id() if callable(getattr(win, "process_id", None))
+                            else None) != self.pid:
+                        continue
+
+                    save = win.child_window(title="Save", control_type="Button")
+                    if not save.exists(timeout=0.4):
+                        continue
+
+                    win.set_focus()
+                    # The file-name box is the only editable field in the dialog.
+                    edit = win.child_window(control_type="Edit", found_index=0)
+                    edit.wait("ready", timeout=5)
+                    edit.set_edit_text(path)
+                    time.sleep(0.3)
+                    save.click_input()
+                    self._say(f"saved through the dialog to {path}")
+                    return True
+                except Exception:
+                    continue
+            time.sleep(0.4)
+
+        self._say("no Save dialog appeared")
+        return False
+
     def dismiss_dialog(self, timeout: float = 5.0) -> str | None:
         """
         Close any modal window the app raised (e.g. the crash MessageBox).
