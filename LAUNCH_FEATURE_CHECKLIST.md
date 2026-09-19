@@ -554,7 +554,7 @@ The recommendation is (b) plus the honest message (F26), unless early users say 
 
 ### F17 — Read back and export the journal · **Launch+** · S · Roadmap 3.5
 
-- [ ] Done
+- [x] Done
 
 **Assigned:** Miles (milessmart6-pixel), built with Codex and Cursor
 
