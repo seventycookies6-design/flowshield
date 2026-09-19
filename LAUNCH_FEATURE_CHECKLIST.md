@@ -519,7 +519,7 @@ The recommendation is (b) plus the honest message (F26), unless early users say 
 
 ### F15 — A daily focus goal · **Launch+** · S
 
-- [ ] Done
+- [x] Done: optional goal in minutes or sprints with a progress bar on Today, a streak that only counts days the goal was met (settled on launch, rollover and after each sprint), and one planned day off per rolling seven days
 
 **Assigned:** Miles (milessmart6-pixel), built with Codex and Cursor
 
