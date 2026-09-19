@@ -194,6 +194,20 @@ Test runs back up and restore the real settings file through
 `automation/core/settings_guard.py`. Any new script that launches the app must
 wrap its entry point in `preserve_user_settings()`.
 
+## Testing on a clean machine
+
+A first install, `flowshield://` registration, Start with Windows, an in-app
+update and uninstall cleanup can only be judged honestly on a machine that has
+never run FlowShield. Miles has a disposable VM that reverts to exactly that;
+**he is the only one who does**, so don't burn your own machine's one clean
+install on a test he can repeat all day.
+
+Ask for a run by commenting on the standing **VM test bench** issue — anyone
+can, agents included. Say which build, what to check, and what a pass looks
+like. Results land in `reports/vm/` and are linked from `reports/vm/README.md`,
+readable from any checkout. See **[VM_TESTING.md](VM_TESTING.md)**, including
+what the bench cannot tell you.
+
 ## Windows notes
 
 - .NET, Node, Python and gh may be installed per-user. A shell or app opened
