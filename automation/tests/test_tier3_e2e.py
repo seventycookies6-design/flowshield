@@ -1008,10 +1008,19 @@ class TestMomentumTrendAndExplainer:
         time.sleep(0.5)
         assert not fresh_app.exists("MomentumExplainerText", timeout=1)
 
-    def test_the_chart_appears_once_there_is_a_sprint(self, fresh_app):
-        # Asserted on the captions, not on the Grid that holds the line: a
-        # layout panel is not surfaced to UI Automation, so exists() on one
-        # answers the same either way.
+    def test_the_chart_stays_hidden_until_there_is_momentum(self, fresh_app):
+        """
+        Not "until there is a sprint". Ending one early leaves the score at
+        zero, and a line on the bottom gridline reads as broken.
+
+        Asserted on the captions, not on the Grid that holds the line: a layout
+        panel is not surfaced to UI Automation, so exists() on one answers the
+        same either way.
+
+        The *visible* case cannot be reached from here — momentum only moves on
+        a finished sprint, and the shortest is 15 real minutes, which no tier 3
+        test can wait for. It is covered at tier 1 instead, on the same rules.
+        """
         fresh_app.navigate_to_tab("Today")
         assert not fresh_app.exists("MomentumTrendRange", timeout=1),             "a clean install has nothing to plot"
 
@@ -1020,17 +1029,7 @@ class TestMomentumTrendAndExplainer:
         fresh_app.stop_sprint()
         time.sleep(1.0)
 
-        assert fresh_app.exists("MomentumTrendRange", timeout=5)
-
-        # text_of reads what UI Automation reports, and an explicit
-        # AutomationProperties.Name replaces the visible text there. That is
-        # the point of the name — a line on a chart has nothing to read — so
-        # this asserts the description, which is what a screen reader gets.
-        described = fresh_app.text_of("MomentumTrendRange")
-        assert described.startswith("Momentum over the last 30 days"), described
-        assert "peak" in described
-
-        assert fresh_app.text_of("MomentumTrendPeak").startswith("peak ")
+        assert not fresh_app.exists("MomentumTrendRange", timeout=2),             "a sprint ended early leaves momentum at zero, so there is still nothing to draw"
 
 
 class TestDailyGoal:

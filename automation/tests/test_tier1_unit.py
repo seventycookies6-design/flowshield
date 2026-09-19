@@ -1671,6 +1671,22 @@ class TestMomentumTrend:
         assert points[-1][1] == round(max(0.0, 20.0 * 0.7 - 5), 1) == 9.0
         assert points[-1][1] > 0, "momentum decays, it does not reset"
 
+    def test_sprints_that_were_all_ended_early_leave_nothing_to_draw(self):
+        """
+        Momentum only moves when a sprint is *finished*. Someone who started
+        three and ended them all early has sessions and a score of zero, and a
+        line pinned to the bottom gridline reads as broken rather than as
+        "nothing yet" — so the chart stays hidden.
+        """
+        today = date(2026, 9, 18)
+        points = self._points([
+            (date(2026, 9, 16), False, 25, False),
+            (date(2026, 9, 17), False, 25, False),
+            (date(2026, 9, 18), False, 25, True),
+        ], today)
+        assert all(score == 0.0 for _, score in points)
+        assert not any(score > 0 for _, score in points),             "nothing above zero means nothing worth drawing"
+
     def test_the_series_is_always_the_full_window(self):
         points = self._points([], date(2026, 9, 18))
         assert len(points) == self.DAYS
@@ -1773,4 +1789,4 @@ class TestMomentumTrendView:
         xaml = self.XAML.read_text(encoding="utf-8")
         assert "{Binding TrendVisible, Converter={StaticResource BoolVis}}" in xaml
         vm = (self.DESKTOP / "ViewModels" / "TodayViewModel.cs").read_text(encoding="utf-8")
-        assert "TrendVisible = S.Sessions.Count > 0;" in vm
+        assert "TrendVisible = points.Any(p => p.Score > 0);" in vm,             "the chart hides until there is momentum, not merely until there is a sprint"

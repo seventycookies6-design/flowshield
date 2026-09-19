@@ -532,7 +532,14 @@ public class TodayViewModel : ViewModelBase
     }
 
     private bool _trendVisible;
-    /// <summary>Hidden until there is something to draw — an empty chart says nothing.</summary>
+    /// <summary>
+    /// Hidden until there is something to draw.
+    ///
+    /// Not "once a sprint exists": momentum only moves when a sprint is
+    /// finished, so someone who has started a few and ended them all early has
+    /// sessions but a score of zero. The line then sits exactly on the bottom
+    /// gridline and the chart reads as broken rather than as "nothing yet".
+    /// </summary>
     public bool TrendVisible { get => _trendVisible; private set => Set(ref _trendVisible, value); }
 
     private string _trendCeilingText = "";
@@ -575,7 +582,7 @@ public class TodayViewModel : ViewModelBase
     private void RefreshTrend(DateTime today)
     {
         var points = MomentumTrend.Points(S, today);
-        TrendVisible = S.Sessions.Count > 0;
+        TrendVisible = points.Any(p => p.Score > 0);
         if (!TrendVisible) return;
 
         var ceiling = MomentumTrend.Ceiling(points);
