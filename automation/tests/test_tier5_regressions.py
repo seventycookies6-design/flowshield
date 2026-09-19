@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import struct
 import subprocess
 import sys
@@ -2367,3 +2368,68 @@ class TestDailyGoalRegressions:
         assert len(settle) == 2
         assert "if (day == date)" in settle[1][:1600], \
             "the loop must treat today specially: it can add to the streak, never break it"
+
+
+# ===================== every colour is a token, and every token exists (§2)
+
+class TestNoLegacyColourAliases:
+    """
+    DESIGN_SYSTEM.md §2: the app and the site name colours by token and by
+    nothing else. The legacy aliases (Violet, Cyan, Glass*, Accent, WindowBg;
+    --violet, --cyan, --grad) all pointed at the right teal, which is why they
+    survived so long — the name lied and the pixel didn't.
+    """
+
+    XAML_ROOT = Path(DESKTOP_DIR)
+
+    def _xaml_files(self):
+        return [
+            path for path in self.XAML_ROOT.rglob("*.xaml")
+            if "obj" not in path.parts and "bin" not in path.parts
+        ]
+
+    def test_the_legacy_names_are_gone_from_the_app(self):
+        banned = ("Violet", "VioletBright", "Cyan", "Glass", "GlassStrong",
+                  "GlassFill", "WindowBg")
+        for path in self._xaml_files():
+            source = path.read_text(encoding="utf-8")
+            for name in banned:
+                assert f'x:Key="{name}"' not in source, f"{path.name} still defines {name}"
+                assert f"{{StaticResource {name}}}" not in source, (
+                    f"{path.name} still uses {name}"
+                )
+
+    def test_the_legacy_names_are_gone_from_the_site(self):
+        css = (Path(WEBSITE_DIR) / "styles.css").read_text(encoding="utf-8")
+        for name in ("--violet", "--violet-bright", "--cyan", "--grad",
+                     "--glass", "--glass-strong"):
+            assert f"{name}:" not in css, f"styles.css still defines {name}"
+        for page in ("index.html", "legal.html", "success.html", "support.html",
+                     "changelog.html", "checkout.js"):
+            source = (Path(WEBSITE_DIR) / page).read_text(encoding="utf-8")
+            for name in ("--violet", "--cyan", "--grad", "--glass"):
+                assert f"var({name})" not in source, f"{page} still uses {name}"
+
+    def test_every_static_resource_key_is_defined(self):
+        """
+        Deleting an alias that something still referenced would not fail the
+        build — an unresolved StaticResource throws when the XAML loads, which
+        is to say when the customer opens that screen. Resolve them here
+        instead, where it costs a millisecond.
+        """
+        defined = set()
+        for path in self._xaml_files():
+            defined |= set(re.findall(r'x:Key="([^"]+)"',
+                                      path.read_text(encoding="utf-8")))
+
+        missing = {}
+        for path in self._xaml_files():
+            used = re.findall(r"\{StaticResource\s+([^}\s]+)\}",
+                              path.read_text(encoding="utf-8"))
+            for key in used:
+                if key not in defined:
+                    missing.setdefault(key, set()).add(path.name)
+
+        assert not missing, "XAML references resources nothing defines: " + ", ".join(
+            f"{key} (in {', '.join(sorted(files))})" for key, files in sorted(missing.items())
+        )
