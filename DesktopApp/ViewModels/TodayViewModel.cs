@@ -789,6 +789,14 @@ public class TodayViewModel : ViewModelBase
         S.ActiveSprint = null;
         _main.SaveSettings();
 
+        // Before the card, not after it. The card shows the streak, and since
+        // F15 the only thing that advances CurrentStreak is DailyGoal.Settle,
+        // which runs in here. Built the other way round, the first sprint of a
+        // streak was filled in while the streak was still zero, so the line was
+        // collapsed and "Day 1" never appeared to the person who had just
+        // earned it.
+        RefreshStats();
+
         SessionStateText = completed ? "Sprint complete" : "Sprint ended early";
         UpdateSummaryCard(completed, _current);
         JournalPromptVisible = true;
@@ -799,7 +807,6 @@ public class TodayViewModel : ViewModelBase
         Raise(nameof(JournalPromptTitle));
         Progress = completed ? 1 : Progress;
         UpdateIdleDisplay();
-        RefreshStats();
         _main.OnSprintStateChanged();
 
         Log.Info($"sprint ended: completed={completed} momentum={S.MomentumScore:0.0}");
