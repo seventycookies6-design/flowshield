@@ -428,6 +428,8 @@ public class SettingsViewModel : ViewModelBase
         // RelayCommand rides CommandManager.RequerySuggested, so the button's
         // enabled state follows without being told.
         _main.Today.RefreshStats();
+    }
+
     // ---------------------------------------------------- journal export (F17)
 
     private DateTime _exportFrom = DateTime.Now.Date.AddDays(-29);

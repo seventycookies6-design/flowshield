@@ -1453,6 +1453,9 @@ class TestDailyGoalSource:
         xaml = self.SETTINGS_XAML.read_text(encoding="utf-8")
         for automation_id in ("GoalOffRadio", "GoalMinutesRadio", "GoalSprintsRadio",
                               "GoalTargetInput", "SkipTodayButton"):
+            assert f'AutomationProperties.AutomationId="{automation_id}"' in xaml
+
+
 # ======================================================= journal export (F17)
 
 def defuse(value: str) -> str:

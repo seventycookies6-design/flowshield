@@ -161,6 +161,9 @@
                                        AutomationProperties.AutomationId="SkipRemainingText"/>
                         </StackPanel>
                     </StackPanel>
+                </StackPanel>
+            </Border>
+
             <!-- ============================================ journal export -->
             <Border Style="{StaticResource Card}" Padding="24" Margin="0,0,0,16">
                 <StackPanel>
