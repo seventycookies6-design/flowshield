@@ -213,7 +213,6 @@
   </div>
 </section>
 
-<!-- ---------------------------------------------------------- shield levels -->
 <!-- ------------------------------------------------------- the real app -->
 <section id="see-it">
   <div class="wrap">
@@ -249,9 +248,26 @@
         <figcaption>The end of a sprint, and the one line you write about it.</figcaption>
       </figure>
     </div>
+
+    <figure class="shot shot-demo">
+      <video id="shield-demo" class="demo-video" muted loop playsinline preload="none"
+             width="1280" height="720"
+             poster="media/shield-closes-steam-poster.jpg"
+             aria-describedby="shield-demo-description">
+        <source src="media/shield-closes-steam.webm" type="video/webm">
+        <source src="media/shield-closes-steam.mp4" type="video/mp4">
+      </video>
+      <figcaption>
+        <p id="shield-demo-description">A sprint starts at the Firm shield and Steam,
+        which is on the blocklist, closes a couple of seconds later. FlowShield says
+        &ldquo;Steam closed by the shield&rdquo; and the timer keeps running. Recorded on a
+        clean Windows 11 machine; no sound.</p>
+      </figcaption>
+    </figure>
   </div>
 </section>
 
+<!-- ---------------------------------------------------------- shield levels -->
 <section id="shields" class="band">
   <div class="wrap">
     <div class="shields-intro">
@@ -554,6 +570,46 @@
 <script src="checkout.js?v=4"></script>
 <script>
   (function () {
+    // The demo starts when it scrolls into view, not on load: preload="none"
+    // keeps it off the critical path, and a play() fired at load is refused
+    // often enough to leave the poster showing for no reason.
+    //
+    // With reduced motion on it never plays. It gets controls instead, so the
+    // choice to watch stays with the reader rather than being taken away.
+    var demo = document.getElementById('shield-demo');
+    if (demo) {
+      var calm = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+      var settle = function () {
+        if (!calm.matches) return;
+        demo.pause();
+        demo.setAttribute('controls', '');
+      };
+
+      var watch = function (entries) {
+        entries.forEach(function (entry) {
+          if (calm.matches) return;
+          demo.removeAttribute('controls');
+          if (entry.isIntersecting) {
+            var playing = demo.play();
+            if (playing && playing.catch) playing.catch(function () {});
+          } else {
+            demo.pause();
+          }
+        });
+      };
+
+      if (window.IntersectionObserver) {
+        new IntersectionObserver(watch, { threshold: 0.35 }).observe(demo);
+      } else if (!calm.matches) {
+        demo.setAttribute('controls', '');
+      }
+
+      settle();
+      if (calm.addEventListener) calm.addEventListener('change', settle);
+      else if (calm.addListener) calm.addListener(settle);
+    }
+
     var root = document.documentElement;
     document.querySelectorAll('[data-theme-toggle]').forEach(function (btn) {
       btn.addEventListener('click', function () {

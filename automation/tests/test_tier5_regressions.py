@@ -2525,6 +2525,52 @@ class TestProductCaptures:
             total += size
         assert total < 3_000_000, f"the captures total {total / 1000:.0f} kB"
 
+    def test_the_recording_is_silent_looping_and_inline(self):
+        """DESIGN_SYSTEM.md 10: muted, looping, a poster, playsinline."""
+        section = self._section()
+        video = section.split("<video", 1)[1].split(">", 1)[0]
+        for attribute in ("muted", "loop", "playsinline", "poster="):
+            assert attribute in video, f"the recording must set {attribute}"
+        assert "controls" not in video, "a looping silent demo needs no controls by default"
+        assert "<audio" not in section
+        assert "autoplay" not in video, (
+            "autoplay belongs to the reduced-motion script, not the markup"
+        )
+
+    def test_the_recording_honours_reduced_motion(self):
+        """
+        DESIGN_SYSTEM.md 8: with reduced motion on, the video shows its poster
+        frame instead of playing. There is no HTML or CSS way to make autoplay
+        conditional, so a script decides — and this checks the script exists and
+        keys off the right query.
+        """
+        site = (Path(WEBSITE_DIR) / "index.html").read_text(encoding="utf-8")
+        assert "prefers-reduced-motion: reduce" in site
+        script = site.split("prefers-reduced-motion: reduce", 1)[1][:600]
+        assert ".pause()" in script, "reduced motion has to stop the video"
+
+    def test_the_recording_is_described_for_people_who_cannot_see_it(self):
+        section = self._section()
+        assert "aria-describedby" in section
+        described = section.split('id="shield-demo-description"', 1)[1].split("</p>", 1)[0]
+        assert len(" ".join(described.split())) > 80, (
+            "a silent demo needs a description that says what happens in it"
+        )
+
+    def test_the_recording_stays_inside_the_size_budget(self):
+        """DESIGN_SYSTEM.md 10: about 2 MB on desktop, 1 MB on mobile."""
+        if not self.MEDIA.exists():
+            pytest.skip("no media directory yet")
+        for clip in list(self.MEDIA.glob("*.webm")) + list(self.MEDIA.glob("*.mp4")):
+            size = clip.stat().st_size
+            assert size < 2_000_000, f"{clip.name} is {size / 1000:.0f} kB"
+
+    def test_the_recording_does_not_load_before_the_page(self):
+        video = self._section().split("<video", 1)[1].split(">", 1)[0]
+        assert 'preload="none"' in video, (
+            "DESIGN_SYSTEM.md 11: the hero renders before any media loads"
+        )
+
     def test_the_hero_still_comes_first(self):
         site = (Path(WEBSITE_DIR) / "index.html").read_text(encoding="utf-8")
         hero = site.index('<section class="hero"')
