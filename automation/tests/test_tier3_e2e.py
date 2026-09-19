@@ -1126,3 +1126,69 @@ class TestJournalExport:
         self._one_sprint_with_a_journal_line(fresh_app, "wrote the exporter")
         fresh_app.navigate_to_tab("Settings")
         assert "1 sprint in this range" in fresh_app.text_of("ExportRangeText")
+
+    def test_csv_is_written_with_the_journal_line(self, fresh_app, tmp_path):
+        self._one_sprint_with_a_journal_line(fresh_app, "wrote the exporter")
+
+        target = tmp_path / "export.csv"
+        fresh_app.navigate_to_tab("Settings")
+        fresh_app.choose("ExportCsvRadio")
+        time.sleep(0.4)
+        fresh_app.click("ExportJournalButton")
+        assert fresh_app.save_dialog_to(str(target)), "the Save dialog never appeared"
+        time.sleep(1.5)
+
+        raw = target.read_bytes()
+        assert raw.startswith(b"\xef\xbb\xbf"), "Excel needs the UTF-8 BOM"
+
+        text = raw.decode("utf-8-sig")
+        assert "\r\n" in text, "Excel on Windows expects CRLF"
+
+        lines = [line for line in text.splitlines() if line.strip()]
+        assert lines[0].startswith("date (local),start (local)")
+        assert "wrote the exporter" in lines[1]
+        assert len(lines) == 2, f"expected a header and one row, got {len(lines)}"
+
+    def test_markdown_is_written_and_grouped_by_day(self, fresh_app, tmp_path):
+        self._one_sprint_with_a_journal_line(fresh_app, "wrote the exporter")
+
+        target = tmp_path / "export.md"
+        fresh_app.navigate_to_tab("Settings")
+        fresh_app.choose("ExportMarkdownRadio")
+        time.sleep(0.4)
+        fresh_app.click("ExportJournalButton")
+        assert fresh_app.save_dialog_to(str(target)), "the Save dialog never appeared"
+        time.sleep(1.5)
+
+        text = target.read_text(encoding="utf-8")
+        assert not text.startswith("﻿"), "a BOM shows up as stray characters in Markdown"
+        assert text.startswith("# FlowShield journal")
+        assert f"## {datetime.now():%Y-%m-%d}" in text, "sessions must be grouped under their day"
+        assert "wrote the exporter" in text
+
+    def test_a_journal_line_that_looks_like_a_formula_is_defused(self, fresh_app, tmp_path):
+        """The one real security issue in an export: a cell Excel would run."""
+        self._one_sprint_with_a_journal_line(fresh_app, "=1+1")
+
+        target = tmp_path / "formula.csv"
+        fresh_app.navigate_to_tab("Settings")
+        fresh_app.choose("ExportCsvRadio")
+        time.sleep(0.4)
+        fresh_app.click("ExportJournalButton")
+        assert fresh_app.save_dialog_to(str(target))
+        time.sleep(1.5)
+
+        text = target.read_text(encoding="utf-8-sig")
+        assert "'=1+1" in text, "a leading = must be defused before Excel opens it"
+
+    def test_an_empty_range_still_saves_a_file_with_headings(self, fresh_app, tmp_path):
+        target = tmp_path / "empty.csv"
+        fresh_app.navigate_to_tab("Settings")
+        fresh_app.click("ExportJournalButton")
+        assert fresh_app.save_dialog_to(str(target))
+        time.sleep(1.5)
+
+        text = target.read_text(encoding="utf-8-sig")
+        lines = [line for line in text.splitlines() if line.strip()]
+        assert len(lines) == 1, "an empty range writes the header and nothing else"
+        assert "headings only" in fresh_app.text_of("ExportStatusText")
