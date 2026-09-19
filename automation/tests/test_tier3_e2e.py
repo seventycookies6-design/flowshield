@@ -7,8 +7,11 @@ claims matches what was actually persisted to the DPAPI-encrypted settings file.
 
 from __future__ import annotations
 
+import os
+import subprocess
 import time
 from datetime import datetime
+from pathlib import Path
 
 import pytest
 
@@ -130,6 +133,78 @@ class TestBlockedApps:
 
 
 # ============================================================== sprint flow
+
+class TestDistractionsAreCountedPerApp:
+    """
+    One app closing is one distraction, however many processes it runs.
+
+    Steam runs seven; closing it once was reported as seven distractions, which
+    made the number grow with an app's implementation rather than with anything
+    the customer did (#138). Every process is still closed — what changed is the
+    counting.
+
+    This is the first tier 3 test that puts a real process in front of the
+    blocker. `flowshield-test-target` was only ever a name on the blocklist
+    before, so nothing exercised enforcement end to end.
+    """
+
+    TARGET = "flowshield-test-target"
+    HELPER = "flowshield-test-helper"
+
+    def _decoys(self, tmp_path):
+        """
+        Two long-lived processes named after one blocklist entry.
+
+        Copies of ping, which sits quietly for as long as it is asked to and
+        has no window to steal focus. Named as a pair so they look to the
+        blocker exactly like an app and its helper.
+        """
+        import shutil
+        source = Path(os.environ["WINDIR"]) / "System32" / "PING.EXE"
+        started = []
+        for name in (self.TARGET, self.HELPER):
+            exe = tmp_path / f"{name}.exe"
+            shutil.copy2(source, exe)
+            started.append(subprocess.Popen(
+                [str(exe), "-n", "300", "127.0.0.1"],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0)))
+        return started
+
+    def test_closing_one_app_counts_one_distraction(self, fresh_app, tmp_path):
+        processes = self._decoys(tmp_path)
+        try:
+            fresh_app.navigate_to_tab("Blocked Apps")
+            assert fresh_app.add_blocked_app(self.TARGET)
+            time.sleep(0.6)
+
+            fresh_app.navigate_to_tab("Today")
+            assert fresh_app.text_of("BlocksTodayValue") == "0"
+
+            fresh_app.choose("Shield_Firm")
+            time.sleep(0.4)
+            fresh_app.start_sprint()
+
+            # The blocker sweeps every two seconds; give it a few.
+            deadline = time.time() + 20
+            while time.time() < deadline:
+                if all(p.poll() is not None for p in processes):
+                    break
+                time.sleep(1)
+
+            assert all(p.poll() is not None for p in processes),                 "both processes should have been closed"
+
+            time.sleep(2.5)
+            counted = fresh_app.text_of("BlocksTodayValue")
+            assert counted == "1", (
+                f"two processes of one blocked app were closed; the customer "
+                f"should see one distraction, not {counted}"
+            )
+        finally:
+            for p in processes:
+                if p.poll() is None:
+                    p.kill()
+
 
 class TestSprints:
     def test_starting_a_sprint_runs_the_timer_down(self, fresh_app):
