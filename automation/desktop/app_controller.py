@@ -882,7 +882,7 @@ class DesktopController:
         reports it as a *child* of it, not as a separate top-level window — so
         enumerating the desktop (the way dismiss_dialog finds a MessageBox)
         never sees it. It is found under the app window instead.
-        """
+
         The control ids are the Win32 common-dialog ones and are stable across
         Windows versions: 1001 is the file-name box, 1 is Save. Matching those
         rather than display names also sidesteps the dialog's other Edits (the
