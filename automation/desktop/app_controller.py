@@ -883,57 +883,46 @@ class DesktopController:
         enumerating the desktop (the way dismiss_dialog finds a MessageBox)
         never sees it. It is found under the app window instead.
         """
-        deadline = time.time() + timeout
-        while time.time() < deadline:
+        The control ids are the Win32 common-dialog ones and are stable across
+        Windows versions: 1001 is the file-name box, 1 is Save. Matching those
+        rather than display names also sidesteps the dialog's other Edits (the
+        address bar, the search box, the column headers), where a path types in
+        happily and Save then writes the default name to the default folder.
+        """
+        dialog = self.window.child_window(title="Save As", control_type="Window")
+        if not dialog.exists(timeout=timeout):
+            self._say("no Save dialog appeared")
+            return False
+
+        try:
+            edit = dialog.child_window(auto_id="1001", control_type="Edit")
+            edit.wait("ready", timeout=10)
+
             try:
-                dialog = self.window.child_window(title="Save As", control_type="Window")
-                if dialog.exists(timeout=0.5):
-                    dialog.wait("ready", timeout=5)
-
-                    # Target the file-name box by name. The dialog also holds an
-                    # address bar and a search box, and the first Edit in tree
-                    # order is not the one you want: typing the path into the
-                    # address bar still leaves a Save that succeeds, writing the
-                    # default name to the default folder.
-                    edit = None
-                    for title in ("File name:", "File name"):
-                        candidate = dialog.child_window(title=title, control_type="Edit")
-                        if candidate.exists(timeout=0.5):
-                            edit = candidate
-                            break
-                    if edit is None:
-                        edit = dialog.child_window(control_type="Edit", found_index=0)
-
-                    edit.wait("ready", timeout=5)
-                    edit.set_edit_text(path)
-                    time.sleep(0.3)
-
-                    # Reporting only: not every Edit exposes ValuePattern, and a
-                    # throw here would abandon an otherwise working attempt.
-                    try:
-                        typed = (edit.get_value() or "").strip('"')
-                        if typed.lower() != path.lower():
-                            self._say(f"file name box holds {typed!r}, not {path!r}")
-                    except Exception:
-                        pass
-
-                    save = dialog.child_window(title="Save", control_type="Button")
-                    save.wait("ready", timeout=5)
-                    save.click_input()
-
-                    # Gone means it accepted the name.
-                    for _ in range(20):
-                        if not dialog.exists(timeout=0.3):
-                            break
-                        time.sleep(0.25)
-
-                    self._say(f"saved through the dialog to {path}")
-                    return True
+                edit.set_edit_text(path)
             except Exception:
-                pass
+                # Some builds refuse SetValue on the hosted edit; typing works.
+                edit.click_input()
+                edit.type_keys("^a{BACKSPACE}", pause=0.05)
+                edit.type_keys(path, with_spaces=True, pause=0.01)
+
             time.sleep(0.4)
 
-        self._say("no Save dialog appeared")
+            save = dialog.child_window(auto_id="1", control_type="Button")
+            save.wait("ready", timeout=10)
+            save.click_input()
+        except Exception as exc:
+            self._say(f"driving the Save dialog failed: {exc}")
+            return False
+
+        # The dialog closing is what says the name was accepted.
+        for _ in range(40):
+            if not dialog.exists(timeout=0.3):
+                self._say(f"saved through the dialog to {path}")
+                return True
+            time.sleep(0.25)
+
+        self._say("the Save dialog stayed open — the name was probably rejected")
         return False
 
     def dismiss_dialog(self, timeout: float = 5.0) -> str | None:
