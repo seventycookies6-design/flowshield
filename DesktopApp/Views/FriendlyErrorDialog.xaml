@@ -6,7 +6,7 @@
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize"
         ShowInTaskbar="False"
-        Background="{StaticResource WindowBg}"
+        Background="{StaticResource Bg}"
         TextOptions.TextFormattingMode="Ideal"
         UseLayoutRounding="True"
         AutomationProperties.AutomationId="FriendlyErrorDialog">

@@ -64,15 +64,9 @@ html[data-theme="light"] {
   --ink-faint: var(--color-text-faint);
   --edge: var(--color-border);
   --edge-bright: var(--color-border-strong);
-  --cyan: var(--color-primary);
   --green: var(--color-ok);
   --rose: var(--color-danger);
   --amber: var(--color-warn);
-  --glass: var(--color-surface);
-  --glass-strong: var(--color-surface-2);
-  --violet: var(--color-primary);
-  --violet-bright: var(--color-primary);
-  --grad: var(--color-primary);
 }
 
 html[data-theme="dark"] {

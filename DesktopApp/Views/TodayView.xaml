@@ -22,7 +22,7 @@
                     <!-- ring -->
                     <Grid Width="212" Height="212" HorizontalAlignment="Center" Margin="0,6,0,0">
                         <Ellipse Width="196" Height="196" Stroke="{StaticResource Track}" StrokeThickness="12"/>
-                        <Ellipse Width="196" Height="196" Stroke="{StaticResource Accent}" StrokeThickness="12"
+                        <Ellipse Width="196" Height="196" Stroke="{StaticResource Primary}" StrokeThickness="12"
                                  StrokeDashCap="Round"
                                  StrokeDashArray="{Binding Progress, Converter={StaticResource ProgressDash}}"
                                  Visibility="{Binding Progress, Converter={StaticResource PositiveVis}}"
@@ -267,7 +267,7 @@
                         <TextBlock Style="{StaticResource Body}" Margin="0,4,0,0"
                                    AutomationProperties.AutomationId="StreakText">
                             <Run Text="Streak:"/>
-                            <Run Text="{Binding StreakText, Mode=OneWay}" Foreground="{StaticResource VioletBright}"/>
+                            <Run Text="{Binding StreakText, Mode=OneWay}" Foreground="{StaticResource PrimaryHover}"/>
                         </TextBlock>
                         <TextBlock Text="Finished sprints compound. Abandoned ones decay — they don't reset."
                                    Style="{StaticResource Caption}" Margin="0,10,0,0"/>

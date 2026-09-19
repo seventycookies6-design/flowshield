@@ -219,7 +219,7 @@
       fail(
         'No checkout session',
         'This page expects a <code>session_id</code> in the URL. Start from the ' +
-          '<a href="index.html" style="color:var(--cyan)">pricing section</a>.',
+          '<a href="index.html" style="color:var(--color-primary)">pricing section</a>.',
       );
       return;
     }
