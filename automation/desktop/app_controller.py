@@ -374,12 +374,40 @@ class DesktopController:
 
     def _is_on_screen(self, control, margin: int = 2) -> bool:
         """
-        True only when the control's whole rectangle sits inside the window.
+        True only when a click at the control's centre would actually hit it.
 
         Containment must be total, not centre-based. A control clipped at the
         bottom edge of a ScrollViewer still reports a centre inside the window,
         but a synthesised click there lands on the clipped sliver and the
         command never fires — silently.
+
+        Containment alone is not enough either. WPF reports a control's
+        *layout* rectangle, which stays put when a ScrollViewer clips the
+        control away: the Settings page's "Show the welcome again" button
+        reported (217,701)-(378,730) inside a window ending at 740, while
+        from_point on its centre returned the main window. The click landed on
+        the window, the command never ran, and the failure surfaced three
+        assertions later. So finish with a hit test — the thing under the
+        centre point must be the control itself or part of it.
+        """
+        try:
+            if not self._is_contained(control, margin):
+                return False
+            rect = control.rectangle()
+            return self._hit_tests_to(control, (rect.left + rect.right) // 2,
+                                      (rect.top + rect.bottom) // 2)
+        except Exception:
+            return False
+
+    def _is_contained(self, control, margin: int = 2) -> bool:
+        """
+        Whether the control's whole rectangle sits inside the window.
+
+        Scrolling is steered by this rather than by _is_on_screen: the scroll
+        loop picks its direction from where the rectangle is relative to the
+        window, so a control that is contained but clipped has no direction
+        that helps, and asking it to keep scrolling walks the page the wrong
+        way. Clipping is click()'s problem to solve, by invoking instead.
         """
         try:
             rect = control.rectangle()
@@ -390,6 +418,34 @@ class DesktopController:
                     and rect.bottom <= window.bottom - margin)
         except Exception:
             return False
+
+    def _hit_tests_to(self, control, x: int, y: int, levels: int = 4) -> bool:
+        """
+        Whether the element at (x, y) is `control`, or something inside it.
+
+        A Button's centre often resolves to its own TextBlock, so walk a few
+        parents up before giving up. When the hit test itself cannot run, say
+        yes: the containment check has already passed, and refusing every click
+        because an unrelated UIA call failed would be worse than the bug.
+        """
+        try:
+            from pywinauto import Desktop
+
+            target = control.element_info.runtime_id
+            hit = Desktop(backend="uia").from_point(x, y)
+        except Exception:
+            return True
+
+        for _ in range(levels):
+            if hit is None:
+                return False
+            try:
+                if hit.element_info.runtime_id == target:
+                    return True
+                hit = hit.parent()
+            except Exception:
+                return False
+        return False
 
     def _scroll_into_view(self, control, auto_id: str | None = None, attempts: int = 24):
         """
@@ -415,7 +471,7 @@ class DesktopController:
         except Exception:
             pass  # Not every element implements ScrollItem.
 
-        if self._is_on_screen(control) or auto_id is None:
+        if self._is_contained(control) or auto_id is None:
             return control
 
         window_rect = self.window.rectangle()
@@ -444,7 +500,7 @@ class DesktopController:
             time.sleep(0.25)
 
             control = self.element(auto_id, timeout=3)
-            if self._is_on_screen(control):
+            if self._is_contained(control):
                 break
 
         return control
