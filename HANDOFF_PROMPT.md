@@ -28,7 +28,7 @@ timer, and apps on your blocklist are dealt with until it ends.
   keeps running), Firm (blocked apps are closed), Sealed (closed, and the
   blocklist locks for the rest of the sprint — ending the sprint early unlocks it).
 - **Momentum score:** a finished sprint adds to it; an abandoned one decays it
-  (×0.85 − 2) rather than resetting it. A day streak is shown too.
+  (×0.85 − 2 at Soft or Firm, ×0.7 − 5 at Sealed) rather than resetting it. A day streak is shown too.
 - **Journal:** a one-line "What moved?" entry after each sprint.
 - **Sleep blocking:** a nightly window that closes blocked apps.
 - **Trial, then buy once (#29):** every feature is unlocked for 7 days from the
