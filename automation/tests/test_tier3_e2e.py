@@ -1158,5 +1158,13 @@ class TestMomentumTrendAndExplainer:
         time.sleep(1.0)
 
         assert fresh_app.exists("MomentumTrendRange", timeout=5)
-        assert fresh_app.text_of("MomentumTrendRange") == "Last 30 days"
+
+        # text_of reads what UI Automation reports, and an explicit
+        # AutomationProperties.Name replaces the visible text there. That is
+        # the point of the name — a line on a chart has nothing to read — so
+        # this asserts the description, which is what a screen reader gets.
+        described = fresh_app.text_of("MomentumTrendRange")
+        assert described.startswith("Momentum over the last 30 days"), described
+        assert "peak" in described
+
         assert fresh_app.text_of("MomentumTrendPeak").startswith("peak ")
