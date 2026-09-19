@@ -908,9 +908,14 @@ class DesktopController:
                     edit.set_edit_text(path)
                     time.sleep(0.3)
 
-                    typed = (edit.get_value() or "").strip('"')
-                    if typed.lower() != path.lower():
-                        self._say(f"file name box holds {typed!r}, not {path!r}")
+                    # Reporting only: not every Edit exposes ValuePattern, and a
+                    # throw here would abandon an otherwise working attempt.
+                    try:
+                        typed = (edit.get_value() or "").strip('"')
+                        if typed.lower() != path.lower():
+                            self._say(f"file name box holds {typed!r}, not {path!r}")
+                    except Exception:
+                        pass
 
                     save = dialog.child_window(title="Save", control_type="Button")
                     save.wait("ready", timeout=5)
