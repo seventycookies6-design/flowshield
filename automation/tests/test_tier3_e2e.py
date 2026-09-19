@@ -1146,14 +1146,17 @@ class TestMomentumTrendAndExplainer:
         assert not fresh_app.exists("MomentumExplainerText", timeout=1)
 
     def test_the_chart_appears_once_there_is_a_sprint(self, fresh_app):
+        # Asserted on the captions, not on the Grid that holds the line: a
+        # layout panel is not surfaced to UI Automation, so exists() on one
+        # answers the same either way.
         fresh_app.navigate_to_tab("Today")
-        assert not fresh_app.exists("MomentumTrendChart", timeout=1),             "a clean install has nothing to plot"
+        assert not fresh_app.exists("MomentumTrendRange", timeout=1),             "a clean install has nothing to plot"
 
         fresh_app.start_sprint()
         time.sleep(1.2)
         fresh_app.stop_sprint()
         time.sleep(1.0)
 
-        assert fresh_app.exists("MomentumTrendChart", timeout=5)
+        assert fresh_app.exists("MomentumTrendRange", timeout=5)
         assert fresh_app.text_of("MomentumTrendRange") == "Last 30 days"
         assert fresh_app.text_of("MomentumTrendPeak").startswith("peak ")

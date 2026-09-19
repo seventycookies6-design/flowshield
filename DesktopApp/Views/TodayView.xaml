@@ -277,9 +277,15 @@
                              horizontal gridlines in border, captions faint. -->
                         <StackPanel Margin="0,16,0,0"
                                     Visibility="{Binding TrendVisible, Converter={StaticResource BoolVis}}">
-                            <Grid Height="64" Width="250" HorizontalAlignment="Left"
-                                  AutomationProperties.AutomationId="MomentumTrendChart"
-                                  AutomationProperties.Name="Momentum over the last 30 days">
+                            <!-- No AutomationId on this Grid: a layout panel is
+                                 not surfaced to UI Automation, so an id here
+                                 can never be found and a test looking for it
+                                 would pass or fail for the wrong reason. The
+                                 two captions below are real controls, and they
+                                 carry the chart's accessible description —
+                                 which a screen reader can actually use, unlike
+                                 a name on a drawn line. -->
+                            <Grid Height="64" Width="250" HorizontalAlignment="Left">
                                 <Line X1="0" Y1="0" X2="250" Y2="0"
                                       Stroke="{StaticResource Edge}" StrokeThickness="1"/>
                                 <Line X1="0" Y1="32" X2="250" Y2="32"
@@ -293,6 +299,7 @@
                             <Grid Margin="0,6,0,0" Width="250" HorizontalAlignment="Left">
                                 <TextBlock Text="{Binding TrendRangeText}" Style="{StaticResource Caption}"
                                            HorizontalAlignment="Left"
+                                           AutomationProperties.Name="{Binding TrendDescription}"
                                            AutomationProperties.AutomationId="MomentumTrendRange"/>
                                 <TextBlock Text="{Binding TrendCeilingText}" Style="{StaticResource Caption}"
                                            HorizontalAlignment="Right"

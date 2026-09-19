@@ -540,6 +540,14 @@ public class TodayViewModel : ViewModelBase
 
     public string TrendRangeText => $"Last {MomentumTrend.Days} days";
 
+    /// <summary>
+    /// What the chart says, for anyone who cannot see it. A drawn line has no
+    /// text, and naming the Polyline would not help — a shape is not surfaced
+    /// to UI Automation either. This rides on a caption that is.
+    /// </summary>
+    public string TrendDescription =>
+        $"Momentum over the last {MomentumTrend.Days} days, now {MomentumText}, {TrendCeilingText}";
+
     private bool _explainerVisible;
     public bool ExplainerVisible { get => _explainerVisible; private set => Set(ref _explainerVisible, value); }
 
@@ -583,6 +591,7 @@ public class TodayViewModel : ViewModelBase
 
         TrendPoints = drawn;
         TrendCeilingText = $"peak {ceiling:0}";
+        Raise(nameof(TrendDescription));
     }
 
     // ----------------------------------------------------------- daily goal

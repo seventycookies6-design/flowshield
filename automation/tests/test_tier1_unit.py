@@ -1720,12 +1720,34 @@ class TestMomentumTrendView:
     DESKTOP = Path(SERVER_DIR).parent / "DesktopApp"
     XAML = DESKTOP / "Views" / "TodayView.xaml"
 
+    def _momentum_card(self):
+        """Just the part F14 added, so this says nothing about older screens."""
+        xaml = self.XAML.read_text(encoding="utf-8")
+        return xaml.split("F14: the 30-day trend", 1)[1].split("</Border>", 1)[0]
+
     def test_today_has_the_chart_and_the_explainer(self):
         xaml = self.XAML.read_text(encoding="utf-8")
-        for automation_id in ("MomentumTrendChart", "MomentumTrendRange",
-                              "MomentumTrendPeak", "MomentumExplainerButton",
-                              "MomentumExplainerText"):
+        for automation_id in ("MomentumTrendRange", "MomentumTrendPeak",
+                              "MomentumExplainerButton", "MomentumExplainerText"):
             assert f'AutomationProperties.AutomationId="{automation_id}"' in xaml
+
+    def test_no_automation_id_sits_on_a_layout_panel(self):
+        """
+        A Grid or StackPanel is not surfaced to UI Automation, so an id on one
+        can never be found — and exists() on it answers the same whether the
+        content is there or not, which is how a passing test can mean nothing.
+        """
+        block = self._momentum_card()
+        for tag in ("<Grid", "<StackPanel"):
+            for element in block.split(tag)[1:]:
+                head = element.split(">", 1)[0]
+                assert "AutomationProperties.AutomationId" not in head,                     f"an AutomationId is on a {tag[1:]}, where nothing can find it"
+
+    def test_the_chart_is_described_where_a_screen_reader_can_hear_it(self):
+        xaml = self.XAML.read_text(encoding="utf-8")
+        vm = (self.DESKTOP / "ViewModels" / "TodayViewModel.cs").read_text(encoding="utf-8")
+        assert 'AutomationProperties.Name="{Binding TrendDescription}"' in xaml
+        assert "public string TrendDescription" in vm
 
     def test_the_chart_follows_the_design_system(self):
         """
@@ -1733,7 +1755,7 @@ class TestMomentumTrendView:
         horizontal gridlines in border.
         """
         xaml = self.XAML.read_text(encoding="utf-8")
-        chart = xaml.split('AutomationId="MomentumTrendChart"', 1)[1].split("</StackPanel>", 1)[0]
+        chart = xaml.split('<Grid Height="64"', 1)[1].split("</Grid>", 1)[0]
 
         assert 'Stroke="{StaticResource Primary}"' in chart
         assert 'StrokeThickness="2"' in chart
@@ -1746,11 +1768,6 @@ class TestMomentumTrendView:
             y1 = head.split('Y1="', 1)[1].split('"', 1)[0]
             y2 = head.split('Y2="', 1)[1].split('"', 1)[0]
             assert y1 == y2, "gridlines are horizontal only"
-
-    def test_the_chart_is_named_for_a_screen_reader(self):
-        xaml = self.XAML.read_text(encoding="utf-8")
-        chart = xaml.split('AutomationId="MomentumTrendChart"', 1)[1][:400]
-        assert "AutomationProperties.Name=" in chart,             "a drawn line says nothing without a name"
 
     def test_the_chart_hides_itself_when_there_is_nothing_to_draw(self):
         xaml = self.XAML.read_text(encoding="utf-8")
