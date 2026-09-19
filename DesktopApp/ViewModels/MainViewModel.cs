@@ -220,7 +220,13 @@ public class MainViewModel : ViewModelBase
                 case AppPage.Today: Today.RefreshStats(); break;
                 case AppPage.BlockedApps: BlockedApps.RefreshStatus(); break;
                 case AppPage.SleepBlocking: SleepBlocking.RefreshStatus(); break;
-                case AppPage.Settings: SettingsPage.RefreshLicenseStatus(); break;
+                case AppPage.Settings:
+                    SettingsPage.RefreshLicenseStatus();
+                    // The export card counts the sprints in its date range, and
+                    // sprints happen on another page — without this it shows
+                    // whatever was true when Settings was last built.
+                    SettingsPage.RefreshExportState();
+                    break;
             }
         }
     }

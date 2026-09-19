@@ -536,6 +536,12 @@ public class SettingsViewModel : ViewModelBase
         ExportStatusText = "";
     }
 
+    /// <summary>
+    /// Re-counts the sprints in the chosen range. Called when the Settings page
+    /// is opened, because sprints are finished on another page entirely.
+    /// </summary>
+    public void RefreshExportState() => Raise(nameof(ExportRangeText));
+
     // ------------------------------------------------------ notifications (F19)
 
     /// <summary>The master switch; turning it off silences every notification.</summary>
