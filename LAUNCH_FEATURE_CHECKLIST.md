@@ -460,7 +460,7 @@ The recommendation is (b) plus the honest message (F26), unless early users say 
 
 ### F12 — A sprint summary worth reading · **Launch** · S
 
-- [ ] Done
+- [x] Done
 
 **Assigned:** Miles (milessmart6-pixel), built with Codex and Cursor
 
