@@ -1126,3 +1126,34 @@ class TestJournalExport:
         self._one_sprint_with_a_journal_line(fresh_app, "wrote the exporter")
         fresh_app.navigate_to_tab("Settings")
         assert "1 sprint in this range" in fresh_app.text_of("ExportRangeText")
+
+
+# ============================================ momentum explained (F14 / 3.2)
+
+class TestMomentumTrendAndExplainer:
+    """F14: the score is on screen with the rule behind it and 30 days of shape."""
+
+    def test_the_explainer_opens_and_closes(self, fresh_app):
+        fresh_app.navigate_to_tab("Today")
+        assert not fresh_app.exists("MomentumExplainerText", timeout=1),             "the card leads with the number, not with the essay"
+
+        fresh_app.click("MomentumExplainerButton")
+        time.sleep(0.5)
+        assert fresh_app.exists("MomentumExplainerText", timeout=3)
+
+        fresh_app.click("MomentumExplainerButton")
+        time.sleep(0.5)
+        assert not fresh_app.exists("MomentumExplainerText", timeout=1)
+
+    def test_the_chart_appears_once_there_is_a_sprint(self, fresh_app):
+        fresh_app.navigate_to_tab("Today")
+        assert not fresh_app.exists("MomentumTrendChart", timeout=1),             "a clean install has nothing to plot"
+
+        fresh_app.start_sprint()
+        time.sleep(1.2)
+        fresh_app.stop_sprint()
+        time.sleep(1.0)
+
+        assert fresh_app.exists("MomentumTrendChart", timeout=5)
+        assert fresh_app.text_of("MomentumTrendRange") == "Last 30 days"
+        assert fresh_app.text_of("MomentumTrendPeak").startswith("peak ")

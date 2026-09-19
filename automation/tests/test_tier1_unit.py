@@ -1606,3 +1606,154 @@ class TestJournalExportSource:
         for automation_id in ("ExportFromDate", "ExportToDate", "ExportCsvRadio",
                               "ExportMarkdownRadio", "ExportJournalButton"):
             assert f'AutomationProperties.AutomationId="{automation_id}"' in xaml
+
+
+# ================================= momentum trend and explainer (F14 / 3.2)
+
+class TestMomentumTrend:
+    """
+    Python mirror of Models/MomentumTrend.cs. Momentum is event-driven, so the
+    trend is a replay of the sessions rather than a second record of the score.
+    """
+
+    DAYS = 30
+    DESKTOP = Path(SERVER_DIR).parent / "DesktopApp"
+    MODEL = DESKTOP / "Models" / "MomentumTrend.cs"
+
+    @staticmethod
+    def _after(score, completed, minutes, sealed_=False):
+        if completed:
+            weight = min(max(minutes / 25.0, 0.5), 3.0)
+            return round(score + 10 * weight, 1)
+        return round(max(0.0, score * 0.7 - 5) if sealed_ else max(0.0, score * 0.85 - 2), 1)
+
+    def _points(self, sessions, today, days=None):
+        days = days or self.DAYS
+        start = today - timedelta(days=days - 1)
+        by_day, score = {}, 0.0
+        for day, completed, minutes, sealed_ in sorted(sessions):
+            score = self._after(score, completed, minutes, sealed_)
+            by_day[day] = score
+        running = 0.0
+        for day, completed, minutes, sealed_ in sorted(sessions):
+            if day < start:
+                running = self._after(running, completed, minutes, sealed_)
+        out = []
+        for i in range(days):
+            day = start + timedelta(days=i)
+            if day in by_day:
+                running = by_day[day]
+            out.append((day, running))
+        return out
+
+    def test_a_quiet_day_carries_the_score_forward(self):
+        today = date(2026, 9, 18)
+        points = self._points([(date(2026, 9, 16), True, 25, False)], today)
+        assert len(points) == self.DAYS
+        assert points[-1][1] == 10.0
+        assert points[-2][1] == 10.0, "a day with no sprints must not drop the line to zero"
+
+    def test_days_before_the_window_still_count(self):
+        """The first point is the score as it stood then, not zero."""
+        today = date(2026, 9, 18)
+        old = date(2026, 1, 1)
+        points = self._points([(old, True, 25, False)], today)
+        assert points[0][1] == 10.0
+
+    def test_ending_early_shows_as_a_dip_not_a_reset(self):
+        today = date(2026, 9, 18)
+        points = self._points([
+            (date(2026, 9, 10), True, 50, False),
+            (date(2026, 9, 11), False, 25, True),
+        ], today)
+        after_finish = round(0 + 10 * 2.0, 1)
+        assert after_finish == 20.0
+        assert points[-1][1] == round(max(0.0, 20.0 * 0.7 - 5), 1) == 9.0
+        assert points[-1][1] > 0, "momentum decays, it does not reset"
+
+    def test_the_series_is_always_the_full_window(self):
+        points = self._points([], date(2026, 9, 18))
+        assert len(points) == self.DAYS
+        assert {score for _, score in points} == {0.0}
+
+    def test_the_explanation_matches_the_numbers_in_the_code(self):
+        """
+        The explainer states the rule in points and percentages. If the rule
+        changes and the words don't, the app is lying to the customer in the
+        one place that claims to be authoritative.
+        """
+        source = self.MODEL.read_text(encoding="utf-8")
+        policy = (self.DESKTOP / "Models" / "EndSprintPolicy.cs").read_text(
+            encoding="utf-8")
+        today_vm = (self.DESKTOP / "ViewModels" / "TodayViewModel.cs").read_text(
+            encoding="utf-8")
+
+        assert "Math.Clamp(session.PlannedMinutes / 25.0, 0.5, 3.0)" in today_vm
+        assert "S.MomentumScore + 10 * weight" in today_vm
+        assert "score * 0.7 - 5" in policy and "score * 0.85 - 2" in policy
+
+        explanation = source.split("Explanation =", 1)[1]
+        assert "10 points for a 25-minute one" in explanation
+        assert "5 points at the least, 30 at the most" in explanation, \
+            "0.5 and 3.0 times 10 points"
+        assert "15% and 2 points at Soft or Firm" in explanation
+        assert "30% and 5 at Sealed" in explanation
+        assert "never goes below zero" in explanation
+        assert "does not decay overnight" in explanation
+
+    def test_the_trend_replays_rather_than_recording(self):
+        """
+        A stored daily sample would start the day the feature shipped and could
+        disagree with MomentumScore. The model must derive from Sessions.
+        """
+        source = self.MODEL.read_text(encoding="utf-8")
+        assert "settings.Sessions.OrderBy" in source
+        settings = (self.DESKTOP / "Models" / "AppSettings.cs").read_text(
+            encoding="utf-8")
+        assert "MomentumHistory" not in settings, \
+            "the trend must not add a second copy of the score to settings"
+
+
+class TestMomentumTrendView:
+    """The chart and explainer exist on Today and follow the chart rules."""
+
+    DESKTOP = Path(SERVER_DIR).parent / "DesktopApp"
+    XAML = DESKTOP / "Views" / "TodayView.xaml"
+
+    def test_today_has_the_chart_and_the_explainer(self):
+        xaml = self.XAML.read_text(encoding="utf-8")
+        for automation_id in ("MomentumTrendChart", "MomentumTrendRange",
+                              "MomentumTrendPeak", "MomentumExplainerButton",
+                              "MomentumExplainerText"):
+            assert f'AutomationProperties.AutomationId="{automation_id}"' in xaml
+
+    def test_the_chart_follows_the_design_system(self):
+        """
+        DESIGN_SYSTEM.md "Charts": one series in primary at 2 px, no area fill,
+        horizontal gridlines in border.
+        """
+        xaml = self.XAML.read_text(encoding="utf-8")
+        chart = xaml.split('AutomationId="MomentumTrendChart"', 1)[1].split("</StackPanel>", 1)[0]
+
+        assert 'Stroke="{StaticResource Primary}"' in chart
+        assert 'StrokeThickness="2"' in chart
+        assert "Fill=" not in chart, "a line chart has no area fill"
+        assert chart.count("<Polyline") == 1, "no more than one series"
+        assert 'Stroke="{StaticResource Edge}"' in chart, "gridlines use the border token"
+
+        for line in chart.split("<Line")[1:]:
+            head = line.split("/>", 1)[0]
+            y1 = head.split('Y1="', 1)[1].split('"', 1)[0]
+            y2 = head.split('Y2="', 1)[1].split('"', 1)[0]
+            assert y1 == y2, "gridlines are horizontal only"
+
+    def test_the_chart_is_named_for_a_screen_reader(self):
+        xaml = self.XAML.read_text(encoding="utf-8")
+        chart = xaml.split('AutomationId="MomentumTrendChart"', 1)[1][:400]
+        assert "AutomationProperties.Name=" in chart,             "a drawn line says nothing without a name"
+
+    def test_the_chart_hides_itself_when_there_is_nothing_to_draw(self):
+        xaml = self.XAML.read_text(encoding="utf-8")
+        assert "{Binding TrendVisible, Converter={StaticResource BoolVis}}" in xaml
+        vm = (self.DESKTOP / "ViewModels" / "TodayViewModel.cs").read_text(encoding="utf-8")
+        assert "TrendVisible = S.Sessions.Count > 0;" in vm

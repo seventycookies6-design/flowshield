@@ -518,6 +518,73 @@ public class TodayViewModel : ViewModelBase
     private string _streakText = "0 days";
     public string StreakText { get => _streakText; private set => Set(ref _streakText, value); }
 
+    // ------------------------------------------------- momentum trend (F14)
+
+    /// <summary>The chart's drawing area, in device-independent pixels.</summary>
+    private const double TrendWidth = 250;
+    private const double TrendHeight = 64;
+
+    private System.Windows.Media.PointCollection _trendPoints = new();
+    public System.Windows.Media.PointCollection TrendPoints
+    {
+        get => _trendPoints;
+        private set => Set(ref _trendPoints, value);
+    }
+
+    private bool _trendVisible;
+    /// <summary>Hidden until there is something to draw — an empty chart says nothing.</summary>
+    public bool TrendVisible { get => _trendVisible; private set => Set(ref _trendVisible, value); }
+
+    private string _trendCeilingText = "";
+    public string TrendCeilingText { get => _trendCeilingText; private set => Set(ref _trendCeilingText, value); }
+
+    public string TrendRangeText => $"Last {MomentumTrend.Days} days";
+
+    private bool _explainerVisible;
+    public bool ExplainerVisible { get => _explainerVisible; private set => Set(ref _explainerVisible, value); }
+
+    public string ExplainerToggleText => ExplainerVisible ? "Hide" : "How momentum works";
+
+    private RelayCommand? _toggleExplainerCommand;
+    public RelayCommand ToggleExplainerCommand => _toggleExplainerCommand ??= new RelayCommand(() =>
+    {
+        ExplainerVisible = !ExplainerVisible;
+        Raise(nameof(ExplainerToggleText));
+    });
+
+    /// <summary>The rule in plain words, straight from the model that applies it.</summary>
+    public IReadOnlyList<string> MomentumExplanation => MomentumTrend.Explanation;
+
+    /// <summary>
+    /// Redraws the 30-day line.
+    ///
+    /// The y axis starts at zero and tops out at the highest point in the
+    /// window, so the line always fills the box. Scaling to the visible peak
+    /// rather than to a fixed ceiling is the honest choice for a score with no
+    /// maximum — but it does mean the same shape can represent very different
+    /// numbers, which is why the peak is printed beside it.
+    /// </summary>
+    private void RefreshTrend(DateTime today)
+    {
+        var points = MomentumTrend.Points(S, today);
+        TrendVisible = S.Sessions.Count > 0;
+        if (!TrendVisible) return;
+
+        var ceiling = MomentumTrend.Ceiling(points);
+        var step = points.Count > 1 ? TrendWidth / (points.Count - 1) : 0;
+
+        var drawn = new System.Windows.Media.PointCollection(points.Count);
+        for (var i = 0; i < points.Count; i++)
+        {
+            var y = TrendHeight - (points[i].Score / ceiling * TrendHeight);
+            drawn.Add(new System.Windows.Point(i * step, y));
+        }
+        drawn.Freeze();
+
+        TrendPoints = drawn;
+        TrendCeilingText = $"peak {ceiling:0}";
+    }
+
     // ----------------------------------------------------------- daily goal
 
     /// <summary>
@@ -921,6 +988,7 @@ public class TodayViewModel : ViewModelBase
 
         MomentumText = S.MomentumScore.ToString("0");
         StreakText = S.CurrentStreak == 1 ? "1 day" : $"{S.CurrentStreak} days";
+        RefreshTrend(today);
         RefreshGoal(today);
         Raise(nameof(SealedRestartHintVisible));
         Raise(nameof(SoftHardKillHintVisible));
