@@ -2367,3 +2367,52 @@ class TestDailyGoalRegressions:
         assert len(settle) == 2
         assert "if (day == date)" in settle[1][:1600], \
             "the loop must treat today specially: it can add to the streak, never break it"
+
+
+class TestSettingsReadRacesTheAtomicWrite:
+    """
+    SettingsService writes a .tmp and File.Replace()s it into place. During the
+    replace the destination cannot be opened, and a test reading settings right
+    after an action is reading inside that window by design. The reader retries;
+    the writer stays atomic.
+    """
+
+    def test_the_writer_still_replaces_atomically(self):
+        service = (Path(DESKTOP_DIR) / "Services" / "SettingsService.cs").read_text(
+            encoding="utf-8")
+        assert "File.Replace(temp, SettingsPath, null)" in service, (
+            "settings must still be written atomically; the reader's retry is "
+            "not a licence to write in place"
+        )
+
+    def test_a_locked_file_is_retried_then_raises(self, tmp_path, monkeypatch):
+        from core import state_verifier
+
+        target = tmp_path / "settings.json"
+        target.write_text("{}", encoding="utf-8")
+
+        calls = {"n": 0}
+        real = Path.read_text
+
+        def flaky(self, *args, **kwargs):
+            if self == target:
+                calls["n"] += 1
+                if calls["n"] < 3:
+                    raise PermissionError(13, "Permission denied")
+            return real(self, *args, **kwargs)
+
+        monkeypatch.setattr(Path, "read_text", flaky)
+        assert state_verifier._read_past_a_replace(target) == "{}"
+        assert calls["n"] == 3, "the read should have been retried, not passed through"
+
+    def test_it_gives_up_rather_than_hanging(self, tmp_path, monkeypatch):
+        target = tmp_path / "settings.json"
+        target.write_text("{}", encoding="utf-8")
+
+        from core import state_verifier
+
+        monkeypatch.setattr(
+            Path, "read_text",
+            lambda self, *a, **k: (_ for _ in ()).throw(PermissionError(13, "denied")))
+        with pytest.raises(PermissionError):
+            state_verifier._read_past_a_replace(target, timeout=0.2)

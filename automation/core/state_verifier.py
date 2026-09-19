@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import ctypes
 import json
+import time
 from ctypes import wintypes
 from dataclasses import dataclass
 from pathlib import Path
@@ -84,7 +85,7 @@ def read_settings(path: Path | None = None) -> dict:
     if not path.exists():
         raise FileNotFoundError(f"settings file not found at {path}")
 
-    envelope = json.loads(path.read_text(encoding="utf-8"))
+    envelope = json.loads(_read_past_a_replace(path))
     payload = envelope.get("Data") or envelope.get("data") or ""
     if not payload:
         raise ValueError("settings envelope has no Data field")
@@ -95,6 +96,37 @@ def read_settings(path: Path | None = None) -> dict:
     protected = envelope.get("Protected", envelope.get("protected", True))
     plain = dpapi_unprotect(raw) if protected else raw
     return json.loads(plain.decode("utf-8"))
+
+
+def _read_past_a_replace(path: Path, timeout: float = 2.0) -> str:
+    """
+    Read a file the app may be swapping out from under us.
+
+    SettingsService.Save writes a .tmp and then File.Replace()s it over
+    settings.json, which is the right way to write settings — but during the
+    replace the destination cannot be opened, and Windows reports that to a
+    reader as a sharing violation, which arrives here as PermissionError. A
+    test that checks settings straight after an action is reading during the
+    write by design, so retry for a moment before giving up.
+
+    Bounded and short on purpose: a file that is still unreadable after two
+    seconds is a real problem and should still fail loudly. A truncated read
+    is covered too — File.Replace is atomic, so an empty or half-written file
+    means we caught the window rather than that the settings are broken.
+    """
+    deadline = time.time() + timeout
+    last: Exception | None = None
+    while True:
+        try:
+            text = path.read_text(encoding="utf-8")
+            if text.strip():
+                return text
+            last = ValueError("settings file was empty mid-write")
+        except (PermissionError, OSError) as exc:
+            last = exc
+        if time.time() >= deadline:
+            raise last if last else OSError(f"could not read {path}")
+        time.sleep(0.05)
 
 
 def settings_is_encrypted(path: Path | None = None) -> VerificationResult:
