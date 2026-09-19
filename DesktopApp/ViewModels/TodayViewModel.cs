@@ -518,6 +518,32 @@ public class TodayViewModel : ViewModelBase
     private string _streakText = "0 days";
     public string StreakText { get => _streakText; private set => Set(ref _streakText, value); }
 
+    // ----------------------------------------------------------- daily goal
+
+    /// <summary>
+    /// Guards the settle-on-refresh save. The first call comes from the
+    /// constructor, before the window exists; the result is recomputed
+    /// identically on the next launch, so skipping that one write is safe.
+    /// </summary>
+    private bool _settledOnce;
+
+    private bool _goalVisible;
+    /// <summary>False when no goal is set, which hides the bar entirely (F15).</summary>
+    public bool GoalVisible { get => _goalVisible; private set => Set(ref _goalVisible, value); }
+
+    private string _goalProgressText = "";
+    public string GoalProgressText { get => _goalProgressText; private set => Set(ref _goalProgressText, value); }
+
+    private double _goalFraction;
+    public double GoalFraction { get => _goalFraction; private set => Set(ref _goalFraction, value); }
+
+    private bool _goalMetToday;
+    public bool GoalMetToday { get => _goalMetToday; private set => Set(ref _goalMetToday, value); }
+
+    private string _goalNoteText = "";
+    /// <summary>"Goal met" or "Day off" beside the bar; empty while it's in progress.</summary>
+    public string GoalNoteText { get => _goalNoteText; private set => Set(ref _goalNoteText, value); }
+
     // -------------------------------------------------------------- actions
 
     public void TogglePrimary()
@@ -834,17 +860,13 @@ public class TodayViewModel : ViewModelBase
             var weight = Math.Clamp(session.PlannedMinutes / 25.0, 0.5, 3.0);
             S.MomentumScore = Math.Round(S.MomentumScore + 10 * weight, 1);
 
-            if (S.LastSessionDayLocal is null) S.CurrentStreak = 1;
-            else
-            {
-                var gap = (today - S.LastSessionDayLocal.Value.Date).Days;
-                S.CurrentStreak = gap switch
-                {
-                    0 => Math.Max(S.CurrentStreak, 1),
-                    1 => S.CurrentStreak + 1,
-                    _ => 1,
-                };
-            }
+            // The streak is settled rather than nudged: with a daily goal, the
+            // day counts when the goal is met, not on its first sprint, and a
+            // missed day has to break the streak even though no sprint ran to
+            // notice (F15). With no goal set this lands on the old behaviour.
+            if (DailyGoal.NoteProgress(S, today) && DailyGoal.IsSet(S))
+                _main.Toast("Daily goal met.");
+
             S.LastSessionDayLocal = today;
         }
         else
@@ -890,10 +912,39 @@ public class TodayViewModel : ViewModelBase
         // lifetime total was being shown under a "TODAY" heading.
         BlocksToday = S.BlocksTodayCurrent;
 
+        // Catches the day rolling over while the app is open, and the first
+        // refresh after launch — the two moments a missed day becomes visible
+        // without a sprint to trigger it (F15). Only writes on the rare pass
+        // that actually moves the streak.
+        if (DailyGoal.Settle(S, today) && _settledOnce) _main.SaveSettings();
+        _settledOnce = true;
+
         MomentumText = S.MomentumScore.ToString("0");
         StreakText = S.CurrentStreak == 1 ? "1 day" : $"{S.CurrentStreak} days";
+        RefreshGoal(today);
         Raise(nameof(SealedRestartHintVisible));
         Raise(nameof(SoftHardKillHintVisible));
+    }
+
+    /// <summary>Updates the daily goal bar, or hides it when no goal is set.</summary>
+    private void RefreshGoal(DateTime today)
+    {
+        GoalVisible = DailyGoal.IsSet(S);
+        if (!GoalVisible)
+        {
+            GoalProgressText = "";
+            GoalNoteText = "";
+            GoalFraction = 0;
+            GoalMetToday = false;
+            return;
+        }
+
+        GoalProgressText = DailyGoal.ProgressText(S, today);
+        GoalFraction = DailyGoal.Fraction(S, today);
+        GoalMetToday = DailyGoal.MetOn(S, today);
+        GoalNoteText = DailyGoal.IsSkipped(S, today) ? "Day off"
+            : GoalMetToday ? "Goal met"
+            : "";
     }
 
     /// <summary>Called when access changes (purchase, deactivation, trial ending).</summary>

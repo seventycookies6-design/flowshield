@@ -988,3 +988,114 @@ class TestActivationLinks:
             assert app.current_page_title() == "Today"
         finally:
             app.close_app()
+
+
+# =========================================================== daily goal (F15)
+
+class TestDailyGoal:
+    """
+    F15: an optional daily goal, a bar on Today, and a streak that only counts
+    days the goal was met.
+    """
+
+    def test_no_goal_is_set_on_a_fresh_install(self, fresh_app):
+        fresh_app.navigate_to_tab("Settings")
+        assert fresh_app.is_selected("GoalOffRadio") is True, \
+            "the goal is opt-in; a new install must not start with one"
+
+    def test_the_bar_is_absent_until_a_goal_is_set(self, fresh_app):
+        fresh_app.navigate_to_tab("Today")
+        # The ProgressBar, not the StackPanel around it: WPF does not surface a
+        # bare panel as a UIA element, so asserting on the panel passes whether
+        # the bar is there or not.
+        assert fresh_app.exists("DailyGoalBar") is False, \
+            "a goal-less user must not see an empty progress bar"
+
+    def test_choosing_sprints_offers_a_target_and_saves_it(self, fresh_app):
+        fresh_app.navigate_to_tab("Settings")
+        fresh_app.choose("GoalSprintsRadio")
+        time.sleep(0.8)
+
+        settings = verify.read_settings()
+        assert settings["DailyGoalKind"] in (2, "Sprints")
+        assert settings["DailyGoalTarget"] == 3, "picking sprints must land on a usable default"
+        assert "sprints" in fresh_app.text_of("GoalUnitLabel").lower()
+
+    def test_switching_kind_does_not_carry_the_number_across(self, fresh_app):
+        fresh_app.navigate_to_tab("Settings")
+        fresh_app.choose("GoalMinutesRadio")
+        time.sleep(0.6)
+        assert verify.read_settings()["DailyGoalTarget"] == 90
+
+        fresh_app.choose("GoalSprintsRadio")
+        time.sleep(0.6)
+        assert verify.read_settings()["DailyGoalTarget"] == 3, \
+            "90 minutes is a normal day; 90 sprints is nobody's day"
+
+    def test_a_target_out_of_range_is_reported_and_not_saved(self, fresh_app):
+        fresh_app.navigate_to_tab("Settings")
+        fresh_app.choose("GoalSprintsRadio")
+        time.sleep(0.6)
+
+        fresh_app.set_text("GoalTargetInput", "999")
+        time.sleep(0.6)
+
+        assert fresh_app.exists("GoalTargetError") is True
+        assert verify.read_settings()["DailyGoalTarget"] == 3, \
+            "an out-of-range target must be refused, not silently clamped into the file"
+
+    def test_the_bar_appears_on_today_once_a_goal_exists(self, fresh_app):
+        fresh_app.navigate_to_tab("Settings")
+        fresh_app.choose("GoalSprintsRadio")
+        time.sleep(0.6)
+
+        fresh_app.navigate_to_tab("Today")
+        assert fresh_app.exists("DailyGoalBar") is True
+        assert "/ 3 sprints" in fresh_app.text_of("DailyGoalProgressText")
+
+    def test_finishing_a_sprint_moves_the_bar(self, fresh_app):
+        fresh_app.navigate_to_tab("Settings")
+        fresh_app.choose("GoalSprintsRadio")
+        time.sleep(0.6)
+        fresh_app.set_text("GoalTargetInput", "2")
+        time.sleep(0.6)
+
+        fresh_app.navigate_to_tab("Today")
+        assert fresh_app.text_of("DailyGoalProgressText").startswith("0 /")
+
+        fresh_app.select_sprint_length(15)
+        fresh_app.start_sprint()
+        time.sleep(1.0)
+        fresh_app.stop_sprint()
+        time.sleep(1.0)
+
+        # Ending early does not complete a sprint, so a sprint-counted goal
+        # stays where it was. This is the same rule the Today tile uses.
+        assert fresh_app.text_of("DailyGoalProgressText").startswith("0 /")
+
+    def test_taking_a_day_off_is_offered_once_a_week(self, fresh_app):
+        fresh_app.navigate_to_tab("Settings")
+        fresh_app.choose("GoalSprintsRadio")
+        time.sleep(0.6)
+
+        assert "1 day off left" in fresh_app.text_of("SkipRemainingText")
+        fresh_app.click("SkipTodayButton")
+        time.sleep(0.8)
+
+        assert "0 days off left" in fresh_app.text_of("SkipRemainingText")
+        assert len(verify.read_settings()["SkipDatesLocal"]) == 1
+
+        fresh_app.navigate_to_tab("Today")
+        assert fresh_app.text_of("DailyGoalNote") == "Day off"
+
+    def test_a_day_off_can_be_taken_back(self, fresh_app):
+        fresh_app.navigate_to_tab("Settings")
+        fresh_app.choose("GoalSprintsRadio")
+        time.sleep(0.6)
+        fresh_app.click("SkipTodayButton")
+        time.sleep(0.8)
+        fresh_app.click("SkipTodayButton")
+        time.sleep(0.8)
+
+        assert "1 day off left" in fresh_app.text_of("SkipRemainingText")
+        assert verify.read_settings()["SkipDatesLocal"] == []

@@ -270,6 +270,26 @@ public class AppSettings
     public int CurrentStreak { get; set; }
     public DateTime? LastSessionDayLocal { get; set; }
 
+    // ---- daily goal (F15) -----------------------------------------------
+
+    /// <summary>What the daily goal is measured in, or None for no goal.</summary>
+    public DailyGoalKind DailyGoalKind { get; set; } = DailyGoalKind.None;
+
+    /// <summary>Minutes or sprints wanted per day. Meaningless when the kind is None.</summary>
+    public int DailyGoalTarget { get; set; }
+
+    /// <summary>
+    /// The last day the streak was brought up to date. Without it a missed day
+    /// is never noticed, because nothing runs on a day you don't focus.
+    /// </summary>
+    public DateTime? StreakSettledDayLocal { get; set; }
+
+    /// <summary>The last day the goal was met, so the streak ticks once, not per sprint.</summary>
+    public DateTime? GoalMetDayLocal { get; set; }
+
+    /// <summary>Planned days off. See <see cref="DailyGoal.SkipsPerWeek"/>.</summary>
+    public List<DateTime> SkipDatesLocal { get; set; } = new();
+
     /// <summary>
     /// Enforcement actions taken today, with the day they belong to.
     ///

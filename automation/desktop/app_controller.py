@@ -462,6 +462,33 @@ class DesktopController:
 
         time.sleep(0.35)
 
+    def choose(self, auto_id: str) -> None:
+        """
+        Pick a radio button.
+
+        click() cannot do this safely. A RadioButton exposes SelectionItem, not
+        Invoke, so click()'s off-screen fallback (invoke, then click_input) has
+        no working first branch: invoke raises, and the synthesised click lands
+        wherever the control would be if the page were scrolled there. That is
+        silent — the test then asserts against a setting nothing ever changed.
+        Selecting through the pattern works regardless of scroll position.
+        """
+        control = self.element(auto_id)
+        self._wait_ready(control)
+        control = self._scroll_into_view(control, auto_id)
+        try:
+            control.iface_selection_item.Select()
+        except Exception:
+            control.click_input()
+        time.sleep(0.35)
+
+    def is_selected(self, auto_id: str) -> bool:
+        """Whether a radio button is the chosen one. Radios have no toggle state."""
+        try:
+            return bool(self.element(auto_id).is_selected())
+        except Exception:
+            return False
+
     def text_of(self, auto_id: str, timeout: float | None = None) -> str:
         """
         Read a control's text.

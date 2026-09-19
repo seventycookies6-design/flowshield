@@ -40,6 +40,7 @@
     <inf:ShieldRomanConverter x:Key="ShieldRoman"/>
     <inf:ProgressToDashConverter x:Key="ProgressDash" Radius="92" Thickness="12"/>
     <inf:PositiveToVisibilityConverter x:Key="PositiveVis"/>
+    <inf:NonEmptyToVisibilityConverter x:Key="NonEmptyVis"/>
 
     <!-- ========================================================= typography -->
 
@@ -420,6 +421,38 @@
                             <Setter TargetName="bd" Property="Background" Value="{StaticResource PrimarySoft}"/>
                             <Setter Property="Foreground" Value="{StaticResource Ink}"/>
                         </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ===================================================== daily goal bar -->
+
+    <!-- A thin track that fills as the day's goal is met (F15). The default
+         WPF ProgressBar template carries a gloss overlay and animated flare
+         that belong to a different decade; this is a rounded track and fill,
+         and nothing else. Turns green once the goal is met, so the state is
+         not carried by width alone. -->
+    <Style x:Key="GoalBar" TargetType="ProgressBar">
+        <Setter Property="Foreground" Value="{StaticResource Primary}"/>
+        <Setter Property="Background" Value="{StaticResource Track}"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ProgressBar">
+                    <Grid>
+                        <Border CornerRadius="3" Background="{TemplateBinding Background}"/>
+                        <Border x:Name="PART_Track"/>
+                        <Border x:Name="PART_Indicator" CornerRadius="3"
+                                HorizontalAlignment="Left"
+                                Background="{TemplateBinding Foreground}"/>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <DataTrigger Binding="{Binding GoalMetToday}" Value="True">
+                            <Setter TargetName="PART_Indicator" Property="Background"
+                                    Value="{StaticResource Green}"/>
+                        </DataTrigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
             </Setter.Value>
