@@ -2183,7 +2183,7 @@ class TestHonestLimitsAndPriceComparison:
     def test_the_limits_are_stated_plainly(self):
         lower = self._faq().lower()
         for phrase in (
-            "not yet",            # websites inside the browser
+            "not today",          # websites inside the browser, and the platform
             "windows 10 and 11",  # the only platform
             "no mac app",
             "no browser extension",
