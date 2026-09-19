@@ -72,7 +72,7 @@ Carried over from the handoff, and still binding:
 - **Never type secrets into any field or print them in chat.** Get dashboards
   ready and let the owner paste.
 - **Never commit** `.stripe_keys.json`, `*.db`, `node_modules/`, `bin/`, `obj/`,
-  `dist/`, `logs/`, `reports/` or `screenshots/`.
+  `dist/`, `logs/`, `reports/` or `screenshots/` — except `reports/vm/`, the shared VM test results, which are committed on purpose.
 - **Don't archive or delete the old "Focus Unlock Pro" product** in Stripe.
 - **Don't edit text files with PowerShell** `Get-Content`/`Set-Content`. Use the
   file edit tools; `python tools/fix_mojibake.py <file>` repairs damage.

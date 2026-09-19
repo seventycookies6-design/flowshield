@@ -141,7 +141,7 @@ forgotten twice.
   is shared between people privately (a password manager), never through git
   or chat. Dashboards that need a secret get prepared, then a person pastes it.
 - **Never commit** `.stripe_keys.json`, `*.db`, `node_modules/`, `bin/`, `obj/`,
-  `dist/`, `logs/`, `reports/` or `screenshots/`.
+  `dist/`, `logs/`, `reports/` or `screenshots/` — except `reports/vm/`, the shared VM test results, which are committed on purpose.
 - **Don't edit text files with PowerShell** `Get-Content`/`Set-Content`; it has
   corrupted UTF-8 here before. Use file edit tools. `python tools/fix_mojibake.py
   <file>` repairs damage.
