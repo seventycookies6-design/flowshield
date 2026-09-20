@@ -132,7 +132,7 @@ roadmap item below has exactly one owner. Tracking issues: #37 (Keenan) and
 | F27 | Real screenshots and a screen recording (Roadmap 6.1) | S |
 | Design §2 | Contrast fixes in the app and site | S |
 | Design §2 | Remove legacy colour aliases and hard-coded colours | S |
-| Design §3 | Embed Syne and Source Sans 3; tabular numbers | S |
+| Design §3 | Embed Inter (one family, app and site); tabular numbers | S |
 | Design §4 | Normalise spacing and corner radii | S |
 | Design §5 | Outline icon set replacing the Unicode glyphs | M |
 | Design §6 | Shield glyphs everywhere | M |

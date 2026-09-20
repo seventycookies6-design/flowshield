@@ -77,7 +77,12 @@ failures measured on 14 September 2026 (see "Contrast" below).
 
 - **No legacy names.** `Violet`, `VioletBright`, `Cyan`, `Glass*`, `Accent` and `WindowBg` are gone from `Theme.xaml`, and `--violet`, `--violet-bright`, `--cyan`, `--grad` and `--glass*` are gone from `styles.css`. Colours are referenced by the token names above and nothing else, so no new code reaches for a colour that no longer means anything. (The site keeps a short alias block — `--bg`, `--ink`, `--edge` and friends — for the legal and success pages; those are token names under a shorter spelling, not dead colours.)
 - **No hard-coded colours in views.** Every colour in XAML and CSS comes from a token. (Today, for example, the lock screen's backdrop is a literal hex value in `MainWindow.xaml`.)
-- **Teal is scarce.** On any screen, teal should mark at most the primary action, the active selection and the timer. If everything is teal, nothing is.
+- **Teal is structural, not decorative.** Teal may appear in as many places as a screen needs, provided it always means one of three things:
+  - **state**: something is on, active or running (an engaged shield, an enabled toggle, the tier badge's trial dot);
+  - **selection**: the current navigation item, the chosen chip, the focused control;
+  - **progress**: the timer ring, progress bars, chart series.
+
+  The primary action is teal because it is the thing that changes state. Nothing is teal just to look branded: no teal headings, dividers, borders, illustrations or background washes. If everything is teal, nothing is. What earns the colour is that it always means the same thing, not that it is rare. (Replaces the earlier "teal is scarce" rule, #147.)
 - **Status colours are for status only.** Amber and rose never decorate. `ok` green is for "done", not for "go".
 - **No gradients, glows or glass.** The purple glows removed in #32 stay gone. Depth comes from surface steps and soft shadows.
 
@@ -103,42 +108,52 @@ Any new token or pairing gets measured the same way before it ships.
 
 ## 3. Typography
 
-### One type system for both
+### One family, everywhere
 
 Today the site uses **Syne** for headings and **Source Sans 3** for text, and
 the app uses **Segoe UI Variable**. That's the most visible difference between
-the two. Use the site's pair everywhere:
+the two. Both are replaced by a single family, **[Inter](https://rsms.me/inter/)**,
+in the app and on the site (decided in #147).
+
+There is no separate display face. Hierarchy comes from size, weight and
+tracking: headings are heavier and tighter, body text is regular and open.
+This is how Linear and Raycast work, and it matches the "instrument" idea in
+section 1: one precise voice, not two competing ones.
 
 | Role | Font | Where |
 | --- | --- | --- |
-| Display | **Syne** 600–700 | Site hero and section headings; the app's page titles and the lock screen headline. Never body text, never numbers. |
-| Text and UI | **Source Sans 3** 400/600 | Everything else, in both. |
-| Numbers | **Source Sans 3** with tabular figures (`font-variant-numeric: tabular-nums`; `Typography.NumeralAlignment="Tabular"` in WPF) | The timer, stats, prices, momentum, so digits don't jiggle as they change. |
+| Headings | **Inter** 600–700, negative tracking (see scale) | Site hero and section headings; the app's page titles and the lock screen headline. |
+| Text and UI | **Inter** 400/500/600 | Everything else, in both. |
+| Numbers | **Inter** with tabular figures (`font-variant-numeric: tabular-nums`; `Typography.NumeralAlignment="Tabular"` in WPF) | The timer, stats, prices, momentum, so digits don't jiggle as they change. |
 | Licence keys | Cascadia Mono, then Consolas | Keys and anything the user must copy exactly. |
 
-- **Fallback** in both: `Segoe UI`, then `system-ui`.
-- **In the app:** embed both fonts as resources in `DesktopApp`. Both are SIL Open Font License, which permits bundling; keep the licence text alongside them. Don't depend on Google Fonts at runtime.
-- **On the site:** keep the Google Fonts link, but add `font-display: swap` fallbacks tuned so text doesn't shift when the web font loads.
+- **Fallback** in both: `Segoe UI Variable`, `Segoe UI`, then `system-ui`.
+- **In the app:** embed Inter as a resource in `DesktopApp`. It is SIL Open Font License, which permits bundling; keep the licence text (`OFL.txt`) alongside the font files. Don't depend on a web font service at runtime. Embed only the weights the scale uses.
+- **On the site:** serve Inter with `font-display: swap` and a fallback tuned so text doesn't shift when the web font loads. Remove the Syne and Source Sans 3 links once Inter is in.
+- **Tracking** is set per role in the scale below, never ad hoc. In WPF there is no letter-spacing property on `TextBlock`, so heading tracking is approximated there, with weight, or with the static Inter Display cut for `display` and `timer` sizes if that reads closer. Match the site visually rather than numerically.
 
 ### Scale
 
 A shared scale. Sizes are in px for the app; the site uses the matching `rem`
 values in `styles.css` (`--text-*`).
 
-| Token | Size / line height | Weight | Use |
-| --- | --- | --- | --- |
-| `display-xl` | 56 / 60 (site hero) | Syne 700 | Site hero only |
-| `display` | 30 / 36 | Syne 600 | Page titles, lock screen, section headings |
-| `title` | 18 / 24 | Source Sans 600 | Card titles, dialog titles |
-| `body` | 14 / 21 (app), 17 / 27 (site) | 400 | Paragraphs, list items |
-| `label` | 13 / 18 | 600 | Buttons, field labels |
-| `caption` | 12 / 17 | 400 | Hints, timestamps |
-| `eyebrow` | 11 / 14, +8% tracking, uppercase | 600 | Section labels such as "MOMENTUM" |
-| `timer` | 64 / 64, tabular | Source Sans 600 | The sprint countdown |
-| `stat` | 36 / 40, tabular | Source Sans 600 | Momentum, minutes, prices |
+All roles are Inter.
+
+| Token | Size / line height | Weight | Tracking | Use |
+| --- | --- | --- | --- | --- |
+| `display-xl` | 56 / 60 (site hero) | 700 | −3% | Site hero only |
+| `display` | 30 / 36 | 600 | −2% | Page titles, lock screen, section headings |
+| `title` | 18 / 24 | 600 | −1% | Card titles, dialog titles |
+| `body` | 14 / 21 (app), 17 / 27 (site) | 400 | 0 | Paragraphs, list items |
+| `label` | 13 / 18 | 500 | 0 | Buttons, field labels |
+| `caption` | 12 / 17 | 400 | 0 | Hints, timestamps |
+| `eyebrow` | 11 / 14, uppercase | 600 | +6% | Section labels such as "MOMENTUM" |
+| `timer` | 64 / 64, tabular | 600 | −2% | The sprint countdown |
+| `stat` | 36 / 40, tabular | 600 | −1% | Momentum, minutes, prices |
 
 - **Sentence case** everywhere except eyebrows.
-- No more than two weights on one screen.
+- **No more than three weights on one screen** (400, 500 and 600, with 700 reserved for the site hero). With one family, weight does the work a second face used to do, so it gets one more step, used consistently.
+- **Tighter as it gets bigger:** negative tracking only at `title` size and above; small text stays at 0 so it remains legible.
 
 ---
 
@@ -332,6 +347,7 @@ mostly use "licence".)
   - remove the legacy `--violet`, `--cyan` and `--grad` aliases;
   - adopt the icon set and shield glyphs;
   - add the `.btn-quiet` and `.btn-danger` variants;
+  - replace Syne and Source Sans 3 with Inter (section 3);
   - use tabular figures for prices.
 - **Theme toggle:** keep the light/dark toggle; default to the visitor's system setting.
 - **Performance:** the hero must render text and the primary button before any image or video loads. Fonts use `swap`.
@@ -382,7 +398,7 @@ Who owns each task is in `LAUNCH_FEATURE_CHECKLIST.md` → "Who builds what": th
 - [ ] Contrast fixes applied in the app and on the site (section 2).
 - [ ] Legacy colour aliases removed from `Theme.xaml` and `styles.css`.
 - [ ] No hard-coded colours left in app views.
-- [ ] Syne and Source Sans 3 embedded in the app, with tabular figures for numbers (section 3).
+- [ ] Inter embedded in the app and served on the site, replacing Syne, Source Sans 3 and Segoe UI, with tabular figures for numbers (section 3).
 - [ ] Spacing and radii normalised to the scales (section 4).
 - [ ] Icon set adopted, and the Unicode glyphs in navigation replaced (section 5).
 - [ ] Shield glyphs built and used on Today, the site, notifications and the tray (section 6).
