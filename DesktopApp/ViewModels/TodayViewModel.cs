@@ -635,6 +635,73 @@ public class TodayViewModel : ViewModelBase
         else StartSprint();
     }
 
+    // ------------------------------------------- what is already running (F7)
+
+    /// <summary>
+    /// Blocked apps that were already open when Start was pressed.
+    ///
+    /// Empty whenever the panel is not showing.
+    /// </summary>
+    public System.Collections.ObjectModel.ObservableCollection<string> RunningBlockedApps { get; } = new();
+
+    private bool _runningAppsPanelVisible;
+    public bool RunningAppsPanelVisible
+    {
+        get => _runningAppsPanelVisible;
+        private set => Set(ref _runningAppsPanelVisible, value);
+    }
+
+    public string RunningAppsTitle => RunningBlockedApps.Count == 1
+        ? "One blocked app is open"
+        : $"{RunningBlockedApps.Count} blocked apps are open";
+
+    /// <summary>
+    /// What happens to them, in the words of the shield actually selected.
+    ///
+    /// Soft does not close anything, so promising a close there would be a
+    /// lie; at Firm and above the warning is worth being specific about,
+    /// because the point of this panel is the chance to save first.
+    /// </summary>
+    public string RunningAppsExplanation => SelectedShield == ShieldLevel.Soft
+        ? "At Soft they stay open — FlowShield will just note them."
+        : $"They will be asked to close when the sprint starts, with " +
+          $"{GracefulClose.Grace.TotalSeconds:0} seconds to save.";
+
+    private RelayCommand? _closeThemNowCommand;
+    public RelayCommand CloseThemNowCommand =>
+        _closeThemNowCommand ??= new RelayCommand(() => DismissRunningApps(closeThem: true));
+
+    private RelayCommand? _startAnywayCommand;
+    public RelayCommand StartAnywayCommand =>
+        _startAnywayCommand ??= new RelayCommand(() => DismissRunningApps(closeThem: false));
+
+    /// <summary>
+    /// Set while the panel's answer is being acted on, so StartSprint knows not
+    /// to put the panel straight back up.
+    /// </summary>
+    private bool _runningAppsAnswered;
+
+    private void DismissRunningApps(bool closeThem)
+    {
+        if (!RunningAppsPanelVisible) return;
+
+        RunningAppsPanelVisible = false;
+        _runningAppsAnswered = true;
+        Log.Info(closeThem
+            ? $"pre-sprint: closing {RunningBlockedApps.Count} blocked app(s) first"
+            : $"pre-sprint: starting with {RunningBlockedApps.Count} blocked app(s) open");
+
+        // "Close them now" is not a separate closing path: starting the sprint
+        // is what closes them, and it does it the same way as always — warning
+        // first, grace period, then force. The difference the customer asked
+        // for is that they said yes to it.
+        //
+        // "Start anyway" at Soft genuinely leaves them alone; at Firm the
+        // shield still closes them, which is what the shield is for, and the
+        // panel has just told them so.
+        StartSprint();
+    }
+
     private void StartSprint()
     {
         // The terms gate covers the page, but a covered button can still be
@@ -655,6 +722,25 @@ public class TodayViewModel : ViewModelBase
             _main.Toast("Your free trial has ended. Buy FlowShield to start a sprint.");
             return;
         }
+
+        // Say what is about to be closed while there is still time to save
+        // (F7, roadmap 1.8). Asked once per press: answering it calls back in
+        // here, and a second panel would be a loop.
+        if (!_runningAppsAnswered)
+        {
+            var open = _main.Blocker.RunningBlockedApps(S);
+            if (open.Count > 0)
+            {
+                RunningBlockedApps.Clear();
+                foreach (var app in open) RunningBlockedApps.Add(app);
+                Raise(nameof(RunningAppsTitle));
+                Raise(nameof(RunningAppsExplanation));
+                RunningAppsPanelVisible = true;
+                Log.Info($"pre-sprint: {open.Count} blocked app(s) already open");
+                return;
+            }
+        }
+        _runningAppsAnswered = false;
 
         var now = DateTime.UtcNow;
         var intention = (IntentionText ?? "").Trim();

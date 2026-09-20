@@ -1864,3 +1864,63 @@ class TestGracefulClose:
         assert "_closingAt.Remove(gone)" in service, (
             "a half-finished close must not outlive the app it was closing"
         )
+
+
+# ===================== what is already open, before a sprint (F7 / 1.8)
+
+class TestPreSprintRunningApps:
+    """
+    Roadmap 1.8: before a sprint starts, if blocked apps are running, list them
+    and offer Close them now or Start anyway.
+
+    The point is the chance to save, so the wording has to be honest about what
+    each shield will actually do — promising a close at Soft, which closes
+    nothing, would be worse than saying nothing.
+    """
+
+    DESKTOP = Path(SERVER_DIR).parent / "DesktopApp"
+    VM = DESKTOP / "ViewModels" / "TodayViewModel.cs"
+    SERVICE = DESKTOP / "Services" / "AppBlockerService.cs"
+    XAML = DESKTOP / "Views" / "TodayView.xaml"
+
+    def test_the_list_names_each_app_once(self):
+        """
+        Steam runs seven processes. "Steam, Steam, Steam, Steam" is not a list,
+        and it is the same reason #138 counts apps rather than processes.
+        """
+        source = self.SERVICE.read_text(encoding="utf-8")
+        body = source.split("public IReadOnlyList<string> RunningBlockedApps", 1)[1]
+        body = body.split("\n    }", 1)[0]
+        assert "seen.Add(app.DisplayName)" in body
+
+    def test_looking_is_not_enforcing(self):
+        """It runs before the sprint does; it must not close anything."""
+        source = self.SERVICE.read_text(encoding="utf-8")
+        body = source.split("public IReadOnlyList<string> RunningBlockedApps", 1)[1]
+        body = body.split("\n    }", 1)[0]
+        for forbidden in ("Kill(", "CloseMainWindow(", "BeginEnforcing"):
+            assert forbidden not in body, f"the pre-sprint look must not {forbidden}"
+
+    def test_soft_does_not_promise_a_close_it_will_not_do(self):
+        source = self.VM.read_text(encoding="utf-8")
+        explanation = source.split("RunningAppsExplanation =>", 1)[1].split(";", 1)[0]
+        assert "ShieldLevel.Soft" in explanation
+        assert "they stay open" in explanation
+        assert "asked to close" in explanation, "Firm and above say what happens"
+
+    def test_the_panel_offers_both_answers(self):
+        xaml = self.XAML.read_text(encoding="utf-8")
+        for automation_id in ("RunningAppsPanel", "RunningAppsList",
+                              "CloseThemNowButton", "StartAnywayButton"):
+            assert f'AutomationProperties.AutomationId="{automation_id}"' in xaml
+
+    def test_answering_does_not_ask_again(self):
+        """
+        Both answers call back into StartSprint. Without the latch that is a
+        loop: panel, answer, panel, answer.
+        """
+        source = self.VM.read_text(encoding="utf-8")
+        assert "if (!_runningAppsAnswered)" in source
+        assert "_runningAppsAnswered = false;" in source, (
+            "the latch has to reset, or the next sprint is never checked"
+        )

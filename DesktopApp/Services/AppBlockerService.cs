@@ -144,6 +144,52 @@ public class AppBlockerService : IDisposable
         }
     }
 
+    /// <summary>
+    /// Blocked apps that are running right now, by display name (F7,
+    /// roadmap 1.8).
+    ///
+    /// Used before a sprint starts, to tell the customer what is about to be
+    /// closed while they can still do something about it. Read-only: it
+    /// enforces nothing and changes nothing.
+    /// </summary>
+    public IReadOnlyList<string> RunningBlockedApps(AppSettings settings)
+    {
+        var targets = new Dictionary<string, BlockedApp>(StringComparer.OrdinalIgnoreCase);
+        foreach (var app in settings.BlockedApps)
+        {
+            if (!app.IsEnabled) continue;
+            foreach (var processName in app.AllProcessNames) targets[processName] = app;
+        }
+        if (targets.Count == 0) return Array.Empty<string>();
+
+        var found = new List<string>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var process in SafeGetProcesses())
+        {
+            try
+            {
+                var name = process.ProcessName;
+                if (CriticalProcesses.Contains(name)) continue;
+                if (!targets.TryGetValue(name, out var app)) continue;
+                // One line per app, not per process — the same reason #138
+                // counts apps: "Steam, Steam, Steam, Steam" is not a list.
+                if (seen.Add(app.DisplayName)) found.Add(app.DisplayName);
+            }
+            catch
+            {
+                // A process that vanished mid-enumeration is not worth a log line.
+            }
+            finally
+            {
+                process.Dispose();
+            }
+        }
+
+        found.Sort(StringComparer.CurrentCultureIgnoreCase);
+        return found;
+    }
+
     public void BeginEnforcing(ShieldLevel shield)
     {
         lock (_gate)

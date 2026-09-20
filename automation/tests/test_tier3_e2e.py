@@ -134,6 +134,87 @@ class TestBlockedApps:
 
 # ============================================================== sprint flow
 
+class TestPreSprintWarning:
+    """
+    F7 / roadmap 1.8: a blocked app already open is named before the sprint
+    starts, with the choice to close it first or go ahead.
+    """
+
+    TARGET = "flowshield-test-target"
+
+    def _decoy(self, tmp_path):
+        import shutil
+        exe = tmp_path / f"{self.TARGET}.exe"
+        shutil.copy2(Path(os.environ["WINDIR"]) / "System32" / "PING.EXE", exe)
+        return subprocess.Popen(
+            [str(exe), "-n", "300", "127.0.0.1"],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+
+    def _arm(self, app):
+        app.navigate_to_tab("Blocked Apps")
+        assert app.add_blocked_app(self.TARGET)
+        time.sleep(0.6)
+        app.navigate_to_tab("Today")
+        app.choose("Shield_Firm")
+        time.sleep(0.4)
+
+    def test_an_open_blocked_app_is_named_before_the_sprint_starts(self, fresh_app, tmp_path):
+        process = self._decoy(tmp_path)
+        try:
+            self._arm(fresh_app)
+            fresh_app.start_sprint()
+            time.sleep(1.0)
+
+            assert fresh_app.exists("RunningAppsPanel", timeout=5), (
+                "a blocked app was already open and nothing said so"
+            )
+            assert self.TARGET in fresh_app.text_of("RunningAppsList")
+
+            # Nothing has started yet — the panel is a question, not a countdown.
+            assert not fresh_app.exists("StopSprintButton", timeout=1)
+            assert process.poll() is None, "nothing may be closed before the answer"
+        finally:
+            if process.poll() is None:
+                process.kill()
+
+    def test_start_anyway_starts_the_sprint(self, fresh_app, tmp_path):
+        process = self._decoy(tmp_path)
+        try:
+            self._arm(fresh_app)
+            fresh_app.start_sprint()
+            assert fresh_app.exists("RunningAppsPanel", timeout=5)
+
+            fresh_app.click("StartAnywayButton")
+            time.sleep(1.5)
+
+            assert not fresh_app.exists("RunningAppsPanel", timeout=1)
+            assert fresh_app.exists("StopSprintButton", timeout=5), "the sprint should be running"
+        finally:
+            if process.poll() is None:
+                process.kill()
+
+    def test_the_panel_does_not_come_back_after_it_is_answered(self, fresh_app, tmp_path):
+        """
+        Both answers call back into the start path. Without the latch that is a
+        loop the customer cannot get out of.
+        """
+        process = self._decoy(tmp_path)
+        try:
+            self._arm(fresh_app)
+            fresh_app.start_sprint()
+            assert fresh_app.exists("RunningAppsPanel", timeout=5)
+            fresh_app.click("CloseThemNowButton")
+            time.sleep(2.0)
+            assert not fresh_app.exists("RunningAppsPanel", timeout=2), (
+                "answering the panel must not put it straight back up"
+            )
+            assert fresh_app.exists("StopSprintButton", timeout=5)
+        finally:
+            if process.poll() is None:
+                process.kill()
+
+
 class TestFirmWarnsBeforeClosing:
     """
     F7 / roadmap 1.8: Firm asks a blocked app to close, gives it a few seconds
