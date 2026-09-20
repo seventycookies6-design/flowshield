@@ -844,7 +844,9 @@ class DesktopController:
         if not confirm_open_apps:
             return
 
-        if self.exists("RunningAppsPanel", timeout=2):
+        # Probed on the button, not the panel: the panel is a Border, which
+        # UI Automation does not surface at all.
+        if self.exists("StartAnywayButton", timeout=2):
             self._say("blocked apps were already open — answering with 'Start anyway'")
             self.click("StartAnywayButton")
             time.sleep(0.5)

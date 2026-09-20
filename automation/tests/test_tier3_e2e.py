@@ -166,7 +166,7 @@ class TestPreSprintWarning:
             fresh_app.start_sprint(confirm_open_apps=False)
             time.sleep(1.0)
 
-            assert fresh_app.exists("RunningAppsPanel", timeout=5), (
+            assert fresh_app.exists("RunningAppsTitle", timeout=5), (
                 "a blocked app was already open and nothing said so"
             )
             assert self.TARGET in fresh_app.text_of("RunningAppsList")
@@ -183,12 +183,12 @@ class TestPreSprintWarning:
         try:
             self._arm(fresh_app)
             fresh_app.start_sprint(confirm_open_apps=False)
-            assert fresh_app.exists("RunningAppsPanel", timeout=5)
+            assert fresh_app.exists("RunningAppsTitle", timeout=5)
 
             fresh_app.click("StartAnywayButton")
             time.sleep(1.5)
 
-            assert not fresh_app.exists("RunningAppsPanel", timeout=1)
+            assert not fresh_app.exists("RunningAppsTitle", timeout=1)
             assert fresh_app.exists("StopSprintButton", timeout=5), "the sprint should be running"
         finally:
             if process.poll() is None:
@@ -203,10 +203,10 @@ class TestPreSprintWarning:
         try:
             self._arm(fresh_app)
             fresh_app.start_sprint(confirm_open_apps=False)
-            assert fresh_app.exists("RunningAppsPanel", timeout=5)
+            assert fresh_app.exists("RunningAppsTitle", timeout=5)
             fresh_app.click("CloseThemNowButton")
             time.sleep(2.0)
-            assert not fresh_app.exists("RunningAppsPanel", timeout=2), (
+            assert not fresh_app.exists("RunningAppsTitle", timeout=2), (
                 "answering the panel must not put it straight back up"
             )
             assert fresh_app.exists("StopSprintButton", timeout=5)

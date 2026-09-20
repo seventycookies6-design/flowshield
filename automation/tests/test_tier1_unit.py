@@ -1910,9 +1910,25 @@ class TestPreSprintRunningApps:
 
     def test_the_panel_offers_both_answers(self):
         xaml = self.XAML.read_text(encoding="utf-8")
-        for automation_id in ("RunningAppsPanel", "RunningAppsList",
+        for automation_id in ("RunningAppsTitle", "RunningAppsList",
                               "CloseThemNowButton", "StartAnywayButton"):
             assert f'AutomationProperties.AutomationId="{automation_id}"' in xaml
+
+    def test_the_panel_puts_no_id_where_nothing_can_find_it(self):
+        """
+        A Border is not surfaced to UI Automation. An id on one can never be
+        resolved, which cost a whole VM run: the panel opened, exists() said it
+        had not, and the driver never answered it.
+        """
+        xaml = self.XAML.read_text(encoding="utf-8")
+        panel = xaml.split("What is already open, before the shield goes up", 1)[1]
+        panel = panel.split("</Border>", 1)[0]
+        for tag in ("<Border", "<StackPanel", "<ItemsControl"):
+            for element in panel.split(tag)[1:]:
+                head = element.split(">", 1)[0]
+                assert "AutomationProperties.AutomationId" not in head, (
+                    f"an AutomationId is on a {tag[1:]}, where nothing can find it"
+                )
 
     def test_answering_does_not_ask_again(self):
         """

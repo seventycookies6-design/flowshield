@@ -651,6 +651,16 @@ public class TodayViewModel : ViewModelBase
         private set => Set(ref _runningAppsPanelVisible, value);
     }
 
+    /// <summary>
+    /// The apps themselves, on one line.
+    ///
+    /// A TextBlock rather than a list of them: a Border, a StackPanel and an
+    /// ItemsControl's generated rows are not surfaced to UI Automation, so a
+    /// list nobody can read back is a list no test can check and no screen
+    /// reader can announce.
+    /// </summary>
+    public string RunningAppsSummary => string.Join(", ", RunningBlockedApps);
+
     public string RunningAppsTitle => RunningBlockedApps.Count == 1
         ? "One blocked app is open"
         : $"{RunningBlockedApps.Count} blocked apps are open";
@@ -734,6 +744,7 @@ public class TodayViewModel : ViewModelBase
                 RunningBlockedApps.Clear();
                 foreach (var app in open) RunningBlockedApps.Add(app);
                 Raise(nameof(RunningAppsTitle));
+                Raise(nameof(RunningAppsSummary));
                 Raise(nameof(RunningAppsExplanation));
                 RunningAppsPanelVisible = true;
                 Log.Info($"pre-sprint: {open.Count} blocked app(s) already open");
