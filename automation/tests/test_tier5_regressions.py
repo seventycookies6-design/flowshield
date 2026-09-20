@@ -2131,6 +2131,48 @@ class TestSprintIntentionGuard:
             "cancelling must clear the input so a stale intention is not captured by the next sprint"
 
 
+class TestDistractionCountIsPerApp:
+    """
+    #138: "Distractions blocked" counts apps, not processes.
+
+    The bug was invisible until a real multi-process app was put in front of
+    the blocker — Steam runs seven, and closing it once read as seven
+    distractions. The behaviour is covered end to end in tier 3; these guard
+    the two halves that are easy to undo by accident.
+    """
+
+    SERVICE = Path(DESKTOP_DIR) / "Services" / "AppBlockerService.cs"
+
+    def test_every_process_is_still_closed(self):
+        """
+        The fix deduplicates *reporting*, never enforcement. An app whose helper
+        survives because the count said "already seen" would be a far worse bug
+        than the one being fixed.
+        """
+        source = self.SERVICE.read_text(encoding="utf-8")
+        sweep = source.split("foreach (var process in SafeGetProcesses())", 1)[1]
+        kill = sweep.index("process.Kill(")
+        dedupe = sweep.index("_present.Add(")
+        assert kill < dedupe, (
+            "the per-app check must come after the kill, or a second process "
+            "of an app already counted would never be closed"
+        )
+
+    def test_an_app_that_goes_away_can_count_again(self):
+        source = self.SERVICE.read_text(encoding="utf-8")
+        assert "_present.IntersectWith(seen)" in source, (
+            "entries with nothing running must be forgotten, or reopening a "
+            "blocked app would never count as a fresh distraction"
+        )
+
+    def test_the_counter_is_reset_when_enforcement_starts_and_stops(self):
+        source = self.SERVICE.read_text(encoding="utf-8")
+        for method in ("BeginEnforcing", "StopEnforcing"):
+            body = source.split(f"public void {method}(", 1)[1]
+            body = body.split("    }", 1)[0]
+            assert "_present.Clear();" in body, f"{method} must clear the seen set"
+
+
 class TestPerAppSwitchGuard:
     """
     The per-app on/off switch is a second way to edit the blocklist, so it must
