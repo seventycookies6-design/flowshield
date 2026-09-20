@@ -2492,6 +2492,135 @@ class TestDownloadGuidePanel:
 
 # ============ phone visitors get a menu and a copyable download link (roadmap 6.4)
 
+class TestProductCaptures:
+    """
+    F27: the site shows the real app. DESIGN_SYSTEM.md 10 sets the rules —
+    real product only, a surface frame at radius 14 with a soft shadow, never a
+    fake device frame — and 11 adds that the hero must render before any media.
+
+    These check the markup and the asset budget. Whether the screenshots make
+    the product look good is a human's call and always will be.
+    """
+
+    MEDIA = Path(WEBSITE_DIR) / "media"
+
+    def _section(self):
+        site = (Path(WEBSITE_DIR) / "index.html").read_text(encoding="utf-8")
+        assert 'id="see-it"' in site, "the captures section is missing"
+        return site.split('id="see-it"', 1)[1].split("</section>", 1)[0]
+
+    def test_every_capture_referenced_exists(self):
+        import re
+        for src in re.findall(r'src="(media/[^"]+)"', self._section()):
+            assert (Path(WEBSITE_DIR) / src).exists(), f"{src} is referenced but missing"
+
+    def test_every_image_has_real_alt_text(self):
+        import re
+        images = re.findall(r"<img[^>]*>", self._section(), re.S)
+        assert images, "the section has no screenshots"
+        for tag in images:
+            alt = re.search(r'alt="([^"]*)"', tag, re.S)
+            assert alt, f"an image has no alt attribute: {tag[:80]}"
+            assert len(" ".join(alt.group(1).split())) > 25, (
+                "alt text has to describe the screen, not just name it"
+            )
+
+    def test_images_are_lazy_and_reserve_their_space(self):
+        import re
+        for tag in re.findall(r"<img[^>]*>", self._section(), re.S):
+            assert 'loading="lazy"' in tag, "captures must not block the page"
+            assert "width=" in tag and "height=" in tag, (
+                "give every image its size so the page does not jump"
+            )
+
+    def test_no_fake_device_frames(self):
+        """
+        Checks the markup, not the prose: the copy is allowed to say "not a
+        mock-up", which is rather the point of the section.
+        """
+        import re
+        section = self._section()
+        attributes = " ".join(
+            re.findall(r'(?:class|src|id)="([^"]*)"', section)
+        ).lower()
+        for banned in ("laptop", "macbook", "iphone", "device-frame", "mockup", "mock-up"):
+            assert banned not in attributes, f"DESIGN_SYSTEM 10 forbids a {banned} frame"
+
+    def test_the_frame_follows_the_design_system(self):
+        css = (Path(WEBSITE_DIR) / "styles.css").read_text(encoding="utf-8")
+        frame = css.split(".shot {", 1)[1].split("}", 1)[0]
+        assert "var(--color-surface)" in frame
+        assert "var(--radius)" in frame, "radius 14 comes from the token"
+        assert "var(--shadow-soft)" in frame
+
+    def test_the_captures_stay_within_a_sensible_budget(self):
+        """
+        DESIGN_SYSTEM 11: the hero renders before any media. Lazy loading does
+        the work, but a page of multi-megabyte PNGs is still rude on a phone.
+        """
+        if not self.MEDIA.exists():
+            pytest.skip("no media directory yet")
+        total = 0
+        for asset in self.MEDIA.glob("*.png"):
+            size = asset.stat().st_size
+            assert size < 900_000, f"{asset.name} is {size / 1000:.0f} kB; compress it"
+            total += size
+        assert total < 3_000_000, f"the captures total {total / 1000:.0f} kB"
+
+    def test_the_recording_is_silent_looping_and_inline(self):
+        """DESIGN_SYSTEM.md 10: muted, looping, a poster, playsinline."""
+        section = self._section()
+        video = section.split("<video", 1)[1].split(">", 1)[0]
+        for attribute in ("muted", "loop", "playsinline", "poster="):
+            assert attribute in video, f"the recording must set {attribute}"
+        assert "controls" not in video, "a looping silent demo needs no controls by default"
+        assert "<audio" not in section
+        assert "autoplay" not in video, (
+            "autoplay belongs to the reduced-motion script, not the markup"
+        )
+
+    def test_the_recording_honours_reduced_motion(self):
+        """
+        DESIGN_SYSTEM.md 8: with reduced motion on, the video shows its poster
+        frame instead of playing. There is no HTML or CSS way to make autoplay
+        conditional, so a script decides — and this checks the script exists and
+        keys off the right query.
+        """
+        site = (Path(WEBSITE_DIR) / "index.html").read_text(encoding="utf-8")
+        assert "prefers-reduced-motion: reduce" in site
+        script = site.split("prefers-reduced-motion: reduce", 1)[1][:600]
+        assert ".pause()" in script, "reduced motion has to stop the video"
+
+    def test_the_recording_is_described_for_people_who_cannot_see_it(self):
+        section = self._section()
+        assert "aria-describedby" in section
+        described = section.split('id="shield-demo-description"', 1)[1].split("</p>", 1)[0]
+        assert len(" ".join(described.split())) > 80, (
+            "a silent demo needs a description that says what happens in it"
+        )
+
+    def test_the_recording_stays_inside_the_size_budget(self):
+        """DESIGN_SYSTEM.md 10: about 2 MB on desktop, 1 MB on mobile."""
+        if not self.MEDIA.exists():
+            pytest.skip("no media directory yet")
+        for clip in list(self.MEDIA.glob("*.webm")) + list(self.MEDIA.glob("*.mp4")):
+            size = clip.stat().st_size
+            assert size < 2_000_000, f"{clip.name} is {size / 1000:.0f} kB"
+
+    def test_the_recording_does_not_load_before_the_page(self):
+        video = self._section().split("<video", 1)[1].split(">", 1)[0]
+        assert 'preload="none"' in video, (
+            "DESIGN_SYSTEM.md 11: the hero renders before any media loads"
+        )
+
+    def test_the_hero_still_comes_first(self):
+        site = (Path(WEBSITE_DIR) / "index.html").read_text(encoding="utf-8")
+        hero = site.index('<section class="hero"')
+        captures = site.index('id="see-it"')
+        assert hero < captures, "the captures must not displace the hero"
+        assert "media/" not in site[:hero], "no product media above the hero"
+
+
 class TestPhoneVisitorMarkup:
     """
     Roadmap 6.4: on small screens the nav collapses behind a hamburger and the
