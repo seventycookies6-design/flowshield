@@ -169,7 +169,9 @@ class TestPreSprintWarning:
             assert fresh_app.exists("RunningAppsTitle", timeout=5), (
                 "a blocked app was already open and nothing said so"
             )
-            assert self.TARGET in fresh_app.text_of("RunningAppsList")
+            # The app title-cases display names, so compare without case.
+            listed = fresh_app.text_of("RunningAppsList")
+            assert self.TARGET.lower() in listed.lower(), listed
 
             # Nothing has started yet — the panel is a question, not a countdown.
             assert not fresh_app.exists("StopSprintButton", timeout=1)
@@ -262,7 +264,7 @@ class TestFirmWarnsBeforeClosing:
                 time.sleep(0.5)
 
             assert warned, "a blocked app must be warned before it is closed"
-            assert self.TARGET in warned, warned
+            assert self.TARGET.lower() in warned.lower(), warned
             assert "Save your work." in warned, warned
 
             # And it is still there while that warning is on screen — which is
