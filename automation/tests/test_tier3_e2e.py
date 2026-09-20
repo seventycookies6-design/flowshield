@@ -163,7 +163,7 @@ class TestPreSprintWarning:
         process = self._decoy(tmp_path)
         try:
             self._arm(fresh_app)
-            fresh_app.start_sprint()
+            fresh_app.start_sprint(confirm_open_apps=False)
             time.sleep(1.0)
 
             assert fresh_app.exists("RunningAppsPanel", timeout=5), (
@@ -182,7 +182,7 @@ class TestPreSprintWarning:
         process = self._decoy(tmp_path)
         try:
             self._arm(fresh_app)
-            fresh_app.start_sprint()
+            fresh_app.start_sprint(confirm_open_apps=False)
             assert fresh_app.exists("RunningAppsPanel", timeout=5)
 
             fresh_app.click("StartAnywayButton")
@@ -202,7 +202,7 @@ class TestPreSprintWarning:
         process = self._decoy(tmp_path)
         try:
             self._arm(fresh_app)
-            fresh_app.start_sprint()
+            fresh_app.start_sprint(confirm_open_apps=False)
             assert fresh_app.exists("RunningAppsPanel", timeout=5)
             fresh_app.click("CloseThemNowButton")
             time.sleep(2.0)

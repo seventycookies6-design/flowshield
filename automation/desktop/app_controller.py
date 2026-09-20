@@ -826,8 +826,28 @@ class DesktopController:
 
     # ------------------------------------------------------------- sprints
 
-    def start_sprint(self) -> None:
+    def start_sprint(self, confirm_open_apps: bool = True) -> None:
+        """
+        Get a sprint running.
+
+        Since F7, pressing Start with a blocked app already open asks about it
+        first rather than starting — so "click Start" and "a sprint is running"
+        stopped being the same thing. Every test that just wants a sprint gets
+        the question answered for it with "Start anyway", which is what those
+        tests meant before the panel existed.
+
+        Tests *about* the panel pass confirm_open_apps=False and drive the
+        buttons themselves; answering it automatically would hide the very
+        thing they are checking.
+        """
         self.click("StartSprintButton")
+        if not confirm_open_apps:
+            return
+
+        if self.exists("RunningAppsPanel", timeout=2):
+            self._say("blocked apps were already open — answering with 'Start anyway'")
+            self.click("StartAnywayButton")
+            time.sleep(0.5)
 
     # Matches EndSprintPolicy with --short-timers: grace 3 s, Firm 2 s, Sealed 3 s.
     SHORT_GRACE_SECONDS = 3.0
