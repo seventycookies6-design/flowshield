@@ -1790,3 +1790,77 @@ class TestMomentumTrendView:
         assert "{Binding TrendVisible, Converter={StaticResource BoolVis}}" in xaml
         vm = (self.DESKTOP / "ViewModels" / "TodayViewModel.cs").read_text(encoding="utf-8")
         assert "TrendVisible = points.Any(p => p.Score > 0);" in vm,             "the chart hides until there is momentum, not merely until there is a sprint"
+
+
+# ============================== graceful close at Firm (F7 / roadmap 1.8)
+
+class TestGracefulClose:
+    """
+    Python mirror of Models/GracefulClose.cs.
+
+    Firm used to call Kill() the instant it saw a blocked app. It now asks the
+    app to close itself, waits, and only forces it if it is still there — which
+    is the difference between losing an essay and being told to save it.
+    """
+
+    DESKTOP = Path(SERVER_DIR).parent / "DesktopApp"
+    MODEL = DESKTOP / "Models" / "GracefulClose.cs"
+
+    GRACE_SECONDS = 10
+    SHORT_GRACE_SECONDS = 2
+
+    @staticmethod
+    def _is_graceful(shield, hard_kill):
+        return not hard_kill and shield >= 2      # 2 = Firm, 3 = Sealed
+
+    def test_soft_never_warns_about_closing_because_it_never_closes(self):
+        assert not self._is_graceful(1, False)
+
+    def test_firm_and_sealed_warn_first(self):
+        assert self._is_graceful(2, False)
+        assert self._is_graceful(3, False)
+
+    def test_hard_kill_stays_instant_at_every_shield(self):
+        """
+        Someone who turned hard kill on asked for no way round it, and ten
+        seconds to alt-tab and save is a way round it.
+        """
+        for shield in (1, 2, 3):
+            assert not self._is_graceful(shield, True)
+
+    def test_the_warning_says_the_app_the_delay_and_what_to_do(self):
+        source = self.MODEL.read_text(encoding="utf-8")
+        warning = source.split("public static string Warning", 1)[1]
+        warning = warning.split("return ", 1)[1].split(";", 1)[0]
+        assert "is blocked" in warning
+        assert "closing in {seconds} s" in warning
+        assert "Save your work." in warning
+
+    def test_the_grace_period_is_ten_seconds_and_two_under_short_timers(self):
+        source = self.MODEL.read_text(encoding="utf-8")
+        assert f"TimeSpan.FromSeconds({self.SHORT_GRACE_SECONDS})" in source
+        assert f"TimeSpan.FromSeconds({self.GRACE_SECONDS})" in source
+        assert "UseShortTimers" in source, "the UI suite cannot wait ten seconds a time"
+
+    def test_the_short_timer_flag_is_wired_to_the_command_line(self):
+        app = (self.DESKTOP / "App.xaml.cs").read_text(encoding="utf-8")
+        assert "Models.GracefulClose.UseShortTimers = true;" in app
+
+    def test_closing_is_asked_for_before_it_is_forced(self):
+        """
+        CloseMainWindow is the same request the window's own close button
+        sends; Kill is not. The order is the whole feature.
+        """
+        service = (self.DESKTOP / "Services" / "AppBlockerService.cs").read_text(
+            encoding="utf-8")
+        sweep = service.split("private void Tick", 1)[1]
+        asked = sweep.index("CloseMainWindow()")
+        forced = sweep.index("_closingAt.Remove(key)")
+        assert asked < forced, "the app must be asked to close before the deadline kills it"
+
+    def test_a_blocked_app_that_goes_away_forgets_its_deadline(self):
+        service = (self.DESKTOP / "Services" / "AppBlockerService.cs").read_text(
+            encoding="utf-8")
+        assert "_closingAt.Remove(gone)" in service, (
+            "a half-finished close must not outlive the app it was closing"
+        )

@@ -386,15 +386,30 @@ public class MainViewModel : ViewModelBase
 
         dispatcher.Invoke(() =>
         {
-            e.App.BlockCount++;
-            Settings.RecordBlock();
-            Today.RecordBlock(e.Terminated);
-            Today.RefreshStats();
-            SaveSettings();
+            // The follow-up kill after a grace period is the same distraction
+            // as the warning that preceded it, so only one of the two counts.
+            if (e.CountsAsDistraction)
+            {
+                e.App.BlockCount++;
+                Settings.RecordBlock();
+                Today.RecordBlock(e.Terminated);
+                Today.RefreshStats();
+                SaveSettings();
+            }
 
-            Toast(e.Terminated
-                ? $"{e.DisplayName} closed by the shield."
-                : $"{e.DisplayName} is on your blocklist.");
+            Toast(e.Outcome switch
+            {
+                BlockOutcome.Closing => GracefulClose.Warning(e.DisplayName),
+                BlockOutcome.Closed => GracefulClose.Closed(e.DisplayName),
+                _ => GracefulClose.Noted(e.DisplayName),
+            });
+
+            // A toast only exists inside FlowShield's own window, which during a
+            // sprint is usually not the window you are looking at — so the one
+            // warning that is worth interrupting for also goes to Windows.
+            if (e.Outcome == BlockOutcome.Closing)
+                Notify(NotificationKind.AppClosing, $"{e.DisplayName} is closing",
+                       GracefulClose.Warning(e.DisplayName), NotificationAction.OpenApp);
         });
     }
 

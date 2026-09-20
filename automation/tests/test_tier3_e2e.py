@@ -134,6 +134,109 @@ class TestBlockedApps:
 
 # ============================================================== sprint flow
 
+class TestFirmWarnsBeforeClosing:
+    """
+    F7 / roadmap 1.8: Firm asks a blocked app to close, gives it a few seconds
+    to save, and only then forces it.
+
+    The suite runs with --short-timers, so the grace period is 2 s rather than
+    10. The point being tested is that a warning happens at all and that the
+    app outlives it briefly — not the exact duration, which is tier 1's job.
+    """
+
+    TARGET = "flowshield-test-target"
+
+    def _decoy(self, tmp_path):
+        import shutil
+        exe = tmp_path / f"{self.TARGET}.exe"
+        shutil.copy2(Path(os.environ["WINDIR"]) / "System32" / "PING.EXE", exe)
+        return subprocess.Popen(
+            [str(exe), "-n", "300", "127.0.0.1"],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+
+    def test_the_app_is_warned_and_survives_the_grace_period(self, fresh_app, tmp_path):
+        process = self._decoy(tmp_path)
+        try:
+            fresh_app.navigate_to_tab("Blocked Apps")
+            assert fresh_app.add_blocked_app(self.TARGET)
+            time.sleep(0.6)
+
+            fresh_app.navigate_to_tab("Today")
+            fresh_app.choose("Shield_Firm")
+            time.sleep(0.4)
+            fresh_app.start_sprint()
+
+            # The warning names the app and says how long there is to save.
+            warned = ""
+            deadline = time.time() + 15
+            while time.time() < deadline:
+                try:
+                    text = fresh_app.text_of("ToastText", timeout=1)
+                except Exception:
+                    text = ""
+                if "closing in" in text:
+                    warned = text
+                    break
+                time.sleep(0.5)
+
+            assert warned, "a blocked app must be warned before it is closed"
+            assert self.TARGET in warned, warned
+            assert "Save your work." in warned, warned
+
+            # And it is still there while that warning is on screen — which is
+            # the entire difference from the old behaviour.
+            assert process.poll() is None, (
+                "the app was killed before its grace period; the warning would "
+                "have been a lie"
+            )
+
+            deadline = time.time() + 25
+            while time.time() < deadline and process.poll() is None:
+                time.sleep(1)
+            assert process.poll() is not None, "the grace period must end in a close"
+        finally:
+            if process.poll() is None:
+                process.kill()
+
+    def test_hard_kill_gives_no_warning(self, fresh_app, tmp_path):
+        """
+        The setting exists so there is no window to slip through. If this ever
+        starts warning, the feature people turned on has quietly gone away.
+        """
+        process = self._decoy(tmp_path)
+        try:
+            fresh_app.navigate_to_tab("Blocked Apps")
+            assert fresh_app.add_blocked_app(self.TARGET)
+            time.sleep(0.4)
+
+            fresh_app.navigate_to_tab("Settings")
+            assert fresh_app.set_toggle("HardKillModeToggle", True) is True
+            time.sleep(0.4)
+
+            fresh_app.navigate_to_tab("Today")
+            fresh_app.choose("Shield_Firm")
+            time.sleep(0.4)
+            fresh_app.start_sprint()
+
+            deadline = time.time() + 20
+            seen = []
+            while time.time() < deadline and process.poll() is None:
+                try:
+                    seen.append(fresh_app.text_of("ToastText", timeout=1))
+                except Exception:
+                    pass
+                time.sleep(0.5)
+
+            assert process.poll() is not None, "hard kill must still close the app"
+            assert not any("closing in" in t for t in seen), (
+                f"hard kill must not warn first; saw {seen}"
+            )
+        finally:
+            if process.poll() is None:
+                process.kill()
+
+
 class TestDistractionsAreCountedPerApp:
     """
     One app closing is one distraction, however many processes it runs.

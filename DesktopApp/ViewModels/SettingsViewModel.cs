@@ -559,6 +559,7 @@ public class SettingsViewModel : ViewModelBase
             Raise(nameof(NotifySprintComplete));
             Raise(nameof(NotifySprintInterrupted));
             Raise(nameof(NotifyTrialEnding));
+            Raise(nameof(NotifyAppClosing));
         }
     }
 
@@ -590,6 +591,12 @@ public class SettingsViewModel : ViewModelBase
     {
         get => IsOn(NotificationKind.TrialEnding);
         set => SetNotification(NotificationKind.TrialEnding, value);
+    }
+
+    public bool NotifyAppClosing
+    {
+        get => IsOn(NotificationKind.AppClosing);
+        set => SetNotification(NotificationKind.AppClosing, value);
     }
 
     private bool IsOn(NotificationKind kind) => _main.Settings.IsNotificationOn(kind);

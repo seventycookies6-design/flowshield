@@ -3,13 +3,34 @@ using FlowShield.Models;
 
 namespace FlowShield.Services;
 
+/// <summary>What the shield did about a blocked app this time (F7).</summary>
+public enum BlockOutcome
+{
+    /// <summary>Soft: noted, nothing closed.</summary>
+    Noted,
+
+    /// <summary>Firm and above: asked to close, with a grace period before the kill.</summary>
+    Closing,
+
+    /// <summary>Gone — it closed itself, or the grace period ran out, or hard kill.</summary>
+    Closed,
+}
+
 public record BlockEvent(
     BlockedApp App,
     string ProcessName,
     string DisplayName,
     ShieldLevel Shield,
     bool Terminated,
-    DateTime AtUtc);
+    DateTime AtUtc,
+    BlockOutcome Outcome = BlockOutcome.Noted,
+
+    /// <summary>
+    /// False for the follow-up kill after a grace period: the sighting was
+    /// already counted when the warning went out, and counting it twice would
+    /// undo #138.
+    /// </summary>
+    bool CountsAsDistraction = true);
 
 /// <summary>
 /// Background watcher that enforces the blocklist while a sprint is running or
@@ -72,6 +93,17 @@ public class AppBlockerService : IDisposable
     /// </summary>
     private readonly HashSet<string> _present = new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// Blocklist entries that have been asked to close, and when their grace
+    /// period runs out (F7, roadmap 1.8).
+    ///
+    /// The sweep already runs every two seconds, so the deadline is checked
+    /// there rather than on a timer per app: fewer moving parts, and an app
+    /// that closes itself in the meantime simply never comes back round.
+    /// </summary>
+    private readonly Dictionary<string, DateTime> _closingAt =
+        new(StringComparer.OrdinalIgnoreCase);
+
     public event EventHandler<BlockEvent>? Blocked;
 
     /// <summary>True while a sprint is running or the sleep window is open.</summary>
@@ -120,6 +152,7 @@ public class AppBlockerService : IDisposable
             ActiveShield = shield;
             _handled.Clear();
             _present.Clear();
+            _closingAt.Clear();
         }
         Log.Info($"blocker enforcing at shield {shield}");
     }
@@ -131,6 +164,7 @@ public class AppBlockerService : IDisposable
             IsEnforcing = false;
             _handled.Clear();
             _present.Clear();
+            _closingAt.Clear();
         }
         Log.Info("blocker stood down");
     }
@@ -182,68 +216,170 @@ public class AppBlockerService : IDisposable
 
         if (targets.Count == 0) return;
 
-        // Which entries are running this sweep, so one that has gone away can
-        // count again the next time it is opened.
-        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        // Grouped by blocklist entry rather than walked process by process.
+        // Closing gracefully is a decision about an *app* — warn once, ask all
+        // of its windows to close, kill whatever is left when the grace period
+        // runs out — and the old per-process loop could not express that: its
+        // pid bookkeeping skipped a process it had already seen, which is
+        // exactly the process the deadline needs to come back and kill.
+        var running = new Dictionary<string, (BlockedApp App, List<Process> Processes)>(
+            StringComparer.OrdinalIgnoreCase);
 
         foreach (var process in SafeGetProcesses())
         {
+            var keep = false;
             try
             {
                 var name = process.ProcessName;
                 if (CriticalProcesses.Contains(name)) continue;
                 if (!targets.TryGetValue(name, out var app)) continue;
 
-                // Recorded before the pid check: an app whose first process was
-                // already handled is still present, and must not be treated as
-                // having gone away.
-                var key = app.DisplayName;
-                seen.Add(key);
-
-                lock (_gate)
+                if (!running.TryGetValue(app.DisplayName, out var entry))
                 {
-                    if (!_handled.Add(process.Id)) continue;
+                    entry = (app, new List<Process>());
+                    running[app.DisplayName] = entry;
                 }
+                entry.Processes.Add(process);
+                keep = true;
+            }
+            catch (Exception ex)
+            {
+                Log.Warn($"could not inspect pid {Safe(() => process.Id)}: {ex.Message}");
+            }
+            finally
+            {
+                if (!keep) process.Dispose();
+            }
+        }
 
-                var terminate = shield >= ShieldLevel.Firm || settings.HardKillModeEnabled;
-                if (terminate)
-                {
-                    process.Kill(entireProcessTree: false);
-                    Log.Info($"terminated blocked process {name} (pid {process.Id}) at shield {shield}");
-                }
-                else
-                {
-                    Log.Info($"nudged blocked process {name} (pid {process.Id}) at shield {shield}");
-                }
+        try
+        {
+            var hardKill = settings.HardKillModeEnabled;
+            var terminate = shield >= ShieldLevel.Firm || hardKill;
+            var graceful = GracefulClose.IsGraceful(shield, hardKill);
+            var now = DateTime.UtcNow;
 
-                // One event per app, not per process. Every process is still
-                // closed above; what is deduplicated is the *reporting*, so
-                // closing Steam once is one distraction rather than seven —
-                // and, at Soft shield, one nudge rather than seven.
+            foreach (var (key, entry) in running)
+            {
+                var app = entry.App;
+                var processes = entry.Processes;
+
                 bool firstSighting;
                 lock (_gate) firstSighting = _present.Add(key);
-                if (!firstSighting) continue;
 
-                // BlockCount is bound to the UI, so it is incremented by the
-                // subscriber on the dispatcher rather than from this thread.
-                EnforcementCount++;
-                Blocked?.Invoke(this,
-                    new BlockEvent(app, name, app.DisplayName, shield, terminate, DateTime.UtcNow));
+                if (!terminate)
+                {
+                    // Soft notes it and leaves it alone.
+                    Log.Info($"nudged blocked app {key} at shield {shield}");
+                    if (firstSighting) Report(app, processes, shield, BlockOutcome.Noted, counts: true);
+                    continue;
+                }
+
+                if (!graceful)
+                {
+                    // Hard kill is instant by design: someone who turned it on
+                    // asked for no way round it, and ten seconds is a way round it.
+                    KillAll(processes, shield);
+                    if (firstSighting) Report(app, processes, shield, BlockOutcome.Closed, counts: true);
+                    continue;
+                }
+
+                DateTime deadline;
+                bool alreadyClosing;
+                lock (_gate) alreadyClosing = _closingAt.TryGetValue(key, out deadline);
+
+                if (!alreadyClosing)
+                {
+                    // Ask first. CloseMainWindow sends the same request the
+                    // window's own close button does, so an app with unsaved
+                    // work gets to put its "save before closing?" prompt up.
+                    foreach (var process in processes)
+                    {
+                        try
+                        {
+                            if (process.CloseMainWindow())
+                                Log.Info($"asked {process.ProcessName} (pid {process.Id}) to close");
+                        }
+                        catch (Exception ex)
+                        {
+                            Log.Warn($"could not ask pid {Safe(() => process.Id)} to close: {ex.Message}");
+                        }
+                    }
+
+                    lock (_gate) _closingAt[key] = now + GracefulClose.Grace;
+                    Log.Info($"{key} blocked at shield {shield}; closing in {GracefulClose.Grace.TotalSeconds:0} s");
+
+                    // Counted here rather than at the kill: the distraction
+                    // happened when the app appeared, and an app that takes the
+                    // hint and closes itself must still count.
+                    if (firstSighting) Report(app, processes, shield, BlockOutcome.Closing, counts: true);
+                    continue;
+                }
+
+                if (now < deadline) continue;   // still saving; leave it alone
+
+                KillAll(processes, shield);
+                lock (_gate) _closingAt.Remove(key);
+                // Not counted again: the sighting was counted when it was warned.
+                Report(app, processes, shield, BlockOutcome.Closed, counts: false);
+            }
+
+            // Entries with nothing running any more are forgotten, so reopening
+            // one counts as a fresh distraction — which is what the label
+            // promises — and a half-finished close never outlives the app.
+            lock (_gate)
+            {
+                _present.IntersectWith(running.Keys);
+                foreach (var gone in _closingAt.Keys.Where(k => !running.ContainsKey(k)).ToList())
+                    _closingAt.Remove(gone);
+            }
+        }
+        finally
+        {
+            foreach (var entry in running.Values)
+                foreach (var process in entry.Processes)
+                    process.Dispose();
+        }
+    }
+
+    private void KillAll(List<Process> processes, ShieldLevel shield)
+    {
+        foreach (var process in processes)
+        {
+            try
+            {
+                if (process.HasExited) continue;
+                process.Kill(entireProcessTree: false);
+                Log.Info($"terminated blocked process {process.ProcessName} (pid {process.Id}) at shield {shield}");
             }
             catch (Exception ex)
             {
                 // Access denied on an elevated process is routine — log and move on.
-                Log.Warn($"could not enforce on pid {Safe(() => process.Id)}: {ex.Message}");
-            }
-            finally
-            {
-                process.Dispose();
+                Log.Warn($"could not close pid {Safe(() => process.Id)}: {ex.Message}");
             }
         }
+    }
 
-        // Entries with nothing running any more are forgotten, so reopening one
-        // counts as a fresh distraction — which is what the label promises.
-        lock (_gate) _present.IntersectWith(seen);
+    private void Report(BlockedApp app, List<Process> processes, ShieldLevel shield,
+                        BlockOutcome outcome, bool counts)
+    {
+        var name = processes.Count > 0 ? SafeName(processes[0]) : app.ProcessName;
+        if (counts) EnforcementCount++;
+
+        // BlockCount is bound to the UI, so it is incremented by the subscriber
+        // on the dispatcher rather than from this thread.
+        Blocked?.Invoke(this, new BlockEvent(
+            app, name, app.DisplayName, shield,
+            Terminated: outcome != BlockOutcome.Noted,
+            AtUtc: DateTime.UtcNow,
+            Outcome: outcome,
+            CountsAsDistraction: counts));
+    }
+
+    private static string SafeName(Process process)
+    {
+        try { return process.ProcessName; }
+        catch { return ""; }
     }
 
     private static IEnumerable<Process> SafeGetProcesses()

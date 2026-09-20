@@ -261,6 +261,17 @@
                             </StackPanel>
                         </CheckBox>
 
+                        <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding NotifyAppClosing}"
+                                  Margin="0,14,0,0"
+                                  AutomationProperties.AutomationId="NotifyAppClosingToggle"
+                                  AutomationProperties.Name="Blocked app closing">
+                            <StackPanel>
+                                <TextBlock Text="A blocked app is closing" Foreground="{StaticResource Ink}" FontSize="13.5"/>
+                                <TextBlock Text="A few seconds' warning before it closes, so you can save."
+                                           Style="{StaticResource Caption}" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </CheckBox>
+
                         <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding NotifyTrialEnding}"
                                   Margin="0,14,0,0"
                                   AutomationProperties.AutomationId="NotifyTrialEndingToggle"
