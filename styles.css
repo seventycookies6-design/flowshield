@@ -321,6 +321,55 @@ html[data-theme="dark"] .theme-toggle .icon-moon { display: block; }
 }
 .btn-block { width: 100%; }
 
+/* ------------------------------------------------------ product captures */
+
+/* DESIGN_SYSTEM.md 10: a screenshot sits in a surface frame at radius 14 with
+   a soft shadow, never a fake laptop or phone frame. */
+
+.shot {
+  margin: 0;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-soft);
+  overflow: hidden;
+}
+
+.shot img,
+.shot video {
+  display: block;
+  width: 100%;
+  height: auto;
+  /* The capture is 1264x872; reserving the ratio keeps the page from
+     jumping as the images arrive. */
+  aspect-ratio: 1264 / 872;
+  background: var(--color-bg);
+}
+
+.shot figcaption {
+  padding: var(--space-4) var(--space-5);
+  border-top: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+/* The recording is 16:9; the screenshots are the app window's own shape. */
+.shot-demo video {
+  aspect-ratio: 16 / 9;
+}
+
+.shot-lead {
+  max-width: 54rem;
+  margin: 0 auto var(--space-6);
+}
+
+.shot-grid {
+  display: grid;
+  gap: var(--space-6);
+  grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+  align-items: start;
+}
+
 /* ----------------------------------------------------------------------- faq */
 
 .price-compare {
