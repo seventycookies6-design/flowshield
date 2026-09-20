@@ -1446,7 +1446,10 @@ class TestDailyGoalSource:
 
     def test_the_bar_is_hidden_when_no_goal_is_set(self):
         xaml = self.TODAY_XAML.read_text(encoding="utf-8")
-        assert 'AutomationProperties.AutomationId="DailyGoalPanel"' in xaml
+        # The panel carries no id of its own (#134): one on a layout panel is
+        # not surfaced to UI Automation. Its children are the handles.
+        assert 'AutomationProperties.AutomationId="DailyGoalPanel"' not in xaml
+        assert 'AutomationProperties.AutomationId="DailyGoalProgressText"' in xaml
         assert "GoalVisible" in xaml, "the panel must bind its visibility to GoalVisible"
 
     def test_the_settings_page_offers_both_kinds_and_a_day_off(self):
