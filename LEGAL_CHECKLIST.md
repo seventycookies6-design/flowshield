@@ -95,7 +95,7 @@ each recorded acceptance tied to wording the person actually saw.
 | 3.3 | "We never see or store your card details" is true | **OK** — Stripe Checkout only; the server stores ids, not cards |
 | 3.4 | "Plus sales tax where it applies, shown at checkout" is true | **GAP** — Stripe Tax is **not** enabled (`automatic_tax` absent in `Server/server.js`), so no tax is shown or charged. Either turn Stripe Tax on or delete the sentence |
 | 3.5 | Competitor comparisons are accurate and dated | **OK for now** — the site names no competitor; `LAUNCH_FEATURE_CHECKLIST.md` requires re-checking a source before any claim (F24's "$30–$60 a year" line is unnamed and safe) |
-| 3.6 | Screenshots show the real product | **OK** — the site uses no fake screenshots today (F27 will add real ones) |
+| 3.6 | Screenshots show the real product | **OK** — the site's screenshots and recording are captures of the real app (added by F27) |
 | 3.7 | No fake reviews, fake testimonials or invented user counts | **OK** — none on the site. **Never add any**: the FTC's 2024 rule makes fake reviews individually finable |
 
 **Why it matters.** This is the most common way a small software business gets
