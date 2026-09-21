@@ -76,7 +76,7 @@
                             AutomationProperties.AutomationId="Tab_Today"
                             AutomationProperties.Name="Today">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="◷" FontSize="15" Width="24" VerticalAlignment="Center"/>
+                            <Path Style="{StaticResource Icon}" Data="{StaticResource IconToday}" Margin="0,0,12,0"/>
                             <TextBlock x:Name="NavTodayLabel" Text="Today" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
@@ -87,7 +87,7 @@
                             AutomationProperties.AutomationId="Tab_BlockedApps"
                             AutomationProperties.Name="Blocked Apps">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="⊘" FontSize="15" Width="24" VerticalAlignment="Center"/>
+                            <Path Style="{StaticResource Icon}" Data="{StaticResource IconBlocked}" Margin="0,0,12,0"/>
                             <TextBlock x:Name="NavBlockedAppsLabel" Text="Blocked Apps" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
@@ -98,7 +98,7 @@
                             AutomationProperties.AutomationId="Tab_SleepBlocking"
                             AutomationProperties.Name="Sleep Blocking">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="☾" FontSize="15" Width="24" VerticalAlignment="Center"/>
+                            <Path Style="{StaticResource Icon}" Data="{StaticResource IconSleep}" Margin="0,0,12,0"/>
                             <TextBlock x:Name="NavSleepBlockingLabel" Text="Sleep Blocking" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
@@ -109,7 +109,7 @@
                             AutomationProperties.AutomationId="Tab_Settings"
                             AutomationProperties.Name="Settings">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="⚙" FontSize="15" Width="24" VerticalAlignment="Center"/>
+                            <Path Style="{StaticResource Icon}" Data="{StaticResource IconSettings}" Margin="0,0,12,0"/>
                             <TextBlock x:Name="NavSettingsLabel" Text="Settings" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>

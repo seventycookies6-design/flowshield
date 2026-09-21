@@ -2820,3 +2820,95 @@ class TestSettingsReadRacesTheAtomicWrite:
             lambda self, *a, **k: (_ for _ in ()).throw(PermissionError(13, "denied")))
         with pytest.raises(PermissionError):
             state_verifier._read_past_a_replace(target, timeout=0.2)
+
+
+
+def _path_points(data: str) -> list[tuple[float, float]]:
+    """
+    The on-curve points of a XAML path, for the icon geometry check.
+
+    Only the commands Icons.xaml uses, absolute and space-separated: M, L, A
+    and Z. An arc's leading radii, rotation and flags are not coordinates, so
+    a plain scan for numbers would read a radius as a position — only the
+    final x,y of each arc is a point.
+    """
+    tokens = re.findall(r"[MLAZmlaz]|-?\d+(?:\.\d+)?", data)
+    counts = {"M": 2, "L": 2, "A": 7, "Z": 0}
+    points: list[tuple[float, float]] = []
+    i = 0
+    while i < len(tokens):
+        command = tokens[i].upper()
+        assert command in counts, f"unhandled path command {tokens[i]!r}"
+        assert tokens[i] == command, "the geometries are written absolute, not relative"
+        i += 1
+        size = counts[command]
+        # A command repeats its arguments until the next command letter.
+        while size and i + size <= len(tokens) and not tokens[i].isalpha():
+            args = [float(v) for v in tokens[i:i + size]]
+            points.append((args[-2], args[-1]))
+            i += size
+    return points
+
+class TestNavigationUsesIconsNotUnicodeGlyphs:
+    """
+    Design system §5. The navigation used Unicode glyphs (U+25F7, U+2298,
+    U+263E, U+2699), which render differently across Windows versions and did
+    not match each other. They are now Lucide geometry in Styles/Icons.xaml.
+
+    A font-dependent glyph reintroduced in a view would look fine on the
+    machine that added it and wrong on a customer's, so it is caught here
+    rather than by eye.
+    """
+
+    ICONS = Path(DESKTOP_DIR) / "Styles" / "Icons.xaml"
+    VIEWS = ("MainWindow.xaml", "Views/BlockedAppsView.xaml",
+             "Views/SleepBlockingView.xaml", "Views/TodayView.xaml",
+             "Views/SettingsView.xaml")
+    # The glyphs this replaced, plus the other symbol ranges a future one would
+    # most likely come from. U+2192 (a typographic arrow between two fields) is
+    # text, not an icon, and is deliberately allowed.
+    BANNED = "◷⊘☾⚙↻✓✗⚠⭐★"
+
+    def test_no_glyph_icons_left_in_the_views(self):
+        offenders = []
+        for name in self.VIEWS:
+            path = Path(DESKTOP_DIR) / name
+            if not path.exists():
+                continue
+            for n, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+                for ch in self.BANNED:
+                    if ch in line:
+                        offenders.append(f"{name}:{n} contains U+{ord(ch):04X}")
+        assert not offenders, (
+            "use a Path with the Icon style and a geometry from Icons.xaml:\n  "
+            + "\n  ".join(offenders))
+
+    def test_every_icon_covers_the_same_part_of_the_24_grid(self):
+        """
+        The Icon style stretches each geometry to fill its box, so an icon
+        drawn smaller on the 24 grid renders oversized next to the others.
+        Lucide's own icons mostly span 3..21; its arrows span 5..19, which is
+        why one is not in the set.
+        """
+        xml = self.ICONS.read_text(encoding="utf-8")
+        geometries = re.findall(
+            r'<StreamGeometry x:Key="(\w+)">(.*?)</StreamGeometry>', xml, re.S)
+        assert len(geometries) >= 4, "the icon geometries should be in Icons.xaml"
+
+        for key, data in geometries:
+            points = _path_points(data)
+            assert points, f"{key} has no path data"
+            values = [v for point in points for v in point]
+            low, high = min(values), max(values)
+            assert low >= 2.0 and high <= 22.0, (
+                f"{key} runs from {low} to {high}; it should sit inside the 24 grid")
+            assert high - low >= 15.0, (
+                f"{key} only spans {high - low:.1f} of the 24 grid, so Stretch will "
+                f"scale it up next to the others. Give it its own box size instead "
+                f"of the shared Icon style.")
+
+    def test_the_lucide_notice_is_kept(self):
+        notice = Path(DESKTOP_DIR) / "Assets" / "Icons" / "LICENSE"
+        assert notice.exists(), "Lucide is ISC-licensed; keep its notice with the icons"
+        text = notice.read_text(encoding="utf-8")
+        assert "ISC License" in text and "Lucide" in text

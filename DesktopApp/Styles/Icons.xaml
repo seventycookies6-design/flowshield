@@ -1,0 +1,65 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- ============================================================== icons
+         Outline icons from Lucide (https://lucide.dev), ISC-licensed; the
+         notice is in DesktopApp/Assets/Icons/LICENSE. Design system §5: one
+         outline set, 24 px grid, 1.75 px stroke, no Unicode glyphs.
+
+         Each geometry is Lucide's own path data, unchanged. They are stroked,
+         never filled, and inherit their colour from the icon style. To add
+         one: copy the <path d="..."> values from the Lucide SVG, in order,
+         into a single StreamGeometry here. -->
+
+    <!-- clock -->
+    <StreamGeometry x:Key="IconToday">M 12 6 L 12 12 L 16 14 M 21 12 A 9 9 0 1 1 3 12 A 9 9 0 1 1 21 12 Z</StreamGeometry>
+
+    <!-- ban -->
+    <StreamGeometry x:Key="IconBlocked">M 21 12 A 9 9 0 1 1 3 12 A 9 9 0 1 1 21 12 Z M 5.636 5.636 L 18.364 18.364</StreamGeometry>
+
+    <!-- moon -->
+    <StreamGeometry x:Key="IconSleep">M 20.985 12.486 A 9 9 0 1 1 11.515 3.015 A 7 7 0 1 0 20.985 12.486 Z</StreamGeometry>
+
+    <!-- settings (gear: a toothed ring, plus the hub) -->
+    <StreamGeometry x:Key="IconSettings">M 9.671 4.136 A 1.75 1.75 0 0 1 12 2.5 A 1.75 1.75 0 0 1 14.329 4.136 L 14.548 5.106 A 1.75 1.75 0 0 0 16.43 6.193 L 17.415 6.06 A 1.75 1.75 0 0 1 19.5 8.222 A 1.75 1.75 0 0 1 18.783 10.318 L 17.973 10.894 A 1.75 1.75 0 0 0 17.253 12.14 A 1.75 1.75 0 0 0 17.973 13.106 L 18.783 13.682 A 1.75 1.75 0 0 1 19.5 15.778 A 1.75 1.75 0 0 1 17.415 17.94 L 16.43 17.807 A 1.75 1.75 0 0 0 14.548 18.894 L 14.329 19.864 A 1.75 1.75 0 0 1 12 21.5 A 1.75 1.75 0 0 1 9.671 19.864 L 9.452 18.894 A 1.75 1.75 0 0 0 7.57 17.807 L 6.585 17.94 A 1.75 1.75 0 0 1 4.5 15.778 A 1.75 1.75 0 0 1 5.217 13.682 L 6.027 13.106 A 1.75 1.75 0 0 0 6.747 12.14 A 1.75 1.75 0 0 0 6.027 10.894 L 5.217 10.318 A 1.75 1.75 0 0 1 4.5 8.222 A 1.75 1.75 0 0 1 6.585 6.06 L 7.57 6.193 A 1.75 1.75 0 0 0 9.452 5.106 Z M 15 12 A 3 3 0 1 1 9 12 A 3 3 0 1 1 15 12 Z</StreamGeometry>
+
+    <!-- refresh-cw -->
+    <StreamGeometry x:Key="IconRefresh">M 21 12 A 9 9 0 1 1 18.4 5.64 L 21 8 M 21 3 L 21 8 L 16 8</StreamGeometry>
+
+    <!-- ============================================================== style
+         Icon is §5's navigation and button size, 20; IconSmall is 16, for an
+         icon sitting inline with text.
+
+         Stretch is Uniform, which scales each icon to fill its box. That is
+         only safe while every geometry above covers the same 18 of the 24
+         grid, as Lucide's clock, ban, moon, gear and refresh-cw all do — so
+         they end up at one apparent size and one stroke weight. Before
+         adding an icon, check its bounds: anything that covers materially
+         less of the grid (Lucide's arrows fill 14) will render oversized,
+         and needs its own box size rather than this style. There is a check
+         for this in the tier 5 tests.
+
+         Icons inherit the text colour of their context: leave Stroke unset
+         and the parent's Foreground is used. Only an active item's icon is
+         Primary. -->
+
+    <Style x:Key="Icon" TargetType="Path">
+        <Setter Property="Stretch" Value="Uniform"/>
+        <Setter Property="Width" Value="20"/>
+        <Setter Property="Height" Value="20"/>
+        <Setter Property="StrokeThickness" Value="1.75"/>
+        <Setter Property="StrokeStartLineCap" Value="Round"/>
+        <Setter Property="StrokeEndLineCap" Value="Round"/>
+        <Setter Property="StrokeLineJoin" Value="Round"/>
+        <Setter Property="Fill" Value="{x:Null}"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="Stroke"
+                Value="{Binding Path=(TextElement.Foreground), RelativeSource={RelativeSource Self}}"/>
+    </Style>
+
+    <Style x:Key="IconSmall" TargetType="Path" BasedOn="{StaticResource Icon}">
+        <Setter Property="Width" Value="16"/>
+        <Setter Property="Height" Value="16"/>
+    </Style>
+
+</ResourceDictionary>
