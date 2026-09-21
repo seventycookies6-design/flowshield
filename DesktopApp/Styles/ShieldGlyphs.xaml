@@ -1,0 +1,86 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- ===================================================== shield glyphs
+         DESIGN_SYSTEM.md §6: the three shields are FlowShield's most
+         distinctive idea, built once here and used everywhere the app needs
+         one — today the shield chips and the timer ring (UI-SPEC.md A4);
+         later Blocked Apps/Sleep/Settings (A3) and, ported to SVG with the
+         same path data, the site (B3).
+
+         Strength escalates through fill and bar count, never through colour
+         (that would read as danger). Colour is baked into each resource at
+         parse time, not bound, because it never varies by state — only the
+         selected chip's own background/outline changes (Theme.xaml
+         Segment/SegmentShield styles), the glyph itself never does.
+
+         Geometry is a 24x24 grid, the same shield crest as the sketches and
+         the site's brand mark: M12,3 L19.5,6 L19.5,11.5 C19.5,16.2 16.3,19.8
+         12,21 C7.7,19.8 4.5,16.2 4.5,11.5 L4.5,6 Z -->
+
+    <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="Tokens.xaml"/>
+    </ResourceDictionary.MergedDictionaries>
+
+    <!-- I · Soft: outline, one bar, text-muted. -->
+    <DrawingImage x:Key="ShieldGlyphSoft">
+        <DrawingImage.Drawing>
+            <DrawingGroup>
+                <GeometryDrawing Geometry="M12,3 L19.5,6 L19.5,11.5 C19.5,16.2 16.3,19.8 12,21 C7.7,19.8 4.5,16.2 4.5,11.5 L4.5,6 Z">
+                    <GeometryDrawing.Pen>
+                        <Pen Brush="{StaticResource InkDim}" Thickness="1.75"
+                             StartLineCap="Round" EndLineCap="Round" LineJoin="Round"/>
+                    </GeometryDrawing.Pen>
+                </GeometryDrawing>
+                <GeometryDrawing Geometry="M8.5,11.5 L15.5,11.5">
+                    <GeometryDrawing.Pen>
+                        <Pen Brush="{StaticResource InkDim}" Thickness="1.75"
+                             StartLineCap="Round" EndLineCap="Round"/>
+                    </GeometryDrawing.Pen>
+                </GeometryDrawing>
+            </DrawingGroup>
+        </DrawingImage.Drawing>
+    </DrawingImage>
+
+    <!-- II · Firm: outline and two bars, primary. -->
+    <DrawingImage x:Key="ShieldGlyphFirm">
+        <DrawingImage.Drawing>
+            <DrawingGroup>
+                <GeometryDrawing Geometry="M12,3 L19.5,6 L19.5,11.5 C19.5,16.2 16.3,19.8 12,21 C7.7,19.8 4.5,16.2 4.5,11.5 L4.5,6 Z">
+                    <GeometryDrawing.Pen>
+                        <Pen Brush="{StaticResource Primary}" Thickness="1.75"
+                             StartLineCap="Round" EndLineCap="Round" LineJoin="Round"/>
+                    </GeometryDrawing.Pen>
+                </GeometryDrawing>
+                <GeometryDrawing Geometry="M8.5,10.2 L15.5,10.2 M8.5,13.4 L15.5,13.4">
+                    <GeometryDrawing.Pen>
+                        <Pen Brush="{StaticResource Primary}" Thickness="1.75"
+                             StartLineCap="Round" EndLineCap="Round"/>
+                    </GeometryDrawing.Pen>
+                </GeometryDrawing>
+            </DrawingGroup>
+        </DrawingImage.Drawing>
+    </DrawingImage>
+
+    <!-- III · Sealed: solid primary fill, three bars and a small lock notch,
+         both in primary-ink for contrast against the fill. -->
+    <DrawingImage x:Key="ShieldGlyphSealed">
+        <DrawingImage.Drawing>
+            <DrawingGroup>
+                <GeometryDrawing Brush="{StaticResource Primary}"
+                                  Geometry="M12,3 L19.5,6 L19.5,11.5 C19.5,16.2 16.3,19.8 12,21 C7.7,19.8 4.5,16.2 4.5,11.5 L4.5,6 Z"/>
+                <GeometryDrawing Geometry="M8.5,9.4 L15.5,9.4 M8.5,12 L15.5,12 M8.5,14.6 L15.5,14.6">
+                    <GeometryDrawing.Pen>
+                        <Pen Brush="{StaticResource PrimaryInk}" Thickness="1.75"
+                             StartLineCap="Round" EndLineCap="Round"/>
+                    </GeometryDrawing.Pen>
+                </GeometryDrawing>
+                <!-- lock notch: a small keyhole, hole + stem -->
+                <GeometryDrawing Brush="{StaticResource PrimaryInk}"
+                                  Geometry="M11.4,16.6 A0.75,0.75 0 1 0 12.6,16.6 A0.75,0.75 0 1 0 11.4,16.6 Z
+                                            M11.65,17.2 L12.35,17.2 L12.15,18.3 L11.85,18.3 Z"/>
+            </DrawingGroup>
+        </DrawingImage.Drawing>
+    </DrawingImage>
+
+</ResourceDictionary>

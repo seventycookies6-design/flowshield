@@ -9,7 +9,42 @@
     <ResourceDictionary.MergedDictionaries>
         <ResourceDictionary Source="Tokens.xaml"/>
         <ResourceDictionary Source="Icons.xaml"/>
+        <ResourceDictionary Source="ShieldGlyphs.xaml"/>
     </ResourceDictionary.MergedDictionaries>
+
+    <!-- ================================================================ shape
+         DESIGN_SYSTEM.md §4 corner-radius scale, defined once here per the
+         doc amendment (UI-SPEC.md §1.7.1): "Spacing and corner-radius
+         values are defined as resources in DesktopApp/Styles/Theme.xaml
+         (app) and directly in Website/styles.css (site) — not in
+         design/tokens.json, which is colour only (§14)." Every CornerRadius
+         in the app draws from one of these three, or is fully round (A2, #147):
+           6  — small chips/tags (TagChip)
+           10 — buttons, inputs, toggles, and interactive rows/icon badges
+           14 — cards, dialogs, and other card-like surfaces (toast, focus ring)
+           fully round — pills, the tier badge, toggle tracks, the nav bar
+                and scrollbar thumb, progress bars. NOT a huge radius: WPF
+                doesn't clamp an oversized CornerRadius the way CSS does, it
+                scales the curves, so 9999 drew ellipses and spikes. Set
+                inf:Pill.IsRound="True" instead; it keeps the radius at half
+                the element's smaller side (Infrastructure/Pill.cs). -->
+    <CornerRadius x:Key="RadiusChip">6</CornerRadius>
+    <CornerRadius x:Key="RadiusControl">10</CornerRadius>
+    <CornerRadius x:Key="RadiusCard">14</CornerRadius>
+
+    <!-- Spacing scale, DESIGN_SYSTEM.md §4: 4, 8, 12, 16, 24, 32, 48, 64.
+         Page margins 32, card padding 24 (CardPadding above via the Card
+         style's own Padding setter), gap between cards 16, nav rail 240.
+         The rail width and page margins are literals at their one call
+         site in MainWindow.xaml rather than resources here: GridLength and
+         Thickness properties don't accept a bare numeric StaticResource
+         without a type-converter round-trip that XAML doesn't perform for
+         resource references (only for literal string content), so a named
+         resource here would just be an extra indirection to the same
+         number. Every other Padding/Margin in the app is a literal drawn
+         from this same eight-number scale, hand-applied per element —
+         matching how the site implements the identical scale directly in
+         styles.css (see the doc amendment above). -->
 
     <!-- ========================================================= converters -->
 
@@ -20,45 +55,129 @@
     <inf:IntEqualsConverter x:Key="IntEq"/>
     <inf:BoolToOpacityConverter x:Key="BoolOpacity"/>
     <inf:ShieldRomanConverter x:Key="ShieldRoman"/>
-    <inf:ProgressToDashConverter x:Key="ProgressDash" Radius="92" Thickness="12"/>
+    <!-- Radius 105 = (222 - 12) / 2: the A4 ring is 222px in diameter with a
+         12px stroke (UI-SPEC.md §1.7.2 doc amendment), and the dash array is
+         computed off the stroke's own centreline, not the outer box. -->
+    <inf:ProgressToDashConverter x:Key="ProgressDash" Radius="105" Thickness="12"/>
     <inf:PositiveToVisibilityConverter x:Key="PositiveVis"/>
     <inf:NonEmptyToVisibilityConverter x:Key="NonEmptyVis"/>
+    <inf:ShieldLevelToGlyphConverter x:Key="ShieldGlyph"/>
 
     <!-- ========================================================= typography -->
 
     <!-- A FontFamily resource (not a string): a StaticResource reference does not
-         run type converters, so a string here fails to coerce at runtime. -->
-    <FontFamily x:Key="FontStack">Segoe UI Variable Display, Segoe UI, Inter</FontFamily>
+         run type converters, so a string here fails to coerce at runtime.
 
+         Assembly-qualified pack URI (DESIGN_SYSTEM.md §3, decided #147): this
+         exact form, not a relative "./Assets/Fonts/#Inter", because the
+         render kit hosts the built DLL directly rather than launching the
+         .exe, and only the assembly-qualified form resolves an embedded font
+         in both cases. Fallbacks after it match §3: Segoe UI Variable, Segoe
+         UI, system-ui. -->
+    <FontFamily x:Key="FontStack">pack://application:,,,/FlowShield;component/Assets/Fonts/#Inter, Segoe UI Variable, Segoe UI, system-ui</FontFamily>
+
+    <!-- Inter Display, §3's allowance for the timer and stat numbers (A4):
+         a tighter optical size than text Inter at the same weight. Only one
+         weight is embedded (SemiBold), which is the only one the scale uses. -->
+    <FontFamily x:Key="FontStackDisplay">pack://application:,,,/FlowShield;component/Assets/Fonts/#Inter Display, Segoe UI Variable, Segoe UI, system-ui</FontFamily>
+
+    <!-- Implicit default (no x:Key): any TextBlock that doesn't set its own
+         Style still renders in Inter rather than silently falling back to
+         whatever the system default happens to be. The named styles below
+         also set FontFamily explicitly, so each reads correctly on its own. -->
+    <Style TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource FontStack}"/>
+    </Style>
+
+    <!-- Text scale, DESIGN_SYSTEM.md §3. Tracking is approximated through
+         weight and size, per the doc's own WPF column — TextBlock has no
+         letter-spacing property on net8.0-windows (see the Eyebrow style
+         below for what was tried and why it doesn't build). -->
+
+    <!-- display: page titles, lock screen, section headings -->
     <Style x:Key="H1" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource FontStack}"/>
-        <Setter Property="FontSize" Value="26"/>
+        <Setter Property="FontSize" Value="30"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="LineHeight" Value="36"/>
+        <Setter Property="LineStackingStrategy" Value="BlockLineHeight"/>
         <Setter Property="Foreground" Value="{StaticResource Ink}"/>
     </Style>
 
+    <!-- title: card titles, dialog titles -->
     <Style x:Key="H2" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource FontStack}"/>
-        <Setter Property="FontSize" Value="16"/>
+        <Setter Property="FontSize" Value="18"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="LineHeight" Value="24"/>
+        <Setter Property="LineStackingStrategy" Value="BlockLineHeight"/>
         <Setter Property="Foreground" Value="{StaticResource Ink}"/>
     </Style>
 
+    <!-- body: paragraphs, list items (14/21 in the app; the site uses 17/27) -->
     <Style x:Key="Body" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource FontStack}"/>
-        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="FontSize" Value="14"/>
+        <Setter Property="FontWeight" Value="Normal"/>
+        <Setter Property="LineHeight" Value="21"/>
+        <Setter Property="LineStackingStrategy" Value="BlockLineHeight"/>
         <Setter Property="Foreground" Value="{StaticResource InkDim}"/>
         <Setter Property="TextWrapping" Value="Wrap"/>
     </Style>
 
+    <!-- label: buttons, field labels -->
+    <Style x:Key="Label" TargetType="TextBlock" BasedOn="{StaticResource Body}">
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="FontWeight" Value="Medium"/>
+        <Setter Property="LineHeight" Value="18"/>
+        <Setter Property="Foreground" Value="{StaticResource Ink}"/>
+    </Style>
+
+    <!-- caption: hints, timestamps -->
     <Style x:Key="Caption" TargetType="TextBlock" BasedOn="{StaticResource Body}">
-        <Setter Property="FontSize" Value="11"/>
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="LineHeight" Value="17"/>
         <Setter Property="Foreground" Value="{StaticResource InkFaint}"/>
     </Style>
 
+    <!-- eyebrow: section labels such as "MOMENTUM". Text is authored in caps
+         already (there's no WPF text-transform). §3's WPF column suggests
+         TextBlock.CharacterSpacing for the +6% tracking, but that property
+         was never ported from .NET Framework to .NET (Core) WPF — it does
+         not exist on net8.0-windows (confirmed: not in PresentationFramework
+         or PresentationCore, and MC4005 at build time). Tracking here is
+         weight + size only, as the doc's own fallback rule allows. -->
     <Style x:Key="Eyebrow" TargetType="TextBlock" BasedOn="{StaticResource Caption}">
         <Setter Property="FontWeight" Value="SemiBold"/>
-        <Setter Property="FontSize" Value="10.5"/>
+        <Setter Property="FontSize" Value="11"/>
+        <Setter Property="LineHeight" Value="14"/>
+    </Style>
+
+    <!-- timer: the sprint countdown. Tabular by default so the digits never
+         jiggle. §3's WPF column suggests CharacterSpacing="-20" here too;
+         see the Eyebrow comment above for why that isn't available on this
+         platform. Wired into TodayView's 222px ring (A4, UI-SPEC.md §1.7.2),
+         set on FontStackDisplay per §3's explicit allowance for this size. -->
+    <Style x:Key="Timer" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource FontStackDisplay}"/>
+        <Setter Property="FontSize" Value="64"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="LineHeight" Value="64"/>
+        <Setter Property="LineStackingStrategy" Value="BlockLineHeight"/>
+        <Setter Property="Foreground" Value="{StaticResource Ink}"/>
+        <Setter Property="Typography.NumeralAlignment" Value="Tabular"/>
+    </Style>
+
+    <!-- stat: momentum, minutes, prices. Tabular by default. Wired into
+         TodayView's momentum number (A4). -->
+    <Style x:Key="Stat" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource FontStackDisplay}"/>
+        <Setter Property="FontSize" Value="36"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="LineHeight" Value="40"/>
+        <Setter Property="LineStackingStrategy" Value="BlockLineHeight"/>
+        <Setter Property="Foreground" Value="{StaticResource Ink}"/>
+        <Setter Property="Typography.NumeralAlignment" Value="Tabular"/>
     </Style>
 
     <!-- ============================================================== cards -->
@@ -67,11 +186,11 @@
         <Setter Property="Background" Value="{StaticResource Surface}"/>
         <Setter Property="BorderBrush" Value="{StaticResource Edge}"/>
         <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="CornerRadius" Value="14"/>
-        <Setter Property="Padding" Value="22"/>
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusCard}"/>
+        <Setter Property="Padding" Value="24"/>
         <Setter Property="Effect">
             <Setter.Value>
-                <DropShadowEffect BlurRadius="24" ShadowDepth="6" Direction="270" Opacity="0.45" Color="#FF000000"/>
+                <DropShadowEffect BlurRadius="24" ShadowDepth="6" Direction="270" Opacity="0.45" Color="{StaticResource ShadowColor}"/>
             </Setter.Value>
         </Setter>
     </Style>
@@ -80,31 +199,56 @@
         <Setter Property="Background" Value="{StaticResource Surface2}"/>
         <Setter Property="BorderBrush" Value="{StaticResource Edge}"/>
         <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="CornerRadius" Value="10"/>
-        <Setter Property="Padding" Value="12,5"/>
+        <Setter Property="inf:Pill.IsRound" Value="True"/>
+        <Setter Property="Padding" Value="12,4"/>
     </Style>
 
-    <!-- ============================================================ buttons -->
+    <!-- Category tag chip (UI-SPEC.md A3, graft from raycast's app-pages
+         sketch): the 6px small-chip radius, next to an app name or picker
+         candidate ("Chat", "Music" …). Text-only, so a TextBlock using it
+         sets its own Style="{StaticResource Caption}" inside. -->
+    <Style x:Key="TagChip" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource Surface2}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource Edge}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusChip}"/>
+        <Setter Property="Padding" Value="8,4"/>
+    </Style>
+
+    <!-- ============================================================ buttons
+
+         §7: height 40, radius 10, horizontal padding 20, label type, on all
+         four variants (Primary/Ghost/Quiet/Danger). Hover uses primary-hover
+         or border-strong; pressed darkens one step further; disabled is 45%
+         opacity with no hover; focus shows a 2px focus-ring offset 2px,
+         built once here as the "focus" sibling Border so all four variants
+         (Ghost/Quiet/Danger inherit BtnBase's template unchanged) get it for
+         free. -->
 
     <Style x:Key="BtnBase" TargetType="Button">
         <Setter Property="FontFamily" Value="{StaticResource FontStack}"/>
         <Setter Property="FontSize" Value="13"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
         <Setter Property="Foreground" Value="{StaticResource Ink}"/>
-        <Setter Property="Padding" Value="18,10"/>
+        <Setter Property="Height" Value="40"/>
+        <Setter Property="Padding" Value="20,0"/>
         <Setter Property="Cursor" Value="Hand"/>
         <Setter Property="SnapsToDevicePixels" Value="True"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
-                    <Border x:Name="bd"
-                            Background="{TemplateBinding Background}"
-                            BorderBrush="{TemplateBinding BorderBrush}"
-                            BorderThickness="{TemplateBinding BorderThickness}"
-                            CornerRadius="11"
-                            Padding="{TemplateBinding Padding}">
-                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                    </Border>
+                    <Grid>
+                        <Border x:Name="bd"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="{StaticResource RadiusControl}"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <Border x:Name="focus" BorderBrush="{StaticResource FocusRing}" BorderThickness="2"
+                                CornerRadius="{StaticResource RadiusCard}" Margin="-4" Opacity="0" IsHitTestVisible="False"/>
+                    </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="bd" Property="Opacity" Value="0.88"/>
@@ -112,8 +256,11 @@
                         <Trigger Property="IsPressed" Value="True">
                             <Setter TargetName="bd" Property="Opacity" Value="0.72"/>
                         </Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="focus" Property="Opacity" Value="1"/>
+                        </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
-                            <Setter TargetName="bd" Property="Opacity" Value="0.4"/>
+                            <Setter TargetName="bd" Property="Opacity" Value="0.45"/>
                             <Setter Property="Cursor" Value="Arrow"/>
                         </Trigger>
                     </ControlTemplate.Triggers>
@@ -129,14 +276,18 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
-                    <Border x:Name="bd"
-                            Background="{TemplateBinding Background}"
-                            BorderBrush="{TemplateBinding BorderBrush}"
-                            BorderThickness="{TemplateBinding BorderThickness}"
-                            CornerRadius="11"
-                            Padding="{TemplateBinding Padding}">
-                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                    </Border>
+                    <Grid>
+                        <Border x:Name="bd"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="{StaticResource RadiusControl}"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <Border x:Name="focus" BorderBrush="{StaticResource FocusRing}" BorderThickness="2"
+                                CornerRadius="{StaticResource RadiusCard}" Margin="-4" Opacity="0" IsHitTestVisible="False"/>
+                    </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="bd" Property="Background" Value="{StaticResource PrimaryHover}"/>
@@ -144,8 +295,11 @@
                         <Trigger Property="IsPressed" Value="True">
                             <Setter TargetName="bd" Property="Opacity" Value="0.88"/>
                         </Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="focus" Property="Opacity" Value="1"/>
+                        </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
-                            <Setter TargetName="bd" Property="Opacity" Value="0.4"/>
+                            <Setter TargetName="bd" Property="Opacity" Value="0.45"/>
                             <Setter Property="Cursor" Value="Arrow"/>
                         </Trigger>
                     </ControlTemplate.Triggers>
@@ -154,25 +308,45 @@
         </Setter>
     </Style>
 
+    <!-- Secondary: surface-2 fill, border, text label (§7 table). -->
     <Style x:Key="BtnGhost" TargetType="Button" BasedOn="{StaticResource BtnBase}">
-        <Setter Property="Background" Value="{StaticResource Surface}"/>
+        <Setter Property="Background" Value="{StaticResource Surface2}"/>
         <Setter Property="BorderBrush" Value="{StaticResource Edge}"/>
         <Setter Property="BorderThickness" Value="1"/>
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="BorderBrush" Value="{StaticResource EdgeBright}"/>
+            </Trigger>
+        </Style.Triggers>
     </Style>
 
+    <!-- Destructive (new, §7): surface-2 fill, danger label and border,
+         replacing the untokenized pink overlay that used to live here. Use
+         wherever the app removes something the user added (e.g. "Remove" on
+         a blocked app row); there's no "delete everything"-style action in
+         the app today. -->
     <Style x:Key="BtnDanger" TargetType="Button" BasedOn="{StaticResource BtnBase}">
-        <Setter Property="Background" Value="#22FF6B8B"/>
-        <Setter Property="BorderBrush" Value="#55FF6B8B"/>
+        <Setter Property="Background" Value="{StaticResource Surface2}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource Rose}"/>
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="Foreground" Value="{StaticResource Rose}"/>
     </Style>
 
+    <!-- Quiet: no fill, text-muted label, fill on hover (§7 table). The
+         Style-level trigger sets Button.Background, which flows into "bd"
+         through the shared template's TemplateBinding, so no extra template
+         is needed for this variant. -->
     <Style x:Key="BtnQuiet" TargetType="Button" BasedOn="{StaticResource BtnBase}">
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="BorderThickness" Value="0"/>
-        <Setter Property="Foreground" Value="{StaticResource InkFaint}"/>
+        <Setter Property="Foreground" Value="{StaticResource InkDim}"/>
         <Setter Property="FontWeight" Value="Normal"/>
-        <Setter Property="Padding" Value="10,6"/>
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="{StaticResource Surface2}"/>
+                <Setter Property="Foreground" Value="{StaticResource Ink}"/>
+            </Trigger>
+        </Style.Triggers>
     </Style>
 
     <!-- ========================================================== nav items -->
@@ -183,18 +357,18 @@
         <Setter Property="BorderThickness" Value="0"/>
         <Setter Property="Foreground" Value="{StaticResource InkDim}"/>
         <Setter Property="FontWeight" Value="Normal"/>
-        <Setter Property="Padding" Value="14,11"/>
+        <Setter Property="Padding" Value="16,12"/>
         <Setter Property="Margin" Value="0,0,0,4"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
                     <Grid>
-                        <Border x:Name="bd" Background="{TemplateBinding Background}" CornerRadius="11"
+                        <Border x:Name="bd" Background="{TemplateBinding Background}" CornerRadius="{StaticResource RadiusControl}"
                                 Padding="{TemplateBinding Padding}">
                             <ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center"/>
                         </Border>
-                        <Border x:Name="bar" Width="3" HorizontalAlignment="Left" Margin="0,9"
-                                CornerRadius="2" Background="{StaticResource Primary}" Opacity="0"/>
+                        <Border x:Name="bar" Width="3" HorizontalAlignment="Left" Margin="0,8"
+                                inf:Pill.IsRound="True" Background="{StaticResource Primary}" Opacity="0"/>
                     </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
@@ -224,7 +398,7 @@
         <Setter Property="Background" Value="{StaticResource Surface2}"/>
         <Setter Property="BorderBrush" Value="{StaticResource Edge}"/>
         <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="Padding" Value="12,9"/>
+        <Setter Property="Padding" Value="12,8"/>
         <Setter Property="VerticalContentAlignment" Value="Center"/>
         <Setter Property="Template">
             <Setter.Value>
@@ -232,7 +406,7 @@
                     <Border x:Name="bd" Background="{TemplateBinding Background}"
                             BorderBrush="{TemplateBinding BorderBrush}"
                             BorderThickness="{TemplateBinding BorderThickness}"
-                            CornerRadius="10">
+                            CornerRadius="{StaticResource RadiusControl}">
                         <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}"
                                       VerticalAlignment="Center"/>
                     </Border>
@@ -241,7 +415,30 @@
                             <Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource Primary}"/>
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
-                            <Setter TargetName="bd" Property="Opacity" Value="0.45"/>
+                            <Trigger.EnterActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="bd" Storyboard.TargetProperty="Opacity"
+                                                          To="0.45" Duration="{x:Static inf:Motion.Selection}">
+                                            <DoubleAnimation.EasingFunction>
+                                                <CubicEase EasingMode="EaseOut"/>
+                                            </DoubleAnimation.EasingFunction>
+                                        </DoubleAnimation>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.EnterActions>
+                            <Trigger.ExitActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="bd" Storyboard.TargetProperty="Opacity"
+                                                          To="1" Duration="{x:Static inf:Motion.Selection}">
+                                            <DoubleAnimation.EasingFunction>
+                                                <CubicEase EasingMode="EaseIn"/>
+                                            </DoubleAnimation.EasingFunction>
+                                        </DoubleAnimation>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.ExitActions>
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -266,11 +463,11 @@
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
                         <ContentPresenter Grid.Column="0" VerticalAlignment="Center" Margin="0,0,16,0"/>
-                        <Border x:Name="track" Grid.Column="1" Width="46" Height="26" CornerRadius="13"
-                                Background="{StaticResource Track}" BorderBrush="{StaticResource Edge}"
+                        <Border x:Name="track" Grid.Column="1" Width="46" Height="26" inf:Pill.IsRound="True"
+                                Background="{StaticResource Surface2}" BorderBrush="{StaticResource Edge}"
                                 BorderThickness="1">
-                            <Ellipse x:Name="knob" Width="18" Height="18" Fill="{StaticResource InkDim}"
-                                     HorizontalAlignment="Left" Margin="3,0,0,0"/>
+                            <Ellipse x:Name="knob" Width="18" Height="18" Fill="{StaticResource InkFaint}"
+                                     HorizontalAlignment="Left" Margin="4,0,0,0"/>
                         </Border>
                     </Grid>
                     <ControlTemplate.Triggers>
@@ -278,7 +475,7 @@
                             <Setter TargetName="track" Property="Background" Value="{StaticResource Primary}"/>
                             <Setter TargetName="track" Property="BorderBrush" Value="Transparent"/>
                             <Setter TargetName="knob" Property="HorizontalAlignment" Value="Right"/>
-                            <Setter TargetName="knob" Property="Margin" Value="0,0,3,0"/>
+                            <Setter TargetName="knob" Property="Margin" Value="0,0,4,0"/>
                             <Setter TargetName="knob" Property="Fill" Value="{StaticResource PrimaryInk}"/>
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
@@ -291,7 +488,11 @@
         </Setter>
     </Style>
 
-    <!-- Segmented option button (sprint length / shield level). -->
+    <!-- Segmented option button (sprint length / shield level). Motion, §8:
+         checking a chip settles in over Motion.Selection (200ms, ease-out);
+         the whole disabled-but-visible group (sprint length / shield level /
+         intention, per UI-SPEC.md A4) crossfades to 45% opacity the same way
+         when a sprint starts, and back to full when it ends. -->
     <Style x:Key="Segment" TargetType="RadioButton">
         <Setter Property="Cursor" Value="Hand"/>
         <Setter Property="FontFamily" Value="{StaticResource FontStack}"/>
@@ -303,7 +504,7 @@
             <Setter.Value>
                 <ControlTemplate TargetType="RadioButton">
                     <Border x:Name="bd" Background="{StaticResource Surface2}" BorderBrush="{StaticResource Edge}"
-                            BorderThickness="1" CornerRadius="10" Padding="15,8">
+                            BorderThickness="1" CornerRadius="{StaticResource RadiusControl}" Padding="16,8">
                         <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Border>
                     <ControlTemplate.Triggers>
@@ -314,9 +515,111 @@
                             <Setter TargetName="bd" Property="Background" Value="{StaticResource PrimarySoft}"/>
                             <Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource Primary}"/>
                             <Setter Property="Foreground" Value="{StaticResource Ink}"/>
+                            <Trigger.EnterActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="bd" Storyboard.TargetProperty="Opacity"
+                                                          From="0.7" To="1" Duration="{x:Static inf:Motion.Selection}">
+                                            <DoubleAnimation.EasingFunction>
+                                                <CubicEase EasingMode="EaseOut"/>
+                                            </DoubleAnimation.EasingFunction>
+                                        </DoubleAnimation>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.EnterActions>
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
-                            <Setter TargetName="bd" Property="Opacity" Value="0.4"/>
+                            <Trigger.EnterActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="bd" Storyboard.TargetProperty="Opacity"
+                                                          To="0.45" Duration="{x:Static inf:Motion.Selection}">
+                                            <DoubleAnimation.EasingFunction>
+                                                <CubicEase EasingMode="EaseOut"/>
+                                            </DoubleAnimation.EasingFunction>
+                                        </DoubleAnimation>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.EnterActions>
+                            <Trigger.ExitActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="bd" Storyboard.TargetProperty="Opacity"
+                                                          To="1" Duration="{x:Static inf:Motion.Selection}">
+                                            <DoubleAnimation.EasingFunction>
+                                                <CubicEase EasingMode="EaseIn"/>
+                                            </DoubleAnimation.EasingFunction>
+                                        </DoubleAnimation>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.ExitActions>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Shield-level chip (UI-SPEC.md A4): the same segmented cell as
+         Segment above, tall enough (52px) for the shared shield glyph
+         stacked above its label, per the winning sketch's ".seg-shield". -->
+    <Style x:Key="SegmentShield" TargetType="RadioButton">
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="FontFamily" Value="{StaticResource FontStack}"/>
+        <Setter Property="Foreground" Value="{StaticResource InkDim}"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="RadioButton">
+                    <Border x:Name="bd" Background="{StaticResource Surface2}" BorderBrush="{StaticResource Edge}"
+                            BorderThickness="1" CornerRadius="{StaticResource RadiusControl}" Padding="8,8" Height="52">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource EdgeBright}"/>
+                        </Trigger>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="bd" Property="Background" Value="{StaticResource PrimarySoft}"/>
+                            <Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource Primary}"/>
+                            <Setter Property="Foreground" Value="{StaticResource Ink}"/>
+                            <Trigger.EnterActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="bd" Storyboard.TargetProperty="Opacity"
+                                                          From="0.7" To="1" Duration="{x:Static inf:Motion.Selection}">
+                                            <DoubleAnimation.EasingFunction>
+                                                <CubicEase EasingMode="EaseOut"/>
+                                            </DoubleAnimation.EasingFunction>
+                                        </DoubleAnimation>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.EnterActions>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Trigger.EnterActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="bd" Storyboard.TargetProperty="Opacity"
+                                                          To="0.45" Duration="{x:Static inf:Motion.Selection}">
+                                            <DoubleAnimation.EasingFunction>
+                                                <CubicEase EasingMode="EaseOut"/>
+                                            </DoubleAnimation.EasingFunction>
+                                        </DoubleAnimation>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.EnterActions>
+                            <Trigger.ExitActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="bd" Storyboard.TargetProperty="Opacity"
+                                                          To="1" Duration="{x:Static inf:Motion.Selection}">
+                                            <DoubleAnimation.EasingFunction>
+                                                <CubicEase EasingMode="EaseIn"/>
+                                            </DoubleAnimation.EasingFunction>
+                                        </DoubleAnimation>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.ExitActions>
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -338,7 +641,11 @@
                                 <Thumb>
                                     <Thumb.Template>
                                         <ControlTemplate TargetType="Thumb">
-                                            <Border Background="#30FFFFFF" CornerRadius="4" Margin="2,0"/>
+                                            <!-- Margin stays 2px, off the 4-based scale: the scrollbar
+                                                 itself is a fixed 9px chrome element (Width above), and
+                                                 a 4px inset each side would leave only 1px of visible
+                                                 thumb. Noted as a deliberate exception in the A2 PR. -->
+                                            <Border Background="{StaticResource EdgeBright}" inf:Pill.IsRound="True" Margin="2,0"/>
                                         </ControlTemplate>
                                     </Thumb.Template>
                                 </Thumb>
@@ -362,8 +669,8 @@
         <Setter Property="Background" Value="{StaticResource Surface2}"/>
         <Setter Property="BorderBrush" Value="{StaticResource Edge}"/>
         <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="CornerRadius" Value="12"/>
-        <Setter Property="Padding" Value="14,11"/>
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusCard}"/>
+        <Setter Property="Padding" Value="16,12"/>
         <Setter Property="Margin" Value="0,0,0,8"/>
     </Style>
 
@@ -386,12 +693,12 @@
         <Setter Property="Foreground" Value="{StaticResource InkDim}"/>
         <Setter Property="FontFamily" Value="{StaticResource FontStack}"/>
         <Setter Property="FontSize" Value="12.5"/>
-        <Setter Property="Padding" Value="10,7"/>
+        <Setter Property="Padding" Value="12,8"/>
         <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="ListBoxItem">
-                    <Border x:Name="bd" Background="Transparent" CornerRadius="8"
+                    <Border x:Name="bd" Background="Transparent" CornerRadius="{StaticResource RadiusControl}"
                             Padding="{TemplateBinding Padding}">
                         <ContentPresenter/>
                     </Border>
@@ -424,9 +731,9 @@
             <Setter.Value>
                 <ControlTemplate TargetType="ProgressBar">
                     <Grid>
-                        <Border CornerRadius="3" Background="{TemplateBinding Background}"/>
+                        <Border inf:Pill.IsRound="True" Background="{TemplateBinding Background}"/>
                         <Border x:Name="PART_Track"/>
-                        <Border x:Name="PART_Indicator" CornerRadius="3"
+                        <Border x:Name="PART_Indicator" inf:Pill.IsRound="True"
                                 HorizontalAlignment="Left"
                                 Background="{TemplateBinding Foreground}"/>
                     </Grid>
