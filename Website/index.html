@@ -67,9 +67,16 @@
 
 <main>
 <!-- ------------------------------------------------------------------- hero -->
+<!-- Design #147 §4 / issue #173: the hero leads with the real product —
+     text and the primary CTA render first in source order, then the real
+     Today capture runs full-width below them in a surface/14/soft-shadow
+     frame (DESIGN_SYSTEM.md §10, no fake device frame). This reverses part
+     of #139, which put the day timeline beside the hero copy; the timeline
+     is now its own section directly below (#day). today.png itself will be
+     re-captured for real under #144 — not this item's job. -->
 <section class="hero">
-  <div class="wrap hero-grid">
-    <div>
+  <div class="wrap">
+    <div class="hero-copy">
       <span class="eyebrow"><i class="dot" aria-hidden="true"></i> Windows · 7-day free trial</span>
       <h1>Guard the hours<br>that matter.</h1>
       <p class="lede">
@@ -105,8 +112,32 @@
       </div>
     </div>
 
-    <!-- Day timeline mock — how shields land on a student schedule -->
-    <div class="surface day-mock" aria-hidden="true">
+    <!-- The real Today screen — not a mock-up. Same frame recipe (.shot) as
+         the proof section below (#see-it), DESIGN_SYSTEM.md §10. -->
+    <figure class="shot hero-shot">
+      <img src="media/today.png" width="1264" height="872" decoding="async"
+           alt="The Today screen in the FlowShield app: a 45-minute sprint ready to start
+                at the Firm shield, momentum at 192 points with an eight-day streak and a
+                rising 30-day chart, and one sprint already finished today.">
+      <figcaption>Today. The timer, the shield you chose, and momentum that compounds
+      rather than resetting. <span class="tag">Real build · sample data</span></figcaption>
+    </figure>
+  </div>
+</section>
+
+<!-- --------------------------------------------------------------------- day -->
+<!-- The student-day timeline, promoted out of the hero to its own section
+     per #147 §4 (was aria-hidden decoration beside the hero copy; #139). -->
+<section id="day">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="label">A sample day</p>
+      <h2>Three shields, one schedule</h2>
+      <p>Pick how hard the shield pushes back for each sprint — the same day can
+      carry Soft, Firm and Sealed at different hours.</p>
+    </div>
+
+    <div class="surface day-mock">
       <div class="mock-bar"><i></i><i></i><i></i><span>Today · sample day</span></div>
 
       <div class="timeline">
