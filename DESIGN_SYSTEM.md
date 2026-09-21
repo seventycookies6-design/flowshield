@@ -161,7 +161,8 @@ All roles are Inter.
 ## 4. Space, shape and depth
 
 - **Spacing scale (4-based):** 4, 8, 12, 16, 24, 32, 48, 64. Padding and gaps use these values only. Card padding is 24, space between cards 16, page margins 32 in the app.
-- **Corner radius:** 6 for small chips and tags, 10 for buttons, inputs and toggles, 14 for cards and dialogs, and fully round for pills and the tier badge. Today's app uses 8, 10, 11, 12, 13 and 14 interchangeably; normalise to this set.
+- **Corner radius:** 6 for small chips and tags, 10 for buttons, inputs and toggles, 14 for cards and dialogs, and fully round for pills and the tier badge. Today's app used 8, 10, 11, 12, 13 and 14 interchangeably; normalised to this set (A2, issue #147).
+- **Where these values live:** spacing and corner-radius values are defined as resources in `DesktopApp/Styles/Theme.xaml` (app) and directly in `Website/styles.css` (site) — not in `design/tokens.json`, which is colour only (§14). Both sides implement the same numbers from this section by hand; a future issue may unify them the way colour is unified. (Corner radius is four named resources — `RadiusChip`/`RadiusControl`/`RadiusCard`/`RadiusFull` — referenced from every `CornerRadius` in the app; the eight spacing numbers are applied as literals per element, the same way the site already does in `styles.css`.)
 - **Borders:** 1 px `border` on cards and controls; `border-strong` on hover and focus.
 - **Shadows**, two levels only:
   - `soft` for cards on the site and for toasts;
