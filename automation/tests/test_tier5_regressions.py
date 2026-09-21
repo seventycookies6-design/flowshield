@@ -409,6 +409,68 @@ class TestWebsiteClaimsMatchTheApp:
             assert claim not in site, f"the site still claims unshipped behaviour: {claim}"
 
 
+class TestFirmWarnsBeforeItCloses:
+    """
+    F7 / roadmap 1.8. The site's legal page and the app have to agree about
+    whether anything is closed without warning, because one of them is a
+    promise to a customer.
+    """
+
+    SERVICE = Path(DESKTOP_DIR) / "Services" / "AppBlockerService.cs"
+
+    def test_the_kill_is_never_the_first_thing_tried(self):
+        source = self.SERVICE.read_text(encoding="utf-8")
+        sweep = source.split("private void Tick", 1)[1]
+        graceful = sweep.split("if (!graceful)", 1)[1]
+        # Inside the graceful branch, the ask must come before any Kill.
+        ask = graceful.index("CloseMainWindow()")
+        kill = graceful.index("KillAll(processes, shield);", ask)
+        assert ask < kill
+
+    def test_hard_kill_still_skips_the_warning(self):
+        """
+        The setting exists precisely so there is no window to slip through.
+        Making it polite would quietly remove the feature people bought.
+        """
+        source = self.SERVICE.read_text(encoding="utf-8")
+        assert "GracefulClose.IsGraceful(shield, hardKill)" in source
+        model = (Path(DESKTOP_DIR) / "Models" / "GracefulClose.cs").read_text(
+            encoding="utf-8")
+        assert "!hardKill && shield >= ShieldLevel.Firm" in model
+
+    def test_the_legal_page_describes_the_warning_and_its_limits(self):
+        legal = (Path(WEBSITE_DIR) / "legal.html").read_text(encoding="utf-8")
+        flat = " ".join(legal.split())
+        assert "closed without warning" not in flat, (
+            "the app warns now; the old blanket wording is no longer true"
+        )
+        assert "asks the application to close itself" in flat
+        assert "Hard kill mode deliberately skips all of this" in flat
+        assert "A warning is not a guarantee" in flat, (
+            "an app that ignores the request can still lose work, and the page "
+            "must not over-promise"
+        )
+
+    def test_the_warning_notification_can_be_turned_off_like_every_other(self):
+        """F19's rule: everything FlowShield can interrupt with is switchable."""
+        settings_xaml = (Path(DESKTOP_DIR) / "Views" / "SettingsView.xaml").read_text(
+            encoding="utf-8")
+        assert 'AutomationId="NotifyAppClosingToggle"' in settings_xaml
+
+    def test_the_warning_is_allowed_to_interrupt_a_sprint(self):
+        """
+        Every other notice waits. This one cannot: a warning that arrives after
+        the app has closed is not a warning.
+        """
+        notifications = (Path(DESKTOP_DIR) / "Models" / "Notifications.cs").read_text(
+            encoding="utf-8")
+        interrupts = notifications.split("public static bool InterruptsFocus", 1)[1]
+        interrupts = interrupts.split(";", 1)[0]
+        assert "AppClosing" not in interrupts, (
+            "AppClosing must not be in the list of notices suppressed during a sprint"
+        )
+
+
 class TestSoftShieldWording:
     """Public and developer-facing descriptions must match today's Soft mode."""
 
@@ -2174,22 +2236,35 @@ class TestDistractionCountIsPerApp:
 
     def test_every_process_is_still_closed(self):
         """
-        The fix deduplicates *reporting*, never enforcement. An app whose helper
+        The dedupe covers *reporting*, never enforcement. An app whose helper
         survives because the count said "already seen" would be a far worse bug
         than the one being fixed.
+
+        F7 moved the sweep from per-process to per-app, so this no longer reads
+        as an ordering: enforcement now acts on the whole group at once, and
+        what matters is that no kill sits behind the first-sighting check.
         """
         source = self.SERVICE.read_text(encoding="utf-8")
-        sweep = source.split("foreach (var process in SafeGetProcesses())", 1)[1]
-        kill = sweep.index("process.Kill(")
-        dedupe = sweep.index("_present.Add(")
-        assert kill < dedupe, (
-            "the per-app check must come after the kill, or a second process "
-            "of an app already counted would never be closed"
+        body = source.split("private void Tick", 1)[1]
+        for call in ("KillAll(processes, shield);",):
+            for fragment in body.split(call)[:-1]:
+                tail = fragment.rsplit("\n", 3)[-3:]
+                assert not any("if (firstSighting)" in line for line in tail), (
+                    "a kill must never be guarded by the first-sighting check, "
+                    "or a second process of an already-counted app would survive"
+                )
+        assert "KillAll(processes, shield);" in body
+
+    def test_reporting_is_what_the_first_sighting_check_guards(self):
+        source = self.SERVICE.read_text(encoding="utf-8")
+        body = source.split("private void Tick", 1)[1]
+        assert "if (firstSighting) Report(" in body, (
+            "the first-sighting check exists to deduplicate reporting"
         )
 
     def test_an_app_that_goes_away_can_count_again(self):
         source = self.SERVICE.read_text(encoding="utf-8")
-        assert "_present.IntersectWith(seen)" in source, (
+        assert "_present.IntersectWith(running.Keys)" in source, (
             "entries with nothing running must be forgotten, or reopening a "
             "blocked app would never count as a fresh distraction"
         )

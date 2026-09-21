@@ -36,6 +36,7 @@ public partial class App : Application
         if (args.Any(a => a.Equals("--short-timers", StringComparison.OrdinalIgnoreCase)))
         {
             Models.EndSprintPolicy.UseShortTimers = true;
+            Models.GracefulClose.UseShortTimers = true;
             Log.Info("short end-sprint timers enabled by --short-timers flag");
         }
 

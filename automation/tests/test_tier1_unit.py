@@ -1793,3 +1793,153 @@ class TestMomentumTrendView:
         assert "{Binding TrendVisible, Converter={StaticResource BoolVis}}" in xaml
         vm = (self.DESKTOP / "ViewModels" / "TodayViewModel.cs").read_text(encoding="utf-8")
         assert "TrendVisible = points.Any(p => p.Score > 0);" in vm,             "the chart hides until there is momentum, not merely until there is a sprint"
+
+
+# ============================== graceful close at Firm (F7 / roadmap 1.8)
+
+class TestGracefulClose:
+    """
+    Python mirror of Models/GracefulClose.cs.
+
+    Firm used to call Kill() the instant it saw a blocked app. It now asks the
+    app to close itself, waits, and only forces it if it is still there — which
+    is the difference between losing an essay and being told to save it.
+    """
+
+    DESKTOP = Path(SERVER_DIR).parent / "DesktopApp"
+    MODEL = DESKTOP / "Models" / "GracefulClose.cs"
+
+    GRACE_SECONDS = 10
+    SHORT_GRACE_SECONDS = 2
+
+    @staticmethod
+    def _is_graceful(shield, hard_kill):
+        return not hard_kill and shield >= 2      # 2 = Firm, 3 = Sealed
+
+    def test_soft_never_warns_about_closing_because_it_never_closes(self):
+        assert not self._is_graceful(1, False)
+
+    def test_firm_and_sealed_warn_first(self):
+        assert self._is_graceful(2, False)
+        assert self._is_graceful(3, False)
+
+    def test_hard_kill_stays_instant_at_every_shield(self):
+        """
+        Someone who turned hard kill on asked for no way round it, and ten
+        seconds to alt-tab and save is a way round it.
+        """
+        for shield in (1, 2, 3):
+            assert not self._is_graceful(shield, True)
+
+    def test_the_warning_says_the_app_the_delay_and_what_to_do(self):
+        source = self.MODEL.read_text(encoding="utf-8")
+        warning = source.split("public static string Warning", 1)[1]
+        warning = warning.split("return ", 1)[1].split(";", 1)[0]
+        assert "is blocked" in warning
+        assert "closing in {seconds} s" in warning
+        assert "Save your work." in warning
+
+    def test_the_grace_period_is_ten_seconds_and_two_under_short_timers(self):
+        source = self.MODEL.read_text(encoding="utf-8")
+        assert f"TimeSpan.FromSeconds({self.SHORT_GRACE_SECONDS})" in source
+        assert f"TimeSpan.FromSeconds({self.GRACE_SECONDS})" in source
+        assert "UseShortTimers" in source, "the UI suite cannot wait ten seconds a time"
+
+    def test_the_short_timer_flag_is_wired_to_the_command_line(self):
+        app = (self.DESKTOP / "App.xaml.cs").read_text(encoding="utf-8")
+        assert "Models.GracefulClose.UseShortTimers = true;" in app
+
+    def test_closing_is_asked_for_before_it_is_forced(self):
+        """
+        CloseMainWindow is the same request the window's own close button
+        sends; Kill is not. The order is the whole feature.
+        """
+        service = (self.DESKTOP / "Services" / "AppBlockerService.cs").read_text(
+            encoding="utf-8")
+        sweep = service.split("private void Tick", 1)[1]
+        asked = sweep.index("CloseMainWindow()")
+        forced = sweep.index("_closingAt.Remove(key)")
+        assert asked < forced, "the app must be asked to close before the deadline kills it"
+
+    def test_a_blocked_app_that_goes_away_forgets_its_deadline(self):
+        service = (self.DESKTOP / "Services" / "AppBlockerService.cs").read_text(
+            encoding="utf-8")
+        assert "_closingAt.Remove(gone)" in service, (
+            "a half-finished close must not outlive the app it was closing"
+        )
+
+
+# ===================== what is already open, before a sprint (F7 / 1.8)
+
+class TestPreSprintRunningApps:
+    """
+    Roadmap 1.8: before a sprint starts, if blocked apps are running, list them
+    and offer Close them now or Start anyway.
+
+    The point is the chance to save, so the wording has to be honest about what
+    each shield will actually do — promising a close at Soft, which closes
+    nothing, would be worse than saying nothing.
+    """
+
+    DESKTOP = Path(SERVER_DIR).parent / "DesktopApp"
+    VM = DESKTOP / "ViewModels" / "TodayViewModel.cs"
+    SERVICE = DESKTOP / "Services" / "AppBlockerService.cs"
+    XAML = DESKTOP / "Views" / "TodayView.xaml"
+
+    def test_the_list_names_each_app_once(self):
+        """
+        Steam runs seven processes. "Steam, Steam, Steam, Steam" is not a list,
+        and it is the same reason #138 counts apps rather than processes.
+        """
+        source = self.SERVICE.read_text(encoding="utf-8")
+        body = source.split("public IReadOnlyList<string> RunningBlockedApps", 1)[1]
+        body = body.split("\n    }", 1)[0]
+        assert "seen.Add(app.DisplayName)" in body
+
+    def test_looking_is_not_enforcing(self):
+        """It runs before the sprint does; it must not close anything."""
+        source = self.SERVICE.read_text(encoding="utf-8")
+        body = source.split("public IReadOnlyList<string> RunningBlockedApps", 1)[1]
+        body = body.split("\n    }", 1)[0]
+        for forbidden in ("Kill(", "CloseMainWindow(", "BeginEnforcing"):
+            assert forbidden not in body, f"the pre-sprint look must not {forbidden}"
+
+    def test_soft_does_not_promise_a_close_it_will_not_do(self):
+        source = self.VM.read_text(encoding="utf-8")
+        explanation = source.split("RunningAppsExplanation =>", 1)[1].split(";", 1)[0]
+        assert "ShieldLevel.Soft" in explanation
+        assert "they stay open" in explanation
+        assert "asked to close" in explanation, "Firm and above say what happens"
+
+    def test_the_panel_offers_both_answers(self):
+        xaml = self.XAML.read_text(encoding="utf-8")
+        for automation_id in ("RunningAppsTitle", "RunningAppsList",
+                              "CloseThemNowButton", "StartAnywayButton"):
+            assert f'AutomationProperties.AutomationId="{automation_id}"' in xaml
+
+    def test_the_panel_puts_no_id_where_nothing_can_find_it(self):
+        """
+        A Border is not surfaced to UI Automation. An id on one can never be
+        resolved, which cost a whole VM run: the panel opened, exists() said it
+        had not, and the driver never answered it.
+        """
+        xaml = self.XAML.read_text(encoding="utf-8")
+        panel = xaml.split("What is already open, before the shield goes up", 1)[1]
+        panel = panel.split("</Border>", 1)[0]
+        for tag in ("<Border", "<StackPanel", "<ItemsControl"):
+            for element in panel.split(tag)[1:]:
+                head = element.split(">", 1)[0]
+                assert "AutomationProperties.AutomationId" not in head, (
+                    f"an AutomationId is on a {tag[1:]}, where nothing can find it"
+                )
+
+    def test_answering_does_not_ask_again(self):
+        """
+        Both answers call back into StartSprint. Without the latch that is a
+        loop: panel, answer, panel, answer.
+        """
+        source = self.VM.read_text(encoding="utf-8")
+        assert "if (!_runningAppsAnswered)" in source
+        assert "_runningAppsAnswered = false;" in source, (
+            "the latch has to reset, or the next sprint is never checked"
+        )

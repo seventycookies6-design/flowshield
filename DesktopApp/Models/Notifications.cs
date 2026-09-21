@@ -16,6 +16,14 @@ public enum NotificationKind
 
     /// <summary>One day of the free trial left.</summary>
     TrialEnding,
+
+    /// <summary>
+    /// A blocked app is about to be closed, with a few seconds to save (F7).
+    ///
+    /// This one interrupts on purpose. Every other notice can wait; a warning
+    /// that arrives after the app has gone is not a warning.
+    /// </summary>
+    AppClosing,
 }
 
 /// <summary>What clicking a notification does.</summary>

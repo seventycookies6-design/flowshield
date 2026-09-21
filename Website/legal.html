@@ -83,10 +83,19 @@
   close it. During a scheduled sleep window, blocked applications are closed.
   Any unsaved work in an application FlowShield closes may be lost. You choose
   what goes on that list.</p>
+  <p>At Firm and Sealed, and during a sleep window, FlowShield warns you first:
+  it shows a notice naming the application, waits a few seconds, and asks the
+  application to close itself before forcing it. That gives most programs the
+  chance to prompt you to save. <strong>Hard kill mode deliberately skips all
+  of this</strong> &mdash; it closes immediately, with no notice and no grace
+  period, which is the point of the setting.</p>
   <p>FlowShield will never close operating-system processes, shells, or common
   development tools; these are excluded and the exclusion is not configurable.
-  Even so, you are responsible for what you add to your block list. Do not add
-  anything you cannot afford to have closed without warning.</p>
+  Even so, you are responsible for what you add to your block list. A warning
+  is not a guarantee: an application that ignores the request to close, or that
+  has no way to save, can still lose work &mdash; and with Hard kill mode on
+  there is no warning at all. Do not add anything you cannot afford to lose
+  work in.</p>
 
   <h3>3. Who can buy it</h3>
   <p>You must be at least 13 years old to buy or use FlowShield, or older if
