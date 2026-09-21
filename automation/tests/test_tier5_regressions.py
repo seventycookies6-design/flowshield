@@ -2918,6 +2918,31 @@ class TestLandingPageLengthB5:
         assert features.count('class="surface feature"') == 3
 
 
+class TestSiteToneB6:
+    """
+    #187: "Pick how much you trust yourself today" and "when you do not trust
+    yourself" framed the reader as untrustworthy. Miles chose to rewrite both
+    and to keep "The 1 a.m. version of you doesn't get a vote", which sides
+    with the reader against an impulse they chose to guard against
+    (DESIGN_SYSTEM.md §9: kind, never guilty).
+    """
+
+    def _site(self) -> str:
+        return " ".join((Path(WEBSITE_DIR) / "index.html").read_text(encoding="utf-8").split())
+
+    def test_the_site_does_not_call_the_reader_untrustworthy(self):
+        site = self._site().lower()
+        for phrase in ("trust yourself", "not trust yourself"):
+            assert phrase not in site, f"{phrase!r} frames the reader as untrustworthy"
+
+    def test_the_rewrites_and_the_kept_line_are_in_place(self):
+        site = self._site()
+        assert "Pick how hard it should be to quit today" in site
+        assert "“just checking” Steam turns into an hour" in site
+        assert "The 1 a.m. version of you doesn't get a vote." in site, (
+            "Miles chose to keep this line (#187)")
+
+
 class TestPhoneVisitorMarkup:
     """
     Roadmap 6.4: on small screens the nav collapses behind a hamburger and the
