@@ -125,6 +125,15 @@ public class SettingsViewModel : ViewModelBase
     /// <summary>Bought, or inside the free trial.</summary>
     public bool HasAccess => _main.HasAccess;
 
+    /// <summary>Inside the free trial, licence not yet bought (UI-SPEC.md A3:
+    /// gates the big "days left" number so it only shows while it's true).</summary>
+    public bool IsTrial => _main.IsTrial;
+
+    /// <summary>Days left in the free trial, for the big tabular number next
+    /// to the licence status (UI-SPEC.md A3, matching the app-pages sketch's
+    /// "05 days left" treatment).</summary>
+    public int TrialDaysLeft => _main.TrialDaysLeft;
+
     private string _licenseStatusText = "";
     /// <summary>The line the automation suite asserts on. Contains "Licence active" once bought.</summary>
     public string LicenseStatusText { get => _licenseStatusText; private set => Set(ref _licenseStatusText, value); }
@@ -219,6 +228,8 @@ public class SettingsViewModel : ViewModelBase
         Raise(nameof(IsNotPro));
         Raise(nameof(HasAccess));
         Raise(nameof(HasDeviceInfo));
+        Raise(nameof(IsTrial));
+        Raise(nameof(TrialDaysLeft));
     }
 
     public bool HasDeviceInfo => !string.IsNullOrEmpty(DeviceText);

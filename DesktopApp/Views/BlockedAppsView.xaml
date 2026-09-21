@@ -11,6 +11,16 @@
         <Border Grid.Column="0" Style="{StaticResource Card}" Margin="0,0,18,0" Padding="24">
             <DockPanel>
 
+                <!-- big-number header (UI-SPEC.md A3): the same "big
+                     tabular number + one-line description" pattern as
+                     Today's stat cards, applied here. text, not teal;
+                     teal stays reserved for state/selection/progress. -->
+                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,20" VerticalAlignment="Bottom">
+                    <TextBlock Style="{StaticResource Stat}" Text="{Binding Apps.Count, StringFormat={}{0:00}}"/>
+                    <TextBlock Text="apps on the shield" Style="{StaticResource Body}" Foreground="{StaticResource InkDim}"
+                               VerticalAlignment="Bottom" Margin="10,0,0,5"/>
+                </StackPanel>
+
                 <!-- add row -->
                 <StackPanel DockPanel.Dock="Top" Margin="0,0,0,18">
                     <TextBlock Text="ADD AN APP TO BLOCK" Style="{StaticResource Eyebrow}" Margin="0,0,0,9"/>
@@ -89,14 +99,32 @@
                                     </Border>
 
                                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                        <!-- the app name gets the full row width to itself, so a long name
+                                             still ellipsizes gracefully instead of losing space to the chip -->
                                         <TextBlock Text="{Binding DisplayName}" Style="{StaticResource Label}" FontWeight="SemiBold"
                                                    TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"
                                                    ToolTip="{Binding DisplayName}"/>
-                                        <TextBlock Style="{StaticResource Caption}"
-                                                   TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"
-                                                   ToolTip="{Binding ProcessSummary}">
-                                            <Run Text="{Binding ProcessSummary, Mode=OneWay}"/>
-                                        </TextBlock>
+                                        <Grid Margin="0,2,0,0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <!-- category tag chip (UI-SPEC.md A3, graft from raycast). A Grid
+                                                 column (not a StackPanel) so its Auto width can't overflow
+                                                 into the columns to the right, the way a horizontal
+                                                 StackPanel's unbounded measure pass did here before. -->
+                                            <Border Grid.Column="0" Style="{StaticResource TagChip}" Margin="0,0,8,0"
+                                                    VerticalAlignment="Center" MaxWidth="80"
+                                                    Visibility="{Binding HasCategory, Converter={StaticResource BoolVis}}">
+                                                <TextBlock Text="{Binding Category}" Style="{StaticResource Caption}"
+                                                           TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
+                                            </Border>
+                                            <TextBlock Style="{StaticResource Caption}" Grid.Column="1"
+                                                       TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"
+                                                       ToolTip="{Binding ProcessSummary}">
+                                                <Run Text="{Binding ProcessSummary, Mode=OneWay}"/>
+                                            </TextBlock>
+                                        </Grid>
                                     </StackPanel>
 
                                     <TextBlock Grid.Column="2" VerticalAlignment="Center" Margin="0,0,14,0"
@@ -107,8 +135,10 @@
                                         <Run Text="×"/>
                                     </TextBlock>
 
-                                    <Button Grid.Column="3" Style="{StaticResource BtnQuiet}" Content="Remove"
-                                            VerticalAlignment="Center"
+                                    <!-- destructive (UI-SPEC.md A3, §7 BtnDanger): removes the app from the
+                                         blocklist, the closest thing to a "delete" action on this screen. -->
+                                    <Button Grid.Column="3" Style="{StaticResource BtnDanger}" Content="Remove"
+                                            Padding="14,0" VerticalAlignment="Center"
                                             Command="{Binding DataContext.RemoveCommand,
                                                       RelativeSource={RelativeSource AncestorType=ListBox}}"
                                             CommandParameter="{Binding}"
@@ -190,9 +220,25 @@
                                 </Grid>
 
                                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                    <TextBlock Text="{Binding Name}" Foreground="{StaticResource Ink}"
-                                               FontSize="13" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
-                                    <TextBlock Text="{Binding SourceLabel}" Style="{StaticResource Caption}"/>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="{Binding Name}" Foreground="{StaticResource Ink}"
+                                                   FontSize="13" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                                        <!-- category tag chip (UI-SPEC.md A3, graft from raycast):
+                                             "Music", "Chat", "Browsers", "Utilities" … A Grid column, not a
+                                             StackPanel, so the chip can't overflow this narrow picker list. -->
+                                        <Border Grid.Column="1" Style="{StaticResource TagChip}" Margin="8,0,0,0"
+                                                VerticalAlignment="Center" MaxWidth="76"
+                                                Visibility="{Binding HasGroup, Converter={StaticResource BoolVis}}">
+                                            <TextBlock Text="{Binding Group}" Style="{StaticResource Caption}"
+                                                       TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
+                                        </Border>
+                                    </Grid>
+                                    <TextBlock Text="{Binding SourceLabel}" Style="{StaticResource Caption}"
+                                               Visibility="{Binding HasSourceLabel, Converter={StaticResource BoolVis}}"/>
                                     <TextBlock Text="{Binding Note}" Style="{StaticResource Caption}" TextWrapping="Wrap"
                                                Foreground="{StaticResource Amber}"
                                                Visibility="{Binding HasNote, Converter={StaticResource BoolVis}}"/>

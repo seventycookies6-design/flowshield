@@ -28,6 +28,39 @@
             <Border Style="{StaticResource Card}" Padding="24">
                 <StackPanel>
 
+                    <!-- window ring (UI-SPEC.md A3): reuses the Today
+                         timer-ring visual language (§7) rather than
+                         inventing a new control, same 222px/12px ring,
+                         its arc rotated to start at the window's start time
+                         instead of always at 12 o'clock. The start/end
+                         labels stay inside it as the non-colour fallback, so
+                         the window is never colour-only information. -->
+                    <Grid Width="222" Height="222" HorizontalAlignment="Center" Margin="0,4,0,24">
+                        <Ellipse Width="222" Height="222" Stroke="{StaticResource Track}" StrokeThickness="12"/>
+                        <Ellipse Width="222" Height="222" Stroke="{StaticResource Primary}" StrokeThickness="12"
+                                 StrokeDashCap="Round"
+                                 StrokeDashArray="{Binding WindowSweepFraction, Converter={StaticResource ProgressDash}}"
+                                 Visibility="{Binding WindowSweepFraction, Converter={StaticResource PositiveVis}}"
+                                 RenderTransformOrigin="0.5,0.5">
+                            <Ellipse.RenderTransform>
+                                <RotateTransform Angle="{Binding WindowStartAngle}"/>
+                            </Ellipse.RenderTransform>
+                        </Ellipse>
+
+                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                            <Path Style="{StaticResource Icon}" Data="{StaticResource IconSleep}"
+                                  Stroke="{StaticResource PrimaryHover}" HorizontalAlignment="Center" Margin="0,0,0,8"/>
+                            <TextBlock HorizontalAlignment="Center" Style="{StaticResource H2}"
+                                       Typography.NumeralAlignment="Tabular">
+                                <Run Text="{Binding StartText, Mode=OneWay}"/>
+                                <Run Text=" → "/>
+                                <Run Text="{Binding EndText, Mode=OneWay}"/>
+                            </TextBlock>
+                            <TextBlock Text="Nightly window" Style="{StaticResource Caption}"
+                                       HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                        </StackPanel>
+                    </Grid>
+
                     <CheckBox Style="{StaticResource Switch}"
                               IsChecked="{Binding IsEnabled}"
                               IsEnabled="{Binding HasAccess}"
