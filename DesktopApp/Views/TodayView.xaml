@@ -4,7 +4,7 @@
              xmlns:models="clr-namespace:FlowShield.Models"
              SizeChanged="OnSizeChanged">
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-        <Grid Margin="0,0,6,0">
+        <Grid Margin="0,0,8,0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition x:Name="StatsColumn" Width="320"/>
@@ -23,7 +23,7 @@
                          A4, §1.7.2 doc amendment). The centre never eases —
                          RemainingText and the arc's dash array both update
                          once a second straight off the binding, per §7. -->
-                    <Grid Width="222" Height="222" HorizontalAlignment="Center" Margin="0,6,0,0">
+                    <Grid Width="222" Height="222" HorizontalAlignment="Center" Margin="0,8,0,0">
                         <Ellipse Width="222" Height="222" Stroke="{StaticResource Track}" StrokeThickness="12"/>
                         <Ellipse Width="222" Height="222" Stroke="{StaticResource Primary}" StrokeThickness="12"
                                  StrokeDashCap="Round"
@@ -53,7 +53,7 @@
                                  and the shield glyph"); idle has no active shield yet. -->
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,8,0,0">
                                 <Image Source="{Binding SelectedShield, Converter={StaticResource ShieldGlyph}}"
-                                       Width="14" Height="14" Stretch="Uniform" Margin="0,0,6,0"
+                                       Width="14" Height="14" Stretch="Uniform" Margin="0,0,8,0"
                                        VerticalAlignment="Center"
                                        Visibility="{Binding IsRunning, Converter={StaticResource BoolVis}}"/>
                                 <TextBlock Text="{Binding SessionStateText}" Style="{StaticResource Caption}"
@@ -74,7 +74,7 @@
                     <Button Style="{StaticResource BtnPrimary}" Content="Start sprint"
                             Command="{Binding StartCommand}"
                             Visibility="{Binding IsRunning, Converter={StaticResource InvBoolVis}}"
-                            HorizontalAlignment="Center" Padding="40,12" Margin="0,16,0,0"
+                            HorizontalAlignment="Center" Padding="48,12" Margin="0,16,0,0"
                             AutomationProperties.AutomationId="StartSprintButton"
                             AutomationProperties.Name="Start sprint"/>
 
@@ -82,7 +82,7 @@
                     <Button Style="{StaticResource BtnGhost}" Content="{Binding EndButtonLabel}"
                             Command="{Binding StopCommand}"
                             Visibility="{Binding EndButtonVisible, Converter={StaticResource BoolVis}}"
-                            HorizontalAlignment="Center" Padding="40,12" Margin="0,16,0,0"
+                            HorizontalAlignment="Center" Padding="48,12" Margin="0,16,0,0"
                             AutomationProperties.AutomationId="StopSprintButton"
                             AutomationProperties.Name="{Binding EndButtonLabel}"/>
 
@@ -92,27 +92,27 @@
                     <!-- No AutomationId on the Border: it is not surfaced to UI
                          Automation, so an id here can never be found. The title,
                          the list and the buttons inside it are real controls. -->
-                    <Border Style="{StaticResource RowCard}" Margin="0,22,0,0" Padding="18"
+                    <Border Style="{StaticResource RowCard}" Margin="0,24,0,0" Padding="16"
                             Visibility="{Binding RunningAppsPanelVisible, Converter={StaticResource BoolVis}}">
                         <StackPanel>
                             <TextBlock Text="{Binding RunningAppsTitle}" Style="{StaticResource H2}"
                                        AutomationProperties.AutomationId="RunningAppsTitle"/>
                             <TextBlock Text="{Binding RunningAppsExplanation}" Style="{StaticResource Body}"
-                                       TextWrapping="Wrap" Margin="0,6,0,0"
+                                       TextWrapping="Wrap" Margin="0,8,0,0"
                                        AutomationProperties.AutomationId="RunningAppsExplanation"/>
 
                             <TextBlock Text="{Binding RunningAppsSummary}" Style="{StaticResource Body}"
                                        Foreground="{StaticResource Ink}" TextWrapping="Wrap"
-                                       Margin="0,10,0,0"
+                                       Margin="0,12,0,0"
                                        AutomationProperties.AutomationId="RunningAppsList"/>
 
                             <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
                                 <Button Style="{StaticResource BtnPrimary}" Content="Close them now"
-                                        Command="{Binding CloseThemNowCommand}" Padding="22,9"
+                                        Command="{Binding CloseThemNowCommand}" Padding="24,8"
                                         AutomationProperties.AutomationId="CloseThemNowButton"
                                         AutomationProperties.Name="Close them now"/>
                                 <Button Style="{StaticResource BtnGhost}" Content="Start anyway"
-                                        Command="{Binding StartAnywayCommand}" Padding="22,9" Margin="10,0,0,0"
+                                        Command="{Binding StartAnywayCommand}" Padding="24,8" Margin="12,0,0,0"
                                         AutomationProperties.AutomationId="StartAnywayButton"
                                         AutomationProperties.Name="Start anyway"/>
                             </StackPanel>
@@ -120,14 +120,14 @@
                     </Border>
 
                     <!-- End panel: Firm's confirmation and Sealed's countdown and phrase. -->
-                    <Border Style="{StaticResource RowCard}" Margin="0,22,0,0" Padding="18"
+                    <Border Style="{StaticResource RowCard}" Margin="0,24,0,0" Padding="16"
                             Visibility="{Binding EndPanelVisible, Converter={StaticResource BoolVis}}"
                             AutomationProperties.AutomationId="EndSprintPanel">
                         <StackPanel>
                             <TextBlock Text="{Binding EndPanelTitle}" Style="{StaticResource H2}"
                                        AutomationProperties.AutomationId="EndPanelTitle"/>
                             <TextBlock Text="{Binding EndPanelText}" Style="{StaticResource Body}"
-                                       TextWrapping="Wrap" Margin="0,6,0,0"
+                                       TextWrapping="Wrap" Margin="0,8,0,0"
                                        AutomationProperties.AutomationId="EndPanelText"/>
 
                             <TextBox Style="{StaticResource Field}" Margin="0,12,0,0"
@@ -142,11 +142,11 @@
 
                             <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
                                 <Button Style="{StaticResource BtnPrimary}" Content="Keep going"
-                                        Command="{Binding KeepGoingCommand}" Padding="22,9"
+                                        Command="{Binding KeepGoingCommand}" Padding="24,8"
                                         AutomationProperties.AutomationId="KeepGoingButton"/>
                                 <Button Style="{StaticResource BtnQuiet}" Content="End anyway"
                                         Command="{Binding EndAnywayCommand}"
-                                        IsEnabled="{Binding EndAnywayEnabled}" Margin="10,0,0,0"
+                                        IsEnabled="{Binding EndAnywayEnabled}" Margin="12,0,0,0"
                                         AutomationProperties.AutomationId="EndAnywayButton"/>
                             </StackPanel>
                         </StackPanel>
@@ -203,7 +203,7 @@
                                        VerticalAlignment="Center" Margin="8,0,0,0"/>
                         </StackPanel>
                         <TextBlock Text="{Binding CustomMinutesError}" Style="{StaticResource Caption}"
-                                   Foreground="{StaticResource Amber}" Margin="0,6,0,0"
+                                   Foreground="{StaticResource Amber}" Margin="0,8,0,0"
                                    Visibility="{Binding CustomMinutesErrorVisible, Converter={StaticResource BoolVis}}"
                                    AutomationProperties.AutomationId="CustomMinutesError"/>
                     </StackPanel>
@@ -255,12 +255,12 @@
                     <TextBlock Text="{Binding ShieldBestFor}" Style="{StaticResource Caption}"
                                Margin="0,4,0,0"
                                AutomationProperties.AutomationId="ShieldBestForText"/>
-                    <TextBlock Style="{StaticResource Caption}" Margin="0,6,0,0" TextWrapping="Wrap"
+                    <TextBlock Style="{StaticResource Caption}" Margin="0,8,0,0" TextWrapping="Wrap"
                                Foreground="{StaticResource Amber}"
                                Visibility="{Binding SealedRestartHintVisible, Converter={StaticResource BoolVis}}"
                                AutomationProperties.AutomationId="SealedRestartHint"
                                Text="If FlowShield closes, a Sealed sprint picks up again when it reopens. After a reboot that only happens by itself if FlowShield starts with Windows (Settings → Preferences)."/>
-                    <TextBlock Style="{StaticResource Caption}" Margin="0,6,0,0" TextWrapping="Wrap"
+                    <TextBlock Style="{StaticResource Caption}" Margin="0,8,0,0" TextWrapping="Wrap"
                                Foreground="{StaticResource Amber}"
                                Visibility="{Binding SoftHardKillHintVisible, Converter={StaticResource BoolVis}}"
                                AutomationProperties.AutomationId="SoftHardKillHint"
@@ -274,10 +274,10 @@
                              AutomationProperties.AutomationId="IntentionInput"
                              AutomationProperties.Name="What are you working on?"/>
                     <TextBlock Text="Optional. It's shown on the timer and again when the sprint ends."
-                               Style="{StaticResource Caption}" Margin="0,6,0,0"/>
+                               Style="{StaticResource Caption}" Margin="0,8,0,0"/>
 
                     <!-- sprint summary (F12) -->
-                    <Border Style="{StaticResource RowCard}" Margin="0,22,0,0" Padding="16"
+                    <Border Style="{StaticResource RowCard}" Margin="0,24,0,0" Padding="16"
                             Visibility="{Binding JournalPromptVisible, Converter={StaticResource BoolVis}}">
                         <StackPanel>
                             <TextBlock Text="{Binding SummaryTitle}" Style="{StaticResource H2}"
@@ -303,20 +303,20 @@
                     </Border>
 
                     <!-- journal prompt -->
-                    <Border Style="{StaticResource RowCard}" Margin="0,22,0,0" Padding="16"
+                    <Border Style="{StaticResource RowCard}" Margin="0,24,0,0" Padding="16"
                             Visibility="{Binding JournalPromptVisible, Converter={StaticResource BoolVis}}">
                         <StackPanel>
                             <TextBlock Text="{Binding JournalPromptTitle}" Style="{StaticResource H2}"
                                        AutomationProperties.AutomationId="JournalPromptTitle"/>
                             <TextBlock Text="One line. You'll thank yourself in three months."
-                                       Style="{StaticResource Caption}" Margin="0,2,0,10"/>
+                                       Style="{StaticResource Caption}" Margin="0,4,0,12"/>
                             <TextBox Style="{StaticResource Field}"
                                      Text="{Binding JournalText, UpdateSourceTrigger=PropertyChanged}"
                                      AutomationProperties.AutomationId="JournalInput"
                                      AutomationProperties.Name="Session journal"/>
                             <Button Style="{StaticResource BtnGhost}" Content="Save entry"
                                     Command="{Binding SaveJournalCommand}"
-                                    HorizontalAlignment="Left" Margin="0,10,0,0"
+                                    HorizontalAlignment="Left" Margin="0,12,0,0"
                                     AutomationProperties.AutomationId="SaveJournalButton"/>
                         </StackPanel>
                     </Border>
@@ -368,7 +368,7 @@
                                           Stroke="{StaticResource Primary}" StrokeThickness="2"
                                           StrokeLineJoin="Round"/>
                             </Grid>
-                            <Grid Margin="0,6,0,0" Width="250" HorizontalAlignment="Left">
+                            <Grid Margin="0,8,0,0" Width="250" HorizontalAlignment="Left">
                                 <TextBlock Text="{Binding TrendRangeText}" Style="{StaticResource Caption}"
                                            HorizontalAlignment="Left"
                                            AutomationProperties.Name="{Binding TrendDescription}"
@@ -382,7 +382,7 @@
                         <!-- F14: the rule in plain words, folded away by default
                              so the card still leads with the number. -->
                         <Button Style="{StaticResource BtnQuiet}" HorizontalAlignment="Left"
-                                Margin="-10,8,0,0"
+                                Margin="-12,8,0,0"
                                 Content="{Binding ExplainerToggleText}"
                                 Command="{Binding ToggleExplainerCommand}"
                                 AutomationProperties.AutomationId="MomentumExplainerButton"/>

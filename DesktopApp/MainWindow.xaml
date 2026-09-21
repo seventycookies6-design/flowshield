@@ -23,17 +23,19 @@
 
     <Grid>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition x:Name="NavColumn" Width="238"/>
+            <!-- 240px per DESIGN_SYSTEM.md §4's nav-rail width (A2, issue #147);
+                 was 238px, one pixel short of the spec on each of two edges. -->
+            <ColumnDefinition x:Name="NavColumn" Width="240"/>
             <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
 
         <!-- ================================================== navigation rail -->
         <Border Grid.Column="0" Background="{StaticResource BgSoft}" BorderBrush="{StaticResource Edge}"
                 BorderThickness="0,0,1,0">
-            <DockPanel x:Name="NavDockPanel" Margin="18,22,18,18">
+            <DockPanel x:Name="NavDockPanel" Margin="16,24,16,16">
 
                 <!-- brand -->
-                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="6,0,0,26">
+                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="8,0,0,24">
                     <Canvas Width="26" Height="26" VerticalAlignment="Center">
                         <Path Data="M13 1.6 3.2 5.4v7.6c0 5.5 3.9 9.7 9.8 11.1 5.9-1.4 9.8-5.6 9.8-11.1V5.4L13 1.6Z"
                               Fill="{StaticResource PrimarySoft}" Stroke="{StaticResource Primary}" StrokeThickness="1.4"/>
@@ -42,7 +44,7 @@
                               StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
                     </Canvas>
                     <TextBlock x:Name="NavBrandText" Text="FlowShield" Style="{StaticResource H2}"
-                               VerticalAlignment="Center" Margin="10,0,0,0"/>
+                               VerticalAlignment="Center" Margin="12,0,0,0"/>
                 </StackPanel>
 
                 <!-- tier + upgrade, pinned to the bottom -->
@@ -58,10 +60,10 @@
                             Visibility="{Binding IsNotPro, Converter={StaticResource BoolVis}}"
                             Margin="0,0,0,12"/>
 
-                    <Border Style="{StaticResource Chip}" HorizontalAlignment="Left" Padding="11,4">
+                    <Border Style="{StaticResource Chip}" HorizontalAlignment="Left" Padding="12,4">
                         <StackPanel Orientation="Horizontal">
                             <Ellipse Width="6" Height="6" VerticalAlignment="Center"
-                                     Fill="{StaticResource Green}" Margin="0,0,7,0"/>
+                                     Fill="{StaticResource Green}" Margin="0,0,8,0"/>
                             <TextBlock Text="{Binding TierBadge}" Style="{StaticResource Eyebrow}"
                                        AutomationProperties.AutomationId="TierBadge"
                                        Foreground="{StaticResource InkDim}"/>
@@ -127,13 +129,13 @@
                 <RowDefinition Height="*"/>
             </Grid.RowDefinitions>
 
-            <StackPanel Grid.Row="0" Margin="34,28,34,18">
+            <StackPanel Grid.Row="0" Margin="32,32,32,16">
                 <TextBlock Text="{Binding CurrentPageTitle}" Style="{StaticResource H1}"
                            AutomationProperties.AutomationId="PageTitle"/>
                 <TextBlock Text="{Binding CurrentPageSubtitle}" Style="{StaticResource Body}" Margin="0,4,0,0"/>
             </StackPanel>
 
-            <Grid Grid.Row="1" Margin="34,0,34,26">
+            <Grid Grid.Row="1" Margin="32,0,32,24">
                 <views:TodayView DataContext="{Binding Today}"
                                  Visibility="{Binding DataContext.IsTodayPage,
                                               RelativeSource={RelativeSource AncestorType=Window},
@@ -169,18 +171,18 @@
                         <TextBlock Text="Keep FlowShield for $4.99" Style="{StaticResource H1}"
                                    Margin="0,8,0,0"/>
                         <TextBlock Text="{Binding TrialEndedText}" Style="{StaticResource Body}"
-                                   TextWrapping="Wrap" Margin="0,10,0,0"
+                                   TextWrapping="Wrap" Margin="0,12,0,0"
                                    AutomationProperties.AutomationId="TrialEndedText"/>
 
                         <Button Style="{StaticResource BtnPrimary}" Content="Buy FlowShield — $4.99"
-                                Command="{Binding GetProCommand}" Padding="26,12" Margin="0,22,0,0"
+                                Command="{Binding GetProCommand}" Padding="24,12" Margin="0,24,0,0"
                                 HorizontalAlignment="Left"
                                 AutomationProperties.AutomationId="LockBuyButton"
                                 AutomationProperties.Name="Buy FlowShield"/>
 
-                        <Border Height="1" Background="{StaticResource Edge}" Margin="0,24,0,18"/>
+                        <Border Height="1" Background="{StaticResource Edge}" Margin="0,24,0,16"/>
 
-                        <TextBlock Text="ALREADY BOUGHT IT?" Style="{StaticResource Eyebrow}" Margin="0,0,0,7"/>
+                        <TextBlock Text="ALREADY BOUGHT IT?" Style="{StaticResource Eyebrow}" Margin="0,0,0,8"/>
                         <TextBox Style="{StaticResource Field}"
                                  Text="{Binding SettingsPage.LicenseKeyInput, UpdateSourceTrigger=PropertyChanged}"
                                  FontFamily="Cascadia Mono, Consolas, monospace"
@@ -197,7 +199,7 @@
                                        Visibility="{Binding SettingsPage.IsBusy, Converter={StaticResource BoolVis}}"/>
                         </StackPanel>
                         <TextBlock Text="{Binding SettingsPage.LicenseDetailText}" Style="{StaticResource Caption}"
-                                   TextWrapping="Wrap" Margin="0,10,0,0"
+                                   TextWrapping="Wrap" Margin="0,12,0,0"
                                    AutomationProperties.AutomationId="LockLicenseDetailText"/>
                     </StackPanel>
                 </Border>
@@ -208,7 +210,7 @@
                     DataContext="{Binding FirstRun}"
                     Visibility="{Binding IsVisible, Converter={StaticResource BoolVis}}"
                     AutomationProperties.AutomationId="FirstRunPanel">
-                <Border Style="{StaticResource Card}" Padding="30,26" Width="600" MaxWidth="600" Margin="24"
+                <Border Style="{StaticResource Card}" Padding="32,24" Width="600" MaxWidth="600" Margin="24"
                         HorizontalAlignment="Center" VerticalAlignment="Center">
                     <DockPanel>
                         <!-- header -->
@@ -223,21 +225,21 @@
                         </Grid>
 
                         <!-- footer -->
-                        <Grid DockPanel.Dock="Bottom" Margin="0,20,0,0">
+                        <Grid DockPanel.Dock="Bottom" Margin="0,24,0,0">
                             <Button Style="{StaticResource BtnQuiet}" Content="Back" HorizontalAlignment="Left"
                                     Command="{Binding BackCommand}"
                                     Visibility="{Binding IsStep1, Converter={StaticResource InvBoolVis}}"
                                     AutomationProperties.AutomationId="FirstRunBackButton"/>
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                                <Button Style="{StaticResource BtnPrimary}" Content="Next" Padding="26,10"
+                                <Button Style="{StaticResource BtnPrimary}" Content="Next" Padding="24,12"
                                         Command="{Binding NextCommand}"
                                         Visibility="{Binding NextVisible, Converter={StaticResource BoolVis}}"
                                         AutomationProperties.AutomationId="FirstRunNextButton"/>
                                 <Button Style="{StaticResource BtnQuiet}" Content="Finish without starting"
-                                        Command="{Binding FinishCommand}" Margin="0,0,9,0"
+                                        Command="{Binding FinishCommand}" Margin="0,0,8,0"
                                         Visibility="{Binding IsStep3, Converter={StaticResource BoolVis}}"
                                         AutomationProperties.AutomationId="FirstRunFinishButton"/>
-                                <Button Style="{StaticResource BtnPrimary}" Content="Start my first sprint" Padding="24,10"
+                                <Button Style="{StaticResource BtnPrimary}" Content="Start my first sprint" Padding="24,12"
                                         Command="{Binding StartCommand}"
                                         Visibility="{Binding IsStep3, Converter={StaticResource BoolVis}}"
                                         AutomationProperties.AutomationId="FirstRunStartButton"/>
@@ -249,9 +251,9 @@
                             <DockPanel Visibility="{Binding IsStep1, Converter={StaticResource BoolVis}}">
                                 <StackPanel DockPanel.Dock="Top">
                                     <TextBlock Text="What pulls you away?" Style="{StaticResource H1}"/>
-                                    <TextBlock Style="{StaticResource Body}" TextWrapping="Wrap" Margin="0,8,0,14"
+                                    <TextBlock Style="{StaticResource Body}" TextWrapping="Wrap" Margin="0,8,0,16"
                                                Text="Tick the apps FlowShield should block during a sprint. The ones on this PC are ticked for you to confirm."/>
-                                    <TextBox Style="{StaticResource Field}" Margin="0,0,0,10"
+                                    <TextBox Style="{StaticResource Field}" Margin="0,0,0,12"
                                              Text="{Binding Query, UpdateSourceTrigger=PropertyChanged}"
                                              AutomationProperties.AutomationId="FirstRunSearchInput"
                                              AutomationProperties.Name="Search apps"/>
@@ -268,13 +270,13 @@
                                                       Margin="0,0,0,8" VerticalContentAlignment="Center"
                                                       AutomationProperties.AutomationId="{Binding AutomationId}"
                                                       AutomationProperties.Name="{Binding Entry.Name}">
-                                                <Grid Margin="6,0,0,0">
+                                                <Grid Margin="8,0,0,0">
                                                     <Grid.ColumnDefinitions>
                                                         <ColumnDefinition Width="Auto"/>
                                                         <ColumnDefinition Width="*"/>
                                                     </Grid.ColumnDefinitions>
-                                                    <Grid Width="26" Height="26" Margin="0,0,10,0">
-                                                        <Border CornerRadius="7" Background="{StaticResource PrimarySoft}"
+                                                    <Grid Width="26" Height="26" Margin="0,0,12,0">
+                                                        <Border CornerRadius="{StaticResource RadiusControl}" Background="{StaticResource PrimarySoft}"
                                                                 Visibility="{Binding Entry.HasIcon, Converter={StaticResource InvBoolVis}}">
                                                             <TextBlock Text="{Binding Entry.Initial}" FontWeight="SemiBold"
                                                                        Foreground="{StaticResource Ink}"
@@ -307,7 +309,7 @@
                                                          ConverterParameter={x:Static models:ShieldLevel.Soft}}"
                                              AutomationProperties.AutomationId="FirstRunShield_Soft"
                                              AutomationProperties.Name="Soft">
-                                     <StackPanel Margin="6,0,0,0">
+                                     <StackPanel Margin="8,0,0,0">
                                          <TextBlock Text="Soft" Foreground="{StaticResource Ink}" FontWeight="SemiBold"/>
                                          <TextBlock Text="{Binding SoftPromise}" Style="{StaticResource Caption}"
                                                     AutomationProperties.AutomationId="FirstRunSoftPromise"/>
@@ -320,7 +322,7 @@
                                                          ConverterParameter={x:Static models:ShieldLevel.Firm}}"
                                              AutomationProperties.AutomationId="FirstRunShield_Firm"
                                              AutomationProperties.Name="Firm (recommended)">
-                                     <StackPanel Margin="6,0,0,0">
+                                     <StackPanel Margin="8,0,0,0">
                                          <TextBlock Foreground="{StaticResource Ink}" FontWeight="SemiBold">
                                              <Run Text="Firm"/><Run Text="  recommended" Foreground="{StaticResource Primary}" FontWeight="Normal"/>
                                          </TextBlock>
@@ -335,7 +337,7 @@
                                                          ConverterParameter={x:Static models:ShieldLevel.Sealed}}"
                                              AutomationProperties.AutomationId="FirstRunShield_Sealed"
                                              AutomationProperties.Name="Sealed">
-                                     <StackPanel Margin="6,0,0,0">
+                                     <StackPanel Margin="8,0,0,0">
                                          <TextBlock Text="Sealed" Foreground="{StaticResource Ink}" FontWeight="SemiBold"/>
                                          <TextBlock Text="{Binding SealedPromise}" Style="{StaticResource Caption}" TextWrapping="Wrap"
                                                     AutomationProperties.AutomationId="FirstRunSealedPromise"/>
@@ -362,7 +364,7 @@
                                                  AutomationProperties.Name="45 minutes"/>
                                 </StackPanel>
                                 <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding StartWithWindows}"
-                                          Margin="0,20,0,0"
+                                          Margin="0,24,0,0"
                                           AutomationProperties.AutomationId="FirstRunStartWithWindows"
                                           AutomationProperties.Name="Start FlowShield with Windows">
                                     <StackPanel>
@@ -371,7 +373,7 @@
                                                    Style="{StaticResource Caption}" TextWrapping="Wrap"/>
                                     </StackPanel>
                                 </CheckBox>
-                                <TextBlock Text="{Binding TrialLine}" Style="{StaticResource Caption}" Margin="0,20,0,0"
+                                <TextBlock Text="{Binding TrialLine}" Style="{StaticResource Caption}" Margin="0,24,0,0"
                                            Visibility="{Binding HasTrialLine, Converter={StaticResource BoolVis}}"
                                            AutomationProperties.AutomationId="FirstRunTrialText"/>
                             </StackPanel>
@@ -385,22 +387,22 @@
                  arrives from the success page. Nothing activates without Activate. -->
             <Border Grid.Row="0" Grid.RowSpan="2" Background="{StaticResource Scrim}"
                     Visibility="{Binding ActivationPromptVisible, Converter={StaticResource BoolVis}}">
-                <Border Style="{StaticResource Card}" Padding="28" MaxWidth="460"
+                <Border Style="{StaticResource Card}" Padding="32" MaxWidth="460"
                         HorizontalAlignment="Center" VerticalAlignment="Center">
                     <StackPanel>
                         <TextBlock Text="FROM YOUR PURCHASE" Style="{StaticResource Eyebrow}"/>
-                        <TextBlock Text="Activate this licence?" Style="{StaticResource H2}" Margin="0,6,0,0"/>
+                        <TextBlock Text="Activate this licence?" Style="{StaticResource H2}" Margin="0,8,0,0"/>
                         <TextBlock Text="{Binding PendingActivationKey}" FontFamily="Cascadia Mono, Consolas, monospace"
                                    Foreground="{StaticResource Ink}" FontSize="14" Margin="0,12,0,0"
                                    AutomationProperties.AutomationId="ActivationLinkKey"/>
                         <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,8,0,0"
                                    Text="FlowShield will check this key with the licence server and unlock this device."/>
-                        <StackPanel Orientation="Horizontal" Margin="0,20,0,0">
-                            <Button Style="{StaticResource BtnPrimary}" Content="Activate" Padding="26,10"
+                        <StackPanel Orientation="Horizontal" Margin="0,24,0,0">
+                            <Button Style="{StaticResource BtnPrimary}" Content="Activate" Padding="24,12"
                                     Command="{Binding ConfirmActivationCommand}"
                                     AutomationProperties.AutomationId="ConfirmActivationButton"
                                     AutomationProperties.Name="Activate"/>
-                            <Button Style="{StaticResource BtnQuiet}" Content="Cancel" Margin="9,0,0,0"
+                            <Button Style="{StaticResource BtnQuiet}" Content="Cancel" Margin="8,0,0,0"
                                     Command="{Binding DismissActivationCommand}"
                                     AutomationProperties.AutomationId="DismissActivationButton"
                                     AutomationProperties.Name="Cancel"/>
@@ -415,23 +417,23 @@
             <Border Grid.Row="0" Grid.RowSpan="2" Background="{StaticResource Scrim}"
                     Visibility="{Binding TermsGateVisible, Converter={StaticResource BoolVis}}"
                     AutomationProperties.AutomationId="TermsGatePanel">
-                <Border Style="{StaticResource Card}" Padding="30,26" Width="560" MaxWidth="560" Margin="24"
+                <Border Style="{StaticResource Card}" Padding="32,24" Width="560" MaxWidth="560" Margin="24"
                         HorizontalAlignment="Center" VerticalAlignment="Center">
                     <StackPanel>
                         <TextBlock Text="BEFORE YOU START" Style="{StaticResource Eyebrow}"/>
-                        <TextBlock Text="FlowShield closes programs" Style="{StaticResource H1}" Margin="0,6,0,0"/>
+                        <TextBlock Text="FlowShield closes programs" Style="{StaticResource H1}" Margin="0,8,0,0"/>
 
                         <TextBlock Text="{Binding TermsDataLossWarning}" Style="{StaticResource Body}"
-                                   TextWrapping="Wrap" Margin="0,14,0,0"
+                                   TextWrapping="Wrap" Margin="0,16,0,0"
                                    AutomationProperties.AutomationId="TermsDataLossText"/>
 
                         <TextBlock Text="{Binding TermsAgreementLine}" Style="{StaticResource Body}"
-                                   TextWrapping="Wrap" Margin="0,14,0,0"
+                                   TextWrapping="Wrap" Margin="0,16,0,0"
                                    AutomationProperties.AutomationId="TermsAgreementText"/>
 
                         <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
                             <Button Style="{StaticResource BtnQuiet}" Content="Read the terms"
-                                    Command="{Binding OpenTermsCommand}" Margin="-10,0,0,0"
+                                    Command="{Binding OpenTermsCommand}" Margin="-12,0,0,0"
                                     AutomationProperties.AutomationId="OpenTermsButton"/>
                             <Button Style="{StaticResource BtnQuiet}" Content="Read the privacy policy"
                                     Command="{Binding OpenPrivacyCommand}"
@@ -439,16 +441,16 @@
                         </StackPanel>
 
                         <TextBlock Text="{Binding TermsVersionText}" Style="{StaticResource Caption}"
-                                   Margin="0,14,0,0"
+                                   Margin="0,16,0,0"
                                    AutomationProperties.AutomationId="TermsVersionText"/>
 
                         <Button Style="{StaticResource BtnPrimary}" Content="I understand and agree"
-                                Padding="26,12" Margin="0,18,0,0" HorizontalAlignment="Left"
+                                Padding="24,12" Margin="0,16,0,0" HorizontalAlignment="Left"
                                 Command="{Binding AcceptTermsCommand}"
                                 AutomationProperties.AutomationId="AcceptTermsButton"
                                 AutomationProperties.Name="I understand and agree"/>
 
-                        <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,10,0,0"
+                        <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,12,0,0"
                                    Text="If you don't agree, close FlowShield and uninstall it; if you have bought it, ask for a refund."/>
                     </StackPanel>
                 </Border>
@@ -456,7 +458,7 @@
 
             <!-- toast -->
             <Border Grid.Row="1" VerticalAlignment="Bottom" HorizontalAlignment="Center"
-                    Margin="0,0,0,20" CornerRadius="12" Padding="18,11"
+                    Margin="0,0,0,24" CornerRadius="{StaticResource RadiusCard}" Padding="16,12"
                     Background="{StaticResource Surface}" BorderBrush="{StaticResource EdgeBright}" BorderThickness="1"
                     Visibility="{Binding ToastVisible, Converter={StaticResource BoolVis}}">
                 <Border.Effect>
