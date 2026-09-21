@@ -396,11 +396,11 @@ Who owns each task is in `LAUNCH_FEATURE_CHECKLIST.md` → "Who builds what": th
 
 - [x] Tokens: `design/tokens.json`, the generator and the parity test (section 14). Done in #41: colours only so far; type, spacing and radii can be added to the JSON as their tasks land.
 - [ ] Contrast fixes applied in the app and on the site (section 2).
-- [ ] Legacy colour aliases removed from `Theme.xaml` and `styles.css`.
+- [x] Legacy colour aliases removed from `Theme.xaml` and `styles.css`. Done in #130.
 - [ ] No hard-coded colours left in app views.
 - [ ] Inter embedded in the app and served on the site, replacing Syne, Source Sans 3 and Segoe UI, with tabular figures for numbers (section 3).
 - [ ] Spacing and radii normalised to the scales (section 4).
-- [ ] Icon set adopted, and the Unicode glyphs in navigation replaced (section 5).
+- [x] Icon set adopted, and the Unicode glyphs in navigation replaced (section 5). Done in #151: Lucide outlines in `Styles/Icons.xaml`, navigation and the two list views. Shield glyphs are section 6 and still to come.
 - [ ] Shield glyphs built and used on Today, the site, notifications and the tray (section 6).
 - [ ] Destructive and quiet button variants added (section 7).
 - [ ] Copy pass against the word list and tone rules, including one consistent spelling of licence/license (section 9).

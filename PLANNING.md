@@ -46,6 +46,36 @@ on *what is next*.
 | Something you learned the hard way | `CLAUDE.md` — "Testing gotchas" for test traps, "Rules that always apply" for anything that could lose work |
 | A status snapshot, a review, a grade | Its own dated file, and add it to `report_only` **and** `historical` in `tools/doc_steward/config.json` |
 
+## Labels and the Launch milestone
+
+Added 21 September 2026, so "what is left before launch" can be answered
+without opening a Markdown file.
+
+| Label | For |
+| --- | --- |
+| `bug` | Something is broken for a customer |
+| `enhancement` | A feature or improvement, including launch-checklist items |
+| `design` | Visual language work, by `DESIGN_SYSTEM.md` section |
+| `infrastructure` | Tests, CI, tooling, process — nothing a customer sees |
+| `documentation` | Docs and trackers |
+| `blocked` | Waiting on another item, a person, or an owner decision. **Say what it waits on in the issue**, or the label is noise |
+| `owner-decision` | Only Keenan can settle it: money, legal identity, trademarks, live keys |
+| `security` · `accessibility` · `customer-experience` | As before |
+
+**The `Launch` milestone** holds only what must be true before FlowShield is
+sold publicly: the **Launch** items in `LAUNCH_FEATURE_CHECKLIST.md` and the
+owner gates in `LEGAL_CHECKLIST.md`. **Launch+** and **Later** items stay off
+it deliberately — a milestone that holds everything answers nothing.
+
+Two rules that keep this from rotting:
+
+- **An issue whose work partly shipped gets retitled to what is left**, not
+  left describing finished work. #143 and #133 were both retitled this way.
+  A title that names shipped work gets claimed by someone who then finds
+  nothing to do.
+- **Labels go on at claim time**, in the same breath as assigning yourself.
+  Nobody will do a labelling pass later.
+
 ## The doc steward
 
 It used to open a pull request after **every** merge to `main`, whether or not
