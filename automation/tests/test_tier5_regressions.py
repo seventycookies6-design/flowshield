@@ -3690,3 +3690,264 @@ class TestNoHardcodedColoursA3:
         reason -- confirm the scan really walks a non-trivial set of XAML."""
         assert len(self.FILES) >= 5, "expected Theme.xaml, MainWindow.xaml and several Views/*.xaml"
 
+
+# ==================================== A2: CornerRadius normalised to the §4 scale
+
+class TestCornerRadiusNormalisedA2:
+    """
+    UI-SPEC.md A2 (#147, DESIGN_SYSTEM.md §4): every CornerRadius in the app
+    must be one of the four legal values -- 6 (small chips/tags), 10
+    (buttons/inputs/toggles/interactive rows), 14 (cards/dialogs/surfaces),
+    or "fully round" -- and every one of them must be a StaticResource
+    reference to Theme.xaml's four named resources (RadiusChip/RadiusControl/
+    RadiusCard), not a bare number repeated at each call site. Fully round
+    elements use inf:Pill.IsRound instead of a radius (TestPillsAreComputed).
+
+    Proven to fail first: the FIXTURE strings below are lifted verbatim from
+    the pre-A2 XAML (CornerRadius="11" on NavButton, CornerRadius="7" on the
+    FirstRun app-icon badge, <Setter Property="CornerRadius" Value="12"/> on
+    RowCard) -- none of them are legal literals and none reference a
+    resource, so test_fixture_of_known_pre_fix_values_is_rejected below
+    fails against them, and passes only once every real call site is
+    converted (test_every_cornerradius_is_a_named_resource).
+    """
+
+    ROOT = Path(DESKTOP_DIR).parent
+    FILES = (
+        [Path(DESKTOP_DIR) / "Styles" / "Theme.xaml"]
+        + sorted((Path(DESKTOP_DIR) / "Views").glob("*.xaml"))
+        + [Path(DESKTOP_DIR) / "MainWindow.xaml"]
+    )
+
+    LEGAL_RESOURCE_KEYS = {"RadiusChip", "RadiusControl", "RadiusCard"}
+    LEGAL_VALUES = {"RadiusChip": 6, "RadiusControl": 10, "RadiusCard": 14}
+
+    # Matches both CornerRadius="X" (inline) and
+    # <Setter Property="CornerRadius" Value="X"/> (style setters).
+    INLINE = re.compile(r'CornerRadius="([^"]*)"')
+    SETTER = re.compile(r'Property="CornerRadius"\s+Value="([^"]*)"')
+    RESOURCE_REF = re.compile(r'^\{StaticResource (\w+)\}$')
+
+    # Verbatim pre-A2 fragments (Theme.xaml/MainWindow.xaml as they existed
+    # before this change): a bare literal on a Border, and a bare literal on
+    # a style Setter. Neither is a StaticResource reference.
+    PRE_FIX_FIXTURE = '\n'.join([
+        '<Border x:Name="bd" Background="{TemplateBinding Background}" CornerRadius="11"',
+        '<Border CornerRadius="7" Background="{StaticResource PrimarySoft}"',
+        '<Setter Property="CornerRadius" Value="12"/>',
+    ])
+
+    def _offenders(self, text: str) -> list[str]:
+        bad = []
+        for m in self.INLINE.finditer(text):
+            bad.append(m.group(1))
+        for m in self.SETTER.finditer(text):
+            bad.append(m.group(1))
+        offenders = []
+        for val in bad:
+            rm = self.RESOURCE_REF.match(val)
+            if not rm or rm.group(1) not in self.LEGAL_RESOURCE_KEYS:
+                offenders.append(val)
+        return offenders
+
+    def test_fixture_of_known_pre_fix_values_is_rejected(self):
+        """This test's own checker must actually catch the bug: run it
+        against verbatim pre-A2 fragments and confirm every one is flagged."""
+        offenders = self._offenders(self.PRE_FIX_FIXTURE)
+        assert len(offenders) == 3, (
+            f"expected the checker to flag all 3 pre-fix fragments, flagged {len(offenders)}: {offenders}"
+        )
+
+    def test_every_cornerradius_is_a_named_resource(self):
+        offenders = []
+        for path in self.FILES:
+            text = path.read_text(encoding="utf-8")
+            for m in self.INLINE.finditer(text):
+                val = m.group(1)
+                rm = self.RESOURCE_REF.match(val)
+                if not rm or rm.group(1) not in self.LEGAL_RESOURCE_KEYS:
+                    line_no = text.count("\n", 0, m.start()) + 1
+                    offenders.append(f"{path.relative_to(self.ROOT)}:{line_no}: CornerRadius=\"{val}\"")
+            for m in self.SETTER.finditer(text):
+                val = m.group(1)
+                rm = self.RESOURCE_REF.match(val)
+                if not rm or rm.group(1) not in self.LEGAL_RESOURCE_KEYS:
+                    line_no = text.count("\n", 0, m.start()) + 1
+                    offenders.append(f"{path.relative_to(self.ROOT)}:{line_no}: Setter CornerRadius Value=\"{val}\"")
+        assert not offenders, (
+            "CornerRadius value(s) that aren't a {StaticResource RadiusChip|RadiusControl|RadiusCard} "
+            "reference found -- every corner radius must draw from Theme.xaml's three named resources, "
+            "or the element must use inf:Pill.IsRound "
+            "(DESIGN_SYSTEM.md §4, UI-SPEC.md A2):\n" + "\n".join(offenders)
+        )
+
+    def test_named_resources_hold_the_legal_scale_values(self):
+        """The three resources themselves must equal the doc's own numbers --
+        a passing test above would be meaningless if RadiusCard were
+        silently redefined to something off-scale."""
+        theme_text = (Path(DESKTOP_DIR) / "Styles" / "Theme.xaml").read_text(encoding="utf-8")
+        for key, expected in self.LEGAL_VALUES.items():
+            m = re.search(rf'<CornerRadius x:Key="{key}">(\d+)</CornerRadius>', theme_text)
+            assert m, f"expected a <CornerRadius x:Key=\"{key}\"> resource definition in Theme.xaml"
+            assert int(m.group(1)) == expected, (
+                f"{key} is defined as {m.group(1)}, expected {expected}"
+            )
+
+    def test_the_files_list_actually_covers_something(self):
+        assert len(self.FILES) >= 5, "expected Theme.xaml, MainWindow.xaml and several Views/*.xaml"
+
+
+# ===================== A2 fix: "fully round" is computed, never a huge radius
+
+class TestPillsAreComputed:
+    """
+    A2 first expressed "fully round" as CornerRadius="9999", on the belief
+    that WPF clips corner geometry to half the smaller side. It doesn't: CSS
+    clamps an oversized border-radius, but WPF scales the curves, so the
+    renders showed the tier badge as an ellipse and the 5 px scrollbar thumb
+    as a spike. Pills now set inf:Pill.IsRound, which keeps the radius at half
+    the element's smaller side as it resizes (Infrastructure/Pill.cs).
+    """
+
+    THEME = Path(DESKTOP_DIR) / "Styles" / "Theme.xaml"
+    PILL = Path(DESKTOP_DIR) / "Infrastructure" / "Pill.cs"
+    FILES = (
+        [Path(DESKTOP_DIR) / "Styles" / "Theme.xaml", Path(DESKTOP_DIR) / "MainWindow.xaml"]
+        + sorted((Path(DESKTOP_DIR) / "Views").glob("*.xaml"))
+    )
+    # Anything at or beyond this is "make it round" by brute force, which WPF
+    # renders as an ellipse on any element that isn't square.
+    BRUTE_FORCE = 100
+
+    def test_no_corner_radius_is_large_enough_to_draw_an_ellipse(self):
+        offenders = []
+        for path in self.FILES:
+            text = path.read_text(encoding="utf-8")
+            values = re.findall(r'CornerRadius="([\d.,\s]+)"', text)
+            values += re.findall(r'<CornerRadius x:Key="\w+">([\d.,\s]+)</CornerRadius>', text)
+            values += re.findall(r'Property="CornerRadius"\s+Value="([\d.,\s]+)"', text)
+            for v in values:
+                if any(float(part) >= self.BRUTE_FORCE for part in v.split(",") if part.strip()):
+                    offenders.append(f"{path.name}: {v}")
+        assert not offenders, (
+            "a huge CornerRadius draws an ellipse in WPF, not a pill; use "
+            "inf:Pill.IsRound=\"True\":\n  " + "\n  ".join(offenders))
+
+    def test_the_round_elements_use_the_pill_behaviour(self):
+        theme = self.THEME.read_text(encoding="utf-8")
+        chip = re.search(r'<Style x:Key="Chip" TargetType="Border">.*?</Style>', theme, re.S)
+        assert chip and 'Property="inf:Pill.IsRound" Value="True"' in chip.group(0), (
+            "the Chip style (the tier badge) must be fully round via inf:Pill.IsRound")
+        # The nav bar, toggle track, scrollbar thumb, and both progress bar
+        # borders, plus the Chip setter above.
+        assert theme.count('inf:Pill.IsRound="True"') >= 5, (
+            "expected the nav bar, toggle track, scrollbar thumb and progress "
+            "bar borders to set inf:Pill.IsRound")
+
+    def test_the_radius_is_half_the_smaller_side(self):
+        source = self.PILL.read_text(encoding="utf-8")
+        assert "Math.Min(width, height)" in source and "smaller / 2" in source, (
+            "Pill.RadiusFor must use half the SMALLER side; half the larger side "
+            "is exactly the ellipse this replaced")
+        assert "SizeChanged" in source, "the radius must follow the element as it resizes"
+
+
+# ============ A2 review fix: Blocked Apps switch clipped by the card edge
+
+class TestBlockedAppsRowSwitchNotClipped:
+    """
+    PR #182 review (§4): the per-app enable/disable switch in the Blocked
+    Apps list (Steam/Discord/Minecraft Launcher rows) was clipped by the
+    card's right edge. The row's Grid has one flexible column (app name,
+    MinWidth 120) and four Auto columns -- icon, "blocked N x" stat, Remove
+    button, switch -- inside a ListBox with
+    ScrollViewer.HorizontalScrollBarVisibility="Disabled", which clips
+    overflow instead of scrolling it. This PR's own spacing bumps (icon
+    margin 13->12, "blocked N" margin 14->16, Remove button padding
+    14,0->16,0, switch margin 14,0,0,0->16,0,0,0) pushed the row's required
+    width past the card's available width (roughly 480px once the 1180px
+    window's 240px nav rail, 32px page margins, 300px picker column, 16px
+    gap, 24px Card padding and 16px RowCard padding are all subtracted), so
+    the switch -- the last Auto column -- lost its right edge.
+
+    The review fix pulled the Remove button's own padding and the switch's
+    own margin back down to 12 (still on the §4 4/8/12/16/24/32/48/64
+    scale), reclaiming 12px. This test sums the four literal spacing values
+    straight from the live XAML rather than reimplementing WPF's
+    text-measurement and layout engine -- those four numbers are the whole
+    cause the review named, and BUDGET is the same arithmetic used to find
+    and fix it.
+    """
+
+    VIEW = Path(DESKTOP_DIR) / "Views" / "BlockedAppsView.xaml"
+
+    # 76 (pre-fix: 12+16+32+16) overflowed the card; 64 (post-fix:
+    # 12+16+24+12) fits with margin to spare. Drawn at 70 so a future bump
+    # of any one value by a single further 4px §4 step trips it again.
+    BUDGET = 70
+
+    ICON_MARGIN = re.compile(
+        r'Grid\.Column="0" Width="34" Height="34".*?Margin="0,0,(\d+),0">', re.DOTALL
+    )
+    STAT_MARGIN = re.compile(
+        r'Grid\.Column="2" VerticalAlignment="Center" Margin="0,0,(\d+),0"\s*\n\s*'
+        r'Style="\{StaticResource Caption\}">\s*\n\s*<Run Text="blocked"'
+    )
+    BUTTON_PADDING = re.compile(
+        r'Style="\{StaticResource BtnDanger\}" Content="Remove"\s*\n\s*Padding="(\d+),0"'
+    )
+    SWITCH_MARGIN = re.compile(
+        r'Style="\{StaticResource Switch\}"\s*\n\s*VerticalAlignment="Center" Margin="(\d+),0,0,0"'
+    )
+
+    # Verbatim pre-fix fragment (this PR's own shipped numbers, before the
+    # review caught the clip): proves the checker below actually rejects
+    # the failing set rather than passing by construction.
+    PRE_FIX_FIXTURE = (
+        '<Border Grid.Column="0" Width="34" Height="34" CornerRadius="{StaticResource RadiusControl}"\n'
+        '        Background="{StaticResource PrimarySoft}" BorderBrush="{StaticResource Primary}" BorderThickness="1"\n'
+        '        Margin="0,0,12,0">\n'
+        '<TextBlock Grid.Column="2" VerticalAlignment="Center" Margin="0,0,16,0"\n'
+        '           Style="{StaticResource Caption}">\n'
+        '    <Run Text="blocked"/>\n'
+        '<Button Grid.Column="3" Style="{StaticResource BtnDanger}" Content="Remove"\n'
+        '        Padding="16,0" VerticalAlignment="Center"\n'
+        '<CheckBox Grid.Column="4" Style="{StaticResource Switch}"\n'
+        '          VerticalAlignment="Center" Margin="16,0,0,0"\n'
+    )
+
+    def _total(self, text: str) -> int:
+        icon = self.ICON_MARGIN.search(text)
+        stat = self.STAT_MARGIN.search(text)
+        button = self.BUTTON_PADDING.search(text)
+        switch = self.SWITCH_MARGIN.search(text)
+        assert icon and stat and button and switch, (
+            "one of the Blocked Apps row's spacing patterns wasn't found -- "
+            "has the row's XAML structure changed? update this test's regexes to match."
+        )
+        return (
+            int(icon.group(1))
+            + int(stat.group(1))
+            + int(button.group(1)) * 2
+            + int(switch.group(1))
+        )
+
+    def test_fixture_of_known_pre_fix_values_is_rejected(self):
+        """Proves the checker catches the bug: the pre-fix numbers
+        (12+16+32+16=76) must exceed BUDGET."""
+        total = self._total(self.PRE_FIX_FIXTURE)
+        assert total > self.BUDGET, (
+            f"expected the pre-fix fixture ({total}) to exceed BUDGET ({self.BUDGET})"
+        )
+
+    def test_blocked_apps_row_spacing_fits_the_card(self):
+        text = self.VIEW.read_text(encoding="utf-8")
+        total = self._total(text)
+        assert total <= self.BUDGET, (
+            f"Blocked Apps row spacing (icon margin + stat margin + 2x Remove "
+            f"button padding + switch margin = {total}) exceeds the "
+            f"{self.BUDGET}px budget that keeps the switch from being "
+            "clipped by the card's right edge (PR #182 review) -- pull one "
+            "of these back to the next lower §4 scale step."
+        )
+

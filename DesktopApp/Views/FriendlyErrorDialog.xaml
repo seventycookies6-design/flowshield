@@ -11,24 +11,24 @@
         TextOptions.TextFormattingMode="Ideal"
         UseLayoutRounding="True"
         AutomationProperties.AutomationId="FriendlyErrorDialog">
-    <Border Style="{StaticResource Card}" Margin="18" Padding="24">
+    <Border Style="{StaticResource Card}" Margin="16" Padding="24">
         <StackPanel>
             <TextBlock Text="Something went wrong."
                        Style="{StaticResource H2}" TextWrapping="Wrap"
                        AutomationProperties.AutomationId="FriendlyErrorText"/>
             <TextBlock Text="FlowShield hit a problem it didn't expect. It will keep running — if a sprint is in progress, check that the timer is still counting. The details were saved to the log; if this keeps happening, copy them and get help."
-                       Style="{StaticResource Body}" Margin="0,10,0,0" TextWrapping="Wrap"/>
+                       Style="{StaticResource Body}" Margin="0,12,0,0" TextWrapping="Wrap"/>
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,24,0,0">
                 <Button Style="{StaticResource BtnGhost}" Content="Copy details"
-                        Click="OnCopyDetails" Padding="18,9"
+                        Click="OnCopyDetails" Padding="16,8"
                         AutomationProperties.AutomationId="ErrorCopyDetailsButton"
                         AutomationProperties.Name="Copy details"/>
                 <Button Style="{StaticResource BtnGhost}" Content="Get help"
-                        Click="OnGetHelp" Margin="10,0,0,0" Padding="18,9"
+                        Click="OnGetHelp" Margin="12,0,0,0" Padding="16,8"
                         AutomationProperties.AutomationId="ErrorGetHelpButton"
                         AutomationProperties.Name="Get help"/>
                 <Button Style="{StaticResource BtnPrimary}" Content="OK"
-                        Click="OnOk" Margin="10,0,0,0" Padding="26,9"
+                        Click="OnOk" Margin="12,0,0,0" Padding="24,8"
                         AutomationProperties.AutomationId="ErrorOkButton"
                         AutomationProperties.Name="OK"/>
             </StackPanel>

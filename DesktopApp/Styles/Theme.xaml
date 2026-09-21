@@ -12,6 +12,40 @@
         <ResourceDictionary Source="ShieldGlyphs.xaml"/>
     </ResourceDictionary.MergedDictionaries>
 
+    <!-- ================================================================ shape
+         DESIGN_SYSTEM.md §4 corner-radius scale, defined once here per the
+         doc amendment (UI-SPEC.md §1.7.1): "Spacing and corner-radius
+         values are defined as resources in DesktopApp/Styles/Theme.xaml
+         (app) and directly in Website/styles.css (site) — not in
+         design/tokens.json, which is colour only (§14)." Every CornerRadius
+         in the app draws from one of these three, or is fully round (A2, #147):
+           6  — small chips/tags (TagChip)
+           10 — buttons, inputs, toggles, and interactive rows/icon badges
+           14 — cards, dialogs, and other card-like surfaces (toast, focus ring)
+           fully round — pills, the tier badge, toggle tracks, the nav bar
+                and scrollbar thumb, progress bars. NOT a huge radius: WPF
+                doesn't clamp an oversized CornerRadius the way CSS does, it
+                scales the curves, so 9999 drew ellipses and spikes. Set
+                inf:Pill.IsRound="True" instead; it keeps the radius at half
+                the element's smaller side (Infrastructure/Pill.cs). -->
+    <CornerRadius x:Key="RadiusChip">6</CornerRadius>
+    <CornerRadius x:Key="RadiusControl">10</CornerRadius>
+    <CornerRadius x:Key="RadiusCard">14</CornerRadius>
+
+    <!-- Spacing scale, DESIGN_SYSTEM.md §4: 4, 8, 12, 16, 24, 32, 48, 64.
+         Page margins 32, card padding 24 (CardPadding above via the Card
+         style's own Padding setter), gap between cards 16, nav rail 240.
+         The rail width and page margins are literals at their one call
+         site in MainWindow.xaml rather than resources here: GridLength and
+         Thickness properties don't accept a bare numeric StaticResource
+         without a type-converter round-trip that XAML doesn't perform for
+         resource references (only for literal string content), so a named
+         resource here would just be an extra indirection to the same
+         number. Every other Padding/Margin in the app is a literal drawn
+         from this same eight-number scale, hand-applied per element —
+         matching how the site implements the identical scale directly in
+         styles.css (see the doc amendment above). -->
+
     <!-- ========================================================= converters -->
 
     <inf:InverseBooleanConverter x:Key="InvBool"/>
@@ -152,8 +186,8 @@
         <Setter Property="Background" Value="{StaticResource Surface}"/>
         <Setter Property="BorderBrush" Value="{StaticResource Edge}"/>
         <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="CornerRadius" Value="14"/>
-        <Setter Property="Padding" Value="22"/>
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusCard}"/>
+        <Setter Property="Padding" Value="24"/>
         <Setter Property="Effect">
             <Setter.Value>
                 <DropShadowEffect BlurRadius="24" ShadowDepth="6" Direction="270" Opacity="0.45" Color="{StaticResource ShadowColor}"/>
@@ -165,8 +199,8 @@
         <Setter Property="Background" Value="{StaticResource Surface2}"/>
         <Setter Property="BorderBrush" Value="{StaticResource Edge}"/>
         <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="CornerRadius" Value="10"/>
-        <Setter Property="Padding" Value="12,5"/>
+        <Setter Property="inf:Pill.IsRound" Value="True"/>
+        <Setter Property="Padding" Value="12,4"/>
     </Style>
 
     <!-- Category tag chip (UI-SPEC.md A3, graft from raycast's app-pages
@@ -177,8 +211,8 @@
         <Setter Property="Background" Value="{StaticResource Surface2}"/>
         <Setter Property="BorderBrush" Value="{StaticResource Edge}"/>
         <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="CornerRadius" Value="6"/>
-        <Setter Property="Padding" Value="6,2"/>
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusChip}"/>
+        <Setter Property="Padding" Value="8,4"/>
     </Style>
 
     <!-- ============================================================ buttons
@@ -208,12 +242,12 @@
                                 Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="10"
+                                CornerRadius="{StaticResource RadiusControl}"
                                 Padding="{TemplateBinding Padding}">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                         <Border x:Name="focus" BorderBrush="{StaticResource FocusRing}" BorderThickness="2"
-                                CornerRadius="12" Margin="-4" Opacity="0" IsHitTestVisible="False"/>
+                                CornerRadius="{StaticResource RadiusCard}" Margin="-4" Opacity="0" IsHitTestVisible="False"/>
                     </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
@@ -247,12 +281,12 @@
                                 Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="10"
+                                CornerRadius="{StaticResource RadiusControl}"
                                 Padding="{TemplateBinding Padding}">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                         <Border x:Name="focus" BorderBrush="{StaticResource FocusRing}" BorderThickness="2"
-                                CornerRadius="12" Margin="-4" Opacity="0" IsHitTestVisible="False"/>
+                                CornerRadius="{StaticResource RadiusCard}" Margin="-4" Opacity="0" IsHitTestVisible="False"/>
                     </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
@@ -323,18 +357,18 @@
         <Setter Property="BorderThickness" Value="0"/>
         <Setter Property="Foreground" Value="{StaticResource InkDim}"/>
         <Setter Property="FontWeight" Value="Normal"/>
-        <Setter Property="Padding" Value="14,11"/>
+        <Setter Property="Padding" Value="16,12"/>
         <Setter Property="Margin" Value="0,0,0,4"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
                     <Grid>
-                        <Border x:Name="bd" Background="{TemplateBinding Background}" CornerRadius="11"
+                        <Border x:Name="bd" Background="{TemplateBinding Background}" CornerRadius="{StaticResource RadiusControl}"
                                 Padding="{TemplateBinding Padding}">
                             <ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center"/>
                         </Border>
-                        <Border x:Name="bar" Width="3" HorizontalAlignment="Left" Margin="0,9"
-                                CornerRadius="2" Background="{StaticResource Primary}" Opacity="0"/>
+                        <Border x:Name="bar" Width="3" HorizontalAlignment="Left" Margin="0,8"
+                                inf:Pill.IsRound="True" Background="{StaticResource Primary}" Opacity="0"/>
                     </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
@@ -364,7 +398,7 @@
         <Setter Property="Background" Value="{StaticResource Surface2}"/>
         <Setter Property="BorderBrush" Value="{StaticResource Edge}"/>
         <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="Padding" Value="12,9"/>
+        <Setter Property="Padding" Value="12,8"/>
         <Setter Property="VerticalContentAlignment" Value="Center"/>
         <Setter Property="Template">
             <Setter.Value>
@@ -372,7 +406,7 @@
                     <Border x:Name="bd" Background="{TemplateBinding Background}"
                             BorderBrush="{TemplateBinding BorderBrush}"
                             BorderThickness="{TemplateBinding BorderThickness}"
-                            CornerRadius="10">
+                            CornerRadius="{StaticResource RadiusControl}">
                         <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}"
                                       VerticalAlignment="Center"/>
                     </Border>
@@ -429,11 +463,11 @@
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
                         <ContentPresenter Grid.Column="0" VerticalAlignment="Center" Margin="0,0,16,0"/>
-                        <Border x:Name="track" Grid.Column="1" Width="46" Height="26" CornerRadius="13"
+                        <Border x:Name="track" Grid.Column="1" Width="46" Height="26" inf:Pill.IsRound="True"
                                 Background="{StaticResource Surface2}" BorderBrush="{StaticResource Edge}"
                                 BorderThickness="1">
                             <Ellipse x:Name="knob" Width="18" Height="18" Fill="{StaticResource InkFaint}"
-                                     HorizontalAlignment="Left" Margin="3,0,0,0"/>
+                                     HorizontalAlignment="Left" Margin="4,0,0,0"/>
                         </Border>
                     </Grid>
                     <ControlTemplate.Triggers>
@@ -441,7 +475,7 @@
                             <Setter TargetName="track" Property="Background" Value="{StaticResource Primary}"/>
                             <Setter TargetName="track" Property="BorderBrush" Value="Transparent"/>
                             <Setter TargetName="knob" Property="HorizontalAlignment" Value="Right"/>
-                            <Setter TargetName="knob" Property="Margin" Value="0,0,3,0"/>
+                            <Setter TargetName="knob" Property="Margin" Value="0,0,4,0"/>
                             <Setter TargetName="knob" Property="Fill" Value="{StaticResource PrimaryInk}"/>
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
@@ -470,7 +504,7 @@
             <Setter.Value>
                 <ControlTemplate TargetType="RadioButton">
                     <Border x:Name="bd" Background="{StaticResource Surface2}" BorderBrush="{StaticResource Edge}"
-                            BorderThickness="1" CornerRadius="10" Padding="15,8">
+                            BorderThickness="1" CornerRadius="{StaticResource RadiusControl}" Padding="16,8">
                         <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Border>
                     <ControlTemplate.Triggers>
@@ -537,7 +571,7 @@
             <Setter.Value>
                 <ControlTemplate TargetType="RadioButton">
                     <Border x:Name="bd" Background="{StaticResource Surface2}" BorderBrush="{StaticResource Edge}"
-                            BorderThickness="1" CornerRadius="10" Padding="6,8" Height="52">
+                            BorderThickness="1" CornerRadius="{StaticResource RadiusControl}" Padding="8,8" Height="52">
                         <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Border>
                     <ControlTemplate.Triggers>
@@ -607,7 +641,11 @@
                                 <Thumb>
                                     <Thumb.Template>
                                         <ControlTemplate TargetType="Thumb">
-                                            <Border Background="{StaticResource EdgeBright}" CornerRadius="4" Margin="2,0"/>
+                                            <!-- Margin stays 2px, off the 4-based scale: the scrollbar
+                                                 itself is a fixed 9px chrome element (Width above), and
+                                                 a 4px inset each side would leave only 1px of visible
+                                                 thumb. Noted as a deliberate exception in the A2 PR. -->
+                                            <Border Background="{StaticResource EdgeBright}" inf:Pill.IsRound="True" Margin="2,0"/>
                                         </ControlTemplate>
                                     </Thumb.Template>
                                 </Thumb>
@@ -631,8 +669,8 @@
         <Setter Property="Background" Value="{StaticResource Surface2}"/>
         <Setter Property="BorderBrush" Value="{StaticResource Edge}"/>
         <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="CornerRadius" Value="12"/>
-        <Setter Property="Padding" Value="14,11"/>
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusCard}"/>
+        <Setter Property="Padding" Value="16,12"/>
         <Setter Property="Margin" Value="0,0,0,8"/>
     </Style>
 
@@ -655,12 +693,12 @@
         <Setter Property="Foreground" Value="{StaticResource InkDim}"/>
         <Setter Property="FontFamily" Value="{StaticResource FontStack}"/>
         <Setter Property="FontSize" Value="12.5"/>
-        <Setter Property="Padding" Value="10,7"/>
+        <Setter Property="Padding" Value="12,8"/>
         <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="ListBoxItem">
-                    <Border x:Name="bd" Background="Transparent" CornerRadius="8"
+                    <Border x:Name="bd" Background="Transparent" CornerRadius="{StaticResource RadiusControl}"
                             Padding="{TemplateBinding Padding}">
                         <ContentPresenter/>
                     </Border>
@@ -693,9 +731,9 @@
             <Setter.Value>
                 <ControlTemplate TargetType="ProgressBar">
                     <Grid>
-                        <Border CornerRadius="3" Background="{TemplateBinding Background}"/>
+                        <Border inf:Pill.IsRound="True" Background="{TemplateBinding Background}"/>
                         <Border x:Name="PART_Track"/>
-                        <Border x:Name="PART_Indicator" CornerRadius="3"
+                        <Border x:Name="PART_Indicator" inf:Pill.IsRound="True"
                                 HorizontalAlignment="Left"
                                 Background="{TemplateBinding Foreground}"/>
                     </Grid>
