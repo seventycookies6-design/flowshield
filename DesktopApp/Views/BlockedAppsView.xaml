@@ -98,33 +98,37 @@
                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                     </Border>
 
+                                    <!-- Name, category chip and process summary each get their own
+                                         line instead of sharing one — this column only has ~156px to
+                                         work with once the icon, "blocked N x" stat, Remove button and
+                                         switch take their share (measured against after/A3/blocked-
+                                         apps.png), nowhere near enough for two fields side by side once
+                                         the category is a real multi-word label ("Games & Launchers")
+                                         rather than the picker's short one-word categories. Cramming the
+                                         chip and the process caption onto one line is what truncated
+                                         both to unreadable fragments (review fix, PR #180). -->
                                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                        <!-- the app name gets the full row width to itself, so a long name
-                                             still ellipsizes gracefully instead of losing space to the chip -->
                                         <TextBlock Text="{Binding DisplayName}" Style="{StaticResource Label}" FontWeight="SemiBold"
                                                    TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"
                                                    ToolTip="{Binding DisplayName}"/>
-                                        <Grid Margin="0,2,0,0">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="Auto"/>
-                                                <ColumnDefinition Width="*"/>
-                                            </Grid.ColumnDefinitions>
-                                            <!-- category tag chip (UI-SPEC.md A3, graft from raycast). A Grid
-                                                 column (not a StackPanel) so its Auto width can't overflow
-                                                 into the columns to the right, the way a horizontal
-                                                 StackPanel's unbounded measure pass did here before. -->
-                                            <Border Grid.Column="0" Style="{StaticResource TagChip}" Margin="0,0,8,0"
-                                                    VerticalAlignment="Center" MaxWidth="80"
-                                                    Visibility="{Binding HasCategory, Converter={StaticResource BoolVis}}">
-                                                <TextBlock Text="{Binding Category}" Style="{StaticResource Caption}"
-                                                           TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
-                                            </Border>
-                                            <TextBlock Style="{StaticResource Caption}" Grid.Column="1"
-                                                       TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"
-                                                       ToolTip="{Binding ProcessSummary}">
-                                                <Run Text="{Binding ProcessSummary, Mode=OneWay}"/>
-                                            </TextBlock>
-                                        </Grid>
+                                        <!-- category tag chip (UI-SPEC.md A3, graft from raycast). MaxWidth
+                                             keeps a long category ("Games & Launchers") from overflowing
+                                             its own line into the "blocked N x" column next to it — a
+                                             Border with no size cap renders at its full desired width
+                                             regardless of the column it sits in (WPF doesn't clip by
+                                             default), which is exactly how this row got the review-flagged
+                                             overlap the first time. -->
+                                        <Border Style="{StaticResource TagChip}" Margin="0,4,0,0"
+                                                HorizontalAlignment="Left" MaxWidth="140"
+                                                Visibility="{Binding HasCategory, Converter={StaticResource BoolVis}}">
+                                            <TextBlock Text="{Binding Category}" Style="{StaticResource Caption}"
+                                                       TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
+                                        </Border>
+                                        <TextBlock Style="{StaticResource Caption}" Margin="0,4,0,0"
+                                                   TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"
+                                                   ToolTip="{Binding ProcessSummary}">
+                                            <Run Text="{Binding ProcessSummary, Mode=OneWay}"/>
+                                        </TextBlock>
                                     </StackPanel>
 
                                     <TextBlock Grid.Column="2" VerticalAlignment="Center" Margin="0,0,14,0"
