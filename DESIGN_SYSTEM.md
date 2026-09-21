@@ -72,6 +72,7 @@ failures measured on 14 September 2026 (see "Contrast" below).
 | `border-strong` | `text` at 22% | `text` at 22% | Hovered or focused outlines, toasts |
 | `focus-ring` | `primary` at 50% | `primary` at 45% | Keyboard focus outline, 2 px |
 | `scrim` | `bg` at 95% | `bg` at 92% | Behind the lock screen and dialogs |
+| `shadow` *(doc amendment, A3, #147)* | `#000000` | `#000000` | Opaque black for the `DropShadowEffect.Color` behind cards; the effect's own `Opacity` does the fading, so this stays a fixed black in both themes rather than a themed pair. App-only — the site already expresses card elevation as the `shadow-soft`/`shadow-lift` rgba strings above, which encode the same black directly. |
 
 ### Rules
 

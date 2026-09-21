@@ -3518,3 +3518,174 @@ class TestMotionA4:
             assert not re.search(r'Duration="0:0:0\.\d+"', block), (
                 f"{style_key} has a hardcoded animation Duration instead of using "
                 f"Motion.Selection")
+
+
+# ============================== A3: token contrast fixes and hard-coded colour removal
+
+class TestContrastAndTokensA3:
+    """
+    UI-SPEC.md A3 (#147, DESIGN_SYSTEM.md §2): text-faint and the light-theme
+    ok/warn/danger values were measured below WCAG 2.1's 4.5:1 normal-text
+    threshold. This computes the ratios straight from design/tokens.json --
+    the single source of truth -- for every pair in DESIGN_SYSTEM.md's
+    "Contrast" table, in both themes.
+
+    Proven to fail first: run against the pre-fix values (text-faint dark
+    #7E7B73 / light #8A867E; ok light #2F7D4A; warn light #9A6B1F; danger
+    light #B33A4A) and text-faint on surface measures 4.07:1 (dark) / 3.27:1
+    (light) -- both below 4.5, matching the doc's own "current" column -- and
+    the light ok/warn pairs also fail. Restoring the pre-fix hex values below
+    and rerunning reproduces that failure; the fixed values in tokens.json
+    pass every pair.
+    """
+
+    ROOT = Path(DESKTOP_DIR).parent
+    TOKENS = ROOT / "design" / "tokens.json"
+
+    PRE_FIX_TEXT_FAINT = {"dark": "#7E7B73", "light": "#8A867E"}
+    PRE_FIX_STATUS_LIGHT = {"ok": "#2F7D4A", "warn": "#9A6B1F", "danger": "#B33A4A"}
+
+    # Every pair DESIGN_SYSTEM.md §2's "Contrast" table measures.
+    PAIRS = [
+        ("text", "bg"),
+        ("text-muted", "bg"),
+        ("text-faint", "surface"),
+        ("primary", "bg"),
+        ("primary-ink", "primary"),
+        ("warn", "bg"),
+        ("ok", "bg"),
+        ("danger", "bg"),
+    ]
+
+    THRESHOLD = 4.5
+
+    @staticmethod
+    def _hex_to_rgb(value: str) -> tuple[int, int, int]:
+        value = value.lstrip("#")
+        return int(value[0:2], 16), int(value[2:4], 16), int(value[4:6], 16)
+
+    @classmethod
+    def _resolve(cls, theme: dict, name: str, seen: tuple = ()) -> tuple[int, int, int, float]:
+        """A token as (r, g, b, alpha), following {"ref", "alpha"} references --
+        the same resolution rule tools/build_tokens.py uses."""
+        assert name not in seen, f"circular token reference: {seen + (name,)}"
+        value = theme[name]
+        if isinstance(value, str):
+            r, g, b = cls._hex_to_rgb(value)
+            return r, g, b, 1.0
+        r, g, b, _ = cls._resolve(theme, value["ref"], seen + (name,))
+        return r, g, b, float(value["alpha"])
+
+    @staticmethod
+    def _composite(fg: tuple[int, int, int, float], bg: tuple[int, int, int, float]) -> tuple[int, int, int]:
+        """Alpha-composite fg over bg (both already resolved), for tokens defined as a ref+alpha."""
+        fr, fg_, fb, fa = fg
+        br, bgc, bb, _ba = bg
+        return (
+            round(fr * fa + br * (1 - fa)),
+            round(fg_ * fa + bgc * (1 - fa)),
+            round(fb * fa + bb * (1 - fa)),
+        )
+
+    @staticmethod
+    def _luminance(rgb: tuple[int, int, int]) -> float:
+        def lin(c: int) -> float:
+            c = c / 255
+            return c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4
+        r, g, b = rgb
+        return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b)
+
+    @classmethod
+    def _contrast(cls, rgb1: tuple[int, int, int], rgb2: tuple[int, int, int]) -> float:
+        l1, l2 = cls._luminance(rgb1), cls._luminance(rgb2)
+        lighter, darker = max(l1, l2), min(l1, l2)
+        return (lighter + 0.05) / (darker + 0.05)
+
+    def _ratio(self, theme: dict, fg_name: str, bg_name: str) -> float:
+        fg = self._resolve(theme, fg_name)
+        bg = self._resolve(theme, bg_name)
+        fg_rgb = self._composite(fg, bg) if fg[3] < 1.0 else fg[:3]
+        bg_rgb = bg[:3]
+        return self._contrast(fg_rgb, bg_rgb)
+
+    def _themes(self) -> dict:
+        return json.loads(self.TOKENS.read_text(encoding="utf-8"))["themes"]
+
+    @pytest.mark.parametrize("theme_name", ["dark", "light"])
+    def test_every_section_2_pair_meets_wcag_normal_text(self, theme_name):
+        themes = self._themes()
+        theme = themes[theme_name]
+        failures = []
+        for fg_name, bg_name in self.PAIRS:
+            ratio = self._ratio(theme, fg_name, bg_name)
+            if ratio < self.THRESHOLD:
+                failures.append(f"{fg_name} on {bg_name} ({theme_name}): {ratio:.2f}:1")
+        assert not failures, (
+            "tokens.json pairs fail WCAG 2.1's 4.5:1 normal-text threshold: "
+            + "; ".join(failures)
+        )
+
+    @pytest.mark.parametrize("theme_name", ["dark", "light"])
+    def test_pre_fix_values_would_have_failed(self, theme_name):
+        """Confirms this test is actually load-bearing: swap in the exact
+        pre-fix hex values DESIGN_SYSTEM.md's "current" column measured, and
+        the same computation must fail below 4.5:1."""
+        themes = self._themes()
+        theme = dict(themes[theme_name])
+        theme["text-faint"] = self.PRE_FIX_TEXT_FAINT[theme_name]
+        if theme_name == "light":
+            theme.update(self.PRE_FIX_STATUS_LIGHT)
+
+        ratio = self._ratio(theme, "text-faint", "surface")
+        assert ratio < self.THRESHOLD, (
+            f"expected the pre-fix text-faint/surface ratio to fail below 4.5:1, got {ratio:.2f}:1 "
+            f"-- this test would no longer prove the fix does anything")
+
+        if theme_name == "light":
+            for status in ("ok", "warn"):
+                ratio = self._ratio(theme, status, "bg")
+                assert ratio < self.THRESHOLD, (
+                    f"expected the pre-fix light {status}/bg ratio to fail below 4.5:1, got {ratio:.2f}:1")
+
+
+# ==================================== A3: no hard-coded colour left in the restyled XAML
+
+class TestNoHardcodedColoursA3:
+    """
+    UI-SPEC.md A3 (#147, DESIGN_SYSTEM.md §2 "No hard-coded colours in
+    views"): every colour in the restyled files must come from a
+    design/tokens.json-generated resource, referenced by name -- never a
+    literal #RRGGBB/#AARRGGBB in the markup itself.
+
+    Proven to fail first: this test fails against the pre-A3 Theme.xaml
+    (Card's DropShadowEffect Color="#FF000000", BtnDanger's
+    Background="#22FF6B8B"/BorderBrush="#55FF6B8B", the scrollbar thumb's
+    Background="#30FFFFFF") and the pre-A3 MainWindow.xaml (four scrim
+    Background="#F2121110"/"#B3121110"/"#F7121110" occurrences).
+    """
+
+    ROOT = Path(DESKTOP_DIR).parent
+    HEX = re.compile(r'#[0-9A-Fa-f]{6,8}\b')
+
+    FILES = (
+        [Path(DESKTOP_DIR) / "Styles" / "Theme.xaml"]
+        + sorted((Path(DESKTOP_DIR) / "Views").glob("*.xaml"))
+        + [Path(DESKTOP_DIR) / "MainWindow.xaml"]
+    )
+
+    def test_no_hex_colour_literal_remains(self):
+        offenders = []
+        for path in self.FILES:
+            text = path.read_text(encoding="utf-8")
+            for match in self.HEX.finditer(text):
+                line_no = text.count("\n", 0, match.start()) + 1
+                offenders.append(f"{path.relative_to(self.ROOT)}:{line_no}: {match.group(0)}")
+        assert not offenders, (
+            "hard-coded hex colour literal(s) found -- reference a Tokens.xaml-generated "
+            "brush resource instead:\n" + "\n".join(offenders)
+        )
+
+    def test_the_files_list_actually_covers_something(self):
+        """A regex that silently matched zero files would pass for the wrong
+        reason -- confirm the scan really walks a non-trivial set of XAML."""
+        assert len(self.FILES) >= 5, "expected Theme.xaml, MainWindow.xaml and several Views/*.xaml"
