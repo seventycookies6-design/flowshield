@@ -7,6 +7,7 @@
         ResizeMode="NoResize"
         ShowInTaskbar="False"
         Background="{StaticResource Bg}"
+        FontFamily="{StaticResource FontStack}"
         TextOptions.TextFormattingMode="Ideal"
         UseLayoutRounding="True"
         AutomationProperties.AutomationId="FriendlyErrorDialog">

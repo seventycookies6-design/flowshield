@@ -9,6 +9,7 @@
         MinHeight="540" MinWidth="800"
         WindowStartupLocation="CenterScreen"
         Background="{StaticResource Bg}"
+        FontFamily="{StaticResource FontStack}"
         TextOptions.TextFormattingMode="Ideal"
         UseLayoutRounding="True"
         SizeChanged="OnSizeChanged"
@@ -40,7 +41,7 @@
                               Stroke="{StaticResource Primary}" StrokeThickness="1.9"
                               StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
                     </Canvas>
-                    <TextBlock x:Name="NavBrandText" Text="FlowShield" Style="{StaticResource H2}" FontSize="15"
+                    <TextBlock x:Name="NavBrandText" Text="FlowShield" Style="{StaticResource H2}"
                                VerticalAlignment="Center" Margin="10,0,0,0"/>
                 </StackPanel>
 
@@ -461,7 +462,7 @@
                 <Border.Effect>
                     <DropShadowEffect BlurRadius="20" ShadowDepth="4" Direction="270" Opacity="0.55"/>
                 </Border.Effect>
-                <TextBlock Text="{Binding ToastText}" Foreground="{StaticResource Ink}" FontSize="12.5"
+                <TextBlock Text="{Binding ToastText}" Style="{StaticResource Caption}" Foreground="{StaticResource Ink}"
                            AutomationProperties.AutomationId="ToastText"/>
             </Border>
         </Grid>

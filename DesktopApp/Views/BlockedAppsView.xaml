@@ -89,8 +89,7 @@
                                     </Border>
 
                                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding DisplayName}" Foreground="{StaticResource Ink}"
-                                                   FontSize="13.5" FontWeight="SemiBold"/>
+                                        <TextBlock Text="{Binding DisplayName}" Style="{StaticResource Label}" FontWeight="SemiBold"/>
                                         <TextBlock Style="{StaticResource Caption}">
                                             <Run Text="{Binding ProcessSummary, Mode=OneWay}"/>
                                         </TextBlock>
