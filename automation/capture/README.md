@@ -1,5 +1,11 @@
 # Making the site's product captures
 
+> **Not on every change.** These are refreshed once, near the end, when the
+> product is close to complete — tracked in **#144**, which also lists what is
+> known to have drifted since the last capture. Re-recording after every
+> behaviour change during development is wasted effort; this kit exists so the
+> refresh is cheap when it is finally worth doing.
+
 The screenshots and the recording in `Website/media/` are taken from the
 shipped build running in the Hyper-V lab VM (`VM_TESTING.md`), so they can be
 remade whenever the app's screens change — F27 says the site shows the real
