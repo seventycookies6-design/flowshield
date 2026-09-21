@@ -3192,3 +3192,125 @@ class TestSiteFontsAreSelfHosted:
         css = self.CSS.read_text(encoding="utf-8")
         primary = css.split('font-family: "Inter";', 1)[1].split("}", 1)[0]
         assert "font-display: swap" in primary
+
+
+# ==================================================== B3 — site system pass
+
+class TestSiteSystemPassB3:
+    """
+    DESIGN_SYSTEM.md §5-§7 / UI-SPEC.md B3: the full §7 button set at 44px,
+    the §6 shield glyph symbol set (echoing the app's A4
+    DesktopApp/Styles/ShieldGlyphs.xaml), the missing 6px chip radius step,
+    section rhythm on the 4-scale, and Lucide icons in place of the FAQ's
+    Unicode +/- markers. Written to fail against the pre-B3 site (plain-text
+    "Shield II" labels, no .btn-quiet/.btn-danger, no --radius-chip, 48/64px
+    section padding, a "+"/mojibake "-" FAQ marker) before the fix landed.
+    """
+
+    CSS = Path(WEBSITE_DIR) / "styles.css"
+    INDEX = Path(WEBSITE_DIR) / "index.html"
+    # DesktopApp/Styles/ShieldGlyphs.xaml (A4, #147) landed on the app track's
+    # own branch chain, not this site-track branch, so it isn't guaranteed to
+    # exist on disk here — the crest path is copied verbatim (see B3's PR
+    # body) rather than read cross-branch, which would make this test flaky
+    # depending on which stack a checkout has.
+    APP_SHIELD_CREST = (
+        "M12,3 L19.5,6 L19.5,11.5 C19.5,16.2 16.3,19.8 12,21 "
+        "C7.7,19.8 4.5,16.2 4.5,11.5 L4.5,6 Z"
+    )
+
+    def test_all_four_button_variants_are_44_high_radius_10(self):
+        css = self.CSS.read_text(encoding="utf-8")
+        base = css.split(".btn {", 1)[1].split("\n}", 1)[0]
+        assert "height: 44px" in base, ".btn is not fixed at 44px tall"
+        assert "border-radius: var(--radius-sm)" in base, ".btn does not use the 10px radius token"
+        for variant in (".btn-primary", ".btn-ghost", ".btn-quiet", ".btn-danger"):
+            assert re.search(re.escape(variant) + r"\s*{", css), f"{variant} is not defined in styles.css"
+
+    def test_disabled_buttons_are_45_percent_opacity(self):
+        css = self.CSS.read_text(encoding="utf-8")
+        rule = css.split(".btn:disabled", 1)[1].split("}", 1)[0]
+        assert "opacity: 0.45" in rule, ".btn:disabled is not at the §7 45% opacity"
+
+    def test_shield_glyph_symbol_set_matches_the_apps_geometry(self):
+        """
+        The site's three <symbol>s must be the same crest path the app's A4
+        ShieldGlyphs.xaml draws (not a hand-drawn approximation), and each
+        must carry the right bar count — Soft 1, Firm 2, Sealed 3 plus the
+        lock notch — the same escalation-through-fill-and-bars rule as §6.
+        """
+        html = self.INDEX.read_text(encoding="utf-8")
+
+        assert html.count(self.APP_SHIELD_CREST) == 3, (
+            "index.html's shield <symbol> set doesn't reuse the app's exact crest geometry "
+            "in all three symbols"
+        )
+
+        soft = html.split('id="shield-soft-glyph"', 1)[1].split("</symbol>", 1)[0]
+        firm = html.split('id="shield-firm-glyph"', 1)[1].split("</symbol>", 1)[0]
+        sealed = html.split('id="shield-sealed-glyph"', 1)[1].split("</symbol>", 1)[0]
+
+        assert soft.count("<path") == 2, "Soft glyph should be an outline plus exactly one bar"
+        assert firm.count("<path") == 2, "Firm glyph should be an outline plus a two-bar path"
+        assert 'fill="var(--color-primary)"' in sealed, "Sealed glyph isn't solid-filled"
+        assert sealed.count("<path") >= 3, "Sealed glyph is missing its three-bar path and/or lock notch"
+        assert "<circle" in sealed, "Sealed glyph is missing the lock notch"
+
+    def test_shields_section_uses_the_glyphs_not_plain_text(self):
+        html = self.INDEX.read_text(encoding="utf-8")
+        shields = html.split('id="shields"', 1)[1].split('id="features"', 1)[0]
+        assert '<div class="num">' not in shields, (
+            "the shields section still has the old plain-text Shield II/III label "
+            "instead of the glyph symbol set"
+        )
+        for glyph in ("#shield-soft-glyph", "#shield-firm-glyph", "#shield-sealed-glyph"):
+            assert f'href="{glyph}"' in shields, f"the shields section never references {glyph}"
+
+    def test_chip_radius_token_exists_and_is_used(self):
+        css = self.CSS.read_text(encoding="utf-8")
+        assert "--radius-chip: 6px;" in css, "the missing 6px chip radius step (REFERENCES gap #20) wasn't added"
+        assert css.count("var(--radius-chip)") >= 2, (
+            "the 6px chip token exists but nothing outside the token block actually uses it"
+        )
+
+    def test_section_rhythm_uses_composed_4_scale_multiples(self):
+        css = self.CSS.read_text(encoding="utf-8")
+        assert "--space-20: 80px;" in css and "--space-24: 96px;" in css, (
+            "section-break spacing tokens (80/96, composed from the 32/48/64 steps) are missing"
+        )
+        rule = css.split("\nsection { padding:", 1)
+        assert len(rule) == 2, "the base `section` rule is missing or was restructured"
+        assert "var(--space-20)" in rule[1].split("}", 1)[0]
+
+    def test_faq_uses_an_svg_chevron_not_a_unicode_marker(self):
+        html = self.INDEX.read_text(encoding="utf-8")
+        faq = html.split('id="faq"', 1)[1]
+        assert html.count('class="chevron"') == 7, "expected one chevron icon per FAQ item"
+        assert "summary::after" not in (self.CSS.read_text(encoding="utf-8")), (
+            "styles.css still drives the FAQ marker from a ::after content glyph"
+        )
+        # The old marker was corrupted (\xc2\x91 + "2") mojibake for a minus
+        # sign — make sure that byte sequence is gone for good, not just the
+        # rule that displayed it.
+        raw = self.CSS.read_bytes()
+        assert b"\xc2\x91" not in raw, "the mojibake minus-sign byte is still in styles.css"
+
+    def test_every_feature_card_has_a_lucide_icon(self):
+        html = self.INDEX.read_text(encoding="utf-8")
+        features = html.split('id="features"', 1)[1].split('id="pricing"', 1)[0]
+        card_count = features.count('class="surface feature"')
+        icon_count = features.count('class="feature-icon"')
+        assert card_count == 6, "fixture assumption changed: expected 6 feature cards"
+        assert icon_count == card_count, (
+            f"{card_count} feature cards but only {icon_count} have a .feature-icon — "
+            "every feature needs a Lucide icon, not just some of them"
+        )
+
+    def test_no_legacy_colour_aliases_reintroduced_by_this_pass(self):
+        # TestNoLegacyColourAliases already covers the app and the general
+        # site case; this just re-confirms the exact files B3 touched.
+        css = self.CSS.read_text(encoding="utf-8")
+        html = self.INDEX.read_text(encoding="utf-8")
+        for name in ("--violet", "--cyan", "--grad"):
+            assert f"{name}:" not in css
+            assert f"var({name})" not in html
