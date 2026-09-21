@@ -1,0 +1,73 @@
+# Issue hygiene: reports issue state that has stopped being true — an issue
+# open for work the launch checklist says shipped, a `blocked` label whose
+# blocker has closed, a tracker nobody has reviewed in a fortnight.
+#
+# It reports and never edits. No issue, label or file is changed by this
+# workflow, and a finding is not a failure: a red tick for a stale label is a
+# red tick people learn to ignore.
+#
+# Findings go to one standing issue, the way the doc steward reports what it
+# may not fix.
+
+name: Issue hygiene
+
+on:
+  schedule:
+    - cron: "23 6 * * 1"   # Mondays 06:23 UTC, just after the doc steward's sweep
+  workflow_dispatch:
+    inputs:
+      post:
+        description: "Comment the findings on the standing issue"
+        type: boolean
+        default: true
+
+concurrency:
+  group: issue-hygiene
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Check issue state against the launch checklist
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set +e
+          python tools/issue_hygiene/check.py > "$RUNNER_TEMP/hygiene.md"
+          code=$?
+          cat "$RUNNER_TEMP/hygiene.md" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$code" = "2" ]; then
+            echo "::error::the hygiene check could not run"
+            exit 1
+          fi
+          echo "code=$code" >> "$GITHUB_ENV"
+
+      # One standing issue, found by title rather than hard-coded, so the
+      # number can change without editing this file.
+      - name: Report what drifted
+        if: env.code == '10' && inputs.post != false
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          title="Issue hygiene: state that has stopped being true"
+          existing=$(gh issue list --state open --search "in:title \"$title\"" \
+                       --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body-file "$RUNNER_TEMP/hygiene.md"
+          else
+            gh issue create --title "$title" --label documentation \
+              --body-file "$RUNNER_TEMP/hygiene.md"
+          fi
