@@ -14,8 +14,8 @@ strength you pick per sprint, and finished sprints compound into momentum.
 
 ```
 Shield I  · Soft    a brief notice inside FlowShield; the blocked app keeps running
-Shield II · Firm    blocked apps are closed on sight
-Shield III· Sealed  closed on sight, and the blocklist locks for the rest of the sprint
+Shield II · Firm    blocked apps are warned to save their work, then closed
+Shield III· Sealed  warned then closed, and the blocklist locks for the rest of the sprint
 ```
 
 **Momentum, not streaks.** A completed sprint adds to a momentum score; an

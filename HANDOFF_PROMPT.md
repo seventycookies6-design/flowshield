@@ -276,7 +276,7 @@ go-ahead.
    and issues #1–#6, split between the owner (#37) and milessmart6-pixel (#38). The site no longer
    advertises unbuilt features (item 1.1, live since 13 September 2026), but the
    rest of Phase 1 still matters most: Sealed can be ended with one click,
-   blocked apps are killed with no warning, the journal can't be read back,
+   the journal can't be read back,
    and the
    thank-you page's "Activate in FlowShield" button does nothing.
 2. **Stripe business name** (owner; found in a test purchase on 13 September
