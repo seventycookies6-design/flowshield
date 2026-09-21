@@ -3518,3 +3518,4 @@ class TestMotionA4:
             assert not re.search(r'Duration="0:0:0\.\d+"', block), (
                 f"{style_key} has a hardcoded animation Duration instead of using "
                 f"Motion.Selection")
+
