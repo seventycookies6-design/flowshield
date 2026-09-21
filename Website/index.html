@@ -21,6 +21,34 @@
 </head>
 <body>
 
+<!-- ================================================================ shields
+     DESIGN_SYSTEM.md §6: the three shields, built once. This geometry mirrors
+     the app's DesktopApp/Styles/ShieldGlyphs.xaml (A4) on the same 24x24 grid
+     — an SVG port of the same crest and bar layout, not a separate drawing.
+     Referenced with <use> wherever the site shows a shield level (#shields
+     below). Hidden from layout and screen readers; each use site carries its
+     own accessible name via the surrounding text. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <symbol id="shield-soft-glyph" viewBox="0 0 24 24">
+      <path d="M12,3 L19.5,6 L19.5,11.5 C19.5,16.2 16.3,19.8 12,21 C7.7,19.8 4.5,16.2 4.5,11.5 L4.5,6 Z"
+            fill="none" stroke="var(--color-text-muted)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M8.5,11.5 L15.5,11.5" stroke="var(--color-text-muted)" stroke-width="1.75" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="shield-firm-glyph" viewBox="0 0 24 24">
+      <path d="M12,3 L19.5,6 L19.5,11.5 C19.5,16.2 16.3,19.8 12,21 C7.7,19.8 4.5,16.2 4.5,11.5 L4.5,6 Z"
+            fill="none" stroke="var(--color-primary)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M8.5,10.2 L15.5,10.2 M8.5,13.4 L15.5,13.4" stroke="var(--color-primary)" stroke-width="1.75" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="shield-sealed-glyph" viewBox="0 0 24 24">
+      <path d="M12,3 L19.5,6 L19.5,11.5 C19.5,16.2 16.3,19.8 12,21 C7.7,19.8 4.5,16.2 4.5,11.5 L4.5,6 Z" fill="var(--color-primary)"/>
+      <path d="M8.5,9.4 L15.5,9.4 M8.5,12 L15.5,12 M8.5,14.6 L15.5,14.6" stroke="var(--color-primary-ink)" stroke-width="1.75" stroke-linecap="round"/>
+      <circle cx="12" cy="16.6" r="0.75" fill="var(--color-primary-ink)"/>
+      <path d="M11.65,17.2 L12.35,17.2 L12.15,18.3 L11.85,18.3 Z" fill="var(--color-primary-ink)"/>
+    </symbol>
+  </defs>
+</svg>
+
 <header class="nav">
   <div class="wrap nav-inner">
     <a class="brand" href="index.html">
@@ -321,8 +349,27 @@
     </div>
 
     <div class="levels">
+      <article class="surface level l1">
+        <div class="level-head"><span class="level-badge">Shield I</span></div>
+        <div class="shield-glyph"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#shield-soft-glyph"></use></svg></div>
+        <h3>Soft</h3>
+        <p class="scenario">
+          For lighter stretches — between classes, or when you need Discord open for
+          a group project but still want a nudge when a blocked game launches.
+        </p>
+        <ul class="behaviors">
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 6 9 17l-5-5"/></svg><span><strong>Records the hit</strong> — FlowShield notes the blocked app when it appears.</span></li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 6 9 17l-5-5"/></svg><span><strong>Shows a brief notice</strong> — inside FlowShield’s own window; the distracting app keeps running.</span></li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 6 9 17l-5-5"/></svg><span><strong>Low friction</strong> — use Soft when a full close would be too harsh for the moment.</span></li>
+        </ul>
+      </article>
+
       <article class="surface level flagship l2">
-        <div class="num">Shield II · flagship for homework</div>
+        <div class="level-head">
+          <span class="level-badge">Shield II</span>
+          <span class="flag-pill">Homework block</span>
+        </div>
+        <div class="shield-glyph"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#shield-firm-glyph"></use></svg></div>
         <h3>Firm</h3>
         <p class="scenario">
           After school, when Minecraft and Discord are one click away: Firm closes
@@ -330,37 +377,24 @@
           while you can still edit the blocklist.
         </p>
         <ul class="behaviors">
-          <li><strong>Closes launchers</strong> Steam, Epic, and Minecraft processes on the blocklist are closed when they appear.</li>
-          <li><strong>Holds the line</strong> Blocked apps stay closed for the rest of the sprint.</li>
-          <li><strong>Still editable</strong> You can adjust the blocklist mid-sprint if a study tool got caught.</li>
-        </ul>
-      </article>
-
-      <article class="surface level l1">
-        <div class="num">Shield I</div>
-        <h3>Soft</h3>
-        <p class="scenario">
-          For lighter stretches — between classes, or when you need Discord open for
-          a group project but still want a nudge when a blocked game launches.
-        </p>
-        <ul class="behaviors">
-          <li><strong>Records the hit</strong> FlowShield notes the blocked app when it appears.</li>
-          <li><strong>Shows a brief notice</strong> Inside FlowShield’s own window — the distracting app keeps running.</li>
-          <li><strong>Low friction</strong> Use Soft when a full close would be too harsh for the moment.</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 6 9 17l-5-5"/></svg><span><strong>Closes launchers</strong> — Steam, Epic, and Minecraft processes on the blocklist are closed when they appear.</span></li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 6 9 17l-5-5"/></svg><span><strong>Holds the line</strong> — blocked apps stay closed for the rest of the sprint.</span></li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 6 9 17l-5-5"/></svg><span><strong>Still editable</strong> — adjust the blocklist mid-sprint if a study tool got caught.</span></li>
         </ul>
       </article>
 
       <article class="surface level l3">
-        <div class="num">Shield III</div>
+        <div class="level-head"><span class="level-badge">Shield III</span></div>
+        <div class="shield-glyph"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#shield-sealed-glyph"></use></svg></div>
         <h3>Sealed</h3>
         <p class="scenario">
           For the late-night review when you do not trust yourself to “just check”
           Steam: blocked apps close on sight and the blocklist locks until the sprint ends.
         </p>
         <ul class="behaviors">
-          <li><strong>Closes on sight</strong> Same hard close as Firm for everything on the list.</li>
-          <li><strong>Locks the list</strong> You cannot add or remove blocked apps mid-sprint.</li>
-          <li><strong>Ends with the sprint</strong> Ending the sprint early unlocks the list again.</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 6 9 17l-5-5"/></svg><span><strong>Closes on sight</strong> — the same hard close as Firm for everything on the list.</span></li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 6 9 17l-5-5"/></svg><span><strong>Locks the list</strong> — you cannot add or remove blocked apps mid-sprint.</span></li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 6 9 17l-5-5"/></svg><span><strong>Ends with the sprint</strong> — ending early unlocks the list again.</span></li>
         </ul>
       </article>
     </div>
@@ -378,26 +412,32 @@
       </div>
       <div class="feature-stack">
         <div class="surface feature">
+          <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg></div>
           <h3>Escalating shield levels</h3>
           <p>Start with a brief notice inside FlowShield while the distracting app keeps running. Step up to closing blocked apps. Or lock the blocklist for the sprint.</p>
         </div>
         <div class="surface feature">
+          <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg></div>
           <h3>Momentum first</h3>
           <p>Finished sprints compound into momentum. Abandon one and it decays gradually, while a simple day streak stays secondary.</p>
         </div>
         <div class="surface feature">
+          <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z"/><path d="M9 8h7"/></svg></div>
           <h3>One-line session journal</h3>
           <p>Every sprint ends with one optional prompt: what moved? The answer is stored locally with that session. Export your journal to CSV or Markdown whenever you want it elsewhere.</p>
         </div>
         <div class="surface feature">
+          <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"/></svg></div>
           <h3>Sleep blocking</h3>
           <p>Set a nightly window where the shield raises itself. The 1 a.m. version of you doesn't get a vote.</p>
         </div>
         <div class="surface feature">
+          <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M13 2 4 14h7l-1 8 9-12h-7l1-8Z"/></svg></div>
           <h3>Hard kill mode</h3>
           <p>Make Soft behave like Firm: blocked processes close immediately instead of producing the brief notice.</p>
         </div>
         <div class="surface feature">
+          <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></div>
           <h3>Local by default</h3>
           <p>Your sessions, blocklists and journal never leave your PC. They are encrypted locally with Windows DPAPI.</p>
         </div>
@@ -491,45 +531,59 @@
 
     <div class="faq">
       <details class="surface faq-item">
-        <summary>What does FlowShield actually block?</summary>
+        <summary>What does FlowShield actually block?
+          <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m6 9 6 6 6-6"/></svg>
+        </summary>
         <p>Desktop applications on Windows 10 and 11 &mdash; games, launchers, chat apps, anything that
         runs as its own program. You pick them once and a sprint keeps them shut.</p>
       </details>
 
       <details class="surface faq-item">
-        <summary>Does it block websites?</summary>
+        <summary>Does it block websites?
+          <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m6 9 6 6 6-6"/></svg>
+        </summary>
         <p>Not today. FlowShield blocks applications, not pages inside your browser, so a browser tab
         is still a way around it. That is deliberate for now: the apps that eat an evening are usually
         programs, not tabs, and blocking them well beats blocking everything badly.</p>
       </details>
 
       <details class="surface faq-item">
-        <summary>Is there a Mac or phone version?</summary>
+        <summary>Is there a Mac or phone version?
+          <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m6 9 6 6 6-6"/></svg>
+        </summary>
         <p>Not today. FlowShield is Windows 10 and 11 only &mdash; there is no Mac app, no iPhone or
         Android app and no browser extension. The Windows app is what we are making good first, and
         we would rather say that plainly than leave you to find out after buying.</p>
       </details>
 
       <details class="surface faq-item">
-        <summary>Does it need admin rights or install drivers?</summary>
+        <summary>Does it need admin rights or install drivers?
+          <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m6 9 6 6 6-6"/></svg>
+        </summary>
         <p>No. It runs as a normal user program, installs no drivers and changes no system settings.
         It only closes the applications you chose, while a sprint you started is running.</p>
       </details>
 
       <details class="surface faq-item">
-        <summary>What happens when the trial ends?</summary>
+        <summary>What happens when the trial ends?
+          <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m6 9 6 6 6-6"/></svg>
+        </summary>
         <p>Seven days from the first time you open it, with every feature unlocked and no card asked
         for. After that the app locks until you buy it; nothing you have recorded is deleted.</p>
       </details>
 
       <details class="surface faq-item">
-        <summary>Is $4.99 really once?</summary>
+        <summary>Is $4.99 really once?
+          <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m6 9 6 6 6-6"/></svg>
+        </summary>
         <p>Yes. One payment, no subscription and no renewal, on up to 3 PCs. Most blockers charge
         $30&ndash;$60 every year instead.</p>
       </details>
 
       <details class="surface faq-item">
-        <summary>Where does my data go?</summary>
+        <summary>Where does my data go?
+          <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m6 9 6 6 6-6"/></svg>
+        </summary>
         <p>Your sprints, journal and blocklist stay on your PC. Buying sends your email and payment
         to our payment provider. Entering your licence key in the app sends it, your email,
         a device ID (a one-way hash, not your hardware details) and your PC and Windows user name
@@ -594,7 +648,7 @@
          href="https://github.com/seventycookies6-design/flowshield/releases/latest/download/FlowShield-win-Setup.exe">
         Download FlowShield
       </a>
-      <button class="btn btn-ghost btn-block" type="button" data-download-close>Back</button>
+      <button class="btn btn-quiet btn-block" type="button" data-download-close>Back</button>
     </div>
   </div>
 </dialog>
