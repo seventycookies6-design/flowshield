@@ -3340,6 +3340,28 @@ class TestTimerRingA4:
             f"(diameter={diameter}, stroke={thickness} -> expected radius "
             f"{(diameter - thickness) / 2})")
 
+    def test_long_times_shrink_to_fit_inside_the_ring(self):
+        """
+        At the 64 px timer size "45:00" fits inside the ring, but "1:29:59"
+        (a running sprint of an hour or more) and "240:00" (the custom
+        maximum, TodayViewModel.CustomMaxMinutes) ran across the 12 px stroke.
+        The number sits in a Viewbox that only ever shrinks it, capped inside
+        the ring's 198 px inner diameter.
+        """
+        xml = self.TODAY_VIEW.read_text(encoding="utf-8")
+        fit = re.search(r'<Viewbox x:Name="TimerFit"([^>]*)>(.*?)</Viewbox>', xml, re.S)
+        assert fit, "the timer TextBlock must sit inside the TimerFit Viewbox"
+        attrs, body = fit.group(1), fit.group(2)
+        assert 'StretchDirection="DownOnly"' in attrs, (
+            "the Viewbox must only shrink the number; enlarging short times would "
+            "change the timer's size as it counts down")
+        max_width = re.search(r'MaxWidth="([\d.]+)"', attrs)
+        inner = 222 - 2 * 12
+        assert max_width and float(max_width.group(1)) < inner, (
+            f"the Viewbox needs a MaxWidth inside the ring's {inner} px inner diameter")
+        assert 'AutomationProperties.AutomationId="SprintTimerText"' in body, (
+            "SprintTimerText stays on the TextBlock itself, inside the Viewbox")
+
     def test_timer_and_stat_styles_use_inter_display(self):
         """
         UI-SPEC.md A4 / DESIGN_SYSTEM.md §3: the timer and stat numbers set

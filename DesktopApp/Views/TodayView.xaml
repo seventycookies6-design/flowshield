@@ -36,10 +36,18 @@
                         </Ellipse>
 
                         <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-                            <TextBlock Text="{Binding RemainingText}" Style="{StaticResource Timer}"
-                                       HorizontalAlignment="Center"
-                                       Typography.NumeralAlignment="Tabular"
-                                       AutomationProperties.AutomationId="SprintTimerText"/>
+                            <!-- The ring's inner diameter is 198 (222 less two 12 px strokes).
+                                 "45:00" fits at the 64 px timer size, but "1:29:59" (any sprint
+                                 of an hour or more, while running) and "240:00" (the custom
+                                 maximum, idle) do not, and would run across the stroke. The
+                                 Viewbox only ever shrinks the number to fit, never enlarges it. -->
+                            <Viewbox x:Name="TimerFit" StretchDirection="DownOnly" MaxWidth="176"
+                                     HorizontalAlignment="Center">
+                                <TextBlock Text="{Binding RemainingText}" Style="{StaticResource Timer}"
+                                           HorizontalAlignment="Center"
+                                           Typography.NumeralAlignment="Tabular"
+                                           AutomationProperties.AutomationId="SprintTimerText"/>
+                            </Viewbox>
                             <!-- The shield glyph sits beside the state line only while a
                                  sprint runs (§7's "Centre: ... a caption state line ...
                                  and the shield glyph"); idle has no active shield yet. -->
