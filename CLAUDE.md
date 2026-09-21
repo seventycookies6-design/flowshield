@@ -238,6 +238,12 @@ Each of these cost real time once. Don't rediscover them.
   `preserve_user_settings()` — capture and one-off scripts included. The rule's
   test finds them by parsing for `launch_app`, so a new one cannot slip past a
   hand-written list (#141).
+- **Wait for what happens, not for a duration.** A fixed sleep or probe
+  timeout in the driver has twice caused failures that looked like product
+  bugs: the terms-gate helper, and `start_sprint` probing for F7's open-apps
+  question for a flat two seconds — which spends the whole three-second
+  `--short-timers` cancel grace before a test can act (#146). Race the
+  outcomes and return on the first one seen.
 - **A "move" that touches a line appearing twice:** check the diff for which
   copy went. A RefreshStats move deleted the wrong identical line and silently
   changed two behaviours (#129).
