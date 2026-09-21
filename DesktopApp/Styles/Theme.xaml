@@ -9,6 +9,7 @@
     <ResourceDictionary.MergedDictionaries>
         <ResourceDictionary Source="Tokens.xaml"/>
         <ResourceDictionary Source="Icons.xaml"/>
+        <ResourceDictionary Source="ShieldGlyphs.xaml"/>
     </ResourceDictionary.MergedDictionaries>
 
     <!-- ========================================================= converters -->
@@ -20,9 +21,13 @@
     <inf:IntEqualsConverter x:Key="IntEq"/>
     <inf:BoolToOpacityConverter x:Key="BoolOpacity"/>
     <inf:ShieldRomanConverter x:Key="ShieldRoman"/>
-    <inf:ProgressToDashConverter x:Key="ProgressDash" Radius="92" Thickness="12"/>
+    <!-- Radius 105 = (222 - 12) / 2: the A4 ring is 222px in diameter with a
+         12px stroke (UI-SPEC.md §1.7.2 doc amendment), and the dash array is
+         computed off the stroke's own centreline, not the outer box. -->
+    <inf:ProgressToDashConverter x:Key="ProgressDash" Radius="105" Thickness="12"/>
     <inf:PositiveToVisibilityConverter x:Key="PositiveVis"/>
     <inf:NonEmptyToVisibilityConverter x:Key="NonEmptyVis"/>
+    <inf:ShieldLevelToGlyphConverter x:Key="ShieldGlyph"/>
 
     <!-- ========================================================= typography -->
 
@@ -36,6 +41,11 @@
          in both cases. Fallbacks after it match §3: Segoe UI Variable, Segoe
          UI, system-ui. -->
     <FontFamily x:Key="FontStack">pack://application:,,,/FlowShield;component/Assets/Fonts/#Inter, Segoe UI Variable, Segoe UI, system-ui</FontFamily>
+
+    <!-- Inter Display, §3's allowance for the timer and stat numbers (A4):
+         a tighter optical size than text Inter at the same weight. Only one
+         weight is embedded (SemiBold), which is the only one the scale uses. -->
+    <FontFamily x:Key="FontStackDisplay">pack://application:,,,/FlowShield;component/Assets/Fonts/#Inter Display, Segoe UI Variable, Segoe UI, system-ui</FontFamily>
 
     <!-- Implicit default (no x:Key): any TextBlock that doesn't set its own
          Style still renders in Inter rather than silently falling back to
@@ -112,11 +122,10 @@
     <!-- timer: the sprint countdown. Tabular by default so the digits never
          jiggle. §3's WPF column suggests CharacterSpacing="-20" here too;
          see the Eyebrow comment above for why that isn't available on this
-         platform. Not yet wired into TodayView's ring — A4 enlarges the ring
-         to the 222px diameter this size needs (see UI-SPEC.md §1.7.2); wiring
-         it in now would overflow the current 196px ring. -->
+         platform. Wired into TodayView's 222px ring (A4, UI-SPEC.md §1.7.2),
+         set on FontStackDisplay per §3's explicit allowance for this size. -->
     <Style x:Key="Timer" TargetType="TextBlock">
-        <Setter Property="FontFamily" Value="{StaticResource FontStack}"/>
+        <Setter Property="FontFamily" Value="{StaticResource FontStackDisplay}"/>
         <Setter Property="FontSize" Value="64"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
         <Setter Property="LineHeight" Value="64"/>
@@ -125,11 +134,10 @@
         <Setter Property="Typography.NumeralAlignment" Value="Tabular"/>
     </Style>
 
-    <!-- stat: momentum, minutes, prices. Tabular by default. Not yet wired
-         into TodayView's momentum number for the same reason as Timer above
-         — A4 rebuilds that card to the sketch's proportions. -->
+    <!-- stat: momentum, minutes, prices. Tabular by default. Wired into
+         TodayView's momentum number (A4). -->
     <Style x:Key="Stat" TargetType="TextBlock">
-        <Setter Property="FontFamily" Value="{StaticResource FontStack}"/>
+        <Setter Property="FontFamily" Value="{StaticResource FontStackDisplay}"/>
         <Setter Property="FontSize" Value="36"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
         <Setter Property="LineHeight" Value="40"/>
@@ -318,7 +326,30 @@
                             <Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource Primary}"/>
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
-                            <Setter TargetName="bd" Property="Opacity" Value="0.45"/>
+                            <Trigger.EnterActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="bd" Storyboard.TargetProperty="Opacity"
+                                                          To="0.45" Duration="{x:Static inf:Motion.Selection}">
+                                            <DoubleAnimation.EasingFunction>
+                                                <CubicEase EasingMode="EaseOut"/>
+                                            </DoubleAnimation.EasingFunction>
+                                        </DoubleAnimation>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.EnterActions>
+                            <Trigger.ExitActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="bd" Storyboard.TargetProperty="Opacity"
+                                                          To="1" Duration="{x:Static inf:Motion.Selection}">
+                                            <DoubleAnimation.EasingFunction>
+                                                <CubicEase EasingMode="EaseIn"/>
+                                            </DoubleAnimation.EasingFunction>
+                                        </DoubleAnimation>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.ExitActions>
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -368,7 +399,11 @@
         </Setter>
     </Style>
 
-    <!-- Segmented option button (sprint length / shield level). -->
+    <!-- Segmented option button (sprint length / shield level). Motion, §8:
+         checking a chip settles in over Motion.Selection (200ms, ease-out);
+         the whole disabled-but-visible group (sprint length / shield level /
+         intention, per UI-SPEC.md A4) crossfades to 45% opacity the same way
+         when a sprint starts, and back to full when it ends. -->
     <Style x:Key="Segment" TargetType="RadioButton">
         <Setter Property="Cursor" Value="Hand"/>
         <Setter Property="FontFamily" Value="{StaticResource FontStack}"/>
@@ -391,9 +426,111 @@
                             <Setter TargetName="bd" Property="Background" Value="{StaticResource PrimarySoft}"/>
                             <Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource Primary}"/>
                             <Setter Property="Foreground" Value="{StaticResource Ink}"/>
+                            <Trigger.EnterActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="bd" Storyboard.TargetProperty="Opacity"
+                                                          From="0.7" To="1" Duration="{x:Static inf:Motion.Selection}">
+                                            <DoubleAnimation.EasingFunction>
+                                                <CubicEase EasingMode="EaseOut"/>
+                                            </DoubleAnimation.EasingFunction>
+                                        </DoubleAnimation>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.EnterActions>
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
-                            <Setter TargetName="bd" Property="Opacity" Value="0.4"/>
+                            <Trigger.EnterActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="bd" Storyboard.TargetProperty="Opacity"
+                                                          To="0.45" Duration="{x:Static inf:Motion.Selection}">
+                                            <DoubleAnimation.EasingFunction>
+                                                <CubicEase EasingMode="EaseOut"/>
+                                            </DoubleAnimation.EasingFunction>
+                                        </DoubleAnimation>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.EnterActions>
+                            <Trigger.ExitActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="bd" Storyboard.TargetProperty="Opacity"
+                                                          To="1" Duration="{x:Static inf:Motion.Selection}">
+                                            <DoubleAnimation.EasingFunction>
+                                                <CubicEase EasingMode="EaseIn"/>
+                                            </DoubleAnimation.EasingFunction>
+                                        </DoubleAnimation>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.ExitActions>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Shield-level chip (UI-SPEC.md A4): the same segmented cell as
+         Segment above, tall enough (52px) for the shared shield glyph
+         stacked above its label, per the winning sketch's ".seg-shield". -->
+    <Style x:Key="SegmentShield" TargetType="RadioButton">
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="FontFamily" Value="{StaticResource FontStack}"/>
+        <Setter Property="Foreground" Value="{StaticResource InkDim}"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="RadioButton">
+                    <Border x:Name="bd" Background="{StaticResource Surface2}" BorderBrush="{StaticResource Edge}"
+                            BorderThickness="1" CornerRadius="10" Padding="6,8" Height="52">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource EdgeBright}"/>
+                        </Trigger>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="bd" Property="Background" Value="{StaticResource PrimarySoft}"/>
+                            <Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource Primary}"/>
+                            <Setter Property="Foreground" Value="{StaticResource Ink}"/>
+                            <Trigger.EnterActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="bd" Storyboard.TargetProperty="Opacity"
+                                                          From="0.7" To="1" Duration="{x:Static inf:Motion.Selection}">
+                                            <DoubleAnimation.EasingFunction>
+                                                <CubicEase EasingMode="EaseOut"/>
+                                            </DoubleAnimation.EasingFunction>
+                                        </DoubleAnimation>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.EnterActions>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Trigger.EnterActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="bd" Storyboard.TargetProperty="Opacity"
+                                                          To="0.45" Duration="{x:Static inf:Motion.Selection}">
+                                            <DoubleAnimation.EasingFunction>
+                                                <CubicEase EasingMode="EaseOut"/>
+                                            </DoubleAnimation.EasingFunction>
+                                        </DoubleAnimation>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.EnterActions>
+                            <Trigger.ExitActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="bd" Storyboard.TargetProperty="Opacity"
+                                                          To="1" Duration="{x:Static inf:Motion.Selection}">
+                                            <DoubleAnimation.EasingFunction>
+                                                <CubicEase EasingMode="EaseIn"/>
+                                            </DoubleAnimation.EasingFunction>
+                                        </DoubleAnimation>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.ExitActions>
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>

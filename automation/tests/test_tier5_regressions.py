@@ -3221,3 +3221,301 @@ class TestInterTypeScale:
             "the blocked-app row's process-summary TextBlock must set "
             "TextTrimming=\"CharacterEllipsis\" so a long exe name trims with an "
             "ellipsis instead of breaking mid-word")
+
+
+# ============================ Today as an instrument (#147 A4)
+
+class TestShieldGlyphsA4:
+    """
+    DESIGN_SYSTEM.md §6: the three shields are built once, as XAML geometry,
+    and reused everywhere a shield glyph appears. UI-SPEC.md A4 wires that
+    resource into the Today page's shield chips and the timer ring.
+    """
+
+    GLYPHS = Path(DESKTOP_DIR) / "Styles" / "ShieldGlyphs.xaml"
+    THEME = Path(DESKTOP_DIR) / "Styles" / "Theme.xaml"
+    TODAY_VIEW = Path(DESKTOP_DIR) / "Views" / "TodayView.xaml"
+
+    def _resource_block(self, xml: str, key: str) -> str:
+        match = re.search(
+            r'<DrawingImage x:Key="' + re.escape(key) + r'">.*?</DrawingImage>', xml, re.S)
+        assert match, f"no ShieldGlyph{key.replace('ShieldGlyph', '')} DrawingImage resource found"
+        return match.group(0)
+
+    def test_glyph_file_exists_and_merges_tokens(self):
+        assert self.GLYPHS.is_file(), (
+            "DesktopApp/Styles/ShieldGlyphs.xaml is missing -- the shield glyphs must be "
+            "built once, in a shared resource dictionary (UI-SPEC.md A4)")
+        xml = self.GLYPHS.read_text(encoding="utf-8")
+        assert '<ResourceDictionary Source="Tokens.xaml"/>' in xml, (
+            "ShieldGlyphs.xaml must merge Tokens.xaml itself -- a StaticResource brush "
+            "lookup only sees its own dictionary's merged dictionaries, not its "
+            "sibling dictionaries in Theme.xaml")
+
+    def test_theme_merges_the_glyph_dictionary(self):
+        theme = self.THEME.read_text(encoding="utf-8")
+        assert '<ResourceDictionary Source="ShieldGlyphs.xaml"/>' in theme, (
+            "Theme.xaml must merge ShieldGlyphs.xaml or the glyph resources are never "
+            "loaded into the app")
+
+    def test_exactly_three_levels_are_defined(self):
+        xml = self.GLYPHS.read_text(encoding="utf-8")
+        for key in ("ShieldGlyphSoft", "ShieldGlyphFirm", "ShieldGlyphSealed"):
+            assert xml.count(f'x:Key="{key}"') == 1, (
+                f"expected exactly one {key} resource")
+
+    def test_soft_is_outline_and_one_bar_in_text_muted(self):
+        """§6: Soft is a shield outline with one bar, in text-muted (InkDim), never primary."""
+        block = self._resource_block(self.GLYPHS.read_text(encoding="utf-8"), "ShieldGlyphSoft")
+        assert "{StaticResource InkDim}" in block
+        assert "{StaticResource Primary}" not in block, (
+            "Soft must never use primary -- strength escalates through fill and bar "
+            "count, not colour (§6)")
+        assert block.count("M8.5,") == 1, "Soft should draw exactly one bar"
+
+    def test_firm_is_outline_and_two_bars_in_primary(self):
+        block = self._resource_block(self.GLYPHS.read_text(encoding="utf-8"), "ShieldGlyphFirm")
+        assert block.count("{StaticResource Primary}") >= 1
+        assert "{StaticResource InkDim}" not in block
+        assert block.count("M8.5,") == 2, "Firm should draw exactly two bars"
+
+    def test_sealed_is_solid_primary_with_three_bars_and_a_lock_notch_in_primary_ink(self):
+        block = self._resource_block(self.GLYPHS.read_text(encoding="utf-8"), "ShieldGlyphSealed")
+        assert 'Brush="{StaticResource Primary}"' in block, (
+            "Sealed's shield shape must be a solid primary fill, not an outline")
+        assert block.count("{StaticResource PrimaryInk}") >= 2, (
+            "Sealed's bars and lock notch must be drawn in primary-ink for contrast "
+            "against the solid fill")
+        assert block.count("M8.5,") == 3, "Sealed should draw exactly three bars"
+
+    def test_shield_chips_reference_the_shared_glyph_resource(self):
+        xml = self.TODAY_VIEW.read_text(encoding="utf-8")
+        for key in ("ShieldGlyphSoft", "ShieldGlyphFirm", "ShieldGlyphSealed"):
+            assert f'Source="{{StaticResource {key}}}"' in xml, (
+                f"the {key} chip should render the shared glyph resource, not its own "
+                f"re-derived geometry")
+
+    def test_timer_ring_uses_the_glyph_via_a_converter(self):
+        xml = self.TODAY_VIEW.read_text(encoding="utf-8")
+        assert 'Converter={StaticResource ShieldGlyph}' in xml, (
+            "the timer ring should show the active shield's glyph via a level->glyph "
+            "converter (one resource, reused, not a duplicate drawing)")
+
+
+class TestTimerRingA4:
+    """UI-SPEC.md A4, §1.7.2 doc amendment: 222px ring, 12px stroke, round cap."""
+
+    THEME = Path(DESKTOP_DIR) / "Styles" / "Theme.xaml"
+    TODAY_VIEW = Path(DESKTOP_DIR) / "Views" / "TodayView.xaml"
+
+    def test_ring_is_222px_with_a_12px_round_capped_stroke(self):
+        xml = self.TODAY_VIEW.read_text(encoding="utf-8")
+        ring_grid = re.search(r'<Grid Width="222" Height="222"[^>]*>', xml)
+        assert ring_grid, "the timer ring's outer Grid must be 222x222 (§1.7.2 doc amendment)"
+        strokes = re.findall(r'<Ellipse [^>]*StrokeThickness="(\d+)"', xml)
+        assert strokes and all(s == "12" for s in strokes[:2]), (
+            "both ring ellipses (track and progress) must use a 12px stroke")
+        assert 'StrokeDashCap="Round"' in xml, "the progress arc must have a round cap"
+
+    def test_progress_dash_radius_matches_the_ring_geometry(self):
+        """
+        The dash-array converter computes off the stroke's centreline: radius =
+        (ellipse diameter - stroke thickness) / 2. A mismatch here would make the
+        arc visibly overshoot or undershoot the track it's drawn over.
+        """
+        theme = self.THEME.read_text(encoding="utf-8")
+        match = re.search(
+            r'<inf:ProgressToDashConverter x:Key="ProgressDash" Radius="([\d.]+)" '
+            r'Thickness="([\d.]+)"/>', theme)
+        assert match, "expected the ProgressDash converter resource in Theme.xaml"
+        radius, thickness = float(match.group(1)), float(match.group(2))
+
+        xml = self.TODAY_VIEW.read_text(encoding="utf-8")
+        ellipse_widths = {float(w) for w in re.findall(r'<Ellipse Width="([\d.]+)"', xml)}
+        assert len(ellipse_widths) == 1, f"expected one consistent ring diameter, got {ellipse_widths}"
+        diameter = next(iter(ellipse_widths))
+
+        assert radius == pytest.approx((diameter - thickness) / 2), (
+            f"ProgressDash Radius={radius} doesn't match the ring geometry "
+            f"(diameter={diameter}, stroke={thickness} -> expected radius "
+            f"{(diameter - thickness) / 2})")
+
+    def test_long_times_shrink_to_fit_inside_the_ring(self):
+        """
+        At the 64 px timer size "45:00" fits inside the ring, but "1:29:59"
+        (a running sprint of an hour or more) and "240:00" (the custom
+        maximum, TodayViewModel.CustomMaxMinutes) ran across the 12 px stroke.
+        The number sits in a Viewbox that only ever shrinks it, capped inside
+        the ring's 198 px inner diameter.
+        """
+        xml = self.TODAY_VIEW.read_text(encoding="utf-8")
+        fit = re.search(r'<Viewbox x:Name="TimerFit"([^>]*)>(.*?)</Viewbox>', xml, re.S)
+        assert fit, "the timer TextBlock must sit inside the TimerFit Viewbox"
+        attrs, body = fit.group(1), fit.group(2)
+        assert 'StretchDirection="DownOnly"' in attrs, (
+            "the Viewbox must only shrink the number; enlarging short times would "
+            "change the timer's size as it counts down")
+        max_width = re.search(r'MaxWidth="([\d.]+)"', attrs)
+        inner = 222 - 2 * 12
+        assert max_width and float(max_width.group(1)) < inner, (
+            f"the Viewbox needs a MaxWidth inside the ring's {inner} px inner diameter")
+        assert 'AutomationProperties.AutomationId="SprintTimerText"' in body, (
+            "SprintTimerText stays on the TextBlock itself, inside the Viewbox")
+
+    def test_timer_and_stat_styles_use_inter_display(self):
+        """
+        UI-SPEC.md A4 / DESIGN_SYSTEM.md §3: the timer and stat numbers set
+        Inter Display, the tighter optical size for display-scale digits.
+        """
+        theme = self.THEME.read_text(encoding="utf-8")
+        for style_key in ("Timer", "Stat"):
+            style_match = re.search(
+                r'<Style x:Key="' + style_key + r'" TargetType="TextBlock">.*?</Style>',
+                theme, re.S)
+            assert style_match, f"expected the {style_key} style in Theme.xaml"
+            assert '{StaticResource FontStackDisplay}' in style_match.group(0), (
+                f"the {style_key} style should set FontFamily to FontStackDisplay")
+
+    def test_inter_display_semibold_is_embedded(self):
+        font_path = Path(DESKTOP_DIR) / "Assets" / "Fonts" / "InterDisplay-SemiBold.ttf"
+        assert font_path.is_file(), "InterDisplay-SemiBold.ttf must be embedded on disk"
+        csproj = (Path(DESKTOP_DIR) / "FlowShield.csproj").read_text(encoding="utf-8")
+        assert r"Assets\Fonts\InterDisplay-SemiBold.ttf" in csproj, (
+            "InterDisplay-SemiBold.ttf exists on disk but has no <Resource Include> "
+            "entry in FlowShield.csproj, so it won't ship in the build")
+
+
+class TestTodayAutomationIdsUnchangedA4:
+    """
+    Three past incidents put an AutomationId on a layout panel during a
+    restyle (#134 and friends) -- UI Automation never surfaces it, so a test
+    asking for it would pass whether the control was drawn or not. A4
+    rebuilds the ring and the shield chips; every AutomationId that existed
+    before must still exist, on a real control, not a Border/Grid/StackPanel/
+    Image wrapper.
+    """
+
+    TODAY_VIEW = Path(DESKTOP_DIR) / "Views" / "TodayView.xaml"
+
+    # The full set of AutomationIds TodayView.xaml carried before A4 touched it
+    # (PR #171 / design/a1-inter-app). A4 must not remove or rename any of these.
+    EXPECTED_IDS = {
+        "SprintTimerText", "SessionStateText", "SprintIntentionText",
+        "StartSprintButton", "StopSprintButton",
+        "RunningAppsTitle", "RunningAppsExplanation", "RunningAppsList",
+        "CloseThemNowButton", "StartAnywayButton",
+        "EndSprintPanel", "EndPanelTitle", "EndPanelText", "EndPhraseInput",
+        "EndCountdownText", "KeepGoingButton", "EndAnywayButton",
+        "SprintLength_15", "SprintLength_25", "SprintLength_45", "SprintLength_60",
+        "SprintLength_90", "SprintLength_Custom",
+        "CustomMinutesInput", "CustomMinutesError",
+        "Shield_Soft", "Shield_Firm", "Shield_Sealed",
+        "ShieldDescriptionText", "ShieldBestForText",
+        "SealedRestartHint", "SoftHardKillHint",
+        "IntentionInput",
+        "SummaryTitle", "SummaryMinutesValue", "SummaryDistractionsValue",
+        "SummaryMomentumText", "SummaryStreakText", "SummaryIntentionText",
+        "JournalPromptTitle", "JournalInput", "SaveJournalButton",
+        "MomentumValue", "StreakText", "MomentumTrendRange", "MomentumTrendPeak",
+        "MomentumExplainerButton", "MomentumExplainerText",
+        "SessionsTodayValue", "FocusMinutesValue", "BlocksTodayValue",
+        "DailyGoalProgressText", "DailyGoalBar", "DailyGoalNote",
+    }
+
+    # Elements UI Automation never surfaces -- an AutomationId here can never
+    # be resolved, so it's not a legitimate handle for anything. Border and
+    # ItemsControl are deliberately excluded here: two pre-existing ids
+    # (EndSprintPanel, MomentumExplainerText) already sit on those element
+    # types from before A4 and are out of this item's scope to relitigate.
+    # This list guards the element types A4's own rebuild actually
+    # introduces (the ring's Grid, the shield chips' wrapper StackPanel and
+    # Image) against the same mistake.
+    PANEL_ELEMENTS = ("Grid", "StackPanel", "WrapPanel", "DockPanel", "Image")
+
+    def test_every_expected_automation_id_is_still_present(self):
+        xml = self.TODAY_VIEW.read_text(encoding="utf-8")
+        found = set(re.findall(r'AutomationId="([^"]+)"', xml))
+        missing = self.EXPECTED_IDS - found
+        assert not missing, f"AutomationIds removed or renamed by A4: {sorted(missing)}"
+
+    def test_no_automation_id_sits_on_a_layout_panel(self):
+        xml = self.TODAY_VIEW.read_text(encoding="utf-8")
+        offenders = []
+        for tag in re.finditer(r'<(\w+)\b((?:(?!/?>).)*?)/?>', xml, re.S):
+            element, attrs = tag.group(1), tag.group(2)
+            if element in self.PANEL_ELEMENTS and 'AutomationId="' in attrs:
+                offenders.append(f"<{element}> has an AutomationId -- never surfaced to UI Automation")
+        assert not offenders, "\n".join(offenders)
+
+
+class TestMotionA4:
+    """
+    DESIGN_SYSTEM.md §8: 120/200/300ms, ease-out entering / ease-in leaving,
+    honouring SystemParameters.ClientAreaAnimation everywhere. UI-SPEC.md A4
+    asks for one shared duration provider rather than a per-animation check.
+    """
+
+    MOTION = Path(DESKTOP_DIR) / "Infrastructure" / "Motion.cs"
+    THEME = Path(DESKTOP_DIR) / "Styles" / "Theme.xaml"
+
+    def test_motion_helper_exists_and_defines_the_three_durations(self):
+        assert self.MOTION.is_file(), (
+            "DesktopApp/Infrastructure/Motion.cs is missing -- every Today-view "
+            "animation must share one duration provider, not read "
+            "SystemParameters.ClientAreaAnimation individually")
+        src = self.MOTION.read_text(encoding="utf-8")
+        assert "SystemParameters.ClientAreaAnimation" in src, (
+            "Motion must read the live OS reduced-motion setting")
+        for prop, ms in (("Hover", 120), ("Selection", 200), ("Page", 300)):
+            pattern = re.search(
+                r'Duration ' + prop + r' =>.*?Of\((\d+)\)', src)
+            assert pattern, f"expected a {prop} duration property"
+            assert pattern.group(1) == str(ms), (
+                f"{prop} should be {ms}ms per DESIGN_SYSTEM.md §8, got {pattern.group(1)}ms")
+
+    def test_durations_collapse_to_zero_when_animations_are_disabled(self):
+        """
+        Prove the reduced-motion branch actually exists: every duration must
+        be computed as "AnimationsEnabled ? <ms> : 0", not a hardcoded
+        millisecond value that ignores the setting.
+
+        Proven to fail first: with the ternary replaced by a bare literal
+        (e.g. `private static Duration Of(int ms) =>
+        new(TimeSpan.FromMilliseconds(ms));`), this test fails, because the
+        conditional this regex looks for is gone.
+        """
+        src = self.MOTION.read_text(encoding="utf-8")
+        match = re.search(
+            r'private static Duration Of\(int ms\) =>\s*'
+            r'new\(TimeSpan\.FromMilliseconds\(AnimationsEnabled \? ms : 0\)\);', src)
+        assert match, (
+            "Motion.Of must compute its duration as \"AnimationsEnabled ? ms : 0\" so "
+            "every duration in the app is exactly zero when Windows' Animation "
+            "effects setting (or the test override) is off")
+
+    def test_motion_has_a_test_seam_for_the_os_setting(self):
+        src = self.MOTION.read_text(encoding="utf-8")
+        assert "AnimationsEnabledOverride" in src, (
+            "Motion needs an injectable override -- SystemParameters.ClientAreaAnimation "
+            "reads the live host setting, which a test can't flip")
+
+    def test_segment_and_field_styles_animate_through_shared_motion_durations(self):
+        """
+        The disabled-but-visible chip/field treatment (UI-SPEC.md A4: sprint
+        length, shield level and intention all dim to 45% opacity while a
+        sprint runs) must animate through Motion.Selection, not a hardcoded
+        Storyboard duration that would ignore reduced motion.
+        """
+        theme = self.THEME.read_text(encoding="utf-8")
+        for style_key in ("Segment", "SegmentShield", "Field"):
+            style_match = re.search(
+                r'<Style x:Key="' + style_key + r'".*?(?=<Style x:Key|\Z)', theme, re.S)
+            assert style_match, f"expected the {style_key} style in Theme.xaml"
+            block = style_match.group(0)
+            assert 'Duration="{x:Static inf:Motion.Selection}"' in block, (
+                f"{style_key}'s IsEnabled/IsChecked animations must bind Duration to "
+                f"{{x:Static inf:Motion.Selection}}, not a literal duration")
+            assert not re.search(r'Duration="0:0:0\.\d+"', block), (
+                f"{style_key} has a hardcoded animation Duration instead of using "
+                f"Motion.Selection")
+
