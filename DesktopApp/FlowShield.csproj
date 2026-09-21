@@ -34,6 +34,10 @@
     <EmbeddedResource Include="Data\app_suggestions.json" LogicalName="FlowShield.app_suggestions.json" />
     <Resource Include="Assets\FlowShield.ico" />
     <Resource Include="Assets\FlowShield.Running.ico" />
+    <!-- Ships beside the exe: the Lucide icons are ISC and the runtime and
+         Velopack are MIT, and all three require their notice to travel with
+         the binary (LEGAL_CHECKLIST 8.2). -->
+    <Content Include="THIRD-PARTY-NOTICES.txt" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

@@ -3039,3 +3039,38 @@ class TestIssueHygieneStaysAdvisory:
             assert f"`{label}`" in planning, (
                 f"the check knows the label {label!r}, but PLANNING.md does not list it"
             )
+
+class TestThirdPartyNoticesShip:
+    """
+    The Lucide icons are ISC and the runtime, ProtectedData and Velopack are
+    MIT; all of them require their notice to travel with the binary
+    (LEGAL_CHECKLIST 8.2). A notice file that exists in the repo but is not
+    copied to the output ships nothing.
+    """
+
+    NOTICES = Path(DESKTOP_DIR) / "THIRD-PARTY-NOTICES.txt"
+    CSPROJ = Path(DESKTOP_DIR) / "FlowShield.csproj"
+
+    def test_the_file_is_copied_next_to_the_exe(self):
+        csproj = self.CSPROJ.read_text(encoding="utf-8")
+        assert 'Include="THIRD-PARTY-NOTICES.txt"' in csproj
+        assert "CopyToOutputDirectory" in csproj.split(
+            'Include="THIRD-PARTY-NOTICES.txt"', 1)[1].split("/>", 1)[0], (
+            "the notice is in the project but never reaches the output folder"
+        )
+
+    def test_it_names_every_component_the_app_actually_ships(self):
+        notices = self.NOTICES.read_text(encoding="utf-8")
+        csproj = self.CSPROJ.read_text(encoding="utf-8")
+        for package in re.findall(r'PackageReference Include="([^"]+)"', csproj):
+            assert package in notices, f"{package} ships with the app but is not in the notices"
+        assert "Lucide" in notices and "ISC" in notices, (
+            "the icon geometries are Lucide's and their ISC notice must ship"
+        )
+
+    def test_the_icons_licence_and_the_notices_agree(self):
+        icons = (Path(DESKTOP_DIR) / "Assets" / "Icons" / "LICENSE").read_text(encoding="utf-8")
+        notices = self.NOTICES.read_text(encoding="utf-8")
+        for line in ("Copyright (c) for portions of Lucide are held by Cole Bemis",
+                     "Permission to use, copy, modify, and/or distribute this software"):
+            assert line in icons and line in notices
