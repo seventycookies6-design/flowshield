@@ -2718,11 +2718,72 @@ class TestProductCaptures:
         )
 
     def test_the_hero_still_comes_first(self):
+        """
+        #147 §4 (issue #173, "B2") deliberately reverses part of #139: the
+        hero itself now shows the real Today capture, full width, directly
+        below the copy — it no longer sits beside a decorative day-mock, and
+        the day timeline is promoted to its own `#day` section right after
+        the hero instead. What #139 actually protected — that the hero's
+        text and primary button render before any product media, and that
+        the below-the-fold proof section never displaces the hero — still
+        holds and is checked more precisely here, not weakened.
+        """
         site = (Path(WEBSITE_DIR) / "index.html").read_text(encoding="utf-8")
-        hero = site.index('<section class="hero"')
+        hero_open = site.index('<section class="hero"')
+        hero_close = site.index("</section>", hero_open)
+        day = site.index('<section id="day"')
         captures = site.index('id="see-it"')
-        assert hero < captures, "the captures must not displace the hero"
-        assert "media/" not in site[:hero], "no product media above the hero"
+
+        assert hero_open < day < captures, (
+            "the sections must run hero, then day, then the captures proof section"
+        )
+        assert "media/" not in site[:hero_open], "no product media above the hero"
+
+        # The hero shows the real product now (§10/§0) — but text and the
+        # primary CTA must still render before that image reaches the DOM,
+        # which is what #139 actually guarded against.
+        hero = site[hero_open:hero_close]
+        assert "media/today.png" in hero, "the hero must lead with the real product capture"
+        h1_at = hero.index("<h1")
+        cta_at = hero.index("data-download-guide")
+        img_at = hero.index("media/today.png")
+        assert h1_at < cta_at < img_at, (
+            "the headline and primary CTA must both precede the product image in source order"
+        )
+
+        # The day timeline used to be aria-hidden decoration squeezed beside
+        # the hero copy (#139); it is now real, visible content in its own
+        # section, not inside the hero at all.
+        assert "timeline" not in hero, "the day timeline must not still be inside the hero"
+        assert hero_close < day, "the day section must start after the hero ends"
+        day_section = site[day:site.index("</section>", day)]
+        assert 'aria-hidden="true"' not in day_section.split(">", 1)[0], (
+            "the day section itself must not be hidden from assistive tech"
+        )
+        assert "<h2>" in day_section, "the day section needs a real, visible heading now"
+
+    def test_the_product_is_not_pushed_below_the_fold(self):
+        """
+        Leading with the product (#147 §4) only works if the capture reaches
+        the first screen. With the worked example and the stats row stacked
+        above it, the capture started at 95% of a 1440x900 screen and fully
+        below the fold at 1366x768. The copy above the capture stays short:
+        eyebrow, headline, lede, calls to action and the note. The example
+        and the numbers go below it.
+        """
+        site = (Path(WEBSITE_DIR) / "index.html").read_text(encoding="utf-8")
+        hero_open = site.index('<section class="hero"')
+        hero = site[hero_open:site.index("</section>", hero_open)]
+        img_at = hero.index("media/today.png")
+        above = hero[:img_at]
+        for marker in ('class="example"', 'class="trust"'):
+            assert marker in hero, f"{marker} should still be in the hero"
+            assert marker not in above, (
+                f"{marker} sits above the product capture again, pushing it below the fold")
+        paragraphs = above.count("<p")
+        assert paragraphs <= 3, (
+            f"{paragraphs} paragraphs above the capture; keep it to the lede, the "
+            "copy confirmation and the note")
 
 
 class TestPhoneVisitorMarkup:
@@ -3131,6 +3192,7 @@ class TestSiteFontsAreSelfHosted:
         css = self.CSS.read_text(encoding="utf-8")
         primary = css.split('font-family: "Inter";', 1)[1].split("}", 1)[0]
         assert "font-display: swap" in primary
+
 
 # ============================ Inter, on the §3 type scale (#147 A1)
 

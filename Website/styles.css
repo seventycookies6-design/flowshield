@@ -507,33 +507,38 @@ html[data-theme="dark"] .theme-toggle .icon-moon { display: block; }
 /* ---------------------------------------------------------------------- hero */
 
 .hero {
-  padding: var(--space-16) 0 var(--space-12);
+  padding: var(--space-10) 0 var(--space-12);
 }
-.hero-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
-  gap: var(--space-12);
-  align-items: center;
+/* Design #147 §4: the hero is text-first, stacked, not a side-by-side grid —
+   the copy runs full width, capped for readability, then the real product
+   capture runs full width below it. Every max-width below is capped with
+   `100%` alongside its `ch` value (not `ch` alone) so nothing can force
+   itself wider than a narrow viewport — the fix for REFERENCES gap #3. */
+.hero-copy {
+  max-width: min(46rem, 100%);
 }
+/* 56ch, not a narrower measure: at 36ch the lede ran to five lines, and
+   with the example and the stats above the capture, the product started at
+   the fold on every common laptop size. Keep this stack short. */
 .hero .lede {
   font-size: var(--text-title);
-  max-width: 36ch;
-  margin-bottom: var(--space-2);
+  max-width: min(56ch, 100%);
+  margin-bottom: 0;
 }
 .hero .example {
   font-size: var(--text-label);
   color: var(--color-text-muted);
-  max-width: 42ch;
+  max-width: min(52ch, 100%);
   padding: var(--space-4);
   border-left: 3px solid var(--color-primary);
   background: var(--color-surface);
-  margin: var(--space-5) 0 0;
+  margin: 0;
 }
 .hero-cta {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-3);
-  margin: var(--space-8) 0 var(--space-4);
+  margin: var(--space-6) 0 var(--space-3);
 }
 .hero-note {
   font-size: var(--text-label);
@@ -549,8 +554,17 @@ html[data-theme="dark"] .theme-toggle .icon-moon { display: block; }
 .trust {
   display: flex;
   gap: var(--space-8);
-  margin-top: var(--space-10);
   flex-wrap: wrap;
+}
+
+/* The worked example and the numbers, side by side under the capture. */
+.hero-after {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
+  flex-wrap: wrap;
+  margin-top: var(--space-10);
 }
 .trust div { display: flex; flex-direction: column; gap: var(--space-1); }
 .trust b {
@@ -569,11 +583,38 @@ html[data-theme="dark"] .theme-toggle .icon-moon { display: block; }
   letter-spacing: 0.06em;
 }
 
+/* ------------------------------------------------------------- hero shot */
+
+/* The real Today capture, full width directly under the hero copy. Reuses
+   the .shot frame recipe (surface / radius 14 / soft shadow, DESIGN_SYSTEM
+   §10); img sizing, aspect-ratio and the no-layout-shift reservation all
+   come from .shot itself. */
+.hero-shot {
+  margin-top: var(--space-10);
+}
+.hero-shot figcaption {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+.hero-shot .tag {
+  flex: none;
+  font-size: var(--text-eyebrow);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-faint);
+}
+
 /* ------------------------------------------------------- day timeline mock */
 
+#day .day-mock {
+  padding: var(--space-6);
+}
 .day-mock {
   padding: var(--space-5);
-  animation: rise-in 0.7s ease both;
 }
 @keyframes rise-in {
   from { opacity: 0; transform: translateY(12px); }
@@ -628,6 +669,28 @@ html[data-theme="dark"] .theme-toggle .icon-moon { display: block; }
   background: var(--color-surface-2);
   border: 1px solid var(--color-border);
   min-height: 56px;
+}
+
+/* #day is a full-width section now (moved out of the hero's half-width
+   column, #147 §4) — a single vertical list would run edge to edge and read
+   thin, so it becomes a responsive card grid instead. Same tl-block/tl-card
+   markup, one extra rule: time sits above its card rather than beside it. */
+#day .timeline {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+#day .tl-block {
+  grid-template-columns: 1fr;
+  gap: var(--space-1);
+}
+#day .tl-time { padding-top: 0; }
+#day .tl-card { height: 100%; }
+@media (max-width: 900px) {
+  #day .timeline { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 520px) {
+  #day .timeline { grid-template-columns: 1fr; }
 }
 .tl-card.flagship {
   background: color-mix(in srgb, var(--color-primary) 10%, var(--color-surface-2));
@@ -688,6 +751,7 @@ html[data-theme="dark"] .theme-toggle .icon-moon { display: block; }
   font-size: var(--text-title);
   font-weight: 600;
   color: var(--color-text);
+  font-variant-numeric: tabular-nums;
 }
 .mock-foot em {
   display: block;
@@ -1358,15 +1422,15 @@ footer p {
 [data-download-copy] { display: none; }
 
 @media (max-width: 900px) {
-  .hero-grid,
   .story-grid,
   .shields-intro,
   .features-layout,
   .pricing {
     grid-template-columns: 1fr;
   }
-  .hero { padding: var(--space-10) 0 var(--space-8); }
-  .hero .lede { max-width: none; }
+  .hero { padding: var(--space-8) 0 var(--space-8); }
+  .hero-shot { margin-top: var(--space-8); }
+  .hero-after { margin-top: var(--space-8); gap: var(--space-6); }
   .nav-links { display: none; }
   .menu-toggle { display: grid; }
   .nav-links {
@@ -1410,6 +1474,24 @@ footer p {
   .download-panel-card { padding: var(--space-6); }
   [data-download-direct] { display: none; }
   [data-download-copy] { display: inline-flex; }
+
+  /* REFERENCES gap #3: the hero CTA row used to crowd two nowrap buttons
+     onto one line and run them off the viewport. Stacking them full width
+     removes the crowding outright instead of leaning on overflow-x:hidden
+     (below) to hide it. */
+  .hero-cta { flex-direction: column; align-items: stretch; }
+  .hero-cta .btn { width: 100%; }
+  .trust { gap: var(--space-6); }
+}
+
+/* Last-resort safety net (DESIGN_SYSTEM.md §11 / §4) — nothing above should
+   actually need this; every image and framed element also gets an explicit
+   max-width so this stays a net, not the fix. */
+img,
+.hero-shot,
+.shot {
+  max-width: 100%;
+  height: auto;
 }
 
 @media (prefers-reduced-motion: reduce) {
