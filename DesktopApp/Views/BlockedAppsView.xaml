@@ -8,12 +8,22 @@
         </Grid.ColumnDefinitions>
 
         <!-- ==================================================== blocklist -->
-        <Border Grid.Column="0" Style="{StaticResource Card}" Margin="0,0,18,0" Padding="24">
+        <Border Grid.Column="0" Style="{StaticResource Card}" Margin="0,0,16,0" Padding="24">
             <DockPanel>
 
+                <!-- big-number header (UI-SPEC.md A3): the same "big
+                     tabular number + one-line description" pattern as
+                     Today's stat cards, applied here. text, not teal;
+                     teal stays reserved for state/selection/progress. -->
+                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,24" VerticalAlignment="Bottom">
+                    <TextBlock Style="{StaticResource Stat}" Text="{Binding Apps.Count, StringFormat={}{0:00}}"/>
+                    <TextBlock Text="apps on the shield" Style="{StaticResource Body}" Foreground="{StaticResource InkDim}"
+                               VerticalAlignment="Bottom" Margin="12,0,0,4"/>
+                </StackPanel>
+
                 <!-- add row -->
-                <StackPanel DockPanel.Dock="Top" Margin="0,0,0,18">
-                    <TextBlock Text="ADD AN APP TO BLOCK" Style="{StaticResource Eyebrow}" Margin="0,0,0,9"/>
+                <StackPanel DockPanel.Dock="Top" Margin="0,0,0,16">
+                    <TextBlock Text="ADD AN APP TO BLOCK" Style="{StaticResource Eyebrow}" Margin="0,0,0,8"/>
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
@@ -26,17 +36,17 @@
                                  AutomationProperties.Name="App or process name"
                                  AutomationProperties.HelpText="Process name such as slack, or a full path to an exe"/>
                         <Button Grid.Column="1" Style="{StaticResource BtnPrimary}" Content="Add"
-                                Command="{Binding AddCommand}" Margin="9,0,0,0" Padding="24,10"
+                                Command="{Binding AddCommand}" Margin="8,0,0,0" Padding="24,12"
                                 AutomationProperties.AutomationId="AddAppButton"
                                 AutomationProperties.Name="Add blocked app"/>
                     </Grid>
                     <TextBlock Text="Find your app on the right, or type a process name here (“steam”) or paste the path to an .exe."
-                               Style="{StaticResource Caption}" Margin="2,8,0,0"/>
+                               Style="{StaticResource Caption}" Margin="4,8,0,0"/>
                 </StackPanel>
 
                 <!-- status strip -->
                 <Border DockPanel.Dock="Top" Style="{StaticResource Chip}" HorizontalAlignment="Left"
-                        Margin="0,0,0,14">
+                        Margin="0,0,0,16">
                     <TextBlock Text="{Binding StatusText}" Style="{StaticResource Caption}"
                                Foreground="{StaticResource InkDim}"
                                AutomationProperties.AutomationId="BlockedAppsStatusText"/>
@@ -45,7 +55,7 @@
                 <!-- empty state -->
                 <TextBlock DockPanel.Dock="Top"
                            Text="Nothing blocked yet. Add the app that pulls you away most."
-                           Margin="2,20,0,0" HorizontalAlignment="Center"
+                           Margin="4,24,0,0" HorizontalAlignment="Center"
                            AutomationProperties.AutomationId="BlockedAppsEmptyText">
                     <TextBlock.Style>
                         <Style TargetType="TextBlock" BasedOn="{StaticResource Body}">
@@ -74,29 +84,54 @@
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*" MinWidth="120"/>
                                         <ColumnDefinition Width="Auto"/>
                                         <ColumnDefinition Width="Auto"/>
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
 
-                                    <Border Grid.Column="0" Width="34" Height="34" CornerRadius="10"
+                                    <Border Grid.Column="0" Width="34" Height="34" CornerRadius="{StaticResource RadiusControl}"
                                             Background="{StaticResource PrimarySoft}" BorderBrush="{StaticResource Primary}" BorderThickness="1"
-                                            Margin="0,0,13,0">
+                                            Margin="0,0,12,0">
                                         <Path Style="{StaticResource Icon}" Data="{StaticResource IconBlocked}"
                                               Stroke="{StaticResource PrimaryHover}"
                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                     </Border>
 
+                                    <!-- Name, category chip and process summary each get their own
+                                         line instead of sharing one — this column only has ~156px to
+                                         work with once the icon, "blocked N x" stat, Remove button and
+                                         switch take their share (measured against after/A3/blocked-
+                                         apps.png), nowhere near enough for two fields side by side once
+                                         the category is a real multi-word label ("Games & Launchers")
+                                         rather than the picker's short one-word categories. Cramming the
+                                         chip and the process caption onto one line is what truncated
+                                         both to unreadable fragments (review fix, PR #180). -->
                                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding DisplayName}" Foreground="{StaticResource Ink}"
-                                                   FontSize="13.5" FontWeight="SemiBold"/>
-                                        <TextBlock Style="{StaticResource Caption}">
+                                        <TextBlock Text="{Binding DisplayName}" Style="{StaticResource Label}" FontWeight="SemiBold"
+                                                   TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"
+                                                   ToolTip="{Binding DisplayName}"/>
+                                        <!-- category tag chip (UI-SPEC.md A3, graft from raycast). MaxWidth
+                                             keeps a long category ("Games & Launchers") from overflowing
+                                             its own line into the "blocked N x" column next to it — a
+                                             Border with no size cap renders at its full desired width
+                                             regardless of the column it sits in (WPF doesn't clip by
+                                             default), which is exactly how this row got the review-flagged
+                                             overlap the first time. -->
+                                        <Border Style="{StaticResource TagChip}" Margin="0,4,0,0"
+                                                HorizontalAlignment="Left" MaxWidth="140"
+                                                Visibility="{Binding HasCategory, Converter={StaticResource BoolVis}}">
+                                            <TextBlock Text="{Binding Category}" Style="{StaticResource Caption}"
+                                                       TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
+                                        </Border>
+                                        <TextBlock Style="{StaticResource Caption}" Margin="0,4,0,0"
+                                                   TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"
+                                                   ToolTip="{Binding ProcessSummary}">
                                             <Run Text="{Binding ProcessSummary, Mode=OneWay}"/>
                                         </TextBlock>
                                     </StackPanel>
 
-                                    <TextBlock Grid.Column="2" VerticalAlignment="Center" Margin="0,0,14,0"
+                                    <TextBlock Grid.Column="2" VerticalAlignment="Center" Margin="0,0,16,0"
                                                Style="{StaticResource Caption}">
                                         <Run Text="blocked"/>
                                         <Run Text="{Binding BlockCount, Mode=OneWay}"
@@ -104,8 +139,10 @@
                                         <Run Text="×"/>
                                     </TextBlock>
 
-                                    <Button Grid.Column="3" Style="{StaticResource BtnQuiet}" Content="Remove"
-                                            VerticalAlignment="Center"
+                                    <!-- destructive (UI-SPEC.md A3, §7 BtnDanger): removes the app from the
+                                         blocklist, the closest thing to a "delete" action on this screen. -->
+                                    <Button Grid.Column="3" Style="{StaticResource BtnDanger}" Content="Remove"
+                                            Padding="12,0" VerticalAlignment="Center"
                                             Command="{Binding DataContext.RemoveCommand,
                                                       RelativeSource={RelativeSource AncestorType=ListBox}}"
                                             CommandParameter="{Binding}"
@@ -115,7 +152,7 @@
                                                                        StringFormat=Remove {0}}"/>
 
                                     <CheckBox Grid.Column="4" Style="{StaticResource Switch}"
-                                              VerticalAlignment="Center" Margin="14,0,0,0"
+                                              VerticalAlignment="Center" Margin="12,0,0,0"
                                               IsChecked="{Binding IsEnabled, Mode=TwoWay}"
                                               IsEnabled="{Binding DataContext.CanEditApps,
                                                           RelativeSource={RelativeSource AncestorType=ListBox}}"
@@ -135,26 +172,26 @@
         </Border>
 
         <!-- ====================================================== app picker (F8) -->
-        <Border Grid.Column="1" Style="{StaticResource Card}" Padding="20">
+        <Border Grid.Column="1" Style="{StaticResource Card}" Padding="24">
             <DockPanel>
                 <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
                     <Grid>
                         <TextBlock Text="FIND AN APP" Style="{StaticResource Eyebrow}" VerticalAlignment="Center"/>
-                        <Button Style="{StaticResource BtnQuiet}" HorizontalAlignment="Right" Padding="6,0"
+                        <Button Style="{StaticResource BtnQuiet}" HorizontalAlignment="Right" Padding="8,0"
                                 Command="{Binding RefreshRunningCommand}"
                                 AutomationProperties.AutomationId="RefreshProcessesButton"
                                 AutomationProperties.Name="Refresh installed and running apps">
                             <Path Style="{StaticResource IconSmall}" Data="{StaticResource IconRefresh}"/>
                         </Button>
                     </Grid>
-                    <TextBox Style="{StaticResource Field}" Margin="0,9,0,0"
+                    <TextBox Style="{StaticResource Field}" Margin="0,8,0,0"
                              Text="{Binding PickerQuery, UpdateSourceTrigger=PropertyChanged}"
                              IsEnabled="{Binding IsEditable}"
                              AutomationProperties.AutomationId="AppSearchInput"
                              AutomationProperties.Name="Search apps"
                              AutomationProperties.HelpText="Discord, Steam, Minecraft…"/>
                     <TextBlock Text="{Binding PickerNotice}" Style="{StaticResource Caption}" TextWrapping="Wrap"
-                               Foreground="{StaticResource Amber}" Margin="2,8,0,0"
+                               Foreground="{StaticResource Amber}" Margin="4,8,0,0"
                                Visibility="{Binding HasPickerNotice, Converter={StaticResource BoolVis}}"
                                AutomationProperties.AutomationId="AppSearchNotice"/>
                 </StackPanel>
@@ -175,8 +212,8 @@
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
 
-                                <Grid Grid.Column="0" Width="28" Height="28" Margin="0,0,10,0" VerticalAlignment="Top">
-                                    <Border CornerRadius="8" Background="{StaticResource PrimarySoft}"
+                                <Grid Grid.Column="0" Width="28" Height="28" Margin="0,0,12,0" VerticalAlignment="Top">
+                                    <Border CornerRadius="{StaticResource RadiusControl}" Background="{StaticResource PrimarySoft}"
                                             Visibility="{Binding HasIcon, Converter={StaticResource InvBoolVis}}">
                                         <TextBlock Text="{Binding Initial}" FontWeight="SemiBold"
                                                    Foreground="{StaticResource Ink}"
@@ -187,15 +224,31 @@
                                 </Grid>
 
                                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                    <TextBlock Text="{Binding Name}" Foreground="{StaticResource Ink}"
-                                               FontSize="13" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
-                                    <TextBlock Text="{Binding SourceLabel}" Style="{StaticResource Caption}"/>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="{Binding Name}" Foreground="{StaticResource Ink}"
+                                                   FontSize="13" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                                        <!-- category tag chip (UI-SPEC.md A3, graft from raycast):
+                                             "Music", "Chat", "Browsers", "Utilities" … A Grid column, not a
+                                             StackPanel, so the chip can't overflow this narrow picker list. -->
+                                        <Border Grid.Column="1" Style="{StaticResource TagChip}" Margin="8,0,0,0"
+                                                VerticalAlignment="Center" MaxWidth="76"
+                                                Visibility="{Binding HasGroup, Converter={StaticResource BoolVis}}">
+                                            <TextBlock Text="{Binding Group}" Style="{StaticResource Caption}"
+                                                       TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
+                                        </Border>
+                                    </Grid>
+                                    <TextBlock Text="{Binding SourceLabel}" Style="{StaticResource Caption}"
+                                               Visibility="{Binding HasSourceLabel, Converter={StaticResource BoolVis}}"/>
                                     <TextBlock Text="{Binding Note}" Style="{StaticResource Caption}" TextWrapping="Wrap"
                                                Foreground="{StaticResource Amber}"
                                                Visibility="{Binding HasNote, Converter={StaticResource BoolVis}}"/>
                                 </StackPanel>
 
-                                <Button Grid.Column="2" Style="{StaticResource BtnGhost}" Padding="12,5"
+                                <Button Grid.Column="2" Style="{StaticResource BtnGhost}" Padding="12,4"
                                         VerticalAlignment="Top" Margin="8,0,0,0"
                                         Content="{Binding ActionLabel}"
                                         Command="{Binding DataContext.PickCommand,

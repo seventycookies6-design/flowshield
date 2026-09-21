@@ -124,3 +124,25 @@ public class NonEmptyToVisibilityConverter : IValueConverter
 
     public object ConvertBack(object value, Type t, object p, CultureInfo c) => Binding.DoNothing;
 }
+
+/// <summary>
+/// Maps a <see cref="Models.ShieldLevel"/> to its glyph, built once in
+/// ShieldGlyphs.xaml (DESIGN_SYSTEM.md §6) and shared by the shield chips and
+/// the timer ring, at whatever size the Image using it is given.
+/// </summary>
+public class ShieldLevelToGlyphConverter : IValueConverter
+{
+    public object? Convert(object value, Type t, object p, CultureInfo c)
+    {
+        var key = value?.ToString() switch
+        {
+            "Soft" => "ShieldGlyphSoft",
+            "Firm" => "ShieldGlyphFirm",
+            "Sealed" => "ShieldGlyphSealed",
+            _ => null,
+        };
+        return key is null ? null : Application.Current.TryFindResource(key);
+    }
+
+    public object ConvertBack(object value, Type t, object p, CultureInfo c) => Binding.DoNothing;
+}
