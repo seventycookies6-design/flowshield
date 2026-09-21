@@ -175,7 +175,7 @@ mundane, high-probability risk — higher than most of the exotic ones.
 | --- | --- | --- |
 | 8.1 | The name "FlowShield" cleared against existing trademarks | **GAP / OWNER** — never searched. Do a USPTO search (free) before spending on branding; a lawyer's clearance search is a few hundred dollars. Renaming after launch costs far more |
 | 8.2 | Third-party open-source notices shipped with the app | **GAP** — no `THIRD-PARTY-NOTICES.txt` anywhere. The app ships Velopack, `System.Security.Cryptography.ProtectedData` and a self-contained .NET runtime; the server ships express, better-sqlite3, stripe, nodemailer, cors. MIT and Apache both require the copyright line and licence text to travel with the binary |
-| 8.3 | Fonts licensed for web use | **OK** — Syne and Source Sans 3 come from Google Fonts under the Open Font License |
+| 8.3 | Fonts licensed for web use | **OK** — the site self-hosts Inter (`Website/fonts/InterVariable.woff2`) under the SIL Open Font License; the licence text ships alongside it at `Website/fonts/OFL.txt`. No third-party font host (Google Fonts, previously Syne and Source Sans 3) is used or contacted anymore (#147/B1) |
 | 8.4 | Icons and images are ours or licensed | **OK** — the shield mark and tray icons were drawn for this project; no stock assets |
 | 8.5 | Competitor names used fairly | **OK** — the app's blocklist names apps (Steam, Discord) descriptively, which is nominative fair use, and the site names none |
 | 8.6 | No competitor's code or copy was reused | **OK** |
