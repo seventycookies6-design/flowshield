@@ -3180,3 +3180,44 @@ class TestInterTypeScale:
         assert not offenders, (
             "these number displays are missing Typography.NumeralAlignment=\"Tabular\": "
             + ", ".join(offenders))
+
+    def test_blocked_app_row_name_and_summary_do_not_wrap(self):
+        """
+        Regression (PR #171 review): Inter's wider metrics overflowed the
+        blocked-app row's fixed-width name column, which fit under Segoe UI
+        but, post-swap, wrapped "Minecraft Launcher" to two lines and its
+        exe-name line ("minecraftlauncher.exe, Minecraft.Windows.exe") to
+        three, with mid-word splits ("minecraftlauncher.ex" / "e"). Both
+        TextBlocks must trim to a single line with an ellipsis instead of
+        wrapping, so a long app or process name never breaks mid-word again
+        regardless of how narrow the row gets.
+        """
+        view = Path(DESKTOP_DIR) / "Views" / "BlockedAppsView.xaml"
+        xml = view.read_text(encoding="utf-8")
+
+        name_match = re.search(
+            r'<TextBlock Text="\{Binding DisplayName\}"(?:(?!/?>).)*?/>', xml, re.S)
+        assert name_match, "expected the blocked-app row's name TextBlock bound to DisplayName"
+        name_tag = name_match.group(0)
+        assert 'TextWrapping="NoWrap"' in name_tag, (
+            "the blocked-app row's name TextBlock must set TextWrapping=\"NoWrap\" -- "
+            "otherwise a long app name wraps across lines under Inter's wider metrics")
+        assert 'TextTrimming="CharacterEllipsis"' in name_tag, (
+            "the blocked-app row's name TextBlock must set TextTrimming=\"CharacterEllipsis\" "
+            "so a long name trims with an ellipsis instead of being clipped bare")
+
+        summary_match = re.search(
+            r'<TextBlock Style="\{StaticResource Caption\}"(?:(?!/?>).)*?>'
+            r'\s*<Run Text="\{Binding ProcessSummary', xml, re.S)
+        assert summary_match, (
+            "expected the blocked-app row's process-summary TextBlock bound to "
+            "ProcessSummary via a Run")
+        summary_tag = summary_match.group(0)
+        assert 'TextWrapping="NoWrap"' in summary_tag, (
+            "the blocked-app row's process-summary TextBlock must set "
+            "TextWrapping=\"NoWrap\" -- otherwise a single long exe name (no spaces) "
+            "forces a mid-word break to fit the narrow column")
+        assert 'TextTrimming="CharacterEllipsis"' in summary_tag, (
+            "the blocked-app row's process-summary TextBlock must set "
+            "TextTrimming=\"CharacterEllipsis\" so a long exe name trims with an "
+            "ellipsis instead of breaking mid-word")
