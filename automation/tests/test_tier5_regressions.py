@@ -3070,6 +3070,68 @@ class TestTheSiteStaysOfflineForTheBeta:
             )
         assert script.index("Invoke-Git", guard) > guard
 
+
+# =================== the site self-hosts Inter, no third-party font host (B1)
+
+class TestSiteFontsAreSelfHosted:
+    """
+    DESIGN_SYSTEM.md #147/#149: Inter replaces Syne + Source Sans 3, self-
+    hosted under Website/fonts/ so the site never contacts Google Fonts.
+    Written to fail against the pre-B1 site (Google Fonts <link>s in every
+    page's <head>, no Website/fonts/ directory) before the fix landed.
+    """
+
+    FONTS_DIR = Path(WEBSITE_DIR) / "fonts"
+    CSS = Path(WEBSITE_DIR) / "styles.css"
+    PAGES = ["index.html", "support.html", "changelog.html", "legal.html", "success.html"]
+
+    @pytest.mark.parametrize("page", PAGES)
+    def test_no_page_references_a_third_party_font_host(self, page):
+        html = (Path(WEBSITE_DIR) / page).read_text(encoding="utf-8")
+        assert "fonts.googleapis.com" not in html, f"{page} still links Google Fonts"
+        assert "fonts.gstatic.com" not in html, f"{page} still preconnects to Google Fonts"
+
+    def test_every_font_face_src_file_exists_on_disk(self):
+        css = self.CSS.read_text(encoding="utf-8")
+        faces = re.findall(r"@font-face\s*{[^}]*}", css)
+        assert faces, "styles.css has no @font-face rule — Inter isn't self-hosted"
+        found_local_src = False
+        checked_any_url = 0
+        for face in faces:
+            for url_match in re.finditer(r'url\(["\']?([^"\')]+)["\']?\)', face):
+                checked_any_url += 1
+                src_path = (Path(WEBSITE_DIR) / url_match.group(1)).resolve()
+                assert src_path.is_file(), f"@font-face src file is missing: {url_match.group(1)}"
+            if "local(" in face:
+                found_local_src = True
+        assert checked_any_url, "no @font-face rule has a url() src — nothing is actually self-hosted"
+        assert found_local_src, "the size-adjusted local() fallback face is missing"
+
+    def test_ofl_license_is_present(self):
+        license_file = self.FONTS_DIR / "OFL.txt"
+        assert license_file.is_file(), "Website/fonts/OFL.txt is missing"
+        text = license_file.read_text(encoding="utf-8")
+        assert "SIL OPEN FONT LICENSE" in text.upper()
+
+    def test_fallback_face_is_size_adjusted_to_avoid_reflow(self):
+        """
+        §11: the hero must render text before any image loads, which only
+        holds if the fallback-to-Inter swap doesn't visibly reflow it.
+        """
+        css = self.CSS.read_text(encoding="utf-8")
+        fallback = css.split('font-family: "Inter Fallback";', 1)
+        assert len(fallback) == 2, "the size-adjusted local fallback face is missing"
+        block = fallback[1].split("}", 1)[0]
+        for descriptor in ("size-adjust", "ascent-override", "descent-override"):
+            assert descriptor in block, f"the Inter Fallback face is missing {descriptor}"
+
+    def test_no_page_sets_swap_display_without_self_hosting(self):
+        # font-display: swap only helps if the font is actually local — make
+        # sure the primary Inter face uses it.
+        css = self.CSS.read_text(encoding="utf-8")
+        primary = css.split('font-family: "Inter";', 1)[1].split("}", 1)[0]
+        assert "font-display: swap" in primary
+
 # ============================ Inter, on the §3 type scale (#147 A1)
 
 class TestInterTypeScale:
