@@ -3069,3 +3069,114 @@ class TestTheSiteStaysOfflineForTheBeta:
                 f"{command!r} runs before the beta guard, so it happens even when publishing is refused"
             )
         assert script.index("Invoke-Git", guard) > guard
+
+# ============================ Inter, on the §3 type scale (#147 A1)
+
+class TestInterTypeScale:
+    """
+    DESIGN_SYSTEM.md §3: Inter, embedded, is the only face the app actually
+    renders in (today's fallback chain put it third, behind two Segoe UI
+    entries nobody's machine was missing). Embedded as a resource, with its
+    OFL licence kept alongside, and its pack URI assembly-qualified so it
+    also resolves when the render kit hosts the built DLL rather than
+    launching FlowShield.exe.
+    """
+
+    FONTS_DIR = Path(DESKTOP_DIR) / "Assets" / "Fonts"
+    CSPROJ = Path(DESKTOP_DIR) / "FlowShield.csproj"
+    THEME = Path(DESKTOP_DIR) / "Styles" / "Theme.xaml"
+    TODAY_VIEW = Path(DESKTOP_DIR) / "Views" / "TodayView.xaml"
+    VIEWS = ("MainWindow.xaml", "Views/BlockedAppsView.xaml", "Views/FriendlyErrorDialog.xaml",
+             "Views/SleepBlockingView.xaml", "Views/TodayView.xaml", "Views/SettingsView.xaml")
+
+    EMBEDDED_WEIGHTS = ("Inter-Regular.ttf", "Inter-Medium.ttf", "Inter-SemiBold.ttf")
+
+    # A view is allowed to reference the FontStack resource, or -- for
+    # licence keys and anything the user must copy exactly, §3's own
+    # exception -- the Cascadia Mono fallback. Nothing else.
+    ALLOWED_FONT_FAMILY_VALUES = ("{StaticResource FontStack}", "Cascadia Mono, Consolas, monospace")
+
+    def test_fonts_are_embedded_on_disk_and_in_the_csproj(self):
+        csproj = self.CSPROJ.read_text(encoding="utf-8")
+        for weight in self.EMBEDDED_WEIGHTS:
+            font_path = self.FONTS_DIR / weight
+            assert font_path.is_file(), (
+                f"{font_path} is missing -- Inter must actually be embedded, not just "
+                f"referenced")
+            assert f'Assets\\Fonts\\{weight}' in csproj, (
+                f"{weight} exists on disk but has no <Resource Include> entry in "
+                f"FlowShield.csproj, so it won't ship in the build")
+
+    def test_bold_is_not_embedded_unless_the_scale_uses_it(self):
+        """
+        §3's scale doesn't use weight 700 anywhere in the app (it's reserved
+        for the site hero). UI-SPEC.md §2 is explicit: don't embed Inter-Bold
+        unless a real in-app use is found. A stray Bold file would be dead
+        weight nobody meant to ship.
+        """
+        assert not (self.FONTS_DIR / "Inter-Bold.ttf").exists(), (
+            "Inter-Bold is embedded but nothing in the §3 app scale uses weight 700 -- "
+            "either use it for something real and document why, or drop it")
+
+    def test_the_ofl_licence_is_present(self):
+        licence = self.FONTS_DIR / "OFL.txt"
+        assert licence.is_file(), "Inter is OFL-licensed; its licence text must ship with it"
+        text = licence.read_text(encoding="utf-8")
+        assert "SIL Open Font License" in text
+
+    def test_font_stack_is_an_assembly_qualified_pack_uri(self):
+        """
+        A relative pack URI resolves fine when FlowShield.exe launches itself,
+        but silently falls back to a system font when the render kit hosts
+        the built DLL directly -- the exact split this test guards against.
+        """
+        theme = self.THEME.read_text(encoding="utf-8")
+        match = re.search(r'<FontFamily x:Key="FontStack">([^<]+)</FontFamily>', theme)
+        assert match, "Theme.xaml should define the FontStack FontFamily resource"
+        stack = match.group(1)
+        assert stack.startswith("pack://application:,,,/FlowShield;component/Assets/Fonts/#Inter"), (
+            f"FontStack is {stack!r} -- it must start with the assembly-qualified pack "
+            f"URI form, or the render kit's hosted-DLL rendering falls back to Segoe")
+
+    def test_no_view_sets_a_font_family_other_than_the_stack(self):
+        offenders = []
+        for name in self.VIEWS:
+            path = Path(DESKTOP_DIR) / name
+            if not path.exists():
+                continue
+            for n, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+                for value in re.findall(r'FontFamily="([^"]+)"', line):
+                    if value not in self.ALLOWED_FONT_FAMILY_VALUES:
+                        offenders.append(f"{name}:{n} sets FontFamily={value!r}")
+        assert not offenders, (
+            "a view should reference the FontStack resource (or, for licence keys "
+            "only, the Cascadia Mono fallback), not set its own literal FontFamily:\n  "
+            + "\n  ".join(offenders))
+
+    def _tag_for(self, xml: str, automation_id: str) -> str:
+        """The full opening tag (attributes only) that carries this AutomationId."""
+        match = re.search(
+            r'<(\w+)\b((?:(?!/?>).)*?AutomationId="' + re.escape(automation_id) + r'"(?:(?!/?>).)*?)/?>',
+            xml, re.S)
+        assert match, f"no element with AutomationId={automation_id!r} found"
+        return match.group(2)
+
+    def test_timer_and_stat_numbers_are_tabular(self):
+        """
+        §3: the timer, momentum, and every Today stat are tabular so the
+        digits don't jiggle as they change. Checked by AutomationId, which
+        survives a restyle better than matching on FontSize.
+        """
+        xml = self.TODAY_VIEW.read_text(encoding="utf-8")
+        tabular_ids = (
+            "SprintTimerText", "MomentumValue", "SessionsTodayValue",
+            "FocusMinutesValue", "BlocksTodayValue", "DailyGoalProgressText",
+        )
+        offenders = []
+        for automation_id in tabular_ids:
+            tag = self._tag_for(xml, automation_id)
+            if 'Typography.NumeralAlignment="Tabular"' not in tag:
+                offenders.append(automation_id)
+        assert not offenders, (
+            "these number displays are missing Typography.NumeralAlignment=\"Tabular\": "
+            + ", ".join(offenders))
