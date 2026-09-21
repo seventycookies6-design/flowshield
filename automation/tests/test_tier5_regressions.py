@@ -3689,3 +3689,4 @@ class TestNoHardcodedColoursA3:
         """A regex that silently matched zero files would pass for the wrong
         reason -- confirm the scan really walks a non-trivial set of XAML."""
         assert len(self.FILES) >= 5, "expected Theme.xaml, MainWindow.xaml and several Views/*.xaml"
+
