@@ -10,6 +10,20 @@
                     <Grid Margin="0,0,0,16">
                         <StackPanel>
                             <TextBlock Text="LICENSE" Style="{StaticResource Eyebrow}"/>
+
+                            <!-- big-number treatment (UI-SPEC.md A3), matching the
+                                 app-pages sketch's "05 days left on free trial":
+                                 text, not teal, and only while the trial is the
+                                 active state (Pro and trial-ended have no count to show). -->
+                            <StackPanel Orientation="Horizontal" Margin="0,8,0,0"
+                                        Visibility="{Binding IsTrial, Converter={StaticResource BoolVis}}">
+                                <TextBlock Style="{StaticResource Stat}"
+                                           Text="{Binding TrialDaysLeft, StringFormat={}{0:00}}"/>
+                                <TextBlock Text="days left on free trial" Style="{StaticResource Body}"
+                                           Foreground="{StaticResource InkDim}"
+                                           VerticalAlignment="Bottom" Margin="10,0,0,5"/>
+                            </StackPanel>
+
                             <TextBlock Text="{Binding LicenseStatusText}"
                                        Style="{StaticResource H2}" Margin="0,6,0,0"
                                        AutomationProperties.AutomationId="LicenseStatusText"/>
