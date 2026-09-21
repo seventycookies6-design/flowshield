@@ -34,6 +34,7 @@ One bad afternoon shouldn't erase a month. Every sprint ends with a one-line
 | `Website/` | Static marketing site and post-checkout license page. |
 | `automation/` | pywinauto + Playwright + pytest suite that drives all of it. |
 | `tools/` | Small maintenance scripts, and `doc_steward/`, which keeps the docs consistent with the code. |
+| [`ORG_PLANNING_GRADE.md`](ORG_PLANNING_GRADE.md) | Dated snapshot (20 Sep 2026) grading repo organization and planning — for Keenan and Miles; not a live checklist. |
 
 ## Prerequisites
 
