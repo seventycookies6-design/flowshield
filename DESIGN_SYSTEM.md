@@ -72,6 +72,7 @@ failures measured on 14 September 2026 (see "Contrast" below).
 | `border-strong` | `text` at 22% | `text` at 22% | Hovered or focused outlines, toasts |
 | `focus-ring` | `primary` at 50% | `primary` at 45% | Keyboard focus outline, 2 px |
 | `scrim` | `bg` at 95% | `bg` at 92% | Behind the lock screen and dialogs |
+| `shadow` *(doc amendment, A3, #147)* | `#000000` | `#000000` | Opaque black for the `DropShadowEffect.Color` behind cards; the effect's own `Opacity` does the fading, so this stays a fixed black in both themes rather than a themed pair. App-only — the site already expresses card elevation as the `shadow-soft`/`shadow-lift` rgba strings above, which encode the same black directly. |
 
 ### Rules
 
@@ -160,7 +161,8 @@ All roles are Inter.
 ## 4. Space, shape and depth
 
 - **Spacing scale (4-based):** 4, 8, 12, 16, 24, 32, 48, 64. Padding and gaps use these values only. Card padding is 24, space between cards 16, page margins 32 in the app.
-- **Corner radius:** 6 for small chips and tags, 10 for buttons, inputs and toggles, 14 for cards and dialogs, and fully round for pills and the tier badge. Today's app uses 8, 10, 11, 12, 13 and 14 interchangeably; normalise to this set.
+- **Corner radius:** 6 for small chips and tags, 10 for buttons, inputs and toggles, 14 for cards and dialogs, and fully round for pills and the tier badge. Today's app used 8, 10, 11, 12, 13 and 14 interchangeably; normalised to this set (A2, issue #147).
+- **Where these values live:** spacing and corner-radius values are defined as resources in `DesktopApp/Styles/Theme.xaml` (app) and directly in `Website/styles.css` (site) — not in `design/tokens.json`, which is colour only (§14). Both sides implement the same numbers from this section by hand; a future issue may unify them the way colour is unified. (Corner radius is three named resources — `RadiusChip`/`RadiusControl`/`RadiusCard` — referenced from every `CornerRadius` in the app, and fully round elements set `inf:Pill.IsRound="True"`, because WPF draws an oversized radius such as 9999 as an ellipse rather than clamping it like CSS; the eight spacing numbers are applied as literals per element, the same way the site already does in `styles.css`.)
 - **Borders:** 1 px `border` on cards and controls; `border-strong` on hover and focus.
 - **Shadows**, two levels only:
   - `soft` for cards on the site and for toasts;
@@ -235,7 +237,7 @@ site it's a class in `styles.css`. Names match across the two.
 
 ### Timer ring (Today)
 
-- **Ring:** 12 px stroke on a `track` circle, with the progress arc in `primary` and a round cap.
+- **Ring:** 12 px stroke on a `track` circle, with the progress arc in `primary` and a round cap. Diameter: 222px, matching the app-today sketches' proportions at the app's default 1280-wide layout; scales down gracefully to the 800×540 minimum via the existing `today-small` layout path.
 - **Centre:** the `timer` number, a `caption` state line ("Shield II engaged"), and the shield glyph.
 - **Progress:** updates once a second with no easing. When reduced motion is on, the arc still updates, but no pulse or glow is ever added.
 

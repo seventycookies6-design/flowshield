@@ -8,7 +8,7 @@
     <Color x:Key="Surface2Color">#FF242220</Color>
     <Color x:Key="InkColor">#FFF2F0EB</Color>
     <Color x:Key="InkDimColor">#FFB0ADA5</Color>
-    <Color x:Key="InkFaintColor">#FF7E7B73</Color>
+    <Color x:Key="InkFaintColor">#FF948F86</Color>
     <Color x:Key="PrimaryColor">#FF3AA892</Color>
     <Color x:Key="PrimaryHoverColor">#FF4FBEA7</Color>
     <Color x:Key="PrimaryInkColor">#FF0B1F1B</Color>
@@ -20,6 +20,8 @@
     <Color x:Key="AmberColor">#FFE0B35A</Color>
     <Color x:Key="RoseColor">#FFEF7A88</Color>
     <Color x:Key="FocusRingColor">#803AA892</Color>
+    <Color x:Key="ScrimColor">#F2121110</Color>
+    <Color x:Key="ShadowColor">#FF000000</Color>
 
     <SolidColorBrush x:Key="Bg" Color="{StaticResource BgColor}"/>
     <SolidColorBrush x:Key="BgSoft" Color="{StaticResource BgSoftColor}"/>
@@ -39,4 +41,6 @@
     <SolidColorBrush x:Key="Amber" Color="{StaticResource AmberColor}"/>
     <SolidColorBrush x:Key="Rose" Color="{StaticResource RoseColor}"/>
     <SolidColorBrush x:Key="FocusRing" Color="{StaticResource FocusRingColor}"/>
+    <SolidColorBrush x:Key="Scrim" Color="{StaticResource ScrimColor}"/>
+    <SolidColorBrush x:Key="Shadow" Color="{StaticResource ShadowColor}"/>
 </ResourceDictionary>

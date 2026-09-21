@@ -37,6 +37,22 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Inter (SIL Open Font License), embedded so the app never depends on a
+         web font service or what happens to be installed on the customer's
+         machine (DESIGN_SYSTEM.md §3). Only the weights the §3 scale actually
+         uses in-app — Bold is a site-hero-only weight, so it isn't embedded
+         here. -->
+    <Resource Include="Assets\Fonts\Inter-Regular.ttf" />
+    <Resource Include="Assets\Fonts\Inter-Medium.ttf" />
+    <Resource Include="Assets\Fonts\Inter-SemiBold.ttf" />
+    <!-- Inter Display, the tighter optical size §3 allows for the timer and
+         stat numbers (UI-SPEC.md A4): one static weight, SemiBold, since
+         nothing in the scale needs any other Display weight. -->
+    <Resource Include="Assets\Fonts\InterDisplay-SemiBold.ttf" />
+    <None Include="Assets\Fonts\OFL.txt" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0" />
     <!-- Installer + auto-update. Without an update channel a shipped bug is
          permanent for everyone who already installed. -->

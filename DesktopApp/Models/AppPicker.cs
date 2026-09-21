@@ -23,6 +23,8 @@ public class PickerEntry : INotifyPropertyChanged
     /// <summary>"Chat", "Games & launchers"… for suggestions.</summary>
     public string Group { get; init; } = "";
 
+    public bool HasGroup => Group.Length > 0;
+
     /// <summary>A warning shown with the entry, e.g. that a browser closes entirely.</summary>
     public string Note { get; init; } = "";
 
@@ -62,12 +64,17 @@ public class PickerEntry : INotifyPropertyChanged
     /// <summary>What a screen reader announces for the button.</summary>
     public string ActionName => IsAdded ? $"{Name} is blocked" : $"Block {Name}";
 
+    /// <summary>The Group already carries the category for suggested entries
+    /// (shown as the tag chip, UI-SPEC.md A3), so this stays blank for those
+    /// rather than repeating it in the caption underneath.</summary>
     public string SourceLabel => Source switch
     {
-        PickerSource.Suggested => Group,
+        PickerSource.Suggested => "",
         PickerSource.Installed => "Installed",
         _ => "Running now",
     };
+
+    public bool HasSourceLabel => SourceLabel.Length > 0;
 
     /// <summary>Stable id for UI Automation: PickApp_steam.</summary>
     public string AutomationId =>
@@ -100,6 +107,26 @@ public static class AppPicker
     }
 
     private static List<PickerEntry>? _suggestions;
+    private static Dictionary<string, string>? _categoryByProcess;
+
+    /// <summary>
+    /// The suggestion catalog's category ("Chat", "Music" …) for a known
+    /// process, used for the blocklist row's category tag chip (UI-SPEC.md
+    /// A3, grafted from the raycast app-pages sketch). Null for a process
+    /// the catalog doesn't recognise -- a custom or unlisted app shows no
+    /// chip rather than a fabricated one.
+    /// </summary>
+    public static string? CategoryFor(string? processName)
+    {
+        if (string.IsNullOrWhiteSpace(processName)) return null;
+        _suggestions ??= LoadSuggestions();
+        _categoryByProcess ??= _suggestions
+            .SelectMany(s => s.Processes.Select(p => (Process: p, s.Group)))
+            .Where(x => !string.IsNullOrWhiteSpace(x.Process) && !string.IsNullOrWhiteSpace(x.Group))
+            .GroupBy(x => x.Process, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First().Group, StringComparer.OrdinalIgnoreCase);
+        return _categoryByProcess.TryGetValue(processName.Trim(), out var group) ? group : null;
+    }
 
     /// <summary>A fresh copy of the suggestions, minus anything protected.</summary>
     public static List<PickerEntry> Suggestions(Func<string, bool> isProtected)
