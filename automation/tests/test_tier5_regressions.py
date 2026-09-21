@@ -3950,3 +3950,4 @@ class TestBlockedAppsRowSwitchNotClipped:
             "clipped by the card's right edge (PR #182 review) -- pull one "
             "of these back to the next lower §4 scale step."
         )
+
