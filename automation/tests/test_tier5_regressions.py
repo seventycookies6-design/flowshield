@@ -3689,3 +3689,107 @@ class TestNoHardcodedColoursA3:
         """A regex that silently matched zero files would pass for the wrong
         reason -- confirm the scan really walks a non-trivial set of XAML."""
         assert len(self.FILES) >= 5, "expected Theme.xaml, MainWindow.xaml and several Views/*.xaml"
+
+
+# ==================================== A2: CornerRadius normalised to the §4 scale
+
+class TestCornerRadiusNormalisedA2:
+    """
+    UI-SPEC.md A2 (#147, DESIGN_SYSTEM.md §4): every CornerRadius in the app
+    must be one of the four legal values -- 6 (small chips/tags), 10
+    (buttons/inputs/toggles/interactive rows), 14 (cards/dialogs/surfaces),
+    or "fully round" -- and every one of them must be a StaticResource
+    reference to Theme.xaml's four named resources (RadiusChip/RadiusControl/
+    RadiusCard/RadiusFull), not a bare number repeated at each call site.
+
+    Proven to fail first: the FIXTURE strings below are lifted verbatim from
+    the pre-A2 XAML (CornerRadius="11" on NavButton, CornerRadius="7" on the
+    FirstRun app-icon badge, <Setter Property="CornerRadius" Value="12"/> on
+    RowCard) -- none of them are legal literals and none reference a
+    resource, so test_fixture_of_known_pre_fix_values_is_rejected below
+    fails against them, and passes only once every real call site is
+    converted (test_every_cornerradius_is_a_named_resource).
+    """
+
+    ROOT = Path(DESKTOP_DIR).parent
+    FILES = (
+        [Path(DESKTOP_DIR) / "Styles" / "Theme.xaml"]
+        + sorted((Path(DESKTOP_DIR) / "Views").glob("*.xaml"))
+        + [Path(DESKTOP_DIR) / "MainWindow.xaml"]
+    )
+
+    LEGAL_RESOURCE_KEYS = {"RadiusChip", "RadiusControl", "RadiusCard", "RadiusFull"}
+    LEGAL_VALUES = {"RadiusChip": 6, "RadiusControl": 10, "RadiusCard": 14, "RadiusFull": 9999}
+
+    # Matches both CornerRadius="X" (inline) and
+    # <Setter Property="CornerRadius" Value="X"/> (style setters).
+    INLINE = re.compile(r'CornerRadius="([^"]*)"')
+    SETTER = re.compile(r'Property="CornerRadius"\s+Value="([^"]*)"')
+    RESOURCE_REF = re.compile(r'^\{StaticResource (\w+)\}$')
+
+    # Verbatim pre-A2 fragments (Theme.xaml/MainWindow.xaml as they existed
+    # before this change): a bare literal on a Border, and a bare literal on
+    # a style Setter. Neither is a StaticResource reference.
+    PRE_FIX_FIXTURE = '\n'.join([
+        '<Border x:Name="bd" Background="{TemplateBinding Background}" CornerRadius="11"',
+        '<Border CornerRadius="7" Background="{StaticResource PrimarySoft}"',
+        '<Setter Property="CornerRadius" Value="12"/>',
+    ])
+
+    def _offenders(self, text: str) -> list[str]:
+        bad = []
+        for m in self.INLINE.finditer(text):
+            bad.append(m.group(1))
+        for m in self.SETTER.finditer(text):
+            bad.append(m.group(1))
+        offenders = []
+        for val in bad:
+            rm = self.RESOURCE_REF.match(val)
+            if not rm or rm.group(1) not in self.LEGAL_RESOURCE_KEYS:
+                offenders.append(val)
+        return offenders
+
+    def test_fixture_of_known_pre_fix_values_is_rejected(self):
+        """This test's own checker must actually catch the bug: run it
+        against verbatim pre-A2 fragments and confirm every one is flagged."""
+        offenders = self._offenders(self.PRE_FIX_FIXTURE)
+        assert len(offenders) == 3, (
+            f"expected the checker to flag all 3 pre-fix fragments, flagged {len(offenders)}: {offenders}"
+        )
+
+    def test_every_cornerradius_is_a_named_resource(self):
+        offenders = []
+        for path in self.FILES:
+            text = path.read_text(encoding="utf-8")
+            for m in self.INLINE.finditer(text):
+                val = m.group(1)
+                rm = self.RESOURCE_REF.match(val)
+                if not rm or rm.group(1) not in self.LEGAL_RESOURCE_KEYS:
+                    line_no = text.count("\n", 0, m.start()) + 1
+                    offenders.append(f"{path.relative_to(self.ROOT)}:{line_no}: CornerRadius=\"{val}\"")
+            for m in self.SETTER.finditer(text):
+                val = m.group(1)
+                rm = self.RESOURCE_REF.match(val)
+                if not rm or rm.group(1) not in self.LEGAL_RESOURCE_KEYS:
+                    line_no = text.count("\n", 0, m.start()) + 1
+                    offenders.append(f"{path.relative_to(self.ROOT)}:{line_no}: Setter CornerRadius Value=\"{val}\"")
+        assert not offenders, (
+            "CornerRadius value(s) that aren't a {StaticResource RadiusChip|RadiusControl|RadiusCard|RadiusFull} "
+            "reference found -- every corner radius must draw from Theme.xaml's four named resources "
+            "(DESIGN_SYSTEM.md §4, UI-SPEC.md A2):\n" + "\n".join(offenders)
+        )
+
+    def test_named_resources_hold_the_legal_scale_values(self):
+        """The four resources themselves must equal the doc's own numbers --
+        a passing test above would be meaningless if RadiusCard were
+        silently redefined to something off-scale."""
+        theme_text = (Path(DESKTOP_DIR) / "Styles" / "Theme.xaml").read_text(encoding="utf-8")
+        for key, expected in self.LEGAL_VALUES.items():
+            m = re.search(rf'<CornerRadius x:Key="{key}">(\d+)</CornerRadius>', theme_text)
+            assert m, f"expected a <CornerRadius x:Key=\"{key}\"> resource definition in Theme.xaml"
+            assert int(m.group(1)) == expected, (
+                f"{key} is defined as {m.group(1)}, expected {expected}"
+            )
+
+    def test_the_files_list_actually_covers_something(self):
+        assert len(self.FILES) >= 5, "expected Theme.xaml, MainWindow.xaml and several Views/*.xaml"
