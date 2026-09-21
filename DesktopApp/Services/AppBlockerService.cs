@@ -79,8 +79,6 @@ public class AppBlockerService : IDisposable
     /// </summary>
     private List<BlockedApp> _targets = new();
 
-    private readonly HashSet<int> _handled = new();
-
     /// <summary>
     /// Blocklist entries that had at least one process running last sweep.
     ///
@@ -196,7 +194,6 @@ public class AppBlockerService : IDisposable
         {
             IsEnforcing = true;
             ActiveShield = shield;
-            _handled.Clear();
             _present.Clear();
             _closingAt.Clear();
         }
@@ -208,7 +205,6 @@ public class AppBlockerService : IDisposable
         lock (_gate)
         {
             IsEnforcing = false;
-            _handled.Clear();
             _present.Clear();
             _closingAt.Clear();
         }
