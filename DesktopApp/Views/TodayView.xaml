@@ -15,14 +15,17 @@
             </Grid.RowDefinitions>
 
             <!-- ==================================================== timer card -->
-            <Border x:Name="TimerCard" Grid.Row="0" Grid.Column="0" Style="{StaticResource Card}" Margin="0,0,18,0" Padding="26"
+            <Border x:Name="TimerCard" Grid.Row="0" Grid.Column="0" Style="{StaticResource Card}" Margin="0,0,16,0" Padding="24"
                     VerticalAlignment="Top">
                 <StackPanel>
 
-                    <!-- ring -->
-                    <Grid Width="212" Height="212" HorizontalAlignment="Center" Margin="0,6,0,0">
-                        <Ellipse Width="196" Height="196" Stroke="{StaticResource Track}" StrokeThickness="12"/>
-                        <Ellipse Width="196" Height="196" Stroke="{StaticResource Primary}" StrokeThickness="12"
+                    <!-- ring: 222px diameter, 12px stroke, round cap (UI-SPEC.md
+                         A4, §1.7.2 doc amendment). The centre never eases —
+                         RemainingText and the arc's dash array both update
+                         once a second straight off the binding, per §7. -->
+                    <Grid Width="222" Height="222" HorizontalAlignment="Center" Margin="0,6,0,0">
+                        <Ellipse Width="222" Height="222" Stroke="{StaticResource Track}" StrokeThickness="12"/>
+                        <Ellipse Width="222" Height="222" Stroke="{StaticResource Primary}" StrokeThickness="12"
                                  StrokeDashCap="Round"
                                  StrokeDashArray="{Binding Progress, Converter={StaticResource ProgressDash}}"
                                  Visibility="{Binding Progress, Converter={StaticResource PositiveVis}}"
@@ -33,19 +36,25 @@
                         </Ellipse>
 
                         <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-                            <TextBlock Text="{Binding RemainingText}"
-                                       FontSize="46" FontWeight="SemiBold"
-                                       Foreground="{StaticResource Ink}"
+                            <TextBlock Text="{Binding RemainingText}" Style="{StaticResource Timer}"
                                        HorizontalAlignment="Center"
                                        Typography.NumeralAlignment="Tabular"
                                        AutomationProperties.AutomationId="SprintTimerText"/>
-                            <TextBlock Text="{Binding SessionStateText}" Style="{StaticResource Caption}"
-                                       HorizontalAlignment="Center" Margin="0,2,0,0"
-                                       AutomationProperties.AutomationId="SessionStateText"/>
+                            <!-- The shield glyph sits beside the state line only while a
+                                 sprint runs (§7's "Centre: ... a caption state line ...
+                                 and the shield glyph"); idle has no active shield yet. -->
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,8,0,0">
+                                <Image Source="{Binding SelectedShield, Converter={StaticResource ShieldGlyph}}"
+                                       Width="14" Height="14" Stretch="Uniform" Margin="0,0,6,0"
+                                       VerticalAlignment="Center"
+                                       Visibility="{Binding IsRunning, Converter={StaticResource BoolVis}}"/>
+                                <TextBlock Text="{Binding SessionStateText}" Style="{StaticResource Caption}"
+                                           AutomationProperties.AutomationId="SessionStateText"/>
+                            </StackPanel>
                             <!-- NoWrap so the trimming applies: the caption style wraps by
                                  default, and a long intention pushed itself out of the ring. -->
                             <TextBlock Text="{Binding IntentionDisplayText}" Style="{StaticResource Caption}"
-                                       HorizontalAlignment="Center" Margin="0,2,0,0" MaxWidth="150"
+                                       HorizontalAlignment="Center" Margin="0,4,0,0" MaxWidth="150"
                                        TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"
                                        ToolTip="{Binding IntentionDisplayText}"
                                        Visibility="{Binding IntentionDisplayVisible, Converter={StaticResource BoolVis}}"
@@ -57,7 +66,7 @@
                     <Button Style="{StaticResource BtnPrimary}" Content="Start sprint"
                             Command="{Binding StartCommand}"
                             Visibility="{Binding IsRunning, Converter={StaticResource InvBoolVis}}"
-                            HorizontalAlignment="Center" Padding="40,12" Margin="0,22,0,0"
+                            HorizontalAlignment="Center" Padding="40,12" Margin="0,16,0,0"
                             AutomationProperties.AutomationId="StartSprintButton"
                             AutomationProperties.Name="Start sprint"/>
 
@@ -65,7 +74,7 @@
                     <Button Style="{StaticResource BtnGhost}" Content="{Binding EndButtonLabel}"
                             Command="{Binding StopCommand}"
                             Visibility="{Binding EndButtonVisible, Converter={StaticResource BoolVis}}"
-                            HorizontalAlignment="Center" Padding="40,12" Margin="0,22,0,0"
+                            HorizontalAlignment="Center" Padding="40,12" Margin="0,16,0,0"
                             AutomationProperties.AutomationId="StopSprintButton"
                             AutomationProperties.Name="{Binding EndButtonLabel}"/>
 
@@ -136,7 +145,7 @@
                     </Border>
 
                     <!-- length -->
-                    <TextBlock Text="SPRINT LENGTH" Style="{StaticResource Eyebrow}" Margin="0,26,0,9"/>
+                    <TextBlock Text="SPRINT LENGTH" Style="{StaticResource Eyebrow}" Margin="0,24,0,8"/>
                     <WrapPanel IsEnabled="{Binding IsRunning, Converter={StaticResource InvBool}}">
                         <RadioButton Style="{StaticResource Segment}" GroupName="SprintLength" Content="15 min"
                                      Margin="0,0,8,8"
@@ -191,28 +200,49 @@
                                    AutomationProperties.AutomationId="CustomMinutesError"/>
                     </StackPanel>
 
-                    <!-- shield level -->
-                    <TextBlock Text="SHIELD LEVEL" Style="{StaticResource Eyebrow}" Margin="0,14,0,9"/>
+                    <!-- shield level: icon-above-label chips, one shield glyph
+                         resource shared with the ring above (§6, UI-SPEC.md A4). -->
+                    <TextBlock Text="SHIELD LEVEL" Style="{StaticResource Eyebrow}" Margin="0,16,0,8"/>
                     <StackPanel Orientation="Horizontal"
                                 IsEnabled="{Binding IsRunning, Converter={StaticResource InvBool}}">
-                        <RadioButton Style="{StaticResource Segment}" GroupName="Shield" Content="I · Soft"
+                        <RadioButton Style="{StaticResource SegmentShield}" GroupName="Shield" Width="90"
+                                     Margin="0,0,8,0"
                                      AutomationProperties.AutomationId="Shield_Soft"
                                      AutomationProperties.Name="Shield I Soft"
                                      IsChecked="{Binding SelectedShield, Converter={StaticResource EnumEq},
-                                                 ConverterParameter={x:Static models:ShieldLevel.Soft}}"/>
-                        <RadioButton Style="{StaticResource Segment}" GroupName="Shield" Content="II · Firm"
+                                                 ConverterParameter={x:Static models:ShieldLevel.Soft}}">
+                            <StackPanel>
+                                <Image Source="{StaticResource ShieldGlyphSoft}" Width="18" Height="18"
+                                       Stretch="Uniform" HorizontalAlignment="Center"/>
+                                <TextBlock Text="I · Soft" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                            </StackPanel>
+                        </RadioButton>
+                        <RadioButton Style="{StaticResource SegmentShield}" GroupName="Shield" Width="90"
+                                     Margin="0,0,8,0"
                                      AutomationProperties.AutomationId="Shield_Firm"
                                      AutomationProperties.Name="Shield II Firm"
                                      IsChecked="{Binding SelectedShield, Converter={StaticResource EnumEq},
-                                                 ConverterParameter={x:Static models:ShieldLevel.Firm}}"/>
-                        <RadioButton Style="{StaticResource Segment}" GroupName="Shield" Content="III · Sealed"
+                                                 ConverterParameter={x:Static models:ShieldLevel.Firm}}">
+                            <StackPanel>
+                                <Image Source="{StaticResource ShieldGlyphFirm}" Width="18" Height="18"
+                                       Stretch="Uniform" HorizontalAlignment="Center"/>
+                                <TextBlock Text="II · Firm" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                            </StackPanel>
+                        </RadioButton>
+                        <RadioButton Style="{StaticResource SegmentShield}" GroupName="Shield" Width="90"
                                      AutomationProperties.AutomationId="Shield_Sealed"
                                      AutomationProperties.Name="Shield III Sealed"
                                      IsChecked="{Binding SelectedShield, Converter={StaticResource EnumEq},
-                                                 ConverterParameter={x:Static models:ShieldLevel.Sealed}}"/>
+                                                 ConverterParameter={x:Static models:ShieldLevel.Sealed}}">
+                            <StackPanel>
+                                <Image Source="{StaticResource ShieldGlyphSealed}" Width="18" Height="18"
+                                       Stretch="Uniform" HorizontalAlignment="Center"/>
+                                <TextBlock Text="III · Sealed" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                            </StackPanel>
+                        </RadioButton>
                     </StackPanel>
                     <TextBlock Text="{Binding ShieldDescription}" Style="{StaticResource Caption}"
-                               Margin="0,10,0,0"
+                               Margin="0,8,0,0"
                                AutomationProperties.AutomationId="ShieldDescriptionText"/>
                     <TextBlock Text="{Binding ShieldBestFor}" Style="{StaticResource Caption}"
                                Margin="0,4,0,0"
@@ -229,7 +259,7 @@
                                Text="Hard kill mode is on (Settings), so Soft closes blocked apps instead of nudging."/>
 
                     <!-- intention (F13) -->
-                    <TextBlock Text="INTENTION" Style="{StaticResource Eyebrow}" Margin="0,26,0,9"/>
+                    <TextBlock Text="INTENTION" Style="{StaticResource Eyebrow}" Margin="0,24,0,8"/>
                     <TextBox Style="{StaticResource Field}" MaxLength="80"
                              Text="{Binding IntentionText, UpdateSourceTrigger=PropertyChanged}"
                              IsEnabled="{Binding IsRunning, Converter={StaticResource InvBool}}"
@@ -288,16 +318,15 @@
             <!-- ==================================================== stats rail -->
             <StackPanel x:Name="StatsRail" Grid.Row="0" Grid.Column="1" VerticalAlignment="Top">
 
-                <Border Style="{StaticResource Card}" Padding="22" Margin="0,0,0,16">
+                <Border Style="{StaticResource Card}" Padding="24" Margin="0,0,0,16">
                     <StackPanel>
                         <TextBlock Text="MOMENTUM" Style="{StaticResource Eyebrow}"/>
-                        <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
-                            <TextBlock Text="{Binding MomentumText}" FontSize="42" FontWeight="SemiBold"
-                                       Foreground="{StaticResource Ink}"
+                        <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                            <TextBlock Text="{Binding MomentumText}" Style="{StaticResource Stat}"
                                        Typography.NumeralAlignment="Tabular"
                                        AutomationProperties.AutomationId="MomentumValue"/>
                             <TextBlock Text="pts" Style="{StaticResource Caption}" VerticalAlignment="Bottom"
-                                       Margin="7,0,0,10"/>
+                                       Margin="8,0,0,8"/>
                         </StackPanel>
                         <TextBlock Style="{StaticResource Body}" Margin="0,4,0,0"
                                    AutomationProperties.AutomationId="StreakText">
@@ -305,7 +334,7 @@
                             <Run Text="{Binding StreakText, Mode=OneWay}" Foreground="{StaticResource PrimaryHover}"/>
                         </TextBlock>
                         <TextBlock Text="Finished sprints compound. Abandoned ones decay — they don't reset."
-                                   Style="{StaticResource Caption}" Margin="0,10,0,0"/>
+                                   Style="{StaticResource Caption}" Margin="0,8,0,0"/>
 
                         <!-- F14: the 30-day trend. DESIGN_SYSTEM.md "Charts" —
                              one series in primary at 2 px, no area fill,
@@ -362,9 +391,9 @@
                     </StackPanel>
                 </Border>
 
-                <Border Style="{StaticResource Card}" Padding="22">
+                <Border Style="{StaticResource Card}" Padding="24">
                     <StackPanel>
-                        <TextBlock Text="TODAY" Style="{StaticResource Eyebrow}" Margin="0,0,0,14"/>
+                        <TextBlock Text="TODAY" Style="{StaticResource Eyebrow}" Margin="0,0,0,12"/>
 
                         <Grid Margin="0,0,0,12">
                             <TextBlock Text="Sprints completed" Style="{StaticResource Body}"/>
