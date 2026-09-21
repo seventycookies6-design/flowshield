@@ -777,12 +777,41 @@ class TestSuiteLeavesUserSettingsAlone:
         assert guard.SETTINGS_PATH.read_bytes() == b"owner's envelope"
 
     def test_every_entry_point_that_launches_the_app_is_guarded(self):
+        """
+        Found by scanning, not by a list. The F27 capture scripts launched the
+        app and seeded invented sample data straight into settings.json while
+        this test was still naming four files by hand, so the rule missed them.
+        """
+        import ast
+
+        def calls_launch_app(source: str) -> bool:
+            """
+            Parsed, not grepped: make_report.py explains launch_app() in a
+            docstring without ever calling it.
+            """
+            try:
+                tree = ast.parse(source)
+            except SyntaxError:
+                return False
+            return any(
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Attribute)
+                and node.func.attr == "launch_app"
+                for node in ast.walk(tree)
+            )
+
         automation = Path(__file__).resolve().parent.parent
-        for script in ("e2e_runner.py", "smoke_ui.py", "verify_blocking.py",
-                       "verify_deployed.py"):
-            source = (automation / script).read_text(encoding="utf-8")
+        launchers = sorted(
+            path for path in automation.rglob("*.py")
+            if "tests" not in path.parts
+            and path.name != "app_controller.py"  # where launch_app is defined
+            and calls_launch_app(path.read_text(encoding="utf-8"))
+        )
+        assert len(launchers) >= 4, "the scan found almost nothing — check it still works"
+        for script in launchers:
+            source = script.read_text(encoding="utf-8")
             assert "with preserve_user_settings():" in source, \
-                f"{script} launches the app but doesn't preserve the owner's settings"
+                f"{script.name} launches the app but doesn't preserve the owner's settings"
         conftest = (automation / "tests" / "conftest.py").read_text(encoding="utf-8")
         assert "autouse=True" in conftest and "preserve_user_settings()" in conftest
 
@@ -2687,9 +2716,12 @@ class TestDailyGoalRegressions:
         text would leave the track and the padding behind.
         """
         xaml = self.TODAY_XAML.read_text(encoding="utf-8")
-        panel = xaml.split('AutomationProperties.AutomationId="DailyGoalPanel"', 1)
+        # Anchored on the progress text, which UI Automation can actually
+        # resolve. The panel's own id was removed in #134: an id on a layout
+        # panel is never surfaced, so it could not fail.
+        panel = xaml.split('AutomationProperties.AutomationId="DailyGoalProgressText"', 1)
         assert len(panel) == 2, "the daily goal panel must be present"
-        before = panel[0][-400:]
+        before = panel[0][-800:]
         assert "GoalVisible" in before and "BoolVis" in before, \
             "the panel itself must collapse when no goal is set"
 

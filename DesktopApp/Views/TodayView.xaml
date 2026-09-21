@@ -353,9 +353,12 @@
                         </Grid>
 
                         <!-- Daily goal (F15). Hidden entirely when no goal is set. -->
+                        <!-- No AutomationId here: a layout panel is not surfaced to UI
+                             Automation, so one could never be resolved and a test asking
+                             for it would pass whether the bar was drawn or not (#134).
+                             DailyGoalProgressText and DailyGoalBar below are the handles. -->
                         <StackPanel Margin="0,16,0,0"
-                                    Visibility="{Binding GoalVisible, Converter={StaticResource BoolVis}}"
-                                    AutomationProperties.AutomationId="DailyGoalPanel">
+                                    Visibility="{Binding GoalVisible, Converter={StaticResource BoolVis}}">
                             <Grid>
                                 <TextBlock Text="Daily goal" Style="{StaticResource Body}"/>
                                 <TextBlock Text="{Binding GoalProgressText}" HorizontalAlignment="Right"
