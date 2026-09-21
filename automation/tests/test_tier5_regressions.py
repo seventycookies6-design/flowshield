@@ -2762,6 +2762,29 @@ class TestProductCaptures:
         )
         assert "<h2>" in day_section, "the day section needs a real, visible heading now"
 
+    def test_the_product_is_not_pushed_below_the_fold(self):
+        """
+        Leading with the product (#147 §4) only works if the capture reaches
+        the first screen. With the worked example and the stats row stacked
+        above it, the capture started at 95% of a 1440x900 screen and fully
+        below the fold at 1366x768. The copy above the capture stays short:
+        eyebrow, headline, lede, calls to action and the note. The example
+        and the numbers go below it.
+        """
+        site = (Path(WEBSITE_DIR) / "index.html").read_text(encoding="utf-8")
+        hero_open = site.index('<section class="hero"')
+        hero = site[hero_open:site.index("</section>", hero_open)]
+        img_at = hero.index("media/today.png")
+        above = hero[:img_at]
+        for marker in ('class="example"', 'class="trust"'):
+            assert marker in hero, f"{marker} should still be in the hero"
+            assert marker not in above, (
+                f"{marker} sits above the product capture again, pushing it below the fold")
+        paragraphs = above.count("<p")
+        assert paragraphs <= 3, (
+            f"{paragraphs} paragraphs above the capture; keep it to the lede, the "
+            "copy confirmation and the note")
+
 
 class TestPhoneVisitorMarkup:
     """

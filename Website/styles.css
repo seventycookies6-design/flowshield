@@ -505,7 +505,7 @@ html[data-theme="dark"] .theme-toggle .icon-moon { display: block; }
 /* ---------------------------------------------------------------------- hero */
 
 .hero {
-  padding: var(--space-16) 0 var(--space-12);
+  padding: var(--space-10) 0 var(--space-12);
 }
 /* Design #147 §4: the hero is text-first, stacked, not a side-by-side grid —
    the copy runs full width, capped for readability, then the real product
@@ -515,25 +515,28 @@ html[data-theme="dark"] .theme-toggle .icon-moon { display: block; }
 .hero-copy {
   max-width: min(46rem, 100%);
 }
+/* 56ch, not a narrower measure: at 36ch the lede ran to five lines, and
+   with the example and the stats above the capture, the product started at
+   the fold on every common laptop size. Keep this stack short. */
 .hero .lede {
   font-size: var(--text-title);
-  max-width: min(36ch, 100%);
-  margin-bottom: var(--space-2);
+  max-width: min(56ch, 100%);
+  margin-bottom: 0;
 }
 .hero .example {
   font-size: var(--text-label);
   color: var(--color-text-muted);
-  max-width: min(42ch, 100%);
+  max-width: min(52ch, 100%);
   padding: var(--space-4);
   border-left: 3px solid var(--color-primary);
   background: var(--color-surface);
-  margin: var(--space-5) 0 0;
+  margin: 0;
 }
 .hero-cta {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-3);
-  margin: var(--space-8) 0 var(--space-4);
+  margin: var(--space-6) 0 var(--space-3);
 }
 .hero-note {
   font-size: var(--text-label);
@@ -549,8 +552,17 @@ html[data-theme="dark"] .theme-toggle .icon-moon { display: block; }
 .trust {
   display: flex;
   gap: var(--space-8);
-  margin-top: var(--space-10);
   flex-wrap: wrap;
+}
+
+/* The worked example and the numbers, side by side under the capture. */
+.hero-after {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
+  flex-wrap: wrap;
+  margin-top: var(--space-10);
 }
 .trust div { display: flex; flex-direction: column; gap: var(--space-1); }
 .trust b {
@@ -576,7 +588,7 @@ html[data-theme="dark"] .theme-toggle .icon-moon { display: block; }
    §10); img sizing, aspect-ratio and the no-layout-shift reservation all
    come from .shot itself. */
 .hero-shot {
-  margin-top: var(--space-12);
+  margin-top: var(--space-10);
 }
 .hero-shot figcaption {
   display: flex;
@@ -1414,8 +1426,9 @@ footer p {
   .pricing {
     grid-template-columns: 1fr;
   }
-  .hero { padding: var(--space-10) 0 var(--space-8); }
+  .hero { padding: var(--space-8) 0 var(--space-8); }
   .hero-shot { margin-top: var(--space-8); }
+  .hero-after { margin-top: var(--space-8); gap: var(--space-6); }
   .nav-links { display: none; }
   .menu-toggle { display: grid; }
   .nav-links {
