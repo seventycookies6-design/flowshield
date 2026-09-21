@@ -3039,3 +3039,33 @@ class TestIssueHygieneStaysAdvisory:
             assert f"`{label}`" in planning, (
                 f"the check knows the label {label!r}, but PLANNING.md does not list it"
             )
+
+class TestTheSiteStaysOfflineForTheBeta:
+    """
+    The site is offline for the internal beta (#165): GitHub Pages' terms
+    forbid selling from it, so it moves host before launch (#166). The
+    publish script refuses without -BetaIsOver so that an agent following an
+    older instruction cannot quietly put it back up.
+    """
+
+    SCRIPT = Path(__file__).resolve().parent.parent.parent / "tools" / "publish_site.ps1"
+
+    def test_publishing_needs_an_explicit_switch(self):
+        script = self.SCRIPT.read_text(encoding="utf-8")
+        assert "param([switch]$BetaIsOver)" in script
+        guard = script.split("if (-not $BetaIsOver)", 1)
+        assert len(guard) == 2, "the refusal is gone"
+        refusal = guard[1].split("}", 1)[0]
+        assert "exit 1" in refusal, "refusing must stop the script, not just warn"
+
+    def test_the_refusal_comes_before_anything_is_pushed(self):
+        script = self.SCRIPT.read_text(encoding="utf-8")
+        guard = script.index("if (-not $BetaIsOver)")
+        # Everything before the guard is the help block and the param line:
+        # no git call, no push, nothing that reaches gh-pages.
+        before = script[:guard].split("#>", 1)[1]
+        for command in ("git ", "Invoke-Git", "push", "Set-Location"):
+            assert command not in before, (
+                f"{command!r} runs before the beta guard, so it happens even when publishing is refused"
+            )
+        assert script.index("Invoke-Git", guard) > guard
