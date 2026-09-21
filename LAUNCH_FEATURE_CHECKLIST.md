@@ -203,7 +203,7 @@ A summary of the research, to explain the choices below.
 
 ### F1 — Shield levels as clear commitment modes · **Launch** · S
 
-- [ ] Done
+- [x] Done — shipped in #97
 
 **Assigned:** Miles (milessmart6-pixel), built with Codex and Cursor
 
@@ -460,7 +460,7 @@ The recommendation is (b) plus the honest message (F26), unless early users say 
 
 ### F12 — A sprint summary worth reading · **Launch** · S
 
-- [ ] Done
+- [x] Done — shipped in #100
 
 **Assigned:** Miles (milessmart6-pixel), built with Codex and Cursor
 
@@ -485,7 +485,7 @@ The recommendation is (b) plus the honest message (F26), unless early users say 
 
 ### F13 — Set an intention before a sprint · **Launch+** · S · Roadmap 3.3
 
-- [ ] Done
+- [x] Done — shipped in #104
 
 **Assigned:** Miles (milessmart6-pixel), built with Codex and Cursor
 
@@ -499,7 +499,8 @@ The recommendation is (b) plus the honest message (F26), unless early users say 
 
 ### F14 — Momentum you can understand, with quiet milestones · **Launch+** · M · Roadmap 3.2
 
-- [ ] Done
+- [ ] Done — the explainer and the 30-day trend chart shipped in #132;
+      the quiet milestones wait on F16's History list (#133)
 
 **Assigned:** Miles (milessmart6-pixel), built with Codex and Cursor
 
@@ -519,7 +520,7 @@ The recommendation is (b) plus the honest message (F26), unless early users say 
 
 ### F15 — A daily focus goal · **Launch+** · S
 
-- [ ] Done
+- [x] Done — shipped in #113
 
 **Assigned:** Miles (milessmart6-pixel), built with Codex and Cursor
 
@@ -554,7 +555,7 @@ The recommendation is (b) plus the honest message (F26), unless early users say 
 
 ### F17 — Read back and export the journal · **Launch+** · S · Roadmap 3.5
 
-- [ ] Done
+- [x] Done — shipped in #116
 
 **Assigned:** Miles (milessmart6-pixel), built with Codex and Cursor
 
@@ -670,7 +671,7 @@ Build to Roadmap 4.2. As scheduling, profiles and notifications arrive (F5–F9,
 
 ### F24 — Make the one-time price the headline it deserves · **Launch** · S
 
-- [ ] Done
+- [x] Done — shipped in #124
 
 **Assigned:** Miles (milessmart6-pixel), built with Codex and Cursor
 
@@ -707,7 +708,7 @@ Build to Roadmap 4.2. As scheduling, profiles and notifications arrive (F5–F9,
 
 ### F26 — Say honestly what FlowShield doesn't do yet · **Launch** · S · Roadmap 6.2
 
-- [ ] Done
+- [x] Done — shipped in #124
 
 **Assigned:** Miles (milessmart6-pixel), built with Codex and Cursor
 
@@ -719,7 +720,7 @@ Build to Roadmap 4.2. As scheduling, profiles and notifications arrive (F5–F9,
 
 ### F27 — Show the real product · **Launch** · S · Roadmap 6.1
 
-- [ ] Done
+- [x] Done — shipped in #139
 
 **Assigned:** Miles (milessmart6-pixel), built with Codex and Cursor
 

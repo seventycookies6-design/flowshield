@@ -7,9 +7,26 @@ meets it (site → checkout → install → first run → daily use → paying �
 
 ## Progress
 
-Who builds each item is in `LAUNCH_FEATURE_CHECKLIST.md` → "Who builds what"
-(tracking issues #37 and #38). Kept up to date as items land. Tracked on GitHub in issues #1–#6 (one per
-phase), with an issue per item as work starts.
+**This file no longer tracks progress.** It is the original audit: what a
+customer met on 13 September 2026, and what was promised but not built. It is
+worth reading for the reasoning; it is not a status list, and the table that
+used to live here went stale faster than anyone updated it.
+
+What is done, in progress and left lives in two places, and only two:
+
+| Where | What it holds |
+| --- | --- |
+| `LAUNCH_FEATURE_CHECKLIST.md` | Every launch feature (F1–F27), ticked with the pull request that shipped it, plus "Who builds what" |
+| Issues [#37](https://github.com/seventycookies6-design/flowshield/issues/37) (Keenan) and [#38](https://github.com/seventycookies6-design/flowshield/issues/38) (Miles) | The live order of work for each person |
+
+Roadmap items below (1.1, 2.5, 3.4 …) are referenced from the launch checklist
+where a feature implements one, so a number here can always be traced forward.
+
+<details>
+<summary>What shipped before the launch checklist existed (frozen 20 September 2026)</summary>
+
+Kept because these roadmap items have no F-number, so the launch checklist
+does not record them. Frozen: nothing is added here any more.
 
 | Item | Status | Where |
 | --- | --- | --- |
@@ -25,7 +42,8 @@ phase), with an issue per item as work starts.
 | 1.9 Sealed means sealed, with an honest escape hatch | **Done** as launch checklist F2 | #47 |
 | 1.10 Sprints survive restarts | **Done** as launch checklist F3 | #43 |
 | 6.6 Changelog and support pages | **Done**: `changelog.html` and `support.html` added, linked from every page footer; footer links covered by tier 5 | #6 |
-| Everything else | Not started | #1–#6 |
+
+</details>
 
 The audit table below is the state on 13 September 2026, before any fixes. For
 1.1, only the *site's claims* changed: the promises in A2–A6 are no longer
