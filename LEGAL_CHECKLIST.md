@@ -191,6 +191,7 @@ mundane, high-probability risk — higher than most of the exotic ones.
 | 9.3 | No claim that FlowShield is parental-control or enforcement software | **OK today, watch it** — it has no admin rights, no password lock and no website blocking, so any "stop your kid gaming" claim would be false and is also the most likely source of an angry-customer complaint |
 | 9.4 | Data-loss risk disclosed before it can happen | **OK** — the terms gate states it in the first line a new user sees, and Stripe's consent box repeats it at checkout |
 | 9.5 | The blocker stays timid | **OK, automated** — `CriticalProcesses` is never closed, no admin rights, no drivers, no hosts-file edits; tier 5 guards it |
+| 9.6 | The site is hosted somewhere whose terms allow selling | **GAP, before the first sale** — GitHub Pages' terms say it is "not intended for or allowed to be used as a free web-hosting service to run your online business, e-commerce site, or any other website that is primarily directed at either facilitating commercial transactions". The site has a Buy button, a checkout and a post-purchase page. Harmless while Stripe is in test mode, and the site is offline for the beta (#165); it moves host in the go-live batch (#166), and everything that points at the Pages URL moves with it — including the terms URL in 2.2 |
 
 ---
 
@@ -241,13 +242,15 @@ mundane, high-probability risk — higher than most of the exotic ones.
 5. Ship `THIRD-PARTY-NOTICES.txt` with the app and the server (8.2).
 6. ~~Minimum age, subprocessors, retention periods~~ — done in #107.
 7. Search the USPTO for "FlowShield" (8.1).
+8. Move the site off GitHub Pages to a host whose terms allow selling (9.6),
+   in the go-live batch (#166).
 
 **Soon after:**
 
-8. Licence database backups (11.5) and Dependabot (11.6).
-9. Accessibility pass to WCAG 2.1 AA on the site and the app (7.1–7.3).
-10. A written data-request and breach procedure (5.4, 5.9).
-11. GDPR EU representative, or a decision not to sell into the EU (5.7).
+9. Licence database backups (11.5) and Dependabot (11.6).
+10. Accessibility pass to WCAG 2.1 AA on the site and the app (7.1–7.3).
+11. A written data-request and breach procedure (5.4, 5.9).
+12. GDPR EU representative, or a decision not to sell into the EU (5.7).
 
 **Owner decisions only a person can make:** the legal entity, the EU
 representative, merchant of record, trademark clearance, and whether a lawyer

@@ -118,7 +118,7 @@ customer, so **say so on the issue first and do one at a time**:
 | Resource | Who acts | How |
 | --- | --- | --- |
 | Licence server on Render | The repo owner clicks *Manual Deploy* | Merge the `Server/` change first; pushing does not deploy |
-| Published site (`gh-pages`) | One person per publish | `pwsh tools/publish_site.ps1` from an up-to-date `main` |
+| Published site (`gh-pages`) | **Nobody, during the internal beta** | **Offline on purpose** (#165): GitHub Pages' terms forbid selling from it, so the site moves host before launch (#166). Preview locally with `python -m http.server 5500 -d Website`. `publish_site.ps1` refuses without `-BetaIsOver` |
 | GitHub Releases / auto-update feed | The repo owner, or whoever they name | `pwsh tools/build_release.ps1 -Version x.y.z -Publish` from an up-to-date `main` |
 | Stripe test account | Anyone, test mode only | Don't rename or delete products; don't archive "Focus Unlock Pro" |
 
@@ -132,6 +132,12 @@ forgotten twice.
 - **Re-check it before every release, every site publish, before live Stripe
   keys, and whenever a change collects, sends or stores something new.** Say in
   the pull request which items the change touches.
+- **The internal beta is deliberately free.** Nothing that costs money is
+  bought until launch, and everything that does happens together in the
+  go-live batch (#166): a site host that allows selling, download and update
+  storage off GitHub, GitHub Pro before the repo goes private, and a licence
+  server that doesn't sleep. The repo stays **public** until then, because a
+  private repo on the free plan loses branch protection.
 - **Never add a claim the shipped build can't back** — on the site, in the app,
   in an email, or in anything given to a creator to say. Fake reviews,
   testimonials and invented user numbers are never acceptable.

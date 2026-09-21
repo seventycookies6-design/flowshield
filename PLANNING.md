@@ -86,6 +86,27 @@ Two rules that keep this from rotting:
 - **Labels go on at claim time**, in the same breath as assigning yourself.
   Nobody will do a labelling pass later.
 
+## The internal beta is free, and launch is one batch
+
+Decided 21 September 2026. Until launch, **nothing that costs money is
+bought** — the only spend is the AI subscriptions Keenan and Miles already pay
+for. Everything paid, and everything that only matters once strangers can buy,
+happens together in the **go-live batch (#166)** on the Launch milestone.
+
+What that means day to day:
+
+| | During the beta | At launch (#166) |
+| --- | --- | --- |
+| Website | **Offline** (#165). Preview with `python -m http.server 5500 -d Website` | A host whose terms allow selling — GitHub Pages' do not |
+| Downloads and updates | GitHub Releases; testers download while logged in | Storage behind a CDN, off GitHub |
+| Repo | **Public** — the free plan keeps branch protection | GitHub Pro, then private |
+| Licence server | Render free: sleeps, disk wiped on deploy | A paid instance that never sleeps |
+
+**While the site is offline**, links in the app ("Read the terms", Buy, the
+error dialog's support link) and in the server's emails lead to a dead page.
+That is expected. Don't fix it by republishing — `publish_site.ps1` refuses
+without `-BetaIsOver` for exactly that reason.
+
 ## The doc steward
 
 It used to open a pull request after **every** merge to `main`, whether or not
