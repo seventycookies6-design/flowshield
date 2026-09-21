@@ -3700,7 +3700,8 @@ class TestCornerRadiusNormalisedA2:
     (buttons/inputs/toggles/interactive rows), 14 (cards/dialogs/surfaces),
     or "fully round" -- and every one of them must be a StaticResource
     reference to Theme.xaml's four named resources (RadiusChip/RadiusControl/
-    RadiusCard/RadiusFull), not a bare number repeated at each call site.
+    RadiusCard), not a bare number repeated at each call site. Fully round
+    elements use inf:Pill.IsRound instead of a radius (TestPillsAreComputed).
 
     Proven to fail first: the FIXTURE strings below are lifted verbatim from
     the pre-A2 XAML (CornerRadius="11" on NavButton, CornerRadius="7" on the
@@ -3718,8 +3719,8 @@ class TestCornerRadiusNormalisedA2:
         + [Path(DESKTOP_DIR) / "MainWindow.xaml"]
     )
 
-    LEGAL_RESOURCE_KEYS = {"RadiusChip", "RadiusControl", "RadiusCard", "RadiusFull"}
-    LEGAL_VALUES = {"RadiusChip": 6, "RadiusControl": 10, "RadiusCard": 14, "RadiusFull": 9999}
+    LEGAL_RESOURCE_KEYS = {"RadiusChip", "RadiusControl", "RadiusCard"}
+    LEGAL_VALUES = {"RadiusChip": 6, "RadiusControl": 10, "RadiusCard": 14}
 
     # Matches both CornerRadius="X" (inline) and
     # <Setter Property="CornerRadius" Value="X"/> (style setters).
@@ -3774,13 +3775,14 @@ class TestCornerRadiusNormalisedA2:
                     line_no = text.count("\n", 0, m.start()) + 1
                     offenders.append(f"{path.relative_to(self.ROOT)}:{line_no}: Setter CornerRadius Value=\"{val}\"")
         assert not offenders, (
-            "CornerRadius value(s) that aren't a {StaticResource RadiusChip|RadiusControl|RadiusCard|RadiusFull} "
-            "reference found -- every corner radius must draw from Theme.xaml's four named resources "
+            "CornerRadius value(s) that aren't a {StaticResource RadiusChip|RadiusControl|RadiusCard} "
+            "reference found -- every corner radius must draw from Theme.xaml's three named resources, "
+            "or the element must use inf:Pill.IsRound "
             "(DESIGN_SYSTEM.md §4, UI-SPEC.md A2):\n" + "\n".join(offenders)
         )
 
     def test_named_resources_hold_the_legal_scale_values(self):
-        """The four resources themselves must equal the doc's own numbers --
+        """The three resources themselves must equal the doc's own numbers --
         a passing test above would be meaningless if RadiusCard were
         silently redefined to something off-scale."""
         theme_text = (Path(DESKTOP_DIR) / "Styles" / "Theme.xaml").read_text(encoding="utf-8")
@@ -3793,6 +3795,61 @@ class TestCornerRadiusNormalisedA2:
 
     def test_the_files_list_actually_covers_something(self):
         assert len(self.FILES) >= 5, "expected Theme.xaml, MainWindow.xaml and several Views/*.xaml"
+
+
+# ===================== A2 fix: "fully round" is computed, never a huge radius
+
+class TestPillsAreComputed:
+    """
+    A2 first expressed "fully round" as CornerRadius="9999", on the belief
+    that WPF clips corner geometry to half the smaller side. It doesn't: CSS
+    clamps an oversized border-radius, but WPF scales the curves, so the
+    renders showed the tier badge as an ellipse and the 5 px scrollbar thumb
+    as a spike. Pills now set inf:Pill.IsRound, which keeps the radius at half
+    the element's smaller side as it resizes (Infrastructure/Pill.cs).
+    """
+
+    THEME = Path(DESKTOP_DIR) / "Styles" / "Theme.xaml"
+    PILL = Path(DESKTOP_DIR) / "Infrastructure" / "Pill.cs"
+    FILES = (
+        [Path(DESKTOP_DIR) / "Styles" / "Theme.xaml", Path(DESKTOP_DIR) / "MainWindow.xaml"]
+        + sorted((Path(DESKTOP_DIR) / "Views").glob("*.xaml"))
+    )
+    # Anything at or beyond this is "make it round" by brute force, which WPF
+    # renders as an ellipse on any element that isn't square.
+    BRUTE_FORCE = 100
+
+    def test_no_corner_radius_is_large_enough_to_draw_an_ellipse(self):
+        offenders = []
+        for path in self.FILES:
+            text = path.read_text(encoding="utf-8")
+            values = re.findall(r'CornerRadius="([\d.,\s]+)"', text)
+            values += re.findall(r'<CornerRadius x:Key="\w+">([\d.,\s]+)</CornerRadius>', text)
+            values += re.findall(r'Property="CornerRadius"\s+Value="([\d.,\s]+)"', text)
+            for v in values:
+                if any(float(part) >= self.BRUTE_FORCE for part in v.split(",") if part.strip()):
+                    offenders.append(f"{path.name}: {v}")
+        assert not offenders, (
+            "a huge CornerRadius draws an ellipse in WPF, not a pill; use "
+            "inf:Pill.IsRound=\"True\":\n  " + "\n  ".join(offenders))
+
+    def test_the_round_elements_use_the_pill_behaviour(self):
+        theme = self.THEME.read_text(encoding="utf-8")
+        chip = re.search(r'<Style x:Key="Chip" TargetType="Border">.*?</Style>', theme, re.S)
+        assert chip and 'Property="inf:Pill.IsRound" Value="True"' in chip.group(0), (
+            "the Chip style (the tier badge) must be fully round via inf:Pill.IsRound")
+        # The nav bar, toggle track, scrollbar thumb, and both progress bar
+        # borders, plus the Chip setter above.
+        assert theme.count('inf:Pill.IsRound="True"') >= 5, (
+            "expected the nav bar, toggle track, scrollbar thumb and progress "
+            "bar borders to set inf:Pill.IsRound")
+
+    def test_the_radius_is_half_the_smaller_side(self):
+        source = self.PILL.read_text(encoding="utf-8")
+        assert "Math.Min(width, height)" in source and "smaller / 2" in source, (
+            "Pill.RadiusFor must use half the SMALLER side; half the larger side "
+            "is exactly the ellipse this replaced")
+        assert "SizeChanged" in source, "the radius must follow the element as it resizes"
 
 
 # ============ A2 review fix: Blocked Apps switch clipped by the card edge

@@ -18,22 +18,19 @@
          values are defined as resources in DesktopApp/Styles/Theme.xaml
          (app) and directly in Website/styles.css (site) — not in
          design/tokens.json, which is colour only (§14)." Every CornerRadius
-         in the app draws from one of these four (A2, issue #147):
+         in the app draws from one of these three, or is fully round (A2, #147):
            6  — small chips/tags (TagChip)
            10 — buttons, inputs, toggles, and interactive rows/icon badges
            14 — cards, dialogs, and other card-like surfaces (toast, focus ring)
-           9999 (fully round) — pills, the tier badge, toggle knobs/tracks,
-                and other elements that should always read as a stadium or
-                circle regardless of their own size. WPF's Border renderer
-                clips corner geometry to half the smaller dimension, so a
-                value this far outside any real element's size always
-                renders as a true pill/circle — it isn't a hack, it's the
-                one literal that unambiguously means "round all the way" at
-                every call site, per the tier 5 test's own allowance. -->
+           fully round — pills, the tier badge, toggle tracks, the nav bar
+                and scrollbar thumb, progress bars. NOT a huge radius: WPF
+                doesn't clamp an oversized CornerRadius the way CSS does, it
+                scales the curves, so 9999 drew ellipses and spikes. Set
+                inf:Pill.IsRound="True" instead; it keeps the radius at half
+                the element's smaller side (Infrastructure/Pill.cs). -->
     <CornerRadius x:Key="RadiusChip">6</CornerRadius>
     <CornerRadius x:Key="RadiusControl">10</CornerRadius>
     <CornerRadius x:Key="RadiusCard">14</CornerRadius>
-    <CornerRadius x:Key="RadiusFull">9999</CornerRadius>
 
     <!-- Spacing scale, DESIGN_SYSTEM.md §4: 4, 8, 12, 16, 24, 32, 48, 64.
          Page margins 32, card padding 24 (CardPadding above via the Card
@@ -202,7 +199,7 @@
         <Setter Property="Background" Value="{StaticResource Surface2}"/>
         <Setter Property="BorderBrush" Value="{StaticResource Edge}"/>
         <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="CornerRadius" Value="{StaticResource RadiusFull}"/>
+        <Setter Property="inf:Pill.IsRound" Value="True"/>
         <Setter Property="Padding" Value="12,4"/>
     </Style>
 
@@ -371,7 +368,7 @@
                             <ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center"/>
                         </Border>
                         <Border x:Name="bar" Width="3" HorizontalAlignment="Left" Margin="0,8"
-                                CornerRadius="{StaticResource RadiusFull}" Background="{StaticResource Primary}" Opacity="0"/>
+                                inf:Pill.IsRound="True" Background="{StaticResource Primary}" Opacity="0"/>
                     </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
@@ -466,7 +463,7 @@
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
                         <ContentPresenter Grid.Column="0" VerticalAlignment="Center" Margin="0,0,16,0"/>
-                        <Border x:Name="track" Grid.Column="1" Width="46" Height="26" CornerRadius="{StaticResource RadiusFull}"
+                        <Border x:Name="track" Grid.Column="1" Width="46" Height="26" inf:Pill.IsRound="True"
                                 Background="{StaticResource Surface2}" BorderBrush="{StaticResource Edge}"
                                 BorderThickness="1">
                             <Ellipse x:Name="knob" Width="18" Height="18" Fill="{StaticResource InkFaint}"
@@ -648,7 +645,7 @@
                                                  itself is a fixed 9px chrome element (Width above), and
                                                  a 4px inset each side would leave only 1px of visible
                                                  thumb. Noted as a deliberate exception in the A2 PR. -->
-                                            <Border Background="{StaticResource EdgeBright}" CornerRadius="{StaticResource RadiusFull}" Margin="2,0"/>
+                                            <Border Background="{StaticResource EdgeBright}" inf:Pill.IsRound="True" Margin="2,0"/>
                                         </ControlTemplate>
                                     </Thumb.Template>
                                 </Thumb>
@@ -734,9 +731,9 @@
             <Setter.Value>
                 <ControlTemplate TargetType="ProgressBar">
                     <Grid>
-                        <Border CornerRadius="{StaticResource RadiusFull}" Background="{TemplateBinding Background}"/>
+                        <Border inf:Pill.IsRound="True" Background="{TemplateBinding Background}"/>
                         <Border x:Name="PART_Track"/>
-                        <Border x:Name="PART_Indicator" CornerRadius="{StaticResource RadiusFull}"
+                        <Border x:Name="PART_Indicator" inf:Pill.IsRound="True"
                                 HorizontalAlignment="Left"
                                 Background="{TemplateBinding Foreground}"/>
                     </Grid>
