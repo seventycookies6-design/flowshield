@@ -2987,3 +2987,55 @@ class TestNavigationUsesIconsNotUnicodeGlyphs:
         assert notice.exists(), "Lucide is ISC-licensed; keep its notice with the icons"
         text = notice.read_text(encoding="utf-8")
         assert "ISC License" in text and "Lucide" in text
+
+# ============================ issue hygiene check (#158)
+
+class TestIssueHygieneStaysAdvisory:
+    """
+    The check reports; it never edits. A tool that silently relabels or closes
+    issues would be trusted for exactly as long as it takes to get one wrong,
+    and the thing it is checking is judgement.
+    """
+
+    CHECK = Path(__file__).resolve().parent.parent.parent / "tools" / "issue_hygiene" / "check.py"
+    WORKFLOW = (Path(__file__).resolve().parent.parent.parent / ".github" /
+                "workflows" / "issue-hygiene.yml")
+
+    def test_it_never_edits_an_issue(self):
+        source = self.CHECK.read_text(encoding="utf-8")
+        calls = re.findall(r'gh\("issue",\s*"(\w+)"', source)
+        assert set(calls) <= {"list", "comment"}, (
+            f"the check may only read issues and comment; it calls {sorted(set(calls))}"
+        )
+        for forbidden in ('"edit"', '"close"', '"reopen"', '"delete"'):
+            assert f'gh("issue", {forbidden}' not in source
+
+    def test_findings_do_not_fail_the_workflow(self):
+        """
+        Exit 10 means "found something", and the workflow must not treat it as
+        a failure — only exit 2, "could not run", is a real error.
+        """
+        workflow = self.WORKFLOW.read_text(encoding="utf-8")
+        assert 'if [ "$code" = "2" ]' in workflow
+        assert "exit 10" not in workflow
+
+    def test_it_runs_weekly_and_on_demand_only(self):
+        """Not per merge: issue state drifts over days, not commits, and a
+        report on every push is a report nobody reads."""
+        workflow = self.WORKFLOW.read_text(encoding="utf-8")
+        assert "schedule:" in workflow and "workflow_dispatch:" in workflow
+        assert "on:\n  push:" not in workflow
+
+    def test_the_label_set_matches_the_documented_one(self):
+        """
+        PLANNING.md's table is what people read; KIND_LABELS is what the check
+        enforces. They drift apart silently otherwise.
+        """
+        planning = (Path(__file__).resolve().parent.parent.parent / "PLANNING.md"
+                    ).read_text(encoding="utf-8")
+        source = self.CHECK.read_text(encoding="utf-8")
+        block = source.split("KIND_LABELS = {", 1)[1].split("}", 1)[0]
+        for label in re.findall(r'"([a-z-]+)"', block):
+            assert f"`{label}`" in planning, (
+                f"the check knows the label {label!r}, but PLANNING.md does not list it"
+            )

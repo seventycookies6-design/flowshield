@@ -1943,3 +1943,116 @@ class TestPreSprintRunningApps:
         assert "_runningAppsAnswered = false;" in source, (
             "the latch has to reset, or the next sprint is never checked"
         )
+
+# ============================ issue hygiene check (#158)
+
+class TestIssueHygieneChecks:
+    """
+    The checks in tools/issue_hygiene/check.py, on made-up issues.
+
+    Written against data rather than the live repo on purpose: a test that
+    asks GitHub what it thinks today passes or fails for reasons that have
+    nothing to do with the code, and cannot be run offline.
+    """
+
+    @staticmethod
+    def _now():
+        """A fixed clock, so "stale" means the same thing in a year."""
+        from datetime import datetime, timezone
+        return datetime(2026, 9, 21, tzinfo=timezone.utc)
+
+    @staticmethod
+    def _module():
+        import importlib.util
+        path = Path(__file__).resolve().parent.parent.parent / "tools" / "issue_hygiene" / "check.py"
+        spec = importlib.util.spec_from_file_location("issue_hygiene_check", path)
+        module = importlib.util.module_from_spec(spec)
+        # Registered before exec: @dataclass looks its own module up in
+        # sys.modules while the class body runs, and gets None otherwise.
+        import sys as _sys
+        _sys.modules[spec.name] = module
+        spec.loader.exec_module(module)
+        return module
+
+    CHECKLIST = """
+### F7 — Soft shows a real overlay · **Launch** · M
+
+- [ ] Done — half of it shipped
+
+### F12 — A sprint summary worth reading · **Launch** · S
+
+- [x] Done — shipped in #100
+
+**Assigned:** somebody
+"""
+
+    def test_it_reads_only_ticked_features(self):
+        check = self._module()
+        ticked = check.ticked_features(self.CHECKLIST)
+        assert set(ticked) == {"F12"}, "an unticked feature must not read as shipped"
+        assert "#100" in ticked["F12"]
+
+    def test_an_issue_for_shipped_work_is_reported(self):
+        """The #143 case: a title describing work that has landed."""
+        check = self._module()
+        issues = [{"number": 9, "title": "F12: sprint summary card", "body": "",
+                   "labels": ["enhancement"], "assignees": ["someone"], "milestone": None}]
+        found = check.run_checks(issues, self.CHECKLIST, {}, self._now())
+        assert [f.kind for f in found] == ["shipped-but-open"]
+
+    def test_a_feature_mentioned_as_a_blocker_is_not_the_subject(self):
+        """
+        "F14: milestones (waiting on F12)" is about F14, not F12. Reading every
+        mention as the subject made the first version report its own trackers.
+        """
+        check = self._module()
+        issues = [{"number": 9, "title": "F14: quiet milestones (waiting on F12's list)",
+                   "body": "", "labels": ["enhancement"], "assignees": ["someone"],
+                   "milestone": None}]
+        found = check.run_checks(issues, self.CHECKLIST, {}, self._now())
+        assert not [f for f in found if f.kind == "shipped-but-open"]
+
+    def test_blocked_by_something_closed_is_reported(self):
+        """The F20 case: blocked on F19 for a week after F19 merged."""
+        check = self._module()
+        issues = [{"number": 9, "title": "A trial that never nags", "body": "waits on #96",
+                   "labels": ["enhancement", "blocked"], "assignees": ["someone"],
+                   "milestone": None}]
+        found = check.run_checks(issues, self.CHECKLIST, {96: "CLOSED"},
+                                 self._now())
+        assert [f.kind for f in found] == ["blocked-but-unblocked"]
+
+    def test_blocked_by_something_still_open_is_left_alone(self):
+        check = self._module()
+        issues = [{"number": 9, "title": "A trial that never nags", "body": "waits on #96",
+                   "labels": ["enhancement", "blocked"], "assignees": ["someone"],
+                   "milestone": None}]
+        found = check.run_checks(issues, self.CHECKLIST, {96: "OPEN"},
+                                 self._now())
+        assert not found, "an issue waiting on open work is not drift"
+
+    def test_a_stale_tracker_is_reported_and_a_fresh_one_is_not(self):
+        check = self._module()
+        now = self._now()
+        stale = [{"number": 38, "title": "Launch work", "body": "Next up (reviewed 1 September 2026)",
+                  "labels": ["documentation"], "assignees": ["someone"], "milestone": None}]
+        fresh = [{"number": 38, "title": "Launch work", "body": "Next up (reviewed 20 September 2026)",
+                  "labels": ["documentation"], "assignees": ["someone"], "milestone": None}]
+        assert [f.kind for f in check.run_checks(stale, self.CHECKLIST, {}, now)] == ["tracker-stale"]
+        assert not check.run_checks(fresh, self.CHECKLIST, {}, now)
+
+    def test_metadata_gaps_are_reported(self):
+        check = self._module()
+        issues = [{"number": 9, "title": "Something", "body": "", "labels": [],
+                   "assignees": [], "milestone": "Launch"}]
+        kinds = {f.kind for f in check.run_checks(issues, self.CHECKLIST, {},
+                                                  self._now())}
+        assert kinds == {"unlabelled", "launch-unassigned"}
+
+    def test_a_clean_repo_reports_nothing(self):
+        check = self._module()
+        issues = [{"number": 9, "title": "F7: the Soft overlay", "body": "",
+                   "labels": ["design"], "assignees": ["someone"], "milestone": None}]
+        found = check.run_checks(issues, self.CHECKLIST, {}, self._now())
+        assert not found
+        assert "No issue-state drift" in check.report([])

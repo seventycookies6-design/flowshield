@@ -61,6 +61,16 @@ without opening a Markdown file.
 | `blocked` | Waiting on another item, a person, or an owner decision. **Say what it waits on in the issue**, or the label is noise |
 | `owner-decision` | Only Keenan can settle it: money, legal identity, trademarks, live keys |
 | `security` · `accessibility` · `customer-experience` | As before |
+| `docs-steward` | Opened by the doc steward |
+
+`question` is retired: it said nothing `owner-decision` or the issue body does
+not, and two ways to spell the same thing is how a label set dies.
+
+**A weekly check reads this.** `tools/issue_hygiene/check.py` reports issues
+that contradict the launch checklist, `blocked` labels whose blocker has
+closed, trackers nobody has reviewed in a fortnight, and issues with no kind
+label. It never edits anything, and its label list is tested against this
+table — so adding a label here is how the check learns about it.
 
 **The `Launch` milestone** holds only what must be true before FlowShield is
 sold publicly: the **Launch** items in `LAUNCH_FEATURE_CHECKLIST.md` and the
