@@ -344,7 +344,10 @@ A summary of the research, to explain the choices below.
 
 ### F7 — Soft shows a real overlay; Firm closes gracefully · **Launch** · M · Roadmap 1.7, 1.8
 
-- [ ] Done
+- [ ] Done — 1.8's close path shipped in #146: a warning naming the app, a
+      grace period, `CloseMainWindow` before any kill, and a panel before the
+      sprint saying what is already open. Hard kill still closes instantly, by
+      design. 1.7's Soft overlay is still to build (#143)
 
 **Assigned:** Miles (milessmart6-pixel), built with Codex and Cursor
 
