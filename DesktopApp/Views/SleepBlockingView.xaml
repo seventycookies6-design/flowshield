@@ -5,7 +5,7 @@
         <StackPanel MaxWidth="700" HorizontalAlignment="Stretch" Margin="0,0,8,0">
 
             <!-- trial-ended gate (the window-wide lock screen normally covers this) -->
-            <Border Style="{StaticResource Card}" Padding="22" Margin="0,0,0,16"
+            <Border Style="{StaticResource Card}" Padding="24" Margin="0,0,0,16"
                     Background="{StaticResource PrimarySoft}" BorderBrush="{StaticResource Primary}"
                     Visibility="{Binding IsLocked, Converter={StaticResource BoolVis}}">
                 <Grid>
@@ -13,9 +13,9 @@
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
-                    <StackPanel Grid.Column="0" Margin="0,0,18,0">
+                    <StackPanel Grid.Column="0" Margin="0,0,16,0">
                         <TextBlock Text="Your free trial has ended" Style="{StaticResource H2}"/>
-                        <TextBlock Style="{StaticResource Body}" Margin="0,5,0,0"
+                        <TextBlock Style="{StaticResource Body}" Margin="0,4,0,0"
                                    Text="Buy FlowShield once for $4.99 to keep your nightly shield."/>
                     </StackPanel>
                     <Button Grid.Column="1" Style="{StaticResource BtnPrimary}" Content="Buy FlowShield"
@@ -28,25 +28,58 @@
             <Border Style="{StaticResource Card}" Padding="24">
                 <StackPanel>
 
+                    <!-- window ring (UI-SPEC.md A3): reuses the Today
+                         timer-ring visual language (§7) rather than
+                         inventing a new control, same 222px/12px ring,
+                         its arc rotated to start at the window's start time
+                         instead of always at 12 o'clock. The start/end
+                         labels stay inside it as the non-colour fallback, so
+                         the window is never colour-only information. -->
+                    <Grid Width="222" Height="222" HorizontalAlignment="Center" Margin="0,4,0,24">
+                        <Ellipse Width="222" Height="222" Stroke="{StaticResource Track}" StrokeThickness="12"/>
+                        <Ellipse Width="222" Height="222" Stroke="{StaticResource Primary}" StrokeThickness="12"
+                                 StrokeDashCap="Round"
+                                 StrokeDashArray="{Binding WindowSweepFraction, Converter={StaticResource ProgressDash}}"
+                                 Visibility="{Binding WindowSweepFraction, Converter={StaticResource PositiveVis}}"
+                                 RenderTransformOrigin="0.5,0.5">
+                            <Ellipse.RenderTransform>
+                                <RotateTransform Angle="{Binding WindowStartAngle}"/>
+                            </Ellipse.RenderTransform>
+                        </Ellipse>
+
+                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                            <Path Style="{StaticResource Icon}" Data="{StaticResource IconSleep}"
+                                  Stroke="{StaticResource PrimaryHover}" HorizontalAlignment="Center" Margin="0,0,0,8"/>
+                            <TextBlock HorizontalAlignment="Center" Style="{StaticResource H2}"
+                                       Typography.NumeralAlignment="Tabular">
+                                <Run Text="{Binding StartText, Mode=OneWay}"/>
+                                <Run Text=" → "/>
+                                <Run Text="{Binding EndText, Mode=OneWay}"/>
+                            </TextBlock>
+                            <TextBlock Text="Nightly window" Style="{StaticResource Caption}"
+                                       HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                        </StackPanel>
+                    </Grid>
+
                     <CheckBox Style="{StaticResource Switch}"
                               IsChecked="{Binding IsEnabled}"
                               IsEnabled="{Binding HasAccess}"
                               AutomationProperties.AutomationId="SleepBlockToggle"
                               AutomationProperties.Name="Enable sleep blocking">
                         <StackPanel>
-                            <TextBlock Text="Scheduled sleep blocking" Style="{StaticResource H2}" FontSize="14"/>
+                            <TextBlock Text="Scheduled sleep blocking" Style="{StaticResource H2}"/>
                             <TextBlock Text="Blocks your list automatically inside the window below."
-                                       Style="{StaticResource Caption}" Margin="0,3,0,0"/>
+                                       Style="{StaticResource Caption}" Margin="0,4,0,0"/>
                         </StackPanel>
                     </CheckBox>
 
-                    <Border Height="1" Background="{StaticResource Edge}" Margin="0,20,0,20"/>
+                    <Border Height="1" Background="{StaticResource Edge}" Margin="0,24,0,24"/>
 
-                    <TextBlock Text="WINDOW" Style="{StaticResource Eyebrow}" Margin="0,0,0,10"/>
+                    <TextBlock Text="WINDOW" Style="{StaticResource Eyebrow}" Margin="0,0,0,12"/>
 
                     <StackPanel Orientation="Horizontal" IsEnabled="{Binding HasAccess}">
                         <StackPanel Margin="0,0,16,0">
-                            <TextBlock Text="Starts" Style="{StaticResource Caption}" Margin="2,0,0,6"/>
+                            <TextBlock Text="Starts" Style="{StaticResource Caption}" Margin="4,0,0,8"/>
                             <TextBox Style="{StaticResource Field}" Width="112"
                                      Text="{Binding StartText, UpdateSourceTrigger=PropertyChanged}"
                                      AutomationProperties.AutomationId="SleepStartInput"
@@ -54,10 +87,10 @@
                         </StackPanel>
 
                         <TextBlock Text="→" FontSize="18" Foreground="{StaticResource InkFaint}"
-                                   VerticalAlignment="Bottom" Margin="0,0,16,10"/>
+                                   VerticalAlignment="Bottom" Margin="0,0,16,12"/>
 
                         <StackPanel Margin="0,0,16,0">
-                            <TextBlock Text="Ends" Style="{StaticResource Caption}" Margin="2,0,0,6"/>
+                            <TextBlock Text="Ends" Style="{StaticResource Caption}" Margin="4,0,0,8"/>
                             <TextBox Style="{StaticResource Field}" Width="112"
                                      Text="{Binding EndText, UpdateSourceTrigger=PropertyChanged}"
                                      AutomationProperties.AutomationId="SleepEndInput"
@@ -71,20 +104,20 @@
                     </StackPanel>
 
                     <TextBlock Text="24-hour time, e.g. 22:00. A window that crosses midnight is fine."
-                               Style="{StaticResource Caption}" Margin="2,10,0,0"/>
+                               Style="{StaticResource Caption}" Margin="4,12,0,0"/>
 
-                    <Border Style="{StaticResource Chip}" HorizontalAlignment="Left" Margin="0,18,0,0"
-                            Padding="14,7">
+                    <Border Style="{StaticResource Chip}" HorizontalAlignment="Left" Margin="0,16,0,0"
+                            Padding="16,8">
                         <StackPanel Orientation="Horizontal">
                             <Path Style="{StaticResource IconSmall}" Data="{StaticResource IconSleep}"
-                                       Margin="0,0,9,0" Stroke="{StaticResource PrimaryHover}"/>
+                                       Margin="0,0,8,0" Stroke="{StaticResource PrimaryHover}"/>
                             <TextBlock Text="{Binding StatusText}" Style="{StaticResource Caption}"
                                        Foreground="{StaticResource InkDim}"
                                        AutomationProperties.AutomationId="SleepStatusText"/>
                         </StackPanel>
                     </Border>
 
-                    <TextBlock Style="{StaticResource Caption}" Margin="2,14,0,0"
+                    <TextBlock Style="{StaticResource Caption}" Margin="4,16,0,0"
                                AutomationProperties.AutomationId="SleepWindowText">
                         <Run Text="Current window:"/>
                         <Run Text="{Binding WindowText, Mode=OneWay}" Foreground="{StaticResource Ink}"/>
