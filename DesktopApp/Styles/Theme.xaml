@@ -27,38 +27,115 @@
     <!-- ========================================================= typography -->
 
     <!-- A FontFamily resource (not a string): a StaticResource reference does not
-         run type converters, so a string here fails to coerce at runtime. -->
-    <FontFamily x:Key="FontStack">Segoe UI Variable Display, Segoe UI, Inter</FontFamily>
+         run type converters, so a string here fails to coerce at runtime.
 
+         Assembly-qualified pack URI (DESIGN_SYSTEM.md §3, decided #147): this
+         exact form, not a relative "./Assets/Fonts/#Inter", because the
+         render kit hosts the built DLL directly rather than launching the
+         .exe, and only the assembly-qualified form resolves an embedded font
+         in both cases. Fallbacks after it match §3: Segoe UI Variable, Segoe
+         UI, system-ui. -->
+    <FontFamily x:Key="FontStack">pack://application:,,,/FlowShield;component/Assets/Fonts/#Inter, Segoe UI Variable, Segoe UI, system-ui</FontFamily>
+
+    <!-- Implicit default (no x:Key): any TextBlock that doesn't set its own
+         Style still renders in Inter rather than silently falling back to
+         whatever the system default happens to be. The named styles below
+         also set FontFamily explicitly, so each reads correctly on its own. -->
+    <Style TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource FontStack}"/>
+    </Style>
+
+    <!-- Text scale, DESIGN_SYSTEM.md §3. Tracking is approximated through
+         weight and size, per the doc's own WPF column — TextBlock has no
+         letter-spacing property on net8.0-windows (see the Eyebrow style
+         below for what was tried and why it doesn't build). -->
+
+    <!-- display: page titles, lock screen, section headings -->
     <Style x:Key="H1" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource FontStack}"/>
-        <Setter Property="FontSize" Value="26"/>
+        <Setter Property="FontSize" Value="30"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="LineHeight" Value="36"/>
+        <Setter Property="LineStackingStrategy" Value="BlockLineHeight"/>
         <Setter Property="Foreground" Value="{StaticResource Ink}"/>
     </Style>
 
+    <!-- title: card titles, dialog titles -->
     <Style x:Key="H2" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource FontStack}"/>
-        <Setter Property="FontSize" Value="16"/>
+        <Setter Property="FontSize" Value="18"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="LineHeight" Value="24"/>
+        <Setter Property="LineStackingStrategy" Value="BlockLineHeight"/>
         <Setter Property="Foreground" Value="{StaticResource Ink}"/>
     </Style>
 
+    <!-- body: paragraphs, list items (14/21 in the app; the site uses 17/27) -->
     <Style x:Key="Body" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource FontStack}"/>
-        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="FontSize" Value="14"/>
+        <Setter Property="FontWeight" Value="Normal"/>
+        <Setter Property="LineHeight" Value="21"/>
+        <Setter Property="LineStackingStrategy" Value="BlockLineHeight"/>
         <Setter Property="Foreground" Value="{StaticResource InkDim}"/>
         <Setter Property="TextWrapping" Value="Wrap"/>
     </Style>
 
+    <!-- label: buttons, field labels -->
+    <Style x:Key="Label" TargetType="TextBlock" BasedOn="{StaticResource Body}">
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="FontWeight" Value="Medium"/>
+        <Setter Property="LineHeight" Value="18"/>
+        <Setter Property="Foreground" Value="{StaticResource Ink}"/>
+    </Style>
+
+    <!-- caption: hints, timestamps -->
     <Style x:Key="Caption" TargetType="TextBlock" BasedOn="{StaticResource Body}">
-        <Setter Property="FontSize" Value="11"/>
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="LineHeight" Value="17"/>
         <Setter Property="Foreground" Value="{StaticResource InkFaint}"/>
     </Style>
 
+    <!-- eyebrow: section labels such as "MOMENTUM". Text is authored in caps
+         already (there's no WPF text-transform). §3's WPF column suggests
+         TextBlock.CharacterSpacing for the +6% tracking, but that property
+         was never ported from .NET Framework to .NET (Core) WPF — it does
+         not exist on net8.0-windows (confirmed: not in PresentationFramework
+         or PresentationCore, and MC4005 at build time). Tracking here is
+         weight + size only, as the doc's own fallback rule allows. -->
     <Style x:Key="Eyebrow" TargetType="TextBlock" BasedOn="{StaticResource Caption}">
         <Setter Property="FontWeight" Value="SemiBold"/>
-        <Setter Property="FontSize" Value="10.5"/>
+        <Setter Property="FontSize" Value="11"/>
+        <Setter Property="LineHeight" Value="14"/>
+    </Style>
+
+    <!-- timer: the sprint countdown. Tabular by default so the digits never
+         jiggle. §3's WPF column suggests CharacterSpacing="-20" here too;
+         see the Eyebrow comment above for why that isn't available on this
+         platform. Not yet wired into TodayView's ring — A4 enlarges the ring
+         to the 222px diameter this size needs (see UI-SPEC.md §1.7.2); wiring
+         it in now would overflow the current 196px ring. -->
+    <Style x:Key="Timer" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource FontStack}"/>
+        <Setter Property="FontSize" Value="64"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="LineHeight" Value="64"/>
+        <Setter Property="LineStackingStrategy" Value="BlockLineHeight"/>
+        <Setter Property="Foreground" Value="{StaticResource Ink}"/>
+        <Setter Property="Typography.NumeralAlignment" Value="Tabular"/>
+    </Style>
+
+    <!-- stat: momentum, minutes, prices. Tabular by default. Not yet wired
+         into TodayView's momentum number for the same reason as Timer above
+         — A4 rebuilds that card to the sketch's proportions. -->
+    <Style x:Key="Stat" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource FontStack}"/>
+        <Setter Property="FontSize" Value="36"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="LineHeight" Value="40"/>
+        <Setter Property="LineStackingStrategy" Value="BlockLineHeight"/>
+        <Setter Property="Foreground" Value="{StaticResource Ink}"/>
+        <Setter Property="Typography.NumeralAlignment" Value="Tabular"/>
     </Style>
 
     <!-- ============================================================== cards -->

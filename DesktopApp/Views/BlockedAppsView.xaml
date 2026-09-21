@@ -74,7 +74,7 @@
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*" MinWidth="120"/>
                                         <ColumnDefinition Width="Auto"/>
                                         <ColumnDefinition Width="Auto"/>
                                         <ColumnDefinition Width="Auto"/>
@@ -89,9 +89,12 @@
                                     </Border>
 
                                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding DisplayName}" Foreground="{StaticResource Ink}"
-                                                   FontSize="13.5" FontWeight="SemiBold"/>
-                                        <TextBlock Style="{StaticResource Caption}">
+                                        <TextBlock Text="{Binding DisplayName}" Style="{StaticResource Label}" FontWeight="SemiBold"
+                                                   TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"
+                                                   ToolTip="{Binding DisplayName}"/>
+                                        <TextBlock Style="{StaticResource Caption}"
+                                                   TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"
+                                                   ToolTip="{Binding ProcessSummary}">
                                             <Run Text="{Binding ProcessSummary, Mode=OneWay}"/>
                                         </TextBlock>
                                     </StackPanel>

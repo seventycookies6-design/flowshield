@@ -37,6 +37,7 @@
                                        FontSize="46" FontWeight="SemiBold"
                                        Foreground="{StaticResource Ink}"
                                        HorizontalAlignment="Center"
+                                       Typography.NumeralAlignment="Tabular"
                                        AutomationProperties.AutomationId="SprintTimerText"/>
                             <TextBlock Text="{Binding SessionStateText}" Style="{StaticResource Caption}"
                                        HorizontalAlignment="Center" Margin="0,2,0,0"
@@ -77,7 +78,7 @@
                     <Border Style="{StaticResource RowCard}" Margin="0,22,0,0" Padding="18"
                             Visibility="{Binding RunningAppsPanelVisible, Converter={StaticResource BoolVis}}">
                         <StackPanel>
-                            <TextBlock Text="{Binding RunningAppsTitle}" Style="{StaticResource H2}" FontSize="15"
+                            <TextBlock Text="{Binding RunningAppsTitle}" Style="{StaticResource H2}"
                                        AutomationProperties.AutomationId="RunningAppsTitle"/>
                             <TextBlock Text="{Binding RunningAppsExplanation}" Style="{StaticResource Body}"
                                        TextWrapping="Wrap" Margin="0,6,0,0"
@@ -106,7 +107,7 @@
                             Visibility="{Binding EndPanelVisible, Converter={StaticResource BoolVis}}"
                             AutomationProperties.AutomationId="EndSprintPanel">
                         <StackPanel>
-                            <TextBlock Text="{Binding EndPanelTitle}" Style="{StaticResource H2}" FontSize="15"
+                            <TextBlock Text="{Binding EndPanelTitle}" Style="{StaticResource H2}"
                                        AutomationProperties.AutomationId="EndPanelTitle"/>
                             <TextBlock Text="{Binding EndPanelText}" Style="{StaticResource Body}"
                                        TextWrapping="Wrap" Margin="0,6,0,0"
@@ -241,7 +242,7 @@
                     <Border Style="{StaticResource RowCard}" Margin="0,22,0,0" Padding="16"
                             Visibility="{Binding JournalPromptVisible, Converter={StaticResource BoolVis}}">
                         <StackPanel>
-                            <TextBlock Text="{Binding SummaryTitle}" Style="{StaticResource H2}" FontSize="14"
+                            <TextBlock Text="{Binding SummaryTitle}" Style="{StaticResource H2}"
                                        AutomationProperties.AutomationId="SummaryTitle"/>
                             <TextBlock Text="{Binding SummaryMinutesText}" Style="{StaticResource Body}"
                                        Margin="0,8,0,0"
@@ -267,7 +268,7 @@
                     <Border Style="{StaticResource RowCard}" Margin="0,22,0,0" Padding="16"
                             Visibility="{Binding JournalPromptVisible, Converter={StaticResource BoolVis}}">
                         <StackPanel>
-                            <TextBlock Text="{Binding JournalPromptTitle}" Style="{StaticResource H2}" FontSize="14"
+                            <TextBlock Text="{Binding JournalPromptTitle}" Style="{StaticResource H2}"
                                        AutomationProperties.AutomationId="JournalPromptTitle"/>
                             <TextBlock Text="One line. You'll thank yourself in three months."
                                        Style="{StaticResource Caption}" Margin="0,2,0,10"/>
@@ -293,6 +294,7 @@
                         <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
                             <TextBlock Text="{Binding MomentumText}" FontSize="42" FontWeight="SemiBold"
                                        Foreground="{StaticResource Ink}"
+                                       Typography.NumeralAlignment="Tabular"
                                        AutomationProperties.AutomationId="MomentumValue"/>
                             <TextBlock Text="pts" Style="{StaticResource Caption}" VerticalAlignment="Bottom"
                                        Margin="7,0,0,10"/>
@@ -368,6 +370,7 @@
                             <TextBlock Text="Sprints completed" Style="{StaticResource Body}"/>
                             <TextBlock Text="{Binding SessionsToday}" HorizontalAlignment="Right"
                                        Foreground="{StaticResource Ink}" FontWeight="SemiBold"
+                                       Typography.NumeralAlignment="Tabular"
                                        AutomationProperties.AutomationId="SessionsTodayValue"/>
                         </Grid>
 
@@ -375,6 +378,7 @@
                             <TextBlock Text="Focus minutes" Style="{StaticResource Body}"/>
                             <TextBlock Text="{Binding FocusMinutesToday}" HorizontalAlignment="Right"
                                        Foreground="{StaticResource Ink}" FontWeight="SemiBold"
+                                       Typography.NumeralAlignment="Tabular"
                                        AutomationProperties.AutomationId="FocusMinutesValue"/>
                         </Grid>
 
@@ -382,6 +386,7 @@
                             <TextBlock Text="Distractions blocked" Style="{StaticResource Body}"/>
                             <TextBlock Text="{Binding BlocksToday}" HorizontalAlignment="Right"
                                        Foreground="{StaticResource Ink}" FontWeight="SemiBold"
+                                       Typography.NumeralAlignment="Tabular"
                                        AutomationProperties.AutomationId="BlocksTodayValue"/>
                         </Grid>
 
@@ -396,6 +401,7 @@
                                 <TextBlock Text="Daily goal" Style="{StaticResource Body}"/>
                                 <TextBlock Text="{Binding GoalProgressText}" HorizontalAlignment="Right"
                                            Foreground="{StaticResource Ink}" FontWeight="SemiBold"
+                                           Typography.NumeralAlignment="Tabular"
                                            AutomationProperties.AutomationId="DailyGoalProgressText"/>
                             </Grid>
                             <ProgressBar Height="6" Margin="0,8,0,0" Minimum="0" Maximum="1"

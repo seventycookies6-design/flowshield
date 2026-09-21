@@ -34,7 +34,7 @@
                               AutomationProperties.AutomationId="SleepBlockToggle"
                               AutomationProperties.Name="Enable sleep blocking">
                         <StackPanel>
-                            <TextBlock Text="Scheduled sleep blocking" Style="{StaticResource H2}" FontSize="14"/>
+                            <TextBlock Text="Scheduled sleep blocking" Style="{StaticResource H2}"/>
                             <TextBlock Text="Blocks your list automatically inside the window below."
                                        Style="{StaticResource Caption}" Margin="0,3,0,0"/>
                         </StackPanel>
