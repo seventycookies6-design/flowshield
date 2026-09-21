@@ -20,6 +20,7 @@
     "MERGE_REVIEW_2026-09-15.md",
     "FINAL_REPORT.md",
     "ORG_PLANNING_GRADE.md",
+    "ORG_PLANNING_GRADE_2026-09-21.md",
     "Website/index.html",
     "Website/success.html",
     "Website/legal.html",
@@ -29,7 +30,8 @@
   "historical": [
     "MERGE_REVIEW_2026-09-15.md",
     "FINAL_REPORT.md",
-    "ORG_PLANNING_GRADE.md"
+    "ORG_PLANNING_GRADE.md",
+    "ORG_PLANNING_GRADE_2026-09-21.md"
   ],
 
   "code": [

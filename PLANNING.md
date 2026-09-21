@@ -29,10 +29,11 @@ on *what is next*.
   had drifted furthest: #1 showed 1 of 15 items ticked while most of that work
   had shipped and closed elsewhere. Their detail was always in
   `CUSTOMER_EXPERIENCE_PROMPT.md` anyway.
-- **`ORG_PLANNING_GRADE.md`**, `FINAL_REPORT.md`, `MERGE_REVIEW_*.md` — dated
-  snapshots. True of the day they were written, never updated after. The doc
-  steward is configured to treat them as historical, so it will not cite them
-  as evidence of the current state. Neither should you.
+- **`ORG_PLANNING_GRADE.md`**, `ORG_PLANNING_GRADE_2026-09-21.md`,
+  `FINAL_REPORT.md`, `MERGE_REVIEW_*.md` — dated snapshots. True of the day
+  they were written, never updated after. The doc steward is configured to
+  treat them as historical, so it will not cite them as evidence of the current
+  state. Neither should you. Prefer the newest grade filename when one exists.
 
 ## Where a given thing goes
 
