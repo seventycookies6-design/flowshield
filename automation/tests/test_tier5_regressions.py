@@ -2786,6 +2786,97 @@ class TestProductCaptures:
             "copy confirmation and the note")
 
 
+class TestDesignReviewFixesB4:
+    """
+    #183: an external review of the site stack found these, and each was
+    re-measured in a browser before the fix. Every test below fails on the
+    markup and CSS as #178 left them.
+    """
+
+    SITE = Path(WEBSITE_DIR) / "index.html"
+    CSS = Path(WEBSITE_DIR) / "styles.css"
+
+    def _css(self) -> str:
+        return self.CSS.read_text(encoding="utf-8")
+
+    def _rule(self, selector: str) -> str:
+        css = self._css()
+        start = css.index(selector + " {")
+        return css[start:css.index("}", start)]
+
+    def test_the_mobile_menu_closes_when_a_destination_is_chosen(self):
+        """At 390px, tapping a nav link scrolled to the section but left the
+        open menu covering it."""
+        site = self.SITE.read_text(encoding="utf-8")
+        script = site[site.index("[data-menu-toggle]');"):]
+        assert "#primary-nav a" in script and "setMenu(false)" in script, (
+            "a nav link must close the menu when it is chosen")
+        assert "'Escape'" in script, "Escape must close the open menu"
+        assert "scroll-padding-top" in self._css(), (
+            "in-page links must land below the sticky header, not under it")
+
+    def test_explanations_are_body_size_not_label_size(self):
+        """§3: the site's body text is 17px. The card explanations were set at
+        the 13px label size."""
+        for selector in (".feature p", ".level .scenario", ".behaviors li", ".plan li"):
+            rule = self._rule(selector)
+            assert "var(--text-label)" not in rule, f"{selector} is still label-sized"
+            assert "var(--text-body)" in rule, f"{selector} should use the body size"
+
+    def test_gallery_columns_cannot_outgrow_a_narrow_phone(self):
+        """At 360px the grid was narrower than a 20rem column, so cards ran past
+        the right gutter."""
+        rule = self._rule(".shot-grid")
+        assert "minmax(min(100%, 20rem), 1fr)" in rule, (
+            "the column minimum must be capped at the grid's own width")
+
+    def test_stacked_day_strip_segments_name_their_own_time(self):
+        """Below 900px the segments stack, so a separate caption row beneath
+        them no longer lines up with anything."""
+        site = self.SITE.read_text(encoding="utf-8")
+        strip = site[site.index('class="day-strip"'):]
+        strip = strip[:strip.index('class="caption"')]
+        assert strip.count('class="time"') == 3, "each segment carries its own time"
+        css = self._css()
+        narrow = css[css.index(".day-strip .strip { grid-template-columns: 1fr"):]
+        narrow = narrow[:narrow.index("}\n}") + 1] if "}\n}" in narrow else narrow[:600]
+        assert ".day-strip .caption { display: none; }" in narrow, (
+            "the caption row must be hidden once the segments stack")
+
+    def test_no_decorative_status_or_accent_colour(self):
+        """§2: teal marks state, selection or progress, and status colours are
+        for status only. Static icons, a quote rule and fake window dots were
+        using them as decoration."""
+        css = self._css()
+        assert ".mock-bar i:first-child" not in css, "no red/amber/green window dots"
+        site = self.SITE.read_text(encoding="utf-8")
+        assert '<div class="mock-bar"><i>' not in site, "the window-dot markup is gone too"
+        assert "var(--color-primary)" not in self._rule(".behaviors li svg")
+        assert "color: var(--color-primary)" not in css[css.index(".feature-icon svg"):][:120]
+        assert "solid var(--color-primary)" not in self._rule(".hero .example")
+
+    def test_pricing_offers_phones_the_same_download_flow_as_the_hero(self):
+        """On a phone the hero copied the download link, while pricing still
+        offered the Windows installer."""
+        site = self.SITE.read_text(encoding="utf-8")
+        pricing = site[site.index('<section id="pricing"'):]
+        pricing = pricing[:pricing.index("</section>")]
+        assert "data-download-direct" in pricing, (
+            "pricing's installer link must hide on phones like the hero's")
+        assert "data-download-copy" in pricing, "pricing needs the phone copy button"
+        assert "data-copy-confirm" in pricing, "and a confirmation beside it"
+        assert "querySelectorAll('[data-download-copy]')" in site, (
+            "every copy button must be wired, not just the first one")
+
+    def test_eyebrows_keep_one_size(self):
+        """Paragraph rules in .section-head and .shields-intro enlarged the
+        eyebrow label to 18px, while every other eyebrow was 11px."""
+        css = self._css()
+        for unscoped in (".section-head p {", ".shields-intro p { margin: 0; font-size"):
+            assert unscoped not in css, f"`{unscoped}` resizes the .label eyebrow inside it"
+
+
+
 class TestPhoneVisitorMarkup:
     """
     Roadmap 6.4: on small screens the nav collapses behind a hamburger and the
@@ -3314,6 +3405,7 @@ class TestSiteSystemPassB3:
         for name in ("--violet", "--cyan", "--grad"):
             assert f"{name}:" not in css
             assert f"var({name})" not in html
+
 
 # ============================ Inter, on the §3 type scale (#147 A1)
 

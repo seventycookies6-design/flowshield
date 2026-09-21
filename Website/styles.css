@@ -231,10 +231,13 @@ p {
   margin: 0 0 var(--space-10);
   text-align: left;
 }
-.section-head p {
+/* :not(.label) so the eyebrow above the heading keeps the eyebrow size;
+   the unscoped rule enlarged it to 18px here while it was 11px elsewhere. */
+.section-head > p:not(.label) {
   font-size: var(--text-title);
   margin: 0;
 }
+.section-head > p.label { margin: 0; }
 
 .eyebrow {
   display: inline-flex;
@@ -266,6 +269,9 @@ header.nav {
   transition: border-color 0.25s ease;
 }
 header.nav.scrolled { border-bottom-color: var(--color-border); }
+
+/* In-page links land below the sticky header instead of under it. */
+html { scroll-padding-top: 88px; }
 
 .nav-inner {
   display: flex;
@@ -453,7 +459,7 @@ html[data-theme="dark"] .theme-toggle .icon-moon { display: block; }
 .shot-grid {
   display: grid;
   gap: var(--space-6);
-  grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
   align-items: start;
 }
 
@@ -567,7 +573,7 @@ html[data-theme="dark"] .theme-toggle .icon-moon { display: block; }
   color: var(--color-text-muted);
   max-width: min(52ch, 100%);
   padding: var(--space-4);
-  border-left: 3px solid var(--color-primary);
+  border-left: 3px solid var(--color-border-strong);
   background: var(--color-surface);
   margin: 0;
 }
@@ -664,15 +670,6 @@ html[data-theme="dark"] .theme-toggle .icon-moon { display: block; }
   gap: var(--space-2);
   margin-bottom: var(--space-5);
 }
-.mock-bar i {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: var(--color-border-strong);
-}
-.mock-bar i:first-child { background: var(--color-danger); }
-.mock-bar i:nth-child(2) { background: var(--color-warn); }
-.mock-bar i:nth-child(3) { background: var(--color-ok); }
 .mock-bar span {
   margin-left: auto;
   font-size: var(--text-eyebrow);
@@ -904,7 +901,8 @@ section.band,
   align-items: end;
   margin-bottom: var(--space-10);
 }
-.shields-intro p { margin: 0; font-size: var(--text-title); }
+.shields-intro p { margin: 0; }
+.shields-intro p:not(.label) { font-size: var(--text-title); }
 
 .day-strip {
   display: flex;
@@ -929,6 +927,7 @@ section.band,
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
+.day-strip .seg .time { display: none; }
 .day-strip .seg.s1 {
   background: var(--color-surface);
   color: var(--color-text-muted);
@@ -1023,7 +1022,8 @@ section.band,
   margin-bottom: var(--space-2);
 }
 .level .scenario {
-  font-size: var(--text-label);
+  font-size: var(--text-body);
+  line-height: 1.55;
   color: var(--color-text-muted);
   margin-bottom: var(--space-5);
 }
@@ -1043,9 +1043,16 @@ section.band,
   display: flex;
   gap: var(--space-2);
   align-items: flex-start;
-  font-size: var(--text-label);
+  font-size: var(--text-body);
   color: var(--color-text-muted);
-  line-height: 1.45;
+  line-height: 1.55;
+}
+.behaviors li svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  margin-top: 5px;
+  color: var(--color-text-muted);
 }
 .behaviors li svg {
   width: 16px;
@@ -1091,7 +1098,7 @@ section.band,
   justify-content: center;
   margin-bottom: var(--space-4);
 }
-.feature-icon svg { width: 24px; height: 24px; color: var(--color-primary); }
+.feature-icon svg { width: 24px; height: 24px; color: var(--color-text-muted); }
 .feature h3 {
   font-size: var(--text-title);
   margin-bottom: var(--space-2);
@@ -1102,7 +1109,8 @@ section.band,
 }
 .feature p {
   margin: 0;
-  font-size: var(--text-label);
+  font-size: var(--text-body);
+  line-height: 1.55;
 }
 .pro-tag {
   display: inline-block;
@@ -1232,7 +1240,8 @@ section.band,
   display: flex;
   gap: var(--space-3);
   align-items: flex-start;
-  font-size: var(--text-label);
+  font-size: var(--text-body);
+  line-height: 1.5;
   color: var(--color-text-muted);
 }
 .plan li svg {
@@ -1566,7 +1575,11 @@ footer p {
   .levels { grid-template-columns: 1fr; }
   .feature-aside { position: static; }
   .day-strip .strip { grid-template-columns: 1fr; height: auto; }
-  .day-strip .seg { padding: var(--space-3); }
+  .day-strip .seg { padding: var(--space-3) var(--space-4); justify-content: space-between; }
+  /* Stacked, the segments no longer line up with a caption row beneath
+     them, so each segment names its own time instead. */
+  .day-strip .seg .time { display: inline; opacity: 0.8; }
+  .day-strip .caption { display: none; }
 }
 
 @media (max-width: 520px) {
