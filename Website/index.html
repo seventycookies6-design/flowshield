@@ -172,7 +172,7 @@
     </div>
 
     <div class="surface day-mock">
-      <div class="mock-bar"><i></i><i></i><i></i><span>Today · sample day</span></div>
+      <div class="mock-bar"><span>Today · sample day</span></div>
 
       <div class="timeline">
         <div class="tl-block">
@@ -340,9 +340,9 @@
       </div>
       <div class="day-strip" aria-hidden="true">
         <div class="strip">
-          <div class="seg s1">Soft · classes</div>
-          <div class="seg s2">Firm · homework</div>
-          <div class="seg s3">Sealed · deep work</div>
+          <div class="seg s1">Soft · classes <span class="time">Morning</span></div>
+          <div class="seg s2">Firm · homework <span class="time">After school</span></div>
+          <div class="seg s3">Sealed · deep work <span class="time">Night</span></div>
         </div>
         <div class="caption"><span>Morning</span><span>After school</span><span>Night</span></div>
       </div>
@@ -494,10 +494,14 @@
           <li class="on" data-feature="trial-unlocks-everything"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M20 6 9 17l-5-5"/></svg> Every feature unlocked during the trial</li>
           <li class="on" data-feature="locks-after-trial"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M20 6 9 17l-5-5"/></svg> Asks you to buy when the week is up</li>
         </ul>
-        <a class="btn btn-ghost btn-block" data-download-guide
+        <a class="btn btn-ghost btn-block" data-download-guide data-download-direct
            href="https://github.com/seventycookies6-design/flowshield/releases/latest/download/FlowShield-win-Setup.exe">
           Start the free trial
         </a>
+        <button class="btn btn-ghost btn-block" type="button" data-download-copy>
+          Get the download link
+        </button>
+        <p class="copy-confirm" data-copy-confirm role="status" aria-live="polite"></p>
       </div>
 
       <div class="surface plan featured">
@@ -731,18 +735,34 @@
 
     var menuToggle = document.querySelector('[data-menu-toggle]');
     if (menuToggle) {
-      menuToggle.addEventListener('click', function () {
-        var open = document.body.classList.toggle('menu-open');
+      var setMenu = function (open) {
+        document.body.classList.toggle('menu-open', open);
         menuToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
         menuToggle.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
+      };
+      menuToggle.addEventListener('click', function () {
+        setMenu(!document.body.classList.contains('menu-open'));
+      });
+      // Choosing a destination closes the menu, so the visitor sees where
+      // they went instead of the menu still covering it.
+      document.querySelectorAll('#primary-nav a').forEach(function (link) {
+        link.addEventListener('click', function () { setMenu(false); });
+      });
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && document.body.classList.contains('menu-open')) {
+          setMenu(false);
+          menuToggle.focus();
+        }
       });
     }
 
-    var copyBtn = document.querySelector('[data-download-copy]');
-    if (copyBtn) {
-      var direct = document.querySelector('[data-download-direct]');
-      var confirmEl = document.querySelector('[data-copy-confirm]');
-      var installerUrl = direct ? direct.href : '';
+    var direct = document.querySelector('[data-download-direct]');
+    var installerUrl = direct ? direct.href : '';
+    // One per place the page offers a download (the hero and pricing), each
+    // confirming beside itself rather than in the hero.
+    document.querySelectorAll('[data-download-copy]').forEach(function (copyBtn) {
+      var confirmEl = copyBtn.parentElement.querySelector('[data-copy-confirm]') ||
+        (copyBtn.closest('.hero-copy') || document).querySelector('[data-copy-confirm]');
       copyBtn.addEventListener('click', function () {
         function mailtoFallback() {
           window.location.href = 'mailto:?subject=FlowShield%20download&body=' +
@@ -760,7 +780,7 @@
           mailtoFallback();
         }
       });
-    }
+    });
   })();
 </script>
 </body>
