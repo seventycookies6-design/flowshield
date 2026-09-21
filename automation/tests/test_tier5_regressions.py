@@ -3472,3 +3472,31 @@ class TestSiteSystemPassB3:
         for name in ("--violet", "--cyan", "--grad"):
             assert f"{name}:" not in css
             assert f"var({name})" not in html
+
+class TestTheSiteDescribesTheCloseTheAppDoes:
+    """
+    F7 (#146) made Firm and Sealed warn first, but the landing page kept
+    saying they close apps "on sight" — a claim the build stopped making the
+    day it merged, contradicting the legal page beside it. Nothing checked the
+    marketing copy against GracefulClose, only the legal page.
+    """
+
+    def test_no_page_promises_an_instant_close_while_the_app_warns(self):
+        model = (Path(DESKTOP_DIR) / "Models" / "GracefulClose.cs").read_text(encoding="utf-8")
+        if "!hardKill && shield >= ShieldLevel.Firm" not in model:
+            pytest.skip("Firm no longer warns; this claim test no longer applies")
+        for page in sorted(Path(WEBSITE_DIR).glob("*.html")):
+            text = " ".join(re.sub(r"<[^>]+>", " ", page.read_text(encoding="utf-8")).split()).lower()
+            for claim in ("on sight", "hard close"):
+                assert claim not in text, (
+                    f"{page.name} says {claim!r}, but Firm and Sealed warn and wait "
+                    f"before closing (GracefulClose.IsGraceful)"
+                )
+
+    def test_the_shields_section_says_it_warns(self):
+        index = (Path(WEBSITE_DIR) / "index.html").read_text(encoding="utf-8")
+        flat = " ".join(re.sub(r"<[^>]+>", " ", index).split())
+        assert "Warns, then closes" in flat
+        assert "Hard kill mode skips the warning" in flat, (
+            "the page must not imply every user gets a warning — Hard kill gives none"
+        )
