@@ -142,7 +142,7 @@
                                     <!-- destructive (UI-SPEC.md A3, §7 BtnDanger): removes the app from the
                                          blocklist, the closest thing to a "delete" action on this screen. -->
                                     <Button Grid.Column="3" Style="{StaticResource BtnDanger}" Content="Remove"
-                                            Padding="16,0" VerticalAlignment="Center"
+                                            Padding="12,0" VerticalAlignment="Center"
                                             Command="{Binding DataContext.RemoveCommand,
                                                       RelativeSource={RelativeSource AncestorType=ListBox}}"
                                             CommandParameter="{Binding}"
@@ -152,7 +152,7 @@
                                                                        StringFormat=Remove {0}}"/>
 
                                     <CheckBox Grid.Column="4" Style="{StaticResource Switch}"
-                                              VerticalAlignment="Center" Margin="16,0,0,0"
+                                              VerticalAlignment="Center" Margin="12,0,0,0"
                                               IsChecked="{Binding IsEnabled, Mode=TwoWay}"
                                               IsEnabled="{Binding DataContext.CanEditApps,
                                                           RelativeSource={RelativeSource AncestorType=ListBox}}"

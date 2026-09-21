@@ -3793,3 +3793,103 @@ class TestCornerRadiusNormalisedA2:
 
     def test_the_files_list_actually_covers_something(self):
         assert len(self.FILES) >= 5, "expected Theme.xaml, MainWindow.xaml and several Views/*.xaml"
+
+
+# ============ A2 review fix: Blocked Apps switch clipped by the card edge
+
+class TestBlockedAppsRowSwitchNotClipped:
+    """
+    PR #182 review (§4): the per-app enable/disable switch in the Blocked
+    Apps list (Steam/Discord/Minecraft Launcher rows) was clipped by the
+    card's right edge. The row's Grid has one flexible column (app name,
+    MinWidth 120) and four Auto columns -- icon, "blocked N x" stat, Remove
+    button, switch -- inside a ListBox with
+    ScrollViewer.HorizontalScrollBarVisibility="Disabled", which clips
+    overflow instead of scrolling it. This PR's own spacing bumps (icon
+    margin 13->12, "blocked N" margin 14->16, Remove button padding
+    14,0->16,0, switch margin 14,0,0,0->16,0,0,0) pushed the row's required
+    width past the card's available width (roughly 480px once the 1180px
+    window's 240px nav rail, 32px page margins, 300px picker column, 16px
+    gap, 24px Card padding and 16px RowCard padding are all subtracted), so
+    the switch -- the last Auto column -- lost its right edge.
+
+    The review fix pulled the Remove button's own padding and the switch's
+    own margin back down to 12 (still on the §4 4/8/12/16/24/32/48/64
+    scale), reclaiming 12px. This test sums the four literal spacing values
+    straight from the live XAML rather than reimplementing WPF's
+    text-measurement and layout engine -- those four numbers are the whole
+    cause the review named, and BUDGET is the same arithmetic used to find
+    and fix it.
+    """
+
+    VIEW = Path(DESKTOP_DIR) / "Views" / "BlockedAppsView.xaml"
+
+    # 76 (pre-fix: 12+16+32+16) overflowed the card; 64 (post-fix:
+    # 12+16+24+12) fits with margin to spare. Drawn at 70 so a future bump
+    # of any one value by a single further 4px §4 step trips it again.
+    BUDGET = 70
+
+    ICON_MARGIN = re.compile(
+        r'Grid\.Column="0" Width="34" Height="34".*?Margin="0,0,(\d+),0">', re.DOTALL
+    )
+    STAT_MARGIN = re.compile(
+        r'Grid\.Column="2" VerticalAlignment="Center" Margin="0,0,(\d+),0"\s*\n\s*'
+        r'Style="\{StaticResource Caption\}">\s*\n\s*<Run Text="blocked"'
+    )
+    BUTTON_PADDING = re.compile(
+        r'Style="\{StaticResource BtnDanger\}" Content="Remove"\s*\n\s*Padding="(\d+),0"'
+    )
+    SWITCH_MARGIN = re.compile(
+        r'Style="\{StaticResource Switch\}"\s*\n\s*VerticalAlignment="Center" Margin="(\d+),0,0,0"'
+    )
+
+    # Verbatim pre-fix fragment (this PR's own shipped numbers, before the
+    # review caught the clip): proves the checker below actually rejects
+    # the failing set rather than passing by construction.
+    PRE_FIX_FIXTURE = (
+        '<Border Grid.Column="0" Width="34" Height="34" CornerRadius="{StaticResource RadiusControl}"\n'
+        '        Background="{StaticResource PrimarySoft}" BorderBrush="{StaticResource Primary}" BorderThickness="1"\n'
+        '        Margin="0,0,12,0">\n'
+        '<TextBlock Grid.Column="2" VerticalAlignment="Center" Margin="0,0,16,0"\n'
+        '           Style="{StaticResource Caption}">\n'
+        '    <Run Text="blocked"/>\n'
+        '<Button Grid.Column="3" Style="{StaticResource BtnDanger}" Content="Remove"\n'
+        '        Padding="16,0" VerticalAlignment="Center"\n'
+        '<CheckBox Grid.Column="4" Style="{StaticResource Switch}"\n'
+        '          VerticalAlignment="Center" Margin="16,0,0,0"\n'
+    )
+
+    def _total(self, text: str) -> int:
+        icon = self.ICON_MARGIN.search(text)
+        stat = self.STAT_MARGIN.search(text)
+        button = self.BUTTON_PADDING.search(text)
+        switch = self.SWITCH_MARGIN.search(text)
+        assert icon and stat and button and switch, (
+            "one of the Blocked Apps row's spacing patterns wasn't found -- "
+            "has the row's XAML structure changed? update this test's regexes to match."
+        )
+        return (
+            int(icon.group(1))
+            + int(stat.group(1))
+            + int(button.group(1)) * 2
+            + int(switch.group(1))
+        )
+
+    def test_fixture_of_known_pre_fix_values_is_rejected(self):
+        """Proves the checker catches the bug: the pre-fix numbers
+        (12+16+32+16=76) must exceed BUDGET."""
+        total = self._total(self.PRE_FIX_FIXTURE)
+        assert total > self.BUDGET, (
+            f"expected the pre-fix fixture ({total}) to exceed BUDGET ({self.BUDGET})"
+        )
+
+    def test_blocked_apps_row_spacing_fits_the_card(self):
+        text = self.VIEW.read_text(encoding="utf-8")
+        total = self._total(text)
+        assert total <= self.BUDGET, (
+            f"Blocked Apps row spacing (icon margin + stat margin + 2x Remove "
+            f"button padding + switch margin = {total}) exceeds the "
+            f"{self.BUDGET}px budget that keeps the switch from being "
+            "clipped by the card's right edge (PR #182 review) -- pull one "
+            "of these back to the next lower §4 scale step."
+        )
