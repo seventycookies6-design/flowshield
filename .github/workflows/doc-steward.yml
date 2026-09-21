@@ -54,8 +54,31 @@ jobs:
         with:
           python-version: "3.12"
 
+      # One open steward pull request at a time.
+      #
+      # A push-triggered run opened a new pull request after every merge to
+      # main, whether or not the last one had been looked at. Eight piled up,
+      # mostly editing the same handful of files, and reviewing any one of them
+      # meant rebasing it past the others. Draining that queue is pointless
+      # while the thing that fills it keeps running.
+      #
+      # Only the automatic per-merge run is skipped. The Monday sweep and a
+      # manual run still go ahead: a human asking for one has seen the queue.
+      - name: Skip if a steward pull request is already open
+        id: queue
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          open=$(gh pr list --label docs-steward --state open --json number --jq 'length')
+          echo "open=$open" >> "$GITHUB_OUTPUT"
+          if [ "$open" -gt 0 ]; then
+            echo "::notice::$open doc-steward pull request(s) already open; skipping this run."
+          fi
+
       - name: Decide scope
         id: scope
+        if: steps.queue.outputs.open == '0' || github.event_name != 'push'
         run: |
           if [ "${{ github.event_name }}" = "push" ]; then
             before="${{ github.event.before }}"
@@ -70,6 +93,9 @@ jobs:
 
       - name: Run the steward
         id: run
+        # Skipped here leaves steps.run.outputs.code empty, so the guard, the
+        # pull request and the issue steps below fall out on their own.
+        if: steps.queue.outputs.open == '0' || github.event_name != 'push'
         env:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}

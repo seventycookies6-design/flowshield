@@ -4,11 +4,15 @@ Two people work on this repo, each with their own AI agent, often at the same
 time: the owner **seventycookies6-design** with Claude Code, and the teammate
 **milessmart6-pixel** with Codex. These rules are what keep that from producing
 conflicting versions. (Codex reads `AGENTS.md`, which points back here.)
-Read `README.md` for what the product is; `SELLING.md`, `DEPLOY.md` and
-`FINAL_REPORT.md` are accurate background. `CUSTOMER_EXPERIENCE_PROMPT.md` is
-the current roadmap, `LAUNCH_FEATURE_CHECKLIST.md` lists the features planned for
-launch, and `DESIGN_SYSTEM.md` is the visual style every app and site change
-follows.
+Read `README.md` for what the product is; `SELLING.md` and `DEPLOY.md` are
+accurate background. **`PLANNING.md` says where progress is recorded** — the
+short version is that `LAUNCH_FEATURE_CHECKLIST.md` holds what shipped (ticked
+in the pull request that ships it) and issues #37 / #38 hold what is next.
+`CUSTOMER_EXPERIENCE_PROMPT.md` is the original customer audit and the
+reasoning behind the work, not a status list. `DESIGN_SYSTEM.md` is the visual
+style every app and site change follows. `FINAL_REPORT.md`,
+`ORG_PLANNING_GRADE.md` and `MERGE_REVIEW_*.md` are dated snapshots: true when
+written, never updated since — don't treat them as the current state.
 
 ## How work flows
 
@@ -75,7 +79,11 @@ with each other, so a doc nobody remembered to update gets caught.
 
 - **What it is:** `tools/doc_steward/steward.py`, run by
   `.github/workflows/doc-steward.yml` after every merge to `main`, weekly as a
-  full sweep, and on demand. It uses a free model — OpenRouter first, NVIDIA as
+  full sweep, and on demand.
+- **One open pull request at a time.** The per-merge run skips while a
+  `docs-steward` pull request is still open; the Monday sweep and manual runs
+  always go. Eight piled up before this, each needing a rebase past the others
+  to review. If the steward has gone quiet, look for its waiting pull request. It uses a free model — OpenRouter first, NVIDIA as
   fallback — configured in `tools/doc_steward/config.json`.
 - **What it may edit:** only the Markdown files in `editable` in that config.
   Code, the site, the legal page, the PR template and the generated
@@ -207,6 +215,32 @@ can, agents included. Say which build, what to check, and what a pass looks
 like. Results land in `reports/vm/` and are linked from `reports/vm/README.md`,
 readable from any checkout. See **[VM_TESTING.md](VM_TESTING.md)**, including
 what the bench cannot tell you.
+
+## Testing gotchas
+
+Each of these cost real time once. Don't rediscover them.
+
+- **Stacked pull requests:** when one PR is built on another's branch, point
+  the upper PR at `main` *before* squash-merging the lower one with branch
+  deletion. Deleting a PR's base branch makes GitHub close it (#116).
+- **Covered controls:** UI Automation still lists buttons underneath an
+  overlay, and can invoke them. Prove that a panel blocks something by what
+  happens (no sprint starts, nothing saved), not by whether a control exists.
+  The same goes for the app itself: a gate must refuse in the view model, not
+  only by covering the screen.
+- **Clipped controls:** WPF reports a control's *layout* rectangle even when a
+  `ScrollViewer` has clipped it away, so "inside the window" does not mean
+  clickable. Hit-test the centre point before synthesising a click (#125).
+- **An `AutomationId` on a layout panel is never surfaced**, so a test asking
+  for it passes whether the thing is drawn or not. Put ids on the controls
+  themselves (#134).
+- **Any script that launches the app** wraps its entry point in
+  `preserve_user_settings()` — capture and one-off scripts included. The rule's
+  test finds them by parsing for `launch_app`, so a new one cannot slip past a
+  hand-written list (#141).
+- **A "move" that touches a line appearing twice:** check the diff for which
+  copy went. A RefreshStats move deleted the wrong identical line and silently
+  changed two behaviours (#129).
 
 ## Windows notes
 
