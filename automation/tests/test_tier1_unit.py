@@ -2111,3 +2111,80 @@ class TestConfiguredPortsReachTheServer:
             "SERVER_PORT must be imported from config, the single source of "
             "truth for FLOWSHIELD_SERVER_PORT"
         )
+
+
+# ==================================== F23 — Your data export and delete
+
+class TestDataPrivacyExport:
+    """
+    Mirrors DesktopApp/Services/DataPrivacyService.cs Export(): the shape of
+    the JSON a customer gets from Settings -> Your data -> Export everything.
+
+    A regression test, unit-by-source like the journal export tests above:
+    it reads the C# rather than running it, and fails if the export method
+    ever starts writing the licence key back out.
+    """
+
+    SERVICE = Path(SERVER_DIR).parent / "DesktopApp" / "Services" / "DataPrivacyService.cs"
+
+    def _export_method(self) -> str:
+        source = self.SERVICE.read_text(encoding="utf-8")
+        return source.split("public static void Export(")[1].split(
+            "public static async Task DeleteEverythingAsync(")[0]
+
+    def test_the_licence_key_is_never_in_the_export_payload(self):
+        method = self._export_method()
+        assert "LicenseKey" not in method, \
+            "settings.LicenseKey must never be written into the export payload"
+
+    def test_the_export_shape_covers_everything_local(self):
+        """Every category the app and site claim is stored locally must be in
+        the export, or the export is not actually "everything"."""
+        method = self._export_method()
+        for field in ("blockedApps", "sessions", "momentumScore", "currentStreak",
+                      "dailyGoal", "sleepBlocking", "licence"):
+            assert f"{field} =" in method, f"the export is missing {field!r}"
+
+    def test_the_licence_section_only_has_non_secret_fields(self):
+        method = self._export_method()
+        licence_block = method.split("licence = new")[1].split("};")[0]
+        assert "email" in licence_block and "status" in licence_block and "isPro" in licence_block
+        assert "LicenseKey" not in licence_block
+
+    def test_the_export_only_writes_where_the_user_chose(self):
+        method = self._export_method()
+        assert "File.WriteAllText(path" in method
+        assert "GetTempPath" not in method and "Upload" not in method, \
+            "nothing may leave the machine; the privacy policy says so"
+
+    def test_delete_everything_frees_the_seat_and_wipes_settings(self):
+        source = self.SERVICE.read_text(encoding="utf-8")
+        delete_method = source.split("DeleteEverythingAsync(")[-1]
+        assert "DeactivateAsync" in delete_method, \
+            "a licensed device's seat must be released before local data is wiped"
+        assert "settingsService.Reset()" in delete_method
+
+
+class TestYourDataSettingsCard:
+    """Settings -> Your data (F23) exposes the ids the export/delete tests
+    above, and the automation suite below, rely on."""
+
+    XAML = Path(SERVER_DIR).parent / "DesktopApp" / "Views" / "SettingsView.xaml"
+    VM = Path(SERVER_DIR).parent / "DesktopApp" / "ViewModels" / "SettingsViewModel.cs"
+
+    def test_the_card_has_export_and_delete_controls(self):
+        xaml = self.XAML.read_text(encoding="utf-8")
+        for automation_id in ("WhatLeavesText", "ExportDataButton", "DeleteEverythingButton",
+                              "DataStatusText"):
+            assert f'AutomationProperties.AutomationId="{automation_id}"' in xaml
+
+    def test_delete_everything_uses_the_destructive_style(self):
+        xaml = self.XAML.read_text(encoding="utf-8")
+        button = xaml.split('AutomationProperties.AutomationId="DeleteEverythingButton"')[0][-500:]
+        assert "BtnDanger" in button
+
+    def test_the_viewmodel_confirms_before_deleting(self):
+        vm = self.VM.read_text(encoding="utf-8")
+        method = vm.split("private async Task DeleteEverythingAsync()")[1].split("\n    }")[0]
+        assert "ConfirmDeleteDialog" in method and "ShowDialog()" in method
+        assert "RestartToFirstRun()" in method

@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Windows;
 using System.Windows.Threading;
 using FlowShield.Infrastructure;
 using FlowShield.Models;
@@ -294,6 +295,38 @@ public class MainViewModel : ViewModelBase
             Log.Error("saving settings failed", ex);
             Toast("Couldn't save settings — see the log in Settings.");
         }
+    }
+
+    /// <summary>
+    /// Set once local data has been deleted (F23), so App.OnExit's normal
+    /// save-on-shutdown does not write the in-memory settings straight back to
+    /// disk and undo the delete.
+    /// </summary>
+    public bool SkipSaveOnExit { get; private set; }
+
+    /// <summary>
+    /// Settings → Your data → Delete everything (F23), after the file and logs
+    /// are already gone: relaunch into a clean install and end this process.
+    ///
+    /// A new process, not an in-place reset, because this process is still
+    /// holding the very settings the customer just asked to delete — reusing
+    /// it risks something re-persisting them before it exits. --reset is the
+    /// same flag the automation suite uses for a deterministic clean install.
+    /// </summary>
+    public void RestartToFirstRun()
+    {
+        SkipSaveOnExit = true;
+        try
+        {
+            var exe = Environment.ProcessPath;
+            if (!string.IsNullOrEmpty(exe))
+                Process.Start(new ProcessStartInfo(exe, "--reset") { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            Log.Error("could not relaunch after deleting local data", ex);
+        }
+        Application.Current.Shutdown();
     }
 
     /// <summary>

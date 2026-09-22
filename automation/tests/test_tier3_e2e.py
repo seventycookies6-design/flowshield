@@ -1495,4 +1495,53 @@ class TestJournalExport:
         text = target.read_text(encoding="utf-8-sig")
         lines = [line for line in text.splitlines() if line.strip()]
         assert len(lines) == 1, "an empty range writes the header and nothing else"
+
+
+# ============================================================ your data (F23)
+
+class TestYourDataCard:
+    """
+    Settings -> Your data: the card is visible, names what leaves the PC, and
+    its Export button opens a real Save dialog. Delete everything is checked
+    only as far as its confirmation dialog — actually confirming it restarts
+    the app into first run, which belongs in its own isolated run rather than
+    alongside the rest of this suite.
+    """
+
+    def test_the_card_and_its_controls_are_visible(self, fresh_app):
+        fresh_app.navigate_to_tab("Settings")
+        assert fresh_app.exists("WhatLeavesText")
+        assert fresh_app.exists("ExportDataButton")
+        assert fresh_app.exists("DeleteEverythingButton")
+
+        leaves = fresh_app.text_of("WhatLeavesText").lower()
+        assert "licence key" in leaves and "device" in leaves
+
+    def test_export_opens_a_save_dialog_and_excludes_the_licence_key(self, fresh_app, tmp_path):
+        target = tmp_path / "flowshield-data.json"
+        fresh_app.navigate_to_tab("Settings")
+        fresh_app.click("ExportDataButton")
+        assert fresh_app.save_dialog_to(str(target)), "the Save dialog never appeared"
+        time.sleep(1.0)
+
+        import json
+        payload = json.loads(target.read_text(encoding="utf-8"))
+        assert "licence" in payload
+        assert "licenseKey" not in payload["licence"], \
+            "the export must never contain the licence key"
+        assert "blockedApps" in payload and "sessions" in payload
+
+    def test_delete_everything_asks_for_confirmation_first(self, fresh_app):
+        fresh_app.navigate_to_tab("Settings")
+        fresh_app.click("DeleteEverythingButton")
+        time.sleep(0.5)
+        assert fresh_app.exists("ConfirmDeleteDialog"), \
+            "an irreversible local wipe must not happen on a single click"
+        assert fresh_app.exists("ConfirmDeleteConfirmButton")
+        assert fresh_app.exists("ConfirmDeleteCancelButton")
+
+        # Cancelling must leave everything exactly as it was.
+        fresh_app.click("ConfirmDeleteCancelButton")
+        time.sleep(0.5)
+        assert fresh_app.exists("DeleteEverythingButton"), "Settings must still be there after cancelling"
         assert "headings only" in fresh_app.text_of("ExportStatusText")

@@ -31,6 +31,8 @@ public class SettingsViewModel : ViewModelBase
         OpenLogCommand = new RelayCommand(OpenLog);
         SkipTodayCommand = new RelayCommand(ToggleSkipToday, () => CanSkipToday || SkippedToday);
         ExportJournalCommand = new RelayCommand(ExportJournal);
+        ExportDataCommand = new RelayCommand(ExportData);
+        DeleteEverythingCommand = new AsyncRelayCommand(DeleteEverythingAsync, () => !IsBusy);
 
         RefreshLicenseStatus();
     }
@@ -621,4 +623,77 @@ public class SettingsViewModel : ViewModelBase
     }
 
     private void OpenLog() => _main.OpenUrl(Log.Path);
+
+    // --------------------------------------------------------- your data (F23)
+
+    /// <summary>Where settings.json lives, shown so "Your data" says exactly
+    /// where the DPAPI-encrypted file is, not just that one exists.</summary>
+    public string DataFilePath => _main.SettingsService.SettingsPath;
+
+    public RelayCommand ExportDataCommand { get; private set; } = null!;
+    public AsyncRelayCommand DeleteEverythingCommand { get; private set; } = null!;
+
+    private string _dataStatusText = "";
+    public string DataStatusText
+    {
+        get => _dataStatusText;
+        private set { Set(ref _dataStatusText, value); Raise(nameof(DataStatusVisible)); }
+    }
+
+    public bool DataStatusVisible => !string.IsNullOrEmpty(DataStatusText);
+
+    private void ExportData()
+    {
+        var dialog = new Microsoft.Win32.SaveFileDialog
+        {
+            FileName = $"flowshield-data-{DateTime.Now:yyyy-MM-dd}.json",
+            Filter = "JSON|*.json",
+            AddExtension = true,
+            OverwritePrompt = true,
+        };
+
+        // No default directory: the file goes where the customer says, same
+        // rule as the journal export.
+        if (dialog.ShowDialog() != true)
+        {
+            DataStatusText = "";
+            return;
+        }
+
+        try
+        {
+            DataPrivacyService.Export(dialog.FileName, _main.Settings);
+            DataStatusText = "Saved. Your licence key was left out.";
+            _main.Toast("Data exported.");
+        }
+        catch (Exception ex)
+        {
+            Log.Info($"data export failed: {ex.Message}");
+            DataStatusText = "Could not save that file. Try another folder.";
+        }
+    }
+
+    private async Task DeleteEverythingAsync()
+    {
+        var dialog = new Views.ConfirmDeleteDialog();
+        if (dialog.ShowDialog() != true) return;
+
+        IsBusy = true;
+        DataStatusText = "Deleting…";
+        try
+        {
+            await DataPrivacyService.DeleteEverythingAsync(_license, _main.SettingsService, _main.Settings);
+        }
+        catch (Exception ex)
+        {
+            Log.Error("delete everything failed", ex);
+            DataStatusText = "Couldn't delete everything — see the log.";
+            IsBusy = false;
+            return;
+        }
+
+        // No IsBusy = false here: the app is restarting, so there is no more
+        // UI left to unblock.
+        _main.RestartToFirstRun();
+    }
 }

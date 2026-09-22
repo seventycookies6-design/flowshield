@@ -135,6 +135,75 @@ class TestLegalPagesMatchTheProduct:
             "every agent must be told to re-check the legal list before a release or publish"
 
 
+# =============================================== F23 — the privacy promise
+
+class TestPrivacyClaimsMatchTheCode:
+    """
+    F23: every privacy sentence on the site's #privacy section, in the app's
+    Settings -> Your data card, and in legal.html's privacy policy is tied to
+    a code marker here. Add a marker when the copy changes; do not weaken a
+    claim just to make the test pass.
+    """
+
+    SITE = (Path(WEBSITE_DIR) / "index.html").read_text(encoding="utf-8")
+    LEGAL = (Path(WEBSITE_DIR) / "legal.html").read_text(encoding="utf-8")
+    SETTINGS_VIEW = (Path(DESKTOP_DIR) / "Views" / "SettingsView.xaml").read_text(encoding="utf-8")
+    LICENSE_SERVICE = (Path(DESKTOP_DIR) / "Services" / "LicenseService.cs").read_text(encoding="utf-8")
+    SETTINGS_SERVICE = (Path(DESKTOP_DIR) / "Services" / "SettingsService.cs").read_text(encoding="utf-8")
+    DATA_PRIVACY = (Path(DESKTOP_DIR) / "Services" / "DataPrivacyService.cs").read_text(encoding="utf-8")
+
+    def test_site_has_a_privacy_section_before_the_faq(self):
+        assert '<section id="privacy">' in self.SITE
+        assert self.SITE.index('<section id="privacy">') < self.SITE.index('<section id="faq"'), \
+            "the privacy section must sit before the FAQ (F23 brief)"
+
+    def test_site_claims_are_backed_by_code(self):
+        assert "Your data stays on your PC" in self.SITE
+        assert "encrypted with Windows DPAPI" in self.SITE
+        assert "ProtectedData.Protect" in self.SETTINGS_SERVICE, \
+            "the site claims DPAPI encryption, but settings are no longer protected with it"
+
+        # What leaves the PC, and only that.
+        assert "licence key, a salted device identifier, and your device name" in self.SITE
+        assert 'licenseKey = key' in self.LICENSE_SERVICE
+        assert 'deviceId = DeviceIdentity.Id' in self.LICENSE_SERVICE
+        assert 'deviceName = DeviceIdentity.Name' in self.LICENSE_SERVICE
+
+    def test_app_card_claims_are_backed_by_code(self):
+        assert 'AutomationId="WhatLeavesText"' in self.SETTINGS_VIEW
+        assert "encrypted with Windows DPAPI" in self.SETTINGS_VIEW
+        assert "licence key, a salted device identifier, and your device name" in self.SETTINGS_VIEW
+
+        # Export and delete controls exist and are wired to real commands.
+        assert 'AutomationId="ExportDataButton"' in self.SETTINGS_VIEW
+        assert 'Command="{Binding ExportDataCommand}"' in self.SETTINGS_VIEW
+        assert 'AutomationId="DeleteEverythingButton"' in self.SETTINGS_VIEW
+        assert 'Command="{Binding DeleteEverythingCommand}"' in self.SETTINGS_VIEW
+        assert 'Style="{StaticResource BtnDanger}"' in self.SETTINGS_VIEW.split(
+            'AutomationId="DeleteEverythingButton"')[0][-400:], \
+            "Delete everything must use the destructive button style (DESIGN_SYSTEM.md §7)"
+
+    def test_export_never_includes_the_licence_key(self):
+        export_method = self.DATA_PRIVACY.split("public static void Export(")[1].split(
+            "public static async Task DeleteEverythingAsync(")[0]
+        assert "LicenseKey" not in export_method, \
+            "the data export must never include the licence key"
+        assert "licence key is deliberately not included" in export_method.lower() \
+            or "licenseKey is deliberately not included" in export_method
+
+    def test_delete_everything_releases_the_seat_first(self):
+        delete_method = self.DATA_PRIVACY.split("DeleteEverythingAsync(")[-1]
+        assert "DeactivateAsync" in delete_method
+        assert "settingsService.Reset()" in delete_method
+
+    def test_legal_privacy_policy_matches_the_same_fields(self):
+        policy = self.LEGAL.lower()
+        assert "device identifier" in policy and "device name" in policy
+        assert "email address" in policy
+        assert "dpapi" in policy
+        assert "none of it is uploaded" in policy or "is stored locally" in policy
+
+
 # ====================== the app uses one branded icon system everywhere
 
 class TestBrandedAppIcon:

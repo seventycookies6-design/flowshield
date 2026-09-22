@@ -157,7 +157,10 @@ public partial class App : Application
     {
         try
         {
-            ViewModel?.SaveSettings();
+            // Skipped after Settings → Your data → Delete everything (F23):
+            // the file is already gone, and saving here would write the
+            // in-memory settings straight back and undo the delete.
+            if (ViewModel is { SkipSaveOnExit: false }) ViewModel.SaveSettings();
             ViewModel?.Blocker.Dispose();
         }
         catch (Exception ex)
