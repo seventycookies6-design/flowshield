@@ -4079,3 +4079,59 @@ class TestSettingsIsGrouped:
         cs = (self.XAML.parent / "SettingsView.xaml.cs").read_text(encoding="utf-8")
         assert "Grid.SetRowSpan(SettingsScroll" in cs
         assert "Grid.SetRowSpan(Rail" in cs
+
+
+def picker_merge(suggestions: list[dict], discovered: list[dict]) -> list[str]:
+    """Mirror of AppPicker.Merge: a suggestion is listed only when something
+    found on this PC runs one of its processes; other finds follow, once each."""
+    covered, result, seen = set(), [], {p.lower() for s in suggestions for p in s["processes"]}
+    for d in discovered:
+        process = d["processes"][0]
+        hit = next((s for s in suggestions
+                    if process.lower() in (p.lower() for p in s["processes"])), None)
+        if hit is not None:
+            covered.add(hit["name"])
+        elif process.lower() not in seen:
+            seen.add(process.lower())
+            result.append(d["name"])
+    return [s["name"] for s in suggestions if s["name"] in covered] + result
+
+
+class TestPickerListsOnlyInstalledApps:
+    """The picker shows an app only when it is on this PC, so every row can
+    carry the app's own icon from its installed exe (nothing is bundled)."""
+
+    SUGGESTIONS = [
+        {"name": "Discord", "processes": ["Discord"]},
+        {"name": "Slack", "processes": ["slack"]},
+        {"name": "Steam", "processes": ["steam", "steamwebhelper"]},
+    ]
+
+    def test_uninstalled_suggestions_are_left_out(self):
+        found = [{"name": "Discord", "processes": ["Discord"]},
+                 {"name": "Steam Helper", "processes": ["steamwebhelper"]},
+                 {"name": "Obsidian", "processes": ["Obsidian"]}]
+        assert picker_merge(self.SUGGESTIONS, found) == ["Discord", "Steam", "Obsidian"]
+
+    def test_nothing_found_means_nothing_suggested(self):
+        assert picker_merge(self.SUGGESTIONS, []) == []
+
+    def test_the_mirror_matches_the_app(self):
+        source = (Path(SERVER_DIR).parent / "DesktopApp" / "Models" / "AppPicker.cs").read_text(encoding="utf-8")
+        merge = source.split("public static List<PickerEntry> Merge(")[1].split("public static")[0]
+        assert "covered.Add(covering)" in merge
+        assert "!covered.Contains(r)" in merge
+
+    def test_the_picker_does_not_open_on_the_whole_catalogue(self):
+        root = Path(SERVER_DIR).parent / "DesktopApp" / "ViewModels"
+        blocked = (root / "BlockedAppsViewModel.cs").read_text(encoding="utf-8")
+        first_run = (root / "FirstRunViewModel.cs").read_text(encoding="utf-8")
+        assert "_allEntries = AppPicker.Suggestions(" not in blocked
+        assert "LoadApps(AppPicker.Suggestions(" not in first_run
+
+    def test_icons_only_come_from_the_installed_exe(self):
+        catalog = (Path(SERVER_DIR).parent / "DesktopApp" / "Services" / "AppCatalog.cs").read_text(encoding="utf-8")
+        assert "ExtractAssociatedIcon(exePath)" in catalog
+        assets = Path(SERVER_DIR).parent / "DesktopApp" / "Assets" / "Icons"
+        assert not [p for p in assets.iterdir() if p.suffix.lower() in (".png", ".ico", ".svg")], \
+            "no third-party app logos are shipped"

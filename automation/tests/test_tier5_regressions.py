@@ -22,6 +22,8 @@ from pathlib import Path
 
 import psutil
 import pytest
+
+from core.installed_apps import STEAM_INSTALLED
 import requests
 
 from config import APP_EXE, DESKTOP_DIR, SERVER_DIR, TEST_BLOCK_APP, WEBSITE_DIR
@@ -2062,6 +2064,7 @@ class TestEveryProcessOfAnAppIsBlocked:
         assert "public List<string> ExtraProcessNames { get; set; } = new();" in model
 
     @pytest.mark.ui
+    @pytest.mark.skipif(not STEAM_INSTALLED, reason="the picker lists Steam only where it is installed")
     def test_a_firm_sprint_closes_steams_helper_too(self, fresh_app, tmp_path):
         import shutil
         import subprocess

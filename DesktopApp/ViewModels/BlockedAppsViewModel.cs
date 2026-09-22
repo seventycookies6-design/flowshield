@@ -42,7 +42,7 @@ public class BlockedAppsViewModel : ViewModelBase
 
         RefreshProfiles();
 
-        _allEntries = AppPicker.Suggestions(IsProtected);
+        _allEntries = new(); // filled once RefreshPicker has looked at what's installed
         ApplyFilter();
         RefreshPicker();
         RefreshStatus();
