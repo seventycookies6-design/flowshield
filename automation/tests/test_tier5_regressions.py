@@ -2800,9 +2800,12 @@ class TestDesignReviewFixesB4:
         return self.CSS.read_text(encoding="utf-8")
 
     def _rule(self, selector: str) -> str:
+        # Anchored to the start of a line, so ".shot-grid" can't match the
+        # tail of a compound selector such as ".shot-demo + .shot-grid".
         css = self._css()
-        start = css.index(selector + " {")
-        return css[start:css.index("}", start)]
+        match = re.search(r"^" + re.escape(selector) + r" \{", css, re.M)
+        assert match, f"no top-level rule for {selector}"
+        return css[match.start():css.index("}", match.start())]
 
     def test_the_mobile_menu_closes_when_a_destination_is_chosen(self):
         """At 390px, tapping a nav link scrolled to the section but left the
@@ -2829,19 +2832,6 @@ class TestDesignReviewFixesB4:
         rule = self._rule(".shot-grid")
         assert "minmax(min(100%, 20rem), 1fr)" in rule, (
             "the column minimum must be capped at the grid's own width")
-
-    def test_stacked_day_strip_segments_name_their_own_time(self):
-        """Below 900px the segments stack, so a separate caption row beneath
-        them no longer lines up with anything."""
-        site = self.SITE.read_text(encoding="utf-8")
-        strip = site[site.index('class="day-strip"'):]
-        strip = strip[:strip.index('class="caption"')]
-        assert strip.count('class="time"') == 3, "each segment carries its own time"
-        css = self._css()
-        narrow = css[css.index(".day-strip .strip { grid-template-columns: 1fr"):]
-        narrow = narrow[:narrow.index("}\n}") + 1] if "}\n}" in narrow else narrow[:600]
-        assert ".day-strip .caption { display: none; }" in narrow, (
-            "the caption row must be hidden once the segments stack")
 
     def test_no_decorative_status_or_accent_colour(self):
         """§2: teal marks state, selection or progress, and status colours are
@@ -2875,6 +2865,57 @@ class TestDesignReviewFixesB4:
         for unscoped in (".section-head p {", ".shields-intro p { margin: 0; font-size"):
             assert unscoped not in css, f"`{unscoped}` resizes the .label eyebrow inside it"
 
+
+class TestLandingPageLengthB5:
+    """
+    #185: the external review found the page repeating itself before the
+    decision point. Pricing started about 7,900px down on desktop and
+    10,200px on a phone. The day was explained three times (the timeline,
+    #how, and a strip in #shields), momentum four times, and the Today
+    capture shown twice. These guard the cut against creeping back.
+    """
+
+    SITE = Path(WEBSITE_DIR) / "index.html"
+
+    def _site(self) -> str:
+        return self.SITE.read_text(encoding="utf-8")
+
+    def test_the_page_runs_in_decision_order(self):
+        site = self._site()
+        order = ['<section class="hero"', '<section id="day"', '<section id="shields"',
+                 '<section id="see-it"', '<section id="features"', '<section id="pricing"',
+                 '<section id="faq"']
+        at = [site.index(marker) for marker in order]
+        assert at == sorted(at), (
+            "hero, the day, the shields, one real demo, the benefits, then pricing and FAQ")
+        assert '<section id="how"' not in site, "how-it-works lives inside #day now"
+
+    def test_the_day_is_explained_once(self):
+        site = self._site()
+        day = site[site.index('<section id="day"'):]
+        day = day[:day.index("</section>")]
+        assert 'class="timeline"' in day and 'class="story-list' in day, (
+            "#day carries both the timeline and the three steps")
+        assert 'class="day-strip"' not in site, (
+            "the shields section must not repeat the day as a strip")
+
+    def test_the_today_capture_appears_once(self):
+        assert self._site().count("media/today.png") == 1, (
+            "the hero already shows Today; #see-it shows what the hero doesn't")
+
+    def test_the_demo_leads_the_proof_section(self):
+        site = self._site()
+        see_it = site[site.index('<section id="see-it"'):]
+        see_it = see_it[:see_it.index("</section>")]
+        assert see_it.index("<video") < see_it.index('class="shot-grid"'), (
+            "one real demonstration first, then the supporting captures")
+
+    def test_benefits_do_not_restate_other_sections(self):
+        site = self._site()
+        features = site[site.index('<section id="features"'):site.index('<section id="pricing"')]
+        for repeat in ("Escalating shield levels", "Momentum first", "Why it sticks"):
+            assert repeat not in features, f"{repeat!r} restates another section"
+        assert features.count('class="surface feature"') == 3
 
 
 class TestPhoneVisitorMarkup:
@@ -3391,7 +3432,8 @@ class TestSiteSystemPassB3:
         features = html.split('id="features"', 1)[1].split('id="pricing"', 1)[0]
         card_count = features.count('class="surface feature"')
         icon_count = features.count('class="feature-icon"')
-        assert card_count == 6, "fixture assumption changed: expected 6 feature cards"
+        assert card_count == 3, (
+            "fixture assumption changed: expected 3 feature cards (six until #185 cut the repeats)")
         assert icon_count == card_count, (
             f"{card_count} feature cards but only {icon_count} have a .feature-icon — "
             "every feature needs a Lucide icon, not just some of them"
@@ -3405,9 +3447,6 @@ class TestSiteSystemPassB3:
         for name in ("--violet", "--cyan", "--grad"):
             assert f"{name}:" not in css
             assert f"var({name})" not in html
-
-
-# ============================ Inter, on the §3 type scale (#147 A1)
 
 class TestInterTypeScale:
     """
@@ -3559,8 +3598,6 @@ class TestInterTypeScale:
             "TextTrimming=\"CharacterEllipsis\" so a long exe name trims with an "
             "ellipsis instead of breaking mid-word")
 
-
-# ============================ Today as an instrument (#147 A4)
 
 class TestShieldGlyphsA4:
     """
@@ -3857,8 +3894,6 @@ class TestMotionA4:
                 f"Motion.Selection")
 
 
-# ============================== A3: token contrast fixes and hard-coded colour removal
-
 class TestContrastAndTokensA3:
     """
     UI-SPEC.md A3 (#147, DESIGN_SYSTEM.md §2): text-faint and the light-theme
@@ -3985,8 +4020,6 @@ class TestContrastAndTokensA3:
                     f"expected the pre-fix light {status}/bg ratio to fail below 4.5:1, got {ratio:.2f}:1")
 
 
-# ==================================== A3: no hard-coded colour left in the restyled XAML
-
 class TestNoHardcodedColoursA3:
     """
     UI-SPEC.md A3 (#147, DESIGN_SYSTEM.md §2 "No hard-coded colours in
@@ -4027,8 +4060,6 @@ class TestNoHardcodedColoursA3:
         reason -- confirm the scan really walks a non-trivial set of XAML."""
         assert len(self.FILES) >= 5, "expected Theme.xaml, MainWindow.xaml and several Views/*.xaml"
 
-
-# ==================================== A2: CornerRadius normalised to the §4 scale
 
 class TestCornerRadiusNormalisedA2:
     """
@@ -4134,8 +4165,6 @@ class TestCornerRadiusNormalisedA2:
         assert len(self.FILES) >= 5, "expected Theme.xaml, MainWindow.xaml and several Views/*.xaml"
 
 
-# ===================== A2 fix: "fully round" is computed, never a huge radius
-
 class TestPillsAreComputed:
     """
     A2 first expressed "fully round" as CornerRadius="9999", on the belief
@@ -4188,8 +4217,6 @@ class TestPillsAreComputed:
             "is exactly the ellipse this replaced")
         assert "SizeChanged" in source, "the radius must follow the element as it resizes"
 
-
-# ============ A2 review fix: Blocked Apps switch clipped by the card edge
 
 class TestBlockedAppsRowSwitchNotClipped:
     """

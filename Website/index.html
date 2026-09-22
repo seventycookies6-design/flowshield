@@ -160,8 +160,9 @@
 </section>
 
 <!-- --------------------------------------------------------------------- day -->
-<!-- The student-day timeline, promoted out of the hero to its own section
-     per #147 §4 (was aria-hidden decoration beside the hero copy; #139). -->
+<!-- The student-day timeline (#147 §4) and how FlowShield works, in one
+     section. They were two sections, and the shields section repeated the
+     same day again as a strip (#185). -->
 <section id="day">
   <div class="wrap">
     <div class="section-head">
@@ -171,68 +172,55 @@
       carry Soft, Firm and Sealed at different hours.</p>
     </div>
 
-    <div class="surface day-mock">
-      <div class="mock-bar"><span>Today · sample day</span></div>
+    <div class="day-layout">
+      <div class="surface day-mock">
+        <div class="mock-bar"><span>Today · sample day</span></div>
 
-      <div class="timeline">
-        <div class="tl-block">
-          <div class="tl-time">8–3</div>
-          <div class="tl-card">
-            <div class="tl-label"><strong>Classes</strong><span>Soft</span></div>
-            <p>Light shield — apps stay open; FlowShield notes the distraction.</p>
+        <div class="timeline">
+          <div class="tl-block">
+            <div class="tl-time">8–3</div>
+            <div class="tl-card">
+              <div class="tl-label"><strong>Classes</strong><span>Soft</span></div>
+              <p>Light shield — apps stay open; FlowShield notes the distraction.</p>
+            </div>
+          </div>
+          <div class="tl-block">
+            <div class="tl-time">5–7</div>
+            <div class="tl-card flagship">
+              <div class="tl-label"><strong>Homework block</strong><span>Firm</span></div>
+              <p>Blocked launchers close on sight for the length of the sprint.</p>
+            </div>
+          </div>
+          <div class="tl-block">
+            <div class="tl-time">9–10</div>
+            <div class="tl-card">
+              <div class="tl-label"><strong>Deep work</strong><span>Sealed</span></div>
+              <p>Apps close and the blocklist locks until the sprint ends.</p>
+            </div>
+          </div>
+          <div class="tl-block">
+            <div class="tl-time">10+</div>
+            <div class="tl-card">
+              <div class="tl-label"><strong>Gaming window</strong><span>Off</span></div>
+              <p>Shield down — Steam and Discord open when you choose.</p>
+            </div>
           </div>
         </div>
-        <div class="tl-block">
-          <div class="tl-time">5–7</div>
-          <div class="tl-card flagship">
-            <div class="tl-label"><strong>Homework block</strong><span>Firm</span></div>
-            <p>Blocked launchers close on sight for the length of the sprint.</p>
+
+        <div class="mock-foot">
+          <div>
+            <span class="cap">Momentum</span>
+            <b>48 <small>pts</small></b>
+            <em>Streak: 3 days</em>
           </div>
-        </div>
-        <div class="tl-block">
-          <div class="tl-time">9–10</div>
-          <div class="tl-card">
-            <div class="tl-label"><strong>Deep review</strong><span>Sealed</span></div>
-            <p>Apps close and the blocklist locks until the sprint ends.</p>
-          </div>
-        </div>
-        <div class="tl-block">
-          <div class="tl-time">10+</div>
-          <div class="tl-card">
-            <div class="tl-label"><strong>Gaming window</strong><span>Off</span></div>
-            <p>Shield down — Steam and Discord open when you choose.</p>
+          <div>
+            <span class="cap">Today</span>
+            <b>50 min</b>
+            <em>2 sprints · 6 blocks</em>
           </div>
         </div>
       </div>
-
-      <div class="mock-foot">
-        <div>
-          <span class="cap">Momentum</span>
-          <b>48 <small>pts</small></b>
-          <em>Streak: 3 days</em>
-        </div>
-        <div>
-          <span class="cap">Today</span>
-          <b>50 min</b>
-          <em>2 sprints · 6 blocks</em>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- --------------------------------------------------------------- how it works -->
-<section id="how">
-  <div class="wrap story-grid">
-    <div class="story-copy">
-      <p class="label">What is FlowShield?</p>
-      <h2>A day of school, homework, and gaming — with a shield on the hours you choose.</h2>
-      <p>
-        You pick how hard the shield pushes back for each sprint. Distracting apps
-        you put on the blocklist are nudged or closed; finished sprints compound
-        into momentum instead of all-or-nothing streak theater.
-      </p>
-      <ol class="story-list">
+      <ol class="story-list day-steps">
         <li>
           <span class="n">01</span>
           <div>
@@ -256,76 +244,6 @@
         </li>
       </ol>
     </div>
-
-    <aside class="surface callout">
-      <p class="label">End of day</p>
-      <h3>What you see after the last sprint</h3>
-      <p>
-        Momentum is the main score. A simple day streak sits beside it. Sessions
-        stay on your PC — encrypted with Windows DPAPI — so school, homework, and
-        gaming hours stay your record, not a cloud feed.
-      </p>
-      <dl>
-        <div><dt>Sprints completed</dt><dd>2</dd></div>
-        <div><dt>Focus minutes</dt><dd>50</dd></div>
-        <div><dt>Distractions blocked</dt><dd>6</dd></div>
-        <div><dt>Journal</dt><dd>local only</dd></div>
-      </dl>
-    </aside>
-  </div>
-</section>
-
-<!-- ------------------------------------------------------- the real app -->
-<section id="see-it">
-  <div class="wrap">
-    <div class="section-head">
-      <p class="label">The real thing</p>
-      <h2>This is the app, not a mock-up</h2>
-      <p>Captures of the build you download, with sample data in it. No stock photos and
-      no screens we haven&rsquo;t built.</p>
-    </div>
-
-    <figure class="shot shot-lead">
-      <img src="media/today.png" width="1264" height="872" loading="lazy" decoding="async"
-           alt="The Today screen in the FlowShield app: a 45-minute sprint ready to start
-                at the Firm shield, momentum at 192 points with an eight-day streak and a
-                rising 30-day chart, and one sprint already finished today.">
-      <figcaption>Today. The timer, the shield you chose, and momentum that compounds
-      rather than resetting.</figcaption>
-    </figure>
-
-    <div class="shot-grid">
-      <figure class="shot">
-        <img src="media/blocked-apps.png" width="1264" height="872" loading="lazy" decoding="async"
-             alt="The Blocked Apps screen with Steam, Discord and Minecraft Launcher on the
-                  shield, and a searchable list of other apps to add.">
-        <figcaption>Your blocklist. Pick from the list or type a process name.</figcaption>
-      </figure>
-
-      <figure class="shot">
-        <img src="media/sprint-complete.png" width="1264" height="872" loading="lazy" decoding="async"
-             alt="The end of a sprint in the FlowShield app: fifteen minutes focused, no
-                  distractions caught, momentum up six to 192, day eight of the streak, and
-                  a one-line prompt asking what moved.">
-        <figcaption>The end of a sprint, and the one line you write about it.</figcaption>
-      </figure>
-    </div>
-
-    <figure class="shot shot-demo">
-      <video id="shield-demo" class="demo-video" muted loop playsinline preload="none"
-             width="1280" height="720"
-             poster="media/shield-closes-steam-poster.jpg"
-             aria-describedby="shield-demo-description">
-        <source src="media/shield-closes-steam.webm" type="video/webm">
-        <source src="media/shield-closes-steam.mp4" type="video/mp4">
-      </video>
-      <figcaption>
-        <p id="shield-demo-description">A sprint starts at the Firm shield and Steam,
-        which is on the blocklist, closes a couple of seconds later. FlowShield says
-        &ldquo;Steam closed by the shield&rdquo; and the timer keeps running. Recorded on a
-        clean Windows 11 machine; no sound.</p>
-      </figcaption>
-    </figure>
   </div>
 </section>
 
@@ -337,14 +255,6 @@
         <p class="label">What does a Shield do?</p>
         <h2>Three levels of resistance</h2>
         <p>Pick how much you trust yourself today. FlowShield will hold you to it — from a quiet notice to a locked blocklist.</p>
-      </div>
-      <div class="day-strip" aria-hidden="true">
-        <div class="strip">
-          <div class="seg s1">Soft · classes <span class="time">Morning</span></div>
-          <div class="seg s2">Firm · homework <span class="time">After school</span></div>
-          <div class="seg s3">Sealed · deep work <span class="time">Night</span></div>
-        </div>
-        <div class="caption"><span>Morning</span><span>After school</span><span>Night</span></div>
       </div>
     </div>
 
@@ -401,26 +311,61 @@
   </div>
 </section>
 
+<!-- ------------------------------------------------------- the real app -->
+<section id="see-it">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="label">The real thing</p>
+      <h2>This is the app, not a mock-up</h2>
+      <p>Captures of the build you download, with sample data in it. No stock photos and
+      no screens we haven&rsquo;t built.</p>
+    </div>
+
+    <figure class="shot shot-demo">
+      <video id="shield-demo" class="demo-video" muted loop playsinline preload="none"
+             width="1280" height="720"
+             poster="media/shield-closes-steam-poster.jpg"
+             aria-describedby="shield-demo-description">
+        <source src="media/shield-closes-steam.webm" type="video/webm">
+        <source src="media/shield-closes-steam.mp4" type="video/mp4">
+      </video>
+      <figcaption>
+        <p id="shield-demo-description">A sprint starts at the Firm shield and Steam,
+        which is on the blocklist, closes a couple of seconds later. FlowShield says
+        &ldquo;Steam closed by the shield&rdquo; and the timer keeps running. Recorded on a
+        clean Windows 11 machine; no sound.</p>
+      </figcaption>
+    </figure>
+
+    <div class="shot-grid">
+      <figure class="shot">
+        <img src="media/blocked-apps.png" width="1264" height="872" loading="lazy" decoding="async"
+             alt="The Blocked Apps screen with Steam, Discord and Minecraft Launcher on the
+                  shield, and a searchable list of other apps to add.">
+        <figcaption>Your blocklist. Pick from the list or type a process name.</figcaption>
+      </figure>
+
+      <figure class="shot">
+        <img src="media/sprint-complete.png" width="1264" height="872" loading="lazy" decoding="async"
+             alt="The end of a sprint in the FlowShield app: fifteen minutes focused, no
+                  distractions caught, momentum up six to 192, day eight of the streak, and
+                  a one-line prompt asking what moved.">
+        <figcaption>The end of a sprint, and the one line you write about it.</figcaption>
+      </figure>
+    </div>
+
+  </div>
+</section>
+
 <!-- --------------------------------------------------------------- features -->
 <section id="features">
-  <div class="wrap features-layout">
+  <div class="wrap">
     <div>
       <div class="section-head">
         <p class="label">Built in</p>
         <h2>Built for people who already know what to do</h2>
-        <p>Momentum is the main score; a simple day streak adds context. No confetti, no all-or-nothing reset.</p>
       </div>
       <div class="feature-stack">
-        <div class="surface feature">
-          <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg></div>
-          <h3>Escalating shield levels</h3>
-          <p>Start with a brief notice inside FlowShield while the distracting app keeps running. Step up to closing blocked apps. Or lock the blocklist for the sprint.</p>
-        </div>
-        <div class="surface feature">
-          <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg></div>
-          <h3>Momentum first</h3>
-          <p>Finished sprints compound into momentum. Abandon one and it decays gradually, while a simple day streak stays secondary.</p>
-        </div>
         <div class="surface feature">
           <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z"/><path d="M9 8h7"/></svg></div>
           <h3>One-line session journal</h3>
@@ -432,11 +377,6 @@
           <p>Set a nightly window where the shield raises itself. The 1 a.m. version of you doesn't get a vote.</p>
         </div>
         <div class="surface feature">
-          <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M13 2 4 14h7l-1 8 9-12h-7l1-8Z"/></svg></div>
-          <h3>Hard kill mode</h3>
-          <p>Make Soft behave like Firm: blocked processes close immediately instead of producing the brief notice.</p>
-        </div>
-        <div class="surface feature">
           <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></div>
           <h3>Local by default</h3>
           <p>Your sessions, blocklists and journal never leave your PC. They are encrypted locally with Windows DPAPI.</p>
@@ -444,28 +384,6 @@
       </div>
     </div>
 
-    <aside class="surface feature-aside">
-      <p class="label">Why it sticks</p>
-      <h3>Resistance you choose, progress you keep.</h3>
-      <p>
-        FlowShield does not gamify your week into confetti. It gives you three
-        honest levels of resistance and a score that survives a bad afternoon.
-      </p>
-      <ul>
-        <li>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false"><path d="M20 6 9 17l-5-5"/></svg>
-          <span>Shield strength is per sprint — change it for homework vs. gaming recovery.</span>
-        </li>
-        <li>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false"><path d="M20 6 9 17l-5-5"/></svg>
-          <span>Momentum decays slowly on abandoned sprints instead of resetting to zero.</span>
-        </li>
-        <li>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false"><path d="M20 6 9 17l-5-5"/></svg>
-          <span>Everything that matters stays on the machine you already trust.</span>
-        </li>
-      </ul>
-    </aside>
   </div>
 </section>
 

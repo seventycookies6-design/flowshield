@@ -447,14 +447,12 @@ html[data-theme="dark"] .theme-toggle .icon-moon { display: block; }
 }
 
 /* The recording is 16:9; the screenshots are the app window's own shape. */
+/* The demo leads #see-it; the supporting captures follow it (#185). */
+.shot-demo + .shot-grid { margin-top: var(--space-6); }
 .shot-demo video {
   aspect-ratio: 16 / 9;
 }
 
-.shot-lead {
-  max-width: 54rem;
-  margin: 0 auto var(--space-6);
-}
 
 .shot-grid {
   display: grid;
@@ -810,13 +808,6 @@ section.band,
 
 /* --------------------------------------------------------------- how it works */
 
-.story-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: var(--space-12);
-  align-items: start;
-}
-.story-copy h2 { margin-bottom: var(--space-4); }
 .story-list {
   list-style: none;
   padding: 0;
@@ -824,6 +815,15 @@ section.band,
   display: flex;
   flex-direction: column;
   gap: var(--space-5);
+}
+/* In #day: the timeline runs full width (its four columns need it), and the
+   three steps sit in a row beneath it. */
+.day-layout { display: flex; flex-direction: column; gap: var(--space-8); }
+.story-list.day-steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+  gap: var(--space-6);
+  margin: 0;
 }
 .story-list li {
   display: grid;
@@ -862,91 +862,16 @@ section.band,
   font-size: var(--text-label);
 }
 
-.callout {
-  padding: var(--space-6);
-  animation: rise-in 0.8s ease 0.1s both;
-}
-.callout .label { margin-bottom: var(--space-4); }
-.callout h3 { font-size: var(--text-title); margin-bottom: var(--space-3); }
-.callout p:last-child { margin: 0; }
-.callout dl {
-  margin: var(--space-5) 0 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-.callout dl div {
-  display: flex;
-  justify-content: space-between;
-  gap: var(--space-4);
-  padding-bottom: var(--space-3);
-  border-bottom: 1px solid var(--color-border);
-  font-size: var(--text-label);
-}
-.callout dl div:last-child { border-bottom: 0; padding-bottom: 0; }
-.callout dt { color: var(--color-text-muted); }
-.callout dd {
-  margin: 0;
-  font-weight: 600;
-  color: var(--color-text);
-  text-align: right;
-}
 
 /* -------------------------------------------------------------- shield levels */
 
 .shields-intro {
-  display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
-  gap: var(--space-10);
-  align-items: end;
+  max-width: 46rem;
   margin-bottom: var(--space-10);
 }
 .shields-intro p { margin: 0; }
 .shields-intro p:not(.label) { font-size: var(--text-title); }
 
-.day-strip {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-.day-strip .strip {
-  display: grid;
-  grid-template-columns: 1.1fr 1.4fr 1fr;
-  gap: 3px;
-  height: 36px;
-  border-radius: var(--radius-sm);
-  overflow: hidden;
-  border: 1px solid var(--color-border);
-}
-.day-strip .seg {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: var(--text-eyebrow);
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-.day-strip .seg .time { display: none; }
-.day-strip .seg.s1 {
-  background: var(--color-surface);
-  color: var(--color-text-muted);
-}
-.day-strip .seg.s2 {
-  background: color-mix(in srgb, var(--color-primary) 18%, var(--color-surface));
-  color: var(--color-primary);
-}
-.day-strip .seg.s3 {
-  background: var(--color-surface-2);
-  color: var(--color-text);
-  border-left: 1px solid var(--color-border);
-}
-.day-strip .caption {
-  display: flex;
-  justify-content: space-between;
-  font-size: var(--text-caption);
-  color: var(--color-text-faint);
-}
 
 .levels {
   display: grid;
@@ -1054,13 +979,6 @@ section.band,
   margin-top: 5px;
   color: var(--color-text-muted);
 }
-.behaviors li svg {
-  width: 16px;
-  height: 16px;
-  flex: none;
-  margin-top: 3px;
-  color: var(--color-primary);
-}
 .behaviors li strong {
   color: var(--color-text);
   font-weight: 600;
@@ -1068,15 +986,10 @@ section.band,
 
 /* ------------------------------------------------------------------ features */
 
-.features-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
-  gap: var(--space-12);
-  align-items: start;
-}
+/* Three benefits side by side; one column once they no longer fit. */
 .feature-stack {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
   gap: var(--space-4);
 }
 .feature {
@@ -1125,41 +1038,6 @@ section.band,
   vertical-align: 1px;
 }
 
-.feature-aside {
-  padding: var(--space-8);
-  position: sticky;
-  top: 92px;
-}
-.feature-aside .label { margin-bottom: var(--space-3); }
-.feature-aside h3 {
-  font-family: var(--font-sans);
-  font-weight: 600;
-  font-size: var(--text-display);
-  letter-spacing: -0.02em;
-  margin-bottom: var(--space-4);
-}
-.feature-aside p { margin-bottom: var(--space-6); }
-.feature-aside ul {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
-.feature-aside li {
-  display: grid;
-  grid-template-columns: 16px 1fr;
-  gap: var(--space-3);
-  font-size: var(--text-label);
-  color: var(--color-text-muted);
-}
-.feature-aside li svg {
-  width: 16px;
-  height: 16px;
-  color: var(--color-primary);
-  margin-top: 2px;
-}
 
 /* ------------------------------------------------------------------- pricing */
 
@@ -1533,9 +1411,6 @@ footer p {
 [data-download-copy] { display: none; }
 
 @media (max-width: 900px) {
-  .story-grid,
-  .shields-intro,
-  .features-layout,
   .pricing {
     grid-template-columns: 1fr;
   }
@@ -1573,13 +1448,8 @@ footer p {
   section { padding: var(--space-12) 0; }
   section.band { padding: var(--space-16) 0; }
   .levels { grid-template-columns: 1fr; }
-  .feature-aside { position: static; }
-  .day-strip .strip { grid-template-columns: 1fr; height: auto; }
-  .day-strip .seg { padding: var(--space-3) var(--space-4); justify-content: space-between; }
   /* Stacked, the segments no longer line up with a caption row beneath
      them, so each segment names its own time instead. */
-  .day-strip .seg .time { display: inline; opacity: 0.8; }
-  .day-strip .caption { display: none; }
 }
 
 @media (max-width: 520px) {
