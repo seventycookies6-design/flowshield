@@ -1281,7 +1281,11 @@ class TestSurvivesDataLoss:
         )
         # An email alone no longer reveals the key (#21); the row is rebuilt all the same.
         assert "licenseKey" not in body, body
-        rebuilt = json.loads(_db_admin("show", row["license_key"]) or "null")
+        # Recovery only presented an email, not the wiped key, so it is free to
+        # mint a fresh license_key rather than reuse the forgotten one — that
+        # guarantee is test_recovery_keeps_the_key_the_customer_already_has's
+        # job, which does present the key. Look the rebuilt row up by email.
+        rebuilt = json.loads(_db_admin("by-email", row["email"]) or "null")
         assert rebuilt and rebuilt["status"] == "active", rebuilt
 
     def test_recovery_keeps_the_key_the_customer_already_has(self, server, needs_stripe):

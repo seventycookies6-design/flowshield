@@ -189,8 +189,15 @@ class TestBlocklistProfiles:
 
     def test_the_last_profile_cannot_be_deleted(self, fresh_app):
         fresh_app.navigate_to_tab("Blocked Apps")
-        fresh_app.delete_profile()
-        time.sleep(0.8)
+        time.sleep(0.5)
+        # DeleteProfileButton is bound straight to DeleteProfileCommand with no
+        # separate IsEnabled — WPF disables the control itself when CanExecute
+        # is false, so UI Automation cannot invoke it (unlike a merely-covered
+        # control, #134's Invoke-through-an-overlay case). The refusal already
+        # lives in the view model (CLAUDE.md: "a gate must refuse in the view
+        # model, not only by covering the screen"); disabled is the proof.
+        assert not fresh_app.is_control_enabled("DeleteProfileButton"), \
+            "Delete must refuse when it is the only profile"
 
         settings = verify.read_settings()
         assert len(settings["Profiles"]) == 1, "the only profile must survive Delete"
@@ -266,13 +273,20 @@ class TestBlocklistProfiles:
 
         before = verify.read_settings()["ActiveProfileId"]
         fresh_app.navigate_to_tab("Blocked Apps")
-        # Invoked, not merely looked at: a disabled control can still be
-        # invoked by automation, so the refusal has to hold anyway (#134).
-        fresh_app.select_profile("Default")
+        # The switcher's whole row is IsEnabled="{Binding CanSwitchProfile}",
+        # so a genuinely disabled WPF control cannot be Invoked through UI
+        # Automation either (unlike #134's merely-covered-but-enabled case) —
+        # the disabled state itself is the proof the lock holds in the view
+        # model, not just on screen.
+        assert not fresh_app.is_control_enabled("Profile_Default"), \
+            "Sealed must disable the profile switcher"
         time.sleep(0.8)
 
         assert verify.read_settings()["ActiveProfileId"] == before, \
             "Sealed must keep the active profile until the sprint ends"
+        # stop_sprint() clicks StopSprintButton, which lives on Today — the
+        # test is still on Blocked Apps from the assertion above.
+        fresh_app.navigate_to_tab("Today")
         fresh_app.stop_sprint()
 
 
@@ -511,7 +525,7 @@ class TestSoftShowsTheNotice:
             time.sleep(0.4)
         return None
 
-    def _arm_and_start(self, app):
+    def _arm_and_start(self, app, process=None):
         app.navigate_to_tab("Blocked Apps")
         assert app.add_blocked_app(self.TARGET)
         time.sleep(0.6)
@@ -520,10 +534,24 @@ class TestSoftShowsTheNotice:
         time.sleep(0.4)
         app.start_sprint(confirm_open_apps=True)
 
+        # The notice's whole trigger is the decoy being the foreground window
+        # (class docstring), but arming just spent several clicks and an F7
+        # answer inside FlowShield's own window, which is what actually holds
+        # focus now. Hand it back, the same way
+        # test_allow_five_minutes_keeps_it_quiet already does for its second
+        # check — nothing put the decoy back in front for the first one.
+        if process is not None:
+            from pywinauto import Desktop
+            try:
+                Desktop(backend="uia").window(process_id=process.pid).set_focus()
+            except Exception:
+                pass
+            time.sleep(0.5)
+
     def test_a_blocked_app_in_front_gets_a_notice_that_closes_nothing(self, fresh_app, tmp_path):
         process = self._decoy(tmp_path)
         try:
-            self._arm_and_start(fresh_app)
+            self._arm_and_start(fresh_app, process)
 
             overlay = self._overlay()
             assert overlay is not None, (
@@ -549,7 +577,7 @@ class TestSoftShowsTheNotice:
     def test_allow_five_minutes_keeps_it_quiet(self, fresh_app, tmp_path):
         process = self._decoy(tmp_path)
         try:
-            self._arm_and_start(fresh_app)
+            self._arm_and_start(fresh_app, process)
 
             overlay = self._overlay()
             assert overlay is not None
@@ -2233,8 +2261,13 @@ class TestBreaksAndCycles:
                     "a blocked app was closed during a break; the shield must be down"
                 time.sleep(1)
 
-            # And the shield comes straight back up with the next sprint.
+            # And the shield comes straight back up with the next sprint. The
+            # decoy is still running, so StartSprint's F7 gate (Blocked Apps
+            # already open) fires just like it does from the Start button —
+            # answer it the same way start_sprint() does, or the sprint never
+            # actually starts and nothing is ever enforced.
             app.click("StartNextSprintButton")
+            app.answer_open_apps_question()
             deadline = time.time() + 25
             while time.time() < deadline and process.poll() is None:
                 time.sleep(1)
@@ -2280,9 +2313,12 @@ class TestBreaksAndCycles:
         time.sleep(8)
         assert not cycle_app.exists("StopSprintButton", timeout=2), \
             "the cycle must stop after its last sprint, not roll on"
-        assert cycle_app.text_of("CycleProgressText", timeout=2) == "" \
-            or not cycle_app.exists("CycleProgressText", timeout=1), \
-            "the cycle label must go once the cycle is over"
+        # text_of() raises rather than returning a falsy value when the control
+        # is gone, so the "label gone" case has to be checked with exists()
+        # first rather than relying on `or` to short-circuit past a raise.
+        if cycle_app.exists("CycleProgressText", timeout=1):
+            assert cycle_app.text_of("CycleProgressText", timeout=1) == "", \
+                "the cycle label must go once the cycle is over"
 
         # And nothing was credited for those five-second sprints.
         settings = verify.read_settings()

@@ -700,6 +700,7 @@ public class TodayViewModel : ViewModelBase
         _main.OnSprintStateChanged();
         OnBreakTick();
         _tick.Start();
+        CommandManager.InvalidateRequerySuggested();
     }
 
     /// <summary>Skipping is free: no momentum, no streak, no goal, nothing recorded.</summary>
@@ -734,6 +735,7 @@ public class TodayViewModel : ViewModelBase
                 S.ActiveBreak = null;
                 _main.SaveSettings();
             }
+            CommandManager.InvalidateRequerySuggested();
             return;
         }
 
@@ -746,6 +748,7 @@ public class TodayViewModel : ViewModelBase
         SessionStateText = "Break over";
         UpdateIdleDisplay();
         _main.OnSprintStateChanged();
+        CommandManager.InvalidateRequerySuggested();
 
         if (notify)
             _main.Notify(NotificationKind.BreakOver, "Break over",
@@ -1498,6 +1501,13 @@ public class TodayViewModel : ViewModelBase
         {
             BreakOfferVisible = false;
         }
+
+        // BreakOfferVisible/IsOnBreak flip from a timer tick, not a user input
+        // event, so CommandManager's automatic requery (mouse/keyboard/focus)
+        // never runs and Start/Skip break stay reported disabled until some
+        // unrelated input happens to trigger one (see BlockedAppsViewModel's
+        // own note on this). Ask for the requery explicitly.
+        CommandManager.InvalidateRequerySuggested();
 
         if (_cycle.CycleFinished)
         {

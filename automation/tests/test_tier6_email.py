@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import socket
 import subprocess
@@ -194,13 +195,18 @@ class TestDelivery:
         return body
 
     def test_a_licence_is_emailed_once_and_only_once(self, capture_server, needs_stripe):
+        # /validate deliberately strips licenseKey and email from an email-only
+        # lookup (server.js, "an email alone still answers 'is this Pro?' ...
+        # but must never be a way to obtain someone's key" — #22), so the key
+        # is read back from the email itself rather than from _paid_license.
         base, outbox = capture_server["base"], capture_server["outbox"]
-        licence = self._paid_license(base)
+        email = "deployed-e2e@example.com"
+        self._paid_license(base)
 
         before = len(_emails(outbox))
 
         first = requests.post(f"{base}/resend-license",
-                              json={"email": licence["email"]}, timeout=60)
+                              json={"email": email}, timeout=60)
         assert first.status_code == 200
         time.sleep(1.5)
 
@@ -208,9 +214,11 @@ class TestDelivery:
         assert len(after_first) == before + 1, "no email was captured"
 
         sent = after_first[-1]
-        assert sent["to"] == licence["email"]
-        assert licence["licenseKey"] in sent["text"]
-        assert licence["licenseKey"] in sent["html"]
+        assert sent["to"] == email
+        match = re.search(r"FS-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}", sent["text"])
+        assert match, "no licence key found in the delivered text body"
+        key = match.group(0)
+        assert key in sent["html"]
 
         # The success page lookup must not duplicate what the webhook sent.
         requests.get(f"{base}/get-license",
@@ -221,10 +229,11 @@ class TestDelivery:
     def test_resend_is_explicitly_allowed_to_send_again(self, capture_server, needs_stripe):
         """The once-only guard must not lock a customer out of their own key."""
         base, outbox = capture_server["base"], capture_server["outbox"]
-        licence = self._paid_license(base)
+        email = "deployed-e2e@example.com"
+        self._paid_license(base)
 
         before = len(_emails(outbox))
-        requests.post(f"{base}/resend-license", json={"email": licence["email"]}, timeout=60)
+        requests.post(f"{base}/resend-license", json={"email": email}, timeout=60)
         time.sleep(1.5)
         assert len(_emails(outbox)) == before + 1
 
