@@ -286,15 +286,16 @@ go-ahead.
    F2's escape hatch now gets harder by shield level (#47), the journal can be
    read back (F17, #116), and roadmap 1.4 registers `flowshield://` so the
    thank-you page's "Activate in FlowShield" button works (#51). What's
-   genuinely still open, per #37/#38 (reviewed 21 September 2026): on the
-   owner's side, F4 (start a sprint from the tray or keyboard), F16 (history
-   and a weekly view — the most unblocking item left; F14's milestones and
-   F17's read-back both wait on it), F5/F6 (breaks and study templates), F9
-   (blocklist profiles), F23 (in-app "Your data" and the privacy claims
-   test), and the server roadmap (5.2 → 5.4 → 5.1 → 5.7 → 4.1); on Miles's
-   side, F7's remaining Soft overlay (#143), F21 (light theme, keyboard and
-   accessibility), F22 (Settings, blocked on F5/F6/F9), and the #144 capture
-   refresh once the design-system work lands.
+   genuinely still open, per #37/#38 (reviewed 21 September 2026, though F20
+   and F23 have since shipped — #213 and #211): on the owner's side, F4
+   (start a sprint from the tray or keyboard), F16 (history and a weekly
+   view — the most unblocking item left; F14's milestones and F17's
+   read-back both wait on it), F5/F6 (breaks and study templates), F9
+   (blocklist profiles), and the server roadmap (5.2 → 5.4 → 5.1 → 5.7 →
+   4.1); on Miles's side, F7's remaining Soft overlay (#143), F21 (light
+   theme, keyboard and accessibility), F22 (Settings, blocked on
+   F5/F6/F9), and the #144 capture refresh once the design-system work
+   lands.
 2. **Stripe business name** (owner; found in a test purchase on 13 September
    2026). Checkout and the billing portal show "Focus Unlock sandbox". The
    sandbox and its parent account are both named FlowShield (the parent was
