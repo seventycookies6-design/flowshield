@@ -200,7 +200,10 @@ class TestAppSide:
         body = source.split("public async Task DeactivateAsync")[1].split("\n    }")[0]
 
         release = body.index('action = "release"')
-        clear = body.index("settings.LicenseKey = \"\"")
+        # #202: the clearing mutation now runs inside MutateAndSave's
+        # callback (on `s`, not `settings`), so it can be marshalled onto the
+        # UI thread before it touches the shared settings object.
+        clear = body.index('s.LicenseKey = ""')
         assert release < clear, "the seat must be released before the key is cleared"
 
     def test_a_failed_release_still_deactivates_locally(self):

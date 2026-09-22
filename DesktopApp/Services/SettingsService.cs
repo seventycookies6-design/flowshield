@@ -35,6 +35,13 @@ public class SettingsService
 
     private readonly object _gate = new();
 
+    /// <summary>
+    /// The plain-text bytes of the last thing actually written to disk, so a
+    /// Save() that changed nothing can be coalesced away under <see cref="_gate"/>
+    /// instead of re-encrypting and rewriting an identical file.
+    /// </summary>
+    private byte[]? _lastWrittenPlain;
+
     public string SettingsDirectory { get; }
     public string SettingsPath { get; }
 
@@ -107,8 +114,13 @@ public class SettingsService
                     ? ProtectedData.Unprotect(cipher, Entropy, DataProtectionScope.CurrentUser)
                     : cipher;
 
-                return JsonSerializer.Deserialize<AppSettings>(Encoding.UTF8.GetString(plain))
+                var loaded = JsonSerializer.Deserialize<AppSettings>(Encoding.UTF8.GetString(plain))
                        ?? new AppSettings();
+
+                // Remember what disk already holds, so a Save() that changes
+                // nothing after a fresh Load() is recognised as a no-op too.
+                _lastWrittenPlain = plain;
+                return loaded;
             }
             catch (Exception ex)
             {
@@ -121,11 +133,33 @@ public class SettingsService
         }
     }
 
+    /// <summary>
+    /// Serializes and writes <paramref name="settings"/>.
+    ///
+    /// Callers own the threading contract, not this method: <c>settings</c> is
+    /// the live, mutable object the rest of the app reads and writes, so it
+    /// must already belong exclusively to whichever thread calls Save — the UI
+    /// thread for every in-app change, and (via <see cref="LicenseService"/>'s
+    /// dispatcher marshalling) for background licence verdicts too. Given
+    /// that, Save still takes its own copy with <see cref="AppSettings.Clone"/>
+    /// before doing anything slow, so the DPAPI encrypt and the file write —
+    /// the part of this call that can't finish in a microsecond — never hold a
+    /// reference to the object anything else might still be mutating (#202).
+    /// </summary>
     public void Save(AppSettings settings)
     {
+        var snapshot = settings.Clone();
+        var plain = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(snapshot, JsonOpts));
+
         lock (_gate)
         {
-            var plain = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(settings, JsonOpts));
+            // Coalesce: a save that would write exactly what's already on
+            // disk (a background refresh confirming the same status, a tick
+            // that touched nothing) is skipped. There's nothing to lose on a
+            // crash when nothing changed, and it saves an encrypt + a write.
+            if (_lastWrittenPlain is not null && plain.AsSpan().SequenceEqual(_lastWrittenPlain))
+                return;
+
             var cipher = ProtectedData.Protect(plain, Entropy, DataProtectionScope.CurrentUser);
 
             var envelope = new Envelope
@@ -140,6 +174,8 @@ public class SettingsService
 
             if (File.Exists(SettingsPath)) File.Replace(temp, SettingsPath, null);
             else File.Move(temp, SettingsPath);
+
+            _lastWrittenPlain = plain;
         }
     }
 
@@ -149,6 +185,9 @@ public class SettingsService
         lock (_gate)
         {
             if (File.Exists(SettingsPath)) File.Delete(SettingsPath);
+            // Otherwise the next Save() could see a match against the file
+            // that was just deleted and wrongly coalesce itself away.
+            _lastWrittenPlain = null;
         }
     }
 

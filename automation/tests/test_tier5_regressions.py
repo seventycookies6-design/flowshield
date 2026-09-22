@@ -5795,3 +5795,104 @@ class TestGlobalHotkeyHookIsNeverStacked:
         remove_hook_index = closing.find("_hotkeySource.RemoveHook(WndProc)")
         assert unregister_index != -1
         assert remove_hook_index != -1, "OnClosing must remove the WndProc hook, not just unregister the hotkey"
+
+
+# ==================================================== #202 settings save race
+
+class TestSettingsSaveRaceRegression:
+    """
+    #202: SettingsService.Save serialized the live, shared AppSettings
+    instance straight from whichever thread called it. The `_gate` lock only
+    ever kept two writers from interleaving each other's file I/O; it did
+    nothing about a *reader* of `settings.Sessions` (Save's own serializer)
+    racing a writer of it. The concrete path: App.OnStartup fires
+    `licenseService.RefreshAsync(...)` without awaiting it, and its eventual
+    `_settings.Save(settings)` could reach `JsonSerializer.Serialize` at the
+    same moment `TodayViewModel.EndSprint` ran `S.Sessions.Add(_current)` on
+    the UI thread -- a `List<T>` mutated during enumeration throws
+    "Collection was modified", which both `ValidateAsync` and `RefreshAsync`
+    swallow in a general catch, so the file is never written and the
+    just-finished sprint (its momentum, its streak day) is lost silently.
+
+    There is no dotnet test project in this repo (CLAUDE.md: the pytest suite
+    *is* the test suite), and a genuine cross-thread data race is not
+    something this harness can drive deterministically against C# without
+    running the compiled app for minutes under contrived timing -- exactly
+    what the UI-test ban this repo has (see CLAUDE.md "Never run the UI
+    tests") rules out here. So this pins the fix by source: every path that
+    used to call `_settings.Save(settings)` straight from a background
+    continuation must now go through the single, UI-thread-marshalling
+    choke point, and Save itself must never hand the live object to the
+    serializer.
+
+    Proven to fail first: reverting LicenseService.cs's three call sites to
+    their pre-fix form --
+        settings.IsPro = true; ...; _settings.Save(settings);
+    -- with no MutateAndSave wrapper (and/or reverting SettingsService.Save
+    to `JsonSerializer.Serialize(settings, JsonOpts)` with no snapshot)
+    fails every assertion below; the current source passes all of them.
+    """
+
+    LICENSE_SERVICE = (Path(DESKTOP_DIR) / "Services" / "LicenseService.cs").read_text(
+        encoding="utf-8")
+    SETTINGS_SERVICE = (Path(DESKTOP_DIR) / "Services" / "SettingsService.cs").read_text(
+        encoding="utf-8")
+    TODAY_VM = (Path(DESKTOP_DIR) / "ViewModels" / "TodayViewModel.cs").read_text(
+        encoding="utf-8")
+
+    def test_the_sprint_that_exposed_the_race_is_still_saved_before_the_add(self):
+        """
+        Sanity check on the scenario itself: EndSprint really does add to the
+        live, shared Sessions list on the UI thread, which is what makes a
+        concurrent background Save dangerous in the first place.
+        """
+        assert "S.Sessions.Add(_current)" in self.TODAY_VM
+
+    def test_no_settings_mutation_reaches_save_without_going_through_the_guard(self):
+        """
+        The three places a background license verdict used to mutate
+        `settings` and save it inline (activation, a downgrade on refresh,
+        deactivation) must all route through MutateAndSave, which marshals
+        onto the UI thread first -- the same thread every other mutator of
+        AppSettings already runs on.
+        """
+        assert "private void MutateAndSave(AppSettings settings, Action<AppSettings> mutate)" \
+            in self.LICENSE_SERVICE
+
+        # None of the three verdict paths may set settings.IsPro and then
+        # save without going through the guard in between.
+        for marker in (
+            "s.IsPro = true;",      # ValidateAsync: activation
+            "s.IsPro = false;",     # RefreshAsync's downgrade / DeactivateAsync
+        ):
+            assert marker in self.LICENSE_SERVICE, \
+                f"expected mutation {marker!r} inside a MutateAndSave callback"
+
+        # And the old inline pattern -- mutate settings.* directly, then call
+        # _settings.Save(settings) in the same block -- must be gone.
+        assert "settings.IsPro = true;" not in self.LICENSE_SERVICE, \
+            "IsPro must be set inside MutateAndSave's callback (on `s`), " \
+            "not on the live `settings` reference outside it"
+
+    def test_the_dispatcher_marshal_actually_blocks_until_saved(self):
+        """
+        Dispatcher.Invoke (not BeginInvoke/PostAsJsonAsync-style fire-and-
+        forget) is required: the code right after MutateAndSave reads
+        settings.LicenseStatus/DeviceCount back out for logging and the
+        returned LicenseResult, which only works if the save has already
+        happened by the time MutateAndSave returns.
+        """
+        method = self.LICENSE_SERVICE.split("private void MutateAndSave(")[1].split(
+            "\n    }")[0]
+        assert "dispatcher.Invoke(" in method
+        assert "BeginInvoke" not in method, \
+            "a fire-and-forget marshal would let ValidateAsync read " \
+            "settings.LicenseStatus before the mutation actually happened"
+
+    def test_save_never_serializes_the_live_object_directly(self):
+        save = self.SETTINGS_SERVICE.split("public void Save(AppSettings settings)")[1]
+        assert "settings.Clone()" in save.split("lock (_gate)")[0], \
+            "Save must snapshot with Clone() before the locked section, so " \
+            "nothing after this point ever reads the object another thread " \
+            "might still be mutating"
+        assert "JsonSerializer.Serialize(settings, JsonOpts)" not in save
