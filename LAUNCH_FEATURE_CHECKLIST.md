@@ -344,10 +344,10 @@ A summary of the research, to explain the choices below.
 
 ### F7 — Soft shows a real overlay; Firm closes gracefully · **Launch** · M · Roadmap 1.7, 1.8
 
-- [x] Done (#146, #218) — 1.8's close path shipped in #146: a warning naming the
+- [x] Done (#146, #224) — 1.8's close path shipped in #146: a warning naming the
       app, a grace period, `CloseMainWindow` before any kill, and a panel before
       the sprint saying what is already open. Hard kill still closes instantly,
-      by design. 1.7's Soft notice shipped in #218: a topmost full-screen window
+      by design. 1.7's Soft notice shipped in #224: a topmost full-screen window
       on the blocked app's own monitor, naming the app and the time left, with
       *Back to work* and *Allow 5 minutes*. It closes nothing, shows once per
       sighting, never over a FlowShield panel, and never at Firm or Sealed.
