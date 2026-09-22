@@ -1,6 +1,7 @@
 using System;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Threading;
 
 namespace FlowShield.Views;
@@ -30,6 +31,15 @@ public partial class SettingsView : UserControl
         if (sender is FrameworkElement { Tag: string g }) JumpTo(g);
     }
 
+    // WPF RadioButtons don't reliably raise Click on Enter (only Space toggles
+    // the selection), so Enter is handled explicitly here to satisfy the
+    // keyboard requirement that every rail link activates with Enter or Space.
+    private void OnNavKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter) return;
+        if (sender is FrameworkElement { Tag: string g }) JumpTo(g);
+    }
+
     /// <summary>
     /// Scrolls a group's header to the top of the viewport and moves focus to
     /// it. Uses ScrollToVerticalOffset (not BringIntoView) for exact top
@@ -45,22 +55,28 @@ public partial class SettingsView : UserControl
         _jumping = true;
         try
         {
-            var y = target.TransformToAncestor(GroupsPanel).Transform(new System.Windows.Point(0, 0)).Y;
-            SettingsScroll.ScrollToVerticalOffset(y);
+            try
+            {
+                var y = target.TransformToAncestor(GroupsPanel).Transform(new System.Windows.Point(0, 0)).Y;
+                SettingsScroll.ScrollToVerticalOffset(y);
+            }
+            catch (InvalidOperationException)
+            {
+                target.BringIntoView();
+            }
+            header?.Focus();
         }
-        catch (InvalidOperationException)
+        finally
         {
-            target.BringIntoView();
+            Dispatcher.BeginInvoke(() => _jumping = false, DispatcherPriority.Background);
         }
-        header?.Focus();
-        Dispatcher.BeginInvoke(() => _jumping = false, DispatcherPriority.Background);
     }
 
     private void OnScrollChanged(object sender, ScrollChangedEventArgs e)
     {
         if (_jumping) return;
 
-        string current = Groups[0];
+        string? current = null;
         if (SettingsScroll.VerticalOffset >= SettingsScroll.ScrollableHeight - 1)
         {
             current = Groups[^1];            // bottom reached: last group wins
@@ -70,11 +86,20 @@ public partial class SettingsView : UserControl
             foreach (var g in Groups)
             {
                 if (FindName("Group_" + g) is not FrameworkElement el) continue;
-                var top = el.TransformToAncestor(GroupsPanel).Transform(new System.Windows.Point(0, 0)).Y;
+                double top;
+                try
+                {
+                    top = el.TransformToAncestor(GroupsPanel).Transform(new System.Windows.Point(0, 0)).Y;
+                }
+                catch (InvalidOperationException)
+                {
+                    continue;                 // not in the visual tree yet: skip this group
+                }
                 if (top <= SettingsScroll.VerticalOffset + 24) current = g;
             }
         }
 
+        if (current is null) return;          // no position could be computed: leave selection alone
         if (FindName("SettingsNav_" + current) is RadioButton rb) rb.IsChecked = true;
     }
 }

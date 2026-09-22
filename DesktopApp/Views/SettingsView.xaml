@@ -16,22 +16,22 @@
                    AutomationProperties.Name="Settings sections">
             <RadioButton x:Name="SettingsNav_Licence" Style="{StaticResource SettingsNavLink}"
                          GroupName="SettingsNav" Tag="Licence" Content="Licence &amp; devices" IsChecked="True"
-                         AutomationProperties.AutomationId="SettingsNav_Licence" Click="OnNavClick"/>
+                         AutomationProperties.AutomationId="SettingsNav_Licence" Click="OnNavClick" PreviewKeyDown="OnNavKeyDown"/>
             <RadioButton x:Name="SettingsNav_Focus" Style="{StaticResource SettingsNavLink}"
                          GroupName="SettingsNav" Tag="Focus" Content="Focus"
-                         AutomationProperties.AutomationId="SettingsNav_Focus" Click="OnNavClick"/>
+                         AutomationProperties.AutomationId="SettingsNav_Focus" Click="OnNavClick" PreviewKeyDown="OnNavKeyDown"/>
             <RadioButton x:Name="SettingsNav_App" Style="{StaticResource SettingsNavLink}"
                          GroupName="SettingsNav" Tag="App" Content="App"
-                         AutomationProperties.AutomationId="SettingsNav_App" Click="OnNavClick"/>
+                         AutomationProperties.AutomationId="SettingsNav_App" Click="OnNavClick" PreviewKeyDown="OnNavKeyDown"/>
             <RadioButton x:Name="SettingsNav_Notifications" Style="{StaticResource SettingsNavLink}"
                          GroupName="SettingsNav" Tag="Notifications" Content="Notifications"
-                         AutomationProperties.AutomationId="SettingsNav_Notifications" Click="OnNavClick"/>
+                         AutomationProperties.AutomationId="SettingsNav_Notifications" Click="OnNavClick" PreviewKeyDown="OnNavKeyDown"/>
             <RadioButton x:Name="SettingsNav_Data" Style="{StaticResource SettingsNavLink}"
                          GroupName="SettingsNav" Tag="Data" Content="Your data"
-                         AutomationProperties.AutomationId="SettingsNav_Data" Click="OnNavClick"/>
+                         AutomationProperties.AutomationId="SettingsNav_Data" Click="OnNavClick" PreviewKeyDown="OnNavKeyDown"/>
             <RadioButton x:Name="SettingsNav_About" Style="{StaticResource SettingsNavLink}"
                          GroupName="SettingsNav" Tag="About" Content="About"
-                         AutomationProperties.AutomationId="SettingsNav_About" Click="OnNavClick"/>
+                         AutomationProperties.AutomationId="SettingsNav_About" Click="OnNavClick" PreviewKeyDown="OnNavKeyDown"/>
         </WrapPanel>
 
     <ScrollViewer x:Name="SettingsScroll" Grid.Column="1" VerticalScrollBarVisibility="Auto"

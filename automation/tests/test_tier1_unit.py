@@ -4058,3 +4058,10 @@ class TestSettingsIsGrouped:
         cs = (self.XAML.parent / "SettingsView.xaml.cs").read_text(encoding="utf-8")
         assert "BringIntoView" in cs and ".Focus()" in cs
         assert "ScrollChanged" in cs, "rail must follow scrolling"
+
+    def test_rail_links_activate_with_enter(self):
+        """WPF RadioButtons don't reliably fire Click on Enter, only Space --
+        the code-behind must handle Key.Enter itself so every rail link
+        activates with either key (constraints.md keyboard requirement)."""
+        cs = (self.XAML.parent / "SettingsView.xaml.cs").read_text(encoding="utf-8")
+        assert "Key.Enter" in cs
