@@ -1931,6 +1931,174 @@ class TestMomentumTrend:
             "the trend must not add a second copy of the score to settings"
 
 
+# ================================================= #202 settings save race
+
+class TestSettingsSaveDoesNotRaceItsMutators:
+    """
+    #202: SettingsService.Save serialized the live, shared AppSettings
+    instance while another thread could still be mutating its List<>s
+    (TodayViewModel.EndSprint's Sessions.Add racing a background license
+    refresh's Save). The _gate lock only ever serialized writers against each
+    other, never a reader (Save) against a mutator.
+
+    No dotnet test project exists in this repo (see CLAUDE.md — the automation
+    suite is the test suite), and the actual failure mode is a genuine data
+    race that only reproduces under real thread contention, not something a
+    Python harness can drive against C# source. These pin the two guards the
+    fix relies on by reading the source directly, the same "unit-by-source"
+    approach the rest of this file uses for pure C# logic.
+    """
+
+    DESKTOP = Path(SERVER_DIR).parent / "DesktopApp"
+    SETTINGS_SERVICE = DESKTOP / "Services" / "SettingsService.cs"
+    LICENSE_SERVICE = DESKTOP / "Services" / "LicenseService.cs"
+    APP_SETTINGS = DESKTOP / "Models" / "AppSettings.cs"
+
+    def test_clone_is_a_deep_copy_not_a_shallow_one(self):
+        """
+        Save's snapshot-before-the-slow-part guard (below) is only a guard if
+        Clone() actually deep-copies the object — a MemberwiseClone would
+        still hand Save a shared reference to the same Sessions/BlockedApps/
+        ActiveSprint/SkipDatesLocal/NotificationKinds instances the live
+        settings object points at, so a concurrent structural mutation of any
+        of them would still be visible to (and could still crash) the
+        serializer, exactly as if Clone() were never called.
+
+        Pinned as the JSON round-trip Clone() actually uses: serializing the
+        whole graph and deserializing a fresh instance is what guarantees
+        every nested list and dictionary comes back as a new instance, not a
+        shared reference. MemberwiseClone would pass every other test in this
+        file untouched, since none of them execute the C# — there's no dotnet
+        test project here (CLAUDE.md) — so this has to pin it by source.
+        """
+        source = self.APP_SETTINGS.read_text(encoding="utf-8")
+        clone = source.split("public AppSettings Clone()")[1].split("\n    }")[0]
+
+        assert "MemberwiseClone" not in clone, (
+            "MemberwiseClone copies reference fields (Sessions, BlockedApps, "
+            "ActiveSprint, SkipDatesLocal, NotificationKinds, ...) rather than "
+            "the objects they point at, so it would not actually snapshot "
+            "anything Save is protecting against"
+        )
+        assert "JsonSerializer.Serialize(this)" in clone, \
+            "Clone must serialize the whole object graph, not a subset of fields"
+        assert "JsonSerializer.Deserialize<AppSettings>(" in clone, \
+            "Clone must deserialize into a brand-new AppSettings, so every " \
+            "nested collection is a new instance rather than a shared reference"
+
+    def test_save_snapshots_before_the_slow_part(self):
+        """
+        Save must clone the live settings object into a private copy before
+        the DPAPI encrypt and file write — the only part of Save that can't
+        finish instantly, and so the only part where a concurrent mutation on
+        another thread would matter.
+        """
+        source = self.SETTINGS_SERVICE.read_text(encoding="utf-8")
+        save = source.split("public void Save(AppSettings settings)")[1].split(
+            "\n    public ")[0]
+
+        clone_line = save.index("settings.Clone()")
+        lock_line = save.index("lock (_gate)")
+        assert clone_line < lock_line, (
+            "Save must snapshot the live settings object with Clone() before "
+            "entering the slow, locked section — cloning inside the lock "
+            "still races a mutator that never takes _gate"
+        )
+
+        # The bytes that get encrypted and written must come from the
+        # snapshot, not from `settings` directly.
+        after_clone = save[clone_line:]
+        assert "JsonSerializer.Serialize(snapshot, JsonOpts)" in after_clone
+        assert "JsonSerializer.Serialize(settings, JsonOpts)" not in save, (
+            "the live settings object must never be handed to the serializer "
+            "directly; something else may be mutating it"
+        )
+
+    def test_save_still_writes_atomically(self):
+        """The temp-file-then-replace guarantee from #202's neighbouring fix
+        must survive: snapshotting must not have replaced it with a direct
+        write."""
+        source = self.SETTINGS_SERVICE.read_text(encoding="utf-8")
+        assert 'var temp = SettingsPath + ".tmp";' in source
+        assert "File.Replace(temp, SettingsPath, null)" in source
+
+    def test_save_coalesces_an_unchanged_write(self):
+        """
+        A save that would write exactly what's already on disk should not
+        pay for a fresh DPAPI encrypt and file replace every time — cheap
+        insurance against the flood of near-identical saves a heartbeat and a
+        background refresh both produce.
+        """
+        source = self.SETTINGS_SERVICE.read_text(encoding="utf-8")
+        save = source.split("public void Save(AppSettings settings)")[1].split(
+            "\n    public ")[0]
+        assert "_lastWrittenPlain" in save
+        assert "SequenceEqual(_lastWrittenPlain)" in save
+        assert "return;" in save.split("SequenceEqual(_lastWrittenPlain)")[1].split(
+            "\n\n")[0], "an unchanged save must return before touching disk"
+
+    def test_reset_clears_the_coalesce_cache(self):
+        """
+        Otherwise Reset() (used by --reset and F23's delete-everything) could
+        leave a stale cached copy that makes the very next Save() think
+        nothing changed, and skip writing the file Reset() just deleted.
+        """
+        source = self.SETTINGS_SERVICE.read_text(encoding="utf-8")
+        reset = source.split("public void Reset()")[1].split("\n    }")[0]
+        assert "_lastWrittenPlain = null" in reset
+
+    def test_license_service_never_saves_settings_directly(self):
+        """
+        Every mutate-then-save in LicenseService must go through
+        MutateAndSave, which marshals onto the UI thread before touching the
+        shared settings object — the same thread TodayViewModel and friends
+        already own it from. A direct `_settings.Save(settings)` call here
+        would be exactly the #202 regression: a background verdict racing a
+        foreground mutation.
+        """
+        source = self.LICENSE_SERVICE.read_text(encoding="utf-8")
+        method = source.split("private void MutateAndSave(")[1].split("\n    }")[0]
+        outside = source.replace(method, "")
+        assert "_settings.Save(settings)" not in outside, (
+            "every direct call to _settings.Save must live inside "
+            "MutateAndSave, not scattered across ValidateAsync/RefreshAsync/"
+            "DeactivateAsync"
+        )
+        assert source.count("_settings.Save(settings)") == 2, (
+            "MutateAndSave's two branches (marshalled and already-on-thread) "
+            "are the only places settings should be saved directly"
+        )
+        assert "MutateAndSave(settings," in source
+
+    def test_mutate_and_save_marshals_onto_the_ui_thread(self):
+        source = self.LICENSE_SERVICE.read_text(encoding="utf-8")
+        method = source.split("private void MutateAndSave(")[1].split("\n    }")[0]
+        assert "Application.Current?.Dispatcher" in method
+        assert "dispatcher.Invoke(" in method
+        assert "dispatcher.CheckAccess()" in method, (
+            "must not double-marshal (or deadlock) when already on the UI thread"
+        )
+
+    def test_every_licence_verdict_goes_through_mutate_and_save(self):
+        """
+        ValidateAsync's activation branch, RefreshAsync's downgrade, and
+        DeactivateAsync must each route their settings mutation through the
+        one race-safe helper, not touch settings fields and Save
+        independently.
+        """
+        source = self.LICENSE_SERVICE.read_text(encoding="utf-8")
+        validate = source.split("public async Task<LicenseResult> ValidateAsync(")[1].split(
+            "public async Task RefreshAsync(")[0]
+        refresh = source.split("public async Task RefreshAsync(")[1].split(
+            "public async Task DeactivateAsync(")[0]
+        deactivate = source.split("public async Task DeactivateAsync(")[1]
+
+        for name, block in (("ValidateAsync", validate), ("RefreshAsync", refresh),
+                             ("DeactivateAsync", deactivate)):
+            assert "MutateAndSave(settings," in block, \
+                f"{name} must save through MutateAndSave"
+
+
 class TestMomentumTrendView:
     """The chart and explainer exist on Today and follow the chart rules."""
 

@@ -50,6 +50,48 @@ public class LicenseService
         _http = http ?? new HttpClient { Timeout = RequestTimeout };
     }
 
+    /// <summary>
+    /// Mutates the shared <see cref="AppSettings"/> and saves it as one step,
+    /// on the UI thread.
+    ///
+    /// The UI thread is the only thread anything else in the app mutates
+    /// settings from (TodayViewModel, BlockedAppsViewModel and friends all run
+    /// on it), so <see cref="SettingsService.Save"/> can only be race-free if
+    /// every other caller lands there too. App.OnStartup calls
+    /// <see cref="RefreshAsync"/> without awaiting it, and today's default
+    /// <c>await</c> continuations happen to resume back on the UI thread's
+    /// captured <c>SynchronizationContext</c> — but nothing enforced that. A
+    /// single <c>ConfigureAwait(false)</c> added anywhere in this chain, or a
+    /// caller that starts this on a thread-pool thread, would have silently
+    /// put a background thread back in the business of serializing the live
+    /// settings object while the UI thread mutates it (#202: a background
+    /// licence refresh raced <c>TodayViewModel.EndSprint</c>'s
+    /// <c>Sessions.Add</c> and the sprint that had just finished was lost).
+    /// Marshalling explicitly — the same pattern <c>MainViewModel.OnBlocked</c>
+    /// already uses for the blocker's background timer — makes "settings is
+    /// only ever touched from one thread" a real invariant instead of an
+    /// accident of the current call graph.
+    /// </summary>
+    private void MutateAndSave(AppSettings settings, Action<AppSettings> mutate)
+    {
+        var dispatcher = System.Windows.Application.Current?.Dispatcher;
+        if (dispatcher is null || dispatcher.CheckAccess())
+        {
+            // No WPF dispatcher (a headless caller, e.g. a future test), or
+            // already on it — nothing to marshal.
+            mutate(settings);
+            _settings.Save(settings);
+        }
+        else
+        {
+            dispatcher.Invoke(() =>
+            {
+                mutate(settings);
+                _settings.Save(settings);
+            });
+        }
+    }
+
     private sealed class ValidateResponse
     {
         [JsonPropertyName("valid")] public bool Valid { get; set; }
@@ -115,14 +157,16 @@ public class LicenseService
 
             if (body.IsPro)
             {
-                settings.IsPro = true;
-                settings.LicenseKey = body.LicenseKey ?? key;
-                settings.LicenseEmail = body.Email ?? mail;
-                settings.LicenseStatus = body.Status ?? "active";
-                settings.LicenseCheckedUtc = DateTime.UtcNow;
-                settings.DeviceCount = body.DeviceCount ?? 0;
-                settings.DeviceLimit = body.DeviceLimit ?? 0;
-                _settings.Save(settings);
+                MutateAndSave(settings, s =>
+                {
+                    s.IsPro = true;
+                    s.LicenseKey = body.LicenseKey ?? key;
+                    s.LicenseEmail = body.Email ?? mail;
+                    s.LicenseStatus = body.Status ?? "active";
+                    s.LicenseCheckedUtc = DateTime.UtcNow;
+                    s.DeviceCount = body.DeviceCount ?? 0;
+                    s.DeviceLimit = body.DeviceLimit ?? 0;
+                });
 
                 Log.Info($"license activated: status={settings.LicenseStatus} "
                          + $"devices={settings.DeviceCount}/{settings.DeviceLimit}");
@@ -152,8 +196,11 @@ public class LicenseService
             // rather than letting it read as a payment failure.
             if (reason == "device_limit_reached")
             {
-                settings.DeviceCount = body.DeviceCount ?? 0;
-                settings.DeviceLimit = body.DeviceLimit ?? 0;
+                MutateAndSave(settings, s =>
+                {
+                    s.DeviceCount = body.DeviceCount ?? 0;
+                    s.DeviceLimit = body.DeviceLimit ?? 0;
+                });
             }
 
             Log.Warn($"license rejected: {reason}");
@@ -191,9 +238,11 @@ public class LicenseService
             if (result.Definitive && !result.IsPro && settings.IsPro)
             {
                 Log.Warn($"background refresh downgraded license: {result.Status}");
-                settings.IsPro = false;
-                settings.LicenseStatus = result.Status;
-                _settings.Save(settings);
+                MutateAndSave(settings, s =>
+                {
+                    s.IsPro = false;
+                    s.LicenseStatus = result.Status;
+                });
             }
         }
         catch (Exception ex)
@@ -235,14 +284,16 @@ public class LicenseService
             }
         }
 
-        settings.IsPro = false;
-        settings.LicenseKey = "";
-        settings.LicenseEmail = "";
-        settings.LicenseStatus = "";
-        settings.LicenseCheckedUtc = null;
-        settings.DeviceCount = 0;
-        settings.DeviceLimit = 0;
-        _settings.Save(settings);
+        MutateAndSave(settings, s =>
+        {
+            s.IsPro = false;
+            s.LicenseKey = "";
+            s.LicenseEmail = "";
+            s.LicenseStatus = "";
+            s.LicenseCheckedUtc = null;
+            s.DeviceCount = 0;
+            s.DeviceLimit = 0;
+        });
         Log.Info("license deactivated locally");
     }
 }
