@@ -24,7 +24,7 @@ automatically, and it wins over anything here), then `README.md`, `DEPLOY.md`,
 A Windows 10/11 x64 app. Pick a sprint length and a shield level, start the
 timer, and apps on your blocklist are dealt with until it ends.
 
-- **Shield levels:** Soft (a brief notice inside FlowShield; the blocked app
+- **Shield levels:** Soft (a full-screen notice over the blocked app, which
   keeps running), Firm (blocked apps are warned to save their work, then
   closed), Sealed (warned then closed, and the blocklist locks for the rest
   of the sprint — ending the sprint early unlocks it).
@@ -292,7 +292,7 @@ go-ahead.
    view — the most unblocking item left; F14's milestones and F17's
    read-back both wait on it), F5/F6 (breaks and study templates), F9
    (blocklist profiles), and the server roadmap (5.2 → 5.4 → 5.1 → 5.7 →
-   4.1); on Miles's side, F7's remaining Soft overlay (#143), F21 (light
+   4.1); on Miles's side, F21 (light
    theme, keyboard and accessibility), F22 (Settings, blocked on
    F5/F6/F9), and the #144 capture refresh once the design-system work
    lands.
