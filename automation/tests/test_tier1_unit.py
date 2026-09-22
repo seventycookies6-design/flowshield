@@ -2056,3 +2056,50 @@ class TestIssueHygieneChecks:
         found = check.run_checks(issues, self.CHECKLIST, {}, self._now())
         assert not found
         assert "No issue-state drift" in check.report([])
+
+# ==================== configured ports reach the server (fix/test-ports)
+
+class TestConfiguredPortsReachTheServer:
+    """
+    Two agents on the same machine each set FLOWSHIELD_SERVER_PORT /
+    FLOWSHIELD_WEBSITE_PORT and expect the license server they spawn to
+    actually listen there. Before this fix, `license_server()` spawned
+    `node server.js` with no PORT in its environment, so `Server/server.js`
+    (`process.env.PORT || 3000`) always bound port 3000 regardless of what
+    config.py had resolved — and conftest.py's `server` fixture probed the
+    literal port 3000 as well, so it never noticed.
+    """
+
+    SERVICES = SERVER_DIR.parent / "automation" / "core" / "services.py"
+    CONFTEST = SERVER_DIR.parent / "automation" / "tests" / "conftest.py"
+
+    def test_license_server_env_sets_the_configured_port(self):
+        source = self.SERVICES.read_text(encoding="utf-8")
+        assert 'env["PORT"] = os.environ.get("PORT", str(SERVER_PORT))' in source, (
+            "the node process must be told SERVER_PORT, or it falls back to "
+            "server.js's own default of 3000"
+        )
+        assert 'env=_server_env()' in source, (
+            "license_server() must pass the port-aware environment to the "
+            "node child process, not the bare _npm_env()"
+        )
+
+    def test_license_server_env_sets_website_url_too(self):
+        source = self.SERVICES.read_text(encoding="utf-8")
+        assert 'env["WEBSITE_URL"] = WEBSITE_URL' in source, (
+            "server.js builds checkout success/cancel URLs from WEBSITE_URL; "
+            "without it, checkout tests point at the wrong site port"
+        )
+
+    def test_conftest_reads_the_port_from_config_not_a_literal(self):
+        source = self.CONFTEST.read_text(encoding="utf-8")
+        assert "port_is_open(3000)" not in source, (
+            "a hardcoded 3000 here defeats FLOWSHIELD_SERVER_PORT: the "
+            "server fixture would skip (or wrongly pass) based on the "
+            "default port instead of the one actually configured"
+        )
+        assert "port_is_open(SERVER_PORT)" in source
+        assert "SERVER_PORT" in source.split("from config import")[1].split(")")[0], (
+            "SERVER_PORT must be imported from config, the single source of "
+            "truth for FLOWSHIELD_SERVER_PORT"
+        )
