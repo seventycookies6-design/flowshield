@@ -740,13 +740,18 @@ class TestSleepBlockingEnforces:
     Inside the sleep window the watcher previously dropped to the Soft shield
     unless hard-kill mode was on, so a scheduled block only wrote a log line.
     Nobody is at the keyboard at 2am to be nudged.
+
+    #197 widened this: the Firm floor used to be applied only when no sprint
+    was running, so a Soft sprint through the night switched the nightly block
+    off. The assertion now holds the floor itself rather than the one line that
+    used to express it -- TestTheSleepWindowNeverDropsBelowFirm has the detail.
     """
 
     def test_sleep_window_closes_apps(self):
         source = (Path(DESKTOP_DIR) / "Services" / "AppBlockerService.cs").read_text(
             encoding="utf-8")
         tick = source.split("private void Tick()")[1].split("\n    }")[0]
-        assert "sleepActive && !enforcing) shield = ShieldLevel.Firm" in tick, \
+        assert re.search(r"if \(sleepActive[^)]*\) shield = ShieldLevel\.Firm;", tick), \
             "a scheduled sleep block must close apps, not merely nudge"
 
 
