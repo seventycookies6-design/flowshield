@@ -2457,3 +2457,9 @@ class TestSettingsRail:
         app.click("SettingsNav_About")
         assert app.is_on_screen("CheckForUpdatesButton")
         assert app.is_selected("SettingsNav_About")
+
+    def test_focus_link_scrolls_break_minutes_into_view(self, app):
+        app.navigate_to_tab("Settings")
+        app.click("SettingsNav_Focus")
+        assert app.is_on_screen("ShortBreakMinutesInput")
+        assert app.is_selected("SettingsNav_Focus")

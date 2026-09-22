@@ -40,9 +40,13 @@ public partial class SettingsView : UserControl
 
     /// <summary>
     /// Switches the rail between its two layouts. Narrow: a horizontal,
-    /// wrapping chip row spanning both columns in a new top row, with the
-    /// scroll area moved below it. At or above the breakpoint: the rail is
-    /// restored to its left-hand column, spanning both rows.
+    /// wrapping chip row spanning both columns in a new top row (RowSpan 1),
+    /// with the scroll area moved below it into row 1 (RowSpan 1). At or
+    /// above the breakpoint: the rail is restored to its left-hand column,
+    /// and both the rail and the scroll area span row 0 and row 1 (RowSpan 2)
+    /// so the ScrollViewer is constrained by the Grid's "*" row instead of
+    /// stretching the Auto row to fit its content — without that, Settings
+    /// can't scroll at all at 900px or wider.
     /// </summary>
     private void ApplyRailLayout(double width)
     {
@@ -53,9 +57,11 @@ public partial class SettingsView : UserControl
             Grid.SetRow(Rail, 0);
             Grid.SetColumn(Rail, 0);
             Grid.SetColumnSpan(Rail, 2);
+            Grid.SetRowSpan(Rail, 1);
             RailColumn.Width = new GridLength(0);
 
             Grid.SetRow(SettingsScroll, 1);
+            Grid.SetRowSpan(SettingsScroll, 1);
         }
         else
         {
@@ -64,9 +70,11 @@ public partial class SettingsView : UserControl
             Grid.SetRow(Rail, 0);
             Grid.SetColumn(Rail, 0);
             Grid.SetColumnSpan(Rail, 1);
+            Grid.SetRowSpan(Rail, 2);
             RailColumn.Width = new GridLength(180);
 
             Grid.SetRow(SettingsScroll, 0);
+            Grid.SetRowSpan(SettingsScroll, 2);
         }
     }
 
@@ -82,6 +90,7 @@ public partial class SettingsView : UserControl
     {
         if (e.Key != Key.Enter) return;
         if (sender is FrameworkElement { Tag: string g }) JumpTo(g);
+        e.Handled = true;
     }
 
     /// <summary>

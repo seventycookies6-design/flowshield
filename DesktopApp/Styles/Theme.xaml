@@ -186,7 +186,8 @@
     </Style>
 
     <!-- F22: header for each of Settings' six labelled groups. Focusable so
-         Task 2's section rail can BringIntoView + focus it. -->
+         Task 2's section rail's JumpTo can scroll to the group's offset and
+         focus this header. -->
     <Style x:Key="SettingsGroupHeader" TargetType="TextBlock" BasedOn="{StaticResource H2}">
         <Setter Property="Margin" Value="0,32,0,12"/>
         <Setter Property="Focusable" Value="True"/>

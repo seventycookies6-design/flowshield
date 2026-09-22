@@ -4070,3 +4070,12 @@ class TestSettingsIsGrouped:
         cs = (self.XAML.parent / "SettingsView.xaml.cs").read_text(encoding="utf-8")
         assert "RailBreakpoint = 900" in cs
         assert "SizeChanged" in cs
+
+    def test_settings_scroll_and_rail_get_rowspan(self):
+        """CRITICAL: at wide widths, Rail and SettingsScroll both sit in the
+        Auto row (row 0) with no RowSpan, so SettingsScroll gets unlimited
+        height and Settings can't scroll at 900px or wider. The code-behind
+        must call Grid.SetRowSpan for both, in both layouts."""
+        cs = (self.XAML.parent / "SettingsView.xaml.cs").read_text(encoding="utf-8")
+        assert "Grid.SetRowSpan(SettingsScroll" in cs
+        assert "Grid.SetRowSpan(Rail" in cs
