@@ -274,9 +274,16 @@ class DesktopController:
                 # Windows 11 keeps less-frequently-used icons in a XAML
                 # overflow panel. Its buttons are absent from the automation
                 # tree until the panel is opened, so reveal it once and retry.
+                #
+                # Matched by prefix, not by exact title (#246): on Windows 11
+                # the chevron's accessible name carries its current state, so
+                # this machine's is "Show Hidden Icons Hide". The exact-title
+                # lookup found nothing, the overflow was never opened, and an
+                # icon Windows had decided to hide was invisible to the suite —
+                # which is why the failure came and went with nothing changing.
                 if not opened_overflow:
                     hidden_icons = find_elements(
-                        title="Show Hidden Icons",
+                        title_re=r"^Show Hidden Icons",
                         control_type="Button",
                         backend="uia",
                         top_level_only=False,
@@ -885,27 +892,65 @@ class DesktopController:
         self.click("StartSprintButton")
         if not confirm_open_apps:
             return
+        self.answer_open_apps_question()
 
-        # Raced against the sprint actually starting, rather than waited out.
-        # A flat two-second probe spends the whole --short-timers cancel grace
-        # (3 s) before the test can do anything, which broke every test that
-        # starts a sprint and then cancels it inside the grace period.
-        #
-        # Probed on the buttons, not the panel: the panel is a Border, which
-        # UI Automation does not surface at all. StopSprintButton appears only
-        # once a sprint is running, so it is the "no question was asked" signal.
-        deadline = time.time() + 2.0
+    def answer_open_apps_question(self, timeout: float = 2.0) -> bool:
+        """
+        Answer F7's "blocked apps are open" question with "Start anyway", if it
+        was asked. Returns True when it was.
+
+        Split out of start_sprint because the Start button is not the only thing
+        that starts a sprint: the first-run wizard's own "Start my first sprint"
+        goes through the same TodayViewModel.StartSprint and therefore through
+        the same question (#244 — the wizard pre-ticks the suggested apps found
+        on this PC, so on a machine running any of them the panel always comes
+        up and nothing starts until it is answered).
+
+        Raced against the sprint actually starting, rather than waited out. A
+        flat two-second probe spends most of the --short-timers cancel grace
+        before the test can do anything, which broke every test that starts a
+        sprint and then cancels it inside the grace period.
+
+        Probed on the buttons, not the panel: the panel is a Border, which UI
+        Automation does not surface at all. StopSprintButton appears only once a
+        sprint is running, so it is the "no question was asked" signal.
+        """
+        deadline = time.time() + timeout
         while time.time() < deadline:
             if self.exists("StartAnywayButton", timeout=0.2):
                 self._say("blocked apps were already open — answering with 'Start anyway'")
                 self.click("StartAnywayButton")
                 self.element("StopSprintButton", timeout=5)
-                return
+                return True
             if self.exists("StopSprintButton", timeout=0.2):
-                return
+                return False
+        return False
 
-    # Matches EndSprintPolicy with --short-timers: grace 3 s, Firm 2 s, Sealed 3 s.
-    SHORT_GRACE_SECONDS = 3.0
+    # Matches EndSprintPolicy with --short-timers: grace 15 s, Firm 6 s, Sealed 8 s.
+    # Was 3.0 with a comment naming the pre-#222 values; tier 5 now checks this
+    # against EndSprintPolicy.cs so the constant cannot drift again.
+    SHORT_GRACE_SECONDS = 15.0
+
+    def wait_until_control_enabled(self, auto_id: str, timeout: float = 20.0) -> float:
+        """
+        Block until a control reports enabled, and return how long that took.
+
+        The direct way to assert a timed gate. Reading IsEnabled once and
+        assuming the read lands inside the window does not work: a UIA round
+        trip on a busy page costs a second or more, so a two-second countdown
+        can elapse entirely between the click that opens a panel and the first
+        read of its button (#242). Timing how long the control stays disabled
+        tests the same rule without racing it.
+        """
+        started = time.time()
+        deadline = started + timeout
+        while time.time() < deadline:
+            if self.is_control_enabled(auto_id):
+                return time.time() - started
+            time.sleep(0.2)
+        raise DesktopControllerError(
+            f"'{auto_id}' was still disabled after {timeout}s"
+        )
 
     def end_button_label(self) -> str:
         try:
@@ -914,14 +959,46 @@ class DesktopController:
             return ""
 
     def cancel_sprint(self) -> None:
-        """End a sprint inside its grace period: no penalty, nothing recorded."""
-        label = self.end_button_label().lower()
+        """
+        End a sprint inside its grace period: no penalty, nothing recorded.
+
+        One element lookup, reused for both the label check and the click.
+        Resolving it twice (#241) spent a second or more of the grace period
+        between reading "Cancel sprint" and landing the click, so the click
+        could arrive after the window shut: RequestEnd then took the Confirm
+        branch, the sprint carried on, and the test saw an intention that was
+        never cleared rather than the timing problem underneath.
+        """
+        control = self.element("StopSprintButton")
+        label = (control.window_text() or "").lower()
         if "cancel" not in label:
             raise DesktopControllerError(f"the sprint is past its grace period (button reads {label!r})")
-        self.click("StopSprintButton")
+        self._wait_ready(control)
+        try:
+            control.click_input()
+        except Exception:                                  # noqa: BLE001
+            control.invoke()
 
-    def wait_out_grace_period(self, timeout: float = 15.0) -> None:
-        deadline = time.time() + timeout
+    # How long wait_out_grace_period will wait, derived from the grace period
+    # rather than written out beside it. A hardcoded 15.0 here would have been
+    # exactly SHORT_GRACE_SECONDS, so a call made near the start of a sprint
+    # could hit its own deadline before the button ever flipped and return as
+    # if the grace were over — quietly, to 24 call sites. The margin has to
+    # cover a label read landing just before the boundary (one to two seconds)
+    # plus the poll interval; tier 5 fails if it is ever <= the grace.
+    GRACE_WAIT_MARGIN_SECONDS = 5.0
+    GRACE_WAIT_TIMEOUT = SHORT_GRACE_SECONDS + GRACE_WAIT_MARGIN_SECONDS
+
+    def wait_out_grace_period(self, timeout: float | None = None) -> None:
+        """
+        Block until the end button stops offering a free cancel.
+
+        Returning on the deadline rather than on the flip is not an error here —
+        several callers use this simply to be past the grace — but it must not
+        be able to happen *before* the grace could plausibly have ended, or the
+        test that follows acts on a sprint that is still cancellable.
+        """
+        deadline = time.time() + (self.GRACE_WAIT_TIMEOUT if timeout is None else timeout)
         while time.time() < deadline and "cancel" in self.end_button_label().lower():
             time.sleep(0.4)
 

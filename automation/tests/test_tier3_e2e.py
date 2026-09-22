@@ -982,16 +982,23 @@ class TestTrialExpiringDuringASprint:
         app.navigate_to_tab("Today")
 
         # The shortest sprint FlowShield offers (5 minutes) comfortably
-        # outlasts the 8-second trial set by --expire-trial-in=8.
+        # outlasts the trial set by --expire-trial-in (see the fixture).
+        # Custom length is Pro-gated, so this only works while the trial is
+        # still live — which is why the fixture's runway has to cover the
+        # driver's own setup cost (#243).
         app.click("SprintLength_Custom")
         app.set_text("CustomMinutesInput", "5")
         time.sleep(0.5)
         app.start_sprint()
 
-        # Give the trial time to actually cross its boundary, then confirm
-        # the sprint is still running with no lock screen anywhere in sight —
-        # this is the moment a naive "check access every minute" would fail.
-        time.sleep(15)
+        # Wait for the trial to actually cross its boundary rather than
+        # guessing at it: the fixture recorded when it runs out, on this same
+        # clock, so the assertion below is about the product rather than about
+        # a sleep being long enough. This is the moment a naive "check access
+        # every minute" fails.
+        while time.monotonic() < app.trial_ends_at + 5:
+            time.sleep(1)
+
         assert app.exists("StopSprintButton", timeout=1), \
             "the sprint must still be running well after the trial has technically ended"
         assert not app.exists("LockBuyButton", timeout=1.5), \
@@ -1159,14 +1166,36 @@ class TestEndingASprint:
         assert not fresh_app.exists("KeepGoingButton", timeout=1)
 
     def test_firm_needs_a_confirmation_that_waits(self, fresh_app):
+        """
+        #242 reported "End anyway is enabled immediately". It is not: the app
+        log showed EndAnywayEnabled flipping 2.507 s after the panel opened,
+        against a 2 s FirmConfirmDelay. What could not happen was *reading* it
+        inside a 2 s window — element lookup plus IsEnabled is a UIA round trip
+        costing a second or more on this page. So the delay is 6 s under
+        --short-timers (EndSprintPolicy, same reasoning as #222's grace period)
+        and the assertion times how long the button stays disabled instead of
+        assuming one read lands inside the window.
+        """
         self._start(fresh_app, "Firm")
         fresh_app.wait_out_grace_period()
-        fresh_app.click("StopSprintButton")
 
+        opened = time.monotonic()
+        fresh_app.click("StopSprintButton")
         assert fresh_app.exists("KeepGoingButton", timeout=3), "Firm ended without a confirmation"
-        assert fresh_app.is_control_enabled("EndAnywayButton") is False, "End anyway was ready immediately"
-        time.sleep(2.8)
-        assert fresh_app.is_control_enabled("EndAnywayButton") is True
+
+        # Only assert "disabled right now" while the window provably still has
+        # time left on it; otherwise the read itself is the thing being timed.
+        if time.monotonic() - opened < 3.0:
+            assert fresh_app.is_control_enabled("EndAnywayButton") is False, \
+                "End anyway was ready immediately"
+
+        # Measured from before the click, which only ever inflates the number —
+        # so a button that was enabled from the start cannot fake a long wait.
+        fresh_app.wait_until_control_enabled("EndAnywayButton", timeout=20)
+        waited = time.monotonic() - opened
+        assert waited >= 4.0, \
+            f"End anyway unlocked after {waited:.1f}s of a 6s confirm countdown"
+
         fresh_app.click("EndAnywayButton")
         time.sleep(1.0)
         assert "early" in fresh_app.session_state().lower()
@@ -1175,15 +1204,25 @@ class TestEndingASprint:
         self._start(fresh_app, "Sealed")
         fresh_app.wait_out_grace_period()
         assert "need to stop" in fresh_app.end_button_label().lower()
+
+        opened = time.monotonic()
         fresh_app.click("StopSprintButton")
         assert fresh_app.exists("EndPhraseInput", timeout=3), "Sealed didn't ask for the phrase"
 
+        # Same measurement as the Firm test above (#242): the countdown is 8 s
+        # under --short-timers, and the right phrase must not beat it.
         fresh_app.set_text("EndPhraseInput", "end my sprint")
-        time.sleep(0.5)
-        assert fresh_app.is_control_enabled("EndAnywayButton") is False, \
-            "the phrase ended a Sealed sprint before its countdown"
+        if time.monotonic() - opened < 5.0:
+            assert fresh_app.is_control_enabled("EndAnywayButton") is False, \
+                "the phrase ended a Sealed sprint before its countdown"
 
-        time.sleep(3.5)
+        fresh_app.wait_until_control_enabled("EndAnywayButton", timeout=25)
+        waited = time.monotonic() - opened
+        assert waited >= 5.0, \
+            f"End anyway unlocked after {waited:.1f}s of an 8s sealed countdown"
+
+        # The countdown being over must not let the wrong phrase through. No
+        # timing in this half: the gate is the words, not the clock.
         fresh_app.set_text("EndPhraseInput", "end sprint")
         time.sleep(0.5)
         assert fresh_app.is_control_enabled("EndAnywayButton") is False, "the wrong phrase was accepted"
@@ -1429,6 +1468,16 @@ class TestFirstRun:
             time.sleep(1.5)
 
             assert not app.exists("FirstRunSkipButton", timeout=1), "the welcome stayed open"
+
+            # #244: the wizard's Start goes through the same
+            # TodayViewModel.StartSprint as the Start button, so it meets F7's
+            # "these blocked apps are open" question too — and it always does
+            # here, because step 1 pre-ticks every suggested app found on this
+            # PC, not only the one the test typed. The app log showed
+            # "first run finished: 5 apps ... sprint started" followed by
+            # "pre-sprint: 3 blocked app(s) already open": the sprint was
+            # waiting on an unanswered panel, not failing to start.
+            app.answer_open_apps_question()
             assert app.exists("StopSprintButton", timeout=3), "the first sprint didn't start"
 
             s = verify.read_settings()
@@ -1838,26 +1887,53 @@ class TestSpaceStartsAndEndsASprint:
     """
 
     def test_space_starts_a_sprint_and_opens_the_firm_end_flow(self, fresh_app):
-        fresh_app.navigate_to_tab("Today")
-        fresh_app.select_shield("Firm")
-        time.sleep(0.4)
+        """
+        #245: this never actually pressed Space. pywinauto drops a bare " "
+        from type_keys unless with_spaces=True, so the old `type_keys(" ")`
+        sent nothing at all — a DIAG build logging every PreviewKeyDown saw no
+        key arrive. It is sent as {SPACE} now.
 
-        # Space with focus away from any text box starts the sprint, the same
-        # as StartSprintButton.
-        fresh_app.focus()
-        fresh_app.window.type_keys(" ")
+        With a real Space arriving, the second half of the old test was wrong
+        too: it clicked Shield_Firm first, and the DIAG log then showed
+        `key Space focus=RadioButton id='Shield_Firm'`. WPF's ButtonBase owns
+        Space for whichever control has keyboard focus — that is what makes
+        every button on the page keyboard-operable (F21) — so the key never
+        reaches Window.InputBindings. That is correct behaviour, not the
+        shortcut failing, and the guard in CanUseSpaceShortcut is about text
+        boxes, not about out-shouting a focused button.
+
+        So nothing is clicked before the key: a fresh app opens on Today with
+        Firm as the default shield, which is the state a customer is in when
+        they press Space, and the only state in which the shortcut is the
+        thing that owns the key.
+        """
+        assert fresh_app.current_page_title() == "Today", \
+            "a fresh app should already be on Today; clicking a tab would take the key focus"
+
+        fresh_app.focus(force=True)
+        fresh_app.window.type_keys("{SPACE}")
         assert fresh_app.exists("StopSprintButton", timeout=5), \
             "Space did not start the sprint"
+        # A blocked app already open would have asked instead of starting.
+        fresh_app.answer_open_apps_question()
+
+        # Firm is the default shield, so this is the Firm end flow below.
+        assert verify.read_settings()["ActiveSprint"]["Shield"] in (2, "Firm")
 
         fresh_app.wait_out_grace_period()
 
         # Space again must open the same F2 flow the button opens — a
         # confirmation that waits — never end the sprint outright.
-        fresh_app.window.type_keys(" ")
+        opened = time.monotonic()
+        fresh_app.window.type_keys("{SPACE}")
         assert fresh_app.exists("KeepGoingButton", timeout=3), \
             "Space skipped Firm's confirmation and ended the sprint directly"
-        assert fresh_app.is_control_enabled("EndAnywayButton") is False, \
-            "End anyway must still wait out Firm's grace, whatever triggered it"
+
+        # Timed, not read once — see test_firm_needs_a_confirmation_that_waits.
+        fresh_app.wait_until_control_enabled("EndAnywayButton", timeout=20)
+        waited = time.monotonic() - opened
+        assert waited >= 4.0, \
+            f"End anyway unlocked after {waited:.1f}s — Space must not skip Firm's countdown"
 
         # Clean up through the real flow rather than leaving a sprint running.
         fresh_app.click("KeepGoingButton")
@@ -1870,16 +1946,23 @@ class TestSpaceStartsAndEndsASprint:
         intention box must not also start a sprint underneath the user.
         """
         fresh_app.navigate_to_tab("Today")
-        fresh_app.set_text("IntentionInput", "write the release notes")
-        # set_text leaves focus in the box; one more space must land in the
-        # text, not toggle the sprint.
+        fresh_app.set_text("IntentionInput", "write")
+
+        # set_text ends on {END}, so the caret sits after "write" with the box
+        # holding keyboard focus (the DIAG run confirmed
+        # focus=TextBox id='IntentionInput' at the moment the key arrives).
+        # Type " notes" as real keystrokes: a bare " " is dropped by pywinauto
+        # unless with_spaces=True, so the space is sent as {SPACE}, and the word
+        # after it proves the space landed *inside* the value — text_of()
+        # strips the ends, so a trailing space can never be observed and the
+        # old assertion could not pass whatever the app did.
         intention_box = fresh_app.element("IntentionInput")
-        intention_box.type_keys(" ")
+        intention_box.type_keys("{SPACE}notes")
         time.sleep(0.3)
 
         assert not fresh_app.exists("StopSprintButton", timeout=1), \
             "a space typed into the intention field also started a sprint"
-        assert fresh_app.text_of("IntentionInput").endswith(" "), \
+        assert fresh_app.text_of("IntentionInput") == "write notes", \
             "the space must still land in the text box"
 
     def test_an_empty_range_still_saves_a_file_with_headings(self, fresh_app, tmp_path):

@@ -135,15 +135,27 @@ def app(fresh_app):
 def trial_expiring_soon_app(logger):
     """
     A fresh FlowShield whose trial is still active at launch but runs out a
-    few seconds later — for F20's "expires mid-sprint" scenario, where the
+    short while later — for F20's "expires mid-sprint" scenario, where the
     lock must wait for the running sprint (and its summary card) rather than
     interrupting either.
+
+    90 s, not the 8 s this used to pass (#243). Eight seconds is less than the
+    fixture's own connect-and-focus plus a couple of clicks, so the trial was
+    already over before the test had picked a sprint length: the app correctly
+    refused the Pro-gated custom length (the log showed it opening the upgrade
+    page instead), CustomMinutesInput never appeared, and the F20 scenario
+    never got as far as starting a sprint. 90 s leaves the driver room to set
+    up while still running out long before the 5-minute sprint ends.
     """
     if not Path(APP_EXE).exists():
         pytest.skip(f"{APP_EXE} not built")
 
+    runway = 90
     ctrl = DesktopController(logger)
-    ctrl.launch_app(clean_state=True, extra_args=["--expire-trial-in=8"])
+    ctrl.launch_app(clean_state=True, extra_args=[f"--expire-trial-in={runway}"])
+    # When the trial runs out, on the same clock the test measures with, so the
+    # test can wait for the real boundary instead of guessing at a sleep.
+    ctrl.trial_ends_at = time.monotonic() + runway
     ctrl.connect_window()
     time.sleep(1.0)
     ctrl.focus(force=True)
