@@ -243,11 +243,28 @@ public class AppBlockerService : IDisposable
 
         // The sleep window enforces on its own, without a running sprint.
         var sleepActive = IsWithinSleepWindow(settings);
-        if (!enforcing && !sleepActive) return;
+        if (!enforcing && !sleepActive)
+        {
+            // Nothing is being enforced, so forget what was seen. A sprint
+            // clears this through StopEnforcing; the sleep window has no such
+            // moment, and the per-tick cleanup below never runs on the tick
+            // that closes it. A deadline left over from 06:00 made the first
+            // sweep of the next night kill the app on sight — no warning, no
+            // seconds to save — and _present kept the sighting from counting.
+            lock (_gate)
+            {
+                _present.Clear();
+                _closingAt.Clear();
+            }
+            return;
+        }
 
         // A scheduled sleep block closes apps. Nudging at 2am helps nobody —
-        // there is no one watching the screen to be nudged.
-        if (sleepActive && !enforcing) shield = ShieldLevel.Firm;
+        // there is no one watching the screen to be nudged. That is the
+        // window's floor, not the sprint's: a Soft sprint running through the
+        // night used to switch the nightly shield off entirely, which is less
+        // enforcement than no sprint at all.
+        if (sleepActive && shield < ShieldLevel.Firm) shield = ShieldLevel.Firm;
 
         var targets = new Dictionary<string, BlockedApp>(StringComparer.OrdinalIgnoreCase);
         foreach (var app in candidates)
