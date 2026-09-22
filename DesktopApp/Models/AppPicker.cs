@@ -184,6 +184,10 @@ public static class AppPicker
         IEnumerable<PickerEntry> suggestions, IEnumerable<PickerEntry> discovered, Func<string, bool> isProtected)
     {
         var result = suggestions.ToList();
+        // A suggestion is listed only when this PC has it: that is what gives
+        // every row the app's own icon from its installed exe, with no logos
+        // shipped in FlowShield.
+        var covered = new HashSet<PickerEntry>();
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var s in result) foreach (var p in s.Processes) seen.Add(p);
 
@@ -197,11 +201,13 @@ public static class AppPicker
             if (covering is not null)
             {
                 covering.ExePath ??= d.ExePath;
+                covered.Add(covering);
                 continue;
             }
             if (!seen.Add(process)) continue;
             result.Add(d);
         }
+        result.RemoveAll(r => r.Source == PickerSource.Suggested && !covered.Contains(r));
         return result;
     }
 

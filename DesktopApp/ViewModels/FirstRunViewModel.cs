@@ -167,7 +167,7 @@ public class FirstRunViewModel : ViewModelBase
         Query = "";
         Step = 1;
         _rows.Clear();
-        LoadApps(AppPicker.Suggestions(IsProtected));
+        LoadApps(new()); // filled below once we know what's installed
         Raise(nameof(TrialLine));
         Raise(nameof(HasTrialLine));
 

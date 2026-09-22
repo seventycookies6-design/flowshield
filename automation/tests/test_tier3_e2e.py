@@ -15,6 +15,8 @@ from pathlib import Path
 
 import pytest
 
+from core.installed_apps import STEAM_INSTALLED
+
 from config import TEST_BLOCK_APP
 from core import state_verifier as verify
 
@@ -1284,6 +1286,7 @@ class TestAppPicker:
         apps = verify.read_settings()["BlockedApps"]
         return next(a for a in apps if a["ProcessName"].lower() == process)
 
+    @pytest.mark.skipif(not STEAM_INSTALLED, reason="the picker lists Steam only where it is installed")
     def test_blocking_steam_from_suggestions_saves_all_its_processes(self, fresh_app):
         fresh_app.navigate_to_tab("Blocked Apps")
         fresh_app.set_text("AppSearchInput", "steam")
@@ -1470,6 +1473,7 @@ class TestFirstRun:
             else:
                 winreg.SetValueEx(k, "FlowShield", 0, winreg.REG_SZ, value)
 
+    @pytest.mark.skipif(not STEAM_INSTALLED, reason="the picker lists Steam only where it is installed")
     def test_completing_it_saves_every_choice_and_starts_the_sprint(self, logger):
         saved_run = self._run_value()          # the toggle writes the real Run value
         app = self._launch(logger)
