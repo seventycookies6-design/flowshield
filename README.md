@@ -13,7 +13,7 @@ A Windows focus timer and app blocker. Distractions go behind a shield whose
 strength you pick per sprint, and finished sprints compound into momentum.
 
 ```
-Shield I  · Soft    a brief notice inside FlowShield; the blocked app keeps running
+Shield I  · Soft    a full-screen notice on its own screen; the blocked app keeps running
 Shield II · Firm    blocked apps are warned to save their work, then closed
 Shield III· Sealed  warned then closed, and the blocklist locks for the rest of the sprint
 ```

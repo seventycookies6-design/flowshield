@@ -24,10 +24,11 @@ automatically, and it wins over anything here), then `README.md`, `DEPLOY.md`,
 A Windows 10/11 x64 app. Pick a sprint length and a shield level, start the
 timer, and apps on your blocklist are dealt with until it ends.
 
-- **Shield levels:** Soft (a brief notice inside FlowShield; the blocked app
-  keeps running), Firm (blocked apps are warned to save their work, then
-  closed), Sealed (warned then closed, and the blocklist locks for the rest
-  of the sprint — ending the sprint early unlocks it).
+- **Shield levels:** Soft (a full-screen notice on the blocked app's screen,
+  with Back to work and Allow 5 minutes; the app keeps running), Firm (blocked
+  apps are warned to save their work, then closed), Sealed (warned then
+  closed, and the blocklist locks for the rest of the sprint — ending the
+  sprint early unlocks it).
 - **Momentum score:** a finished sprint adds to it; an abandoned one decays it
   (×0.85 − 2) rather than resetting it. A day streak is shown too.
 - **Journal:** a one-line "What moved?" entry after each sprint.
@@ -48,7 +49,7 @@ timer, and apps on your blocklist are dealt with until it ends.
 | Licence server | `Server/`, Node 24 + Express + SQLite | Live at https://flowshield-license-server.onrender.com (Render free plan, Docker, `render.yaml`). Sleeps when idle; first request takes ~50 s. |
 | Website | `Website/`, static | Live at https://seventycookies6-design.github.io/flowshield/ from the `gh-pages` branch. Redesigned in #27 (teal theme, light/dark toggle, Soft/Firm/Sealed explained through a student's day). Checkout goes through the licence server. |
 | Payments | Stripe | **Test mode only.** Account named FlowShield. |
-| Tests | `automation/`, pytest + pywinauto + Playwright, tiers 1–7 | 720+ tests as of 21 September 2026 (`automation/tests -m "not ui and not stripe"` alone: 720 passed, 16 skipped). See Phase 2 for the current baselines. |
+| Tests | `automation/`, pytest + pywinauto + Playwright, tiers 1–7 | 1000+ tests as of 22 September 2026 (`automation/tests -m "not ui and not stripe"` alone: 991 passed, 16 skipped). See Phase 2 for the current baselines. |
 | Tools | `tools/` | `setup_stripe_store.js`, `publish_site.ps1`, `build_release.ps1`, `db_admin.js`, `fix_mojibake.py`, and `doc_steward/` (keeps the docs consistent with the code; see "Doc steward" in `CLAUDE.md`) |
 | Roadmap | `CUSTOMER_EXPERIENCE_PROMPT.md`, issues #1–#6; `LAUNCH_FEATURE_CHECKLIST.md` and `DESIGN_SYSTEM.md` | A customer's-eye audit (31 problems) and six phases of fixes, plus a launch feature checklist and design system from competitor research (#35). The work is split evenly: Keenan with Claude Code (#37) and Miles with Codex and Cursor (#38); see "Who builds what" in the checklist. 1.1 (site claims) is done and live; 1.2 (Start with Windows in the tray) is done. The file's Progress table is the current status. |
 
@@ -285,17 +286,21 @@ go-ahead.
    13 September 2026), and the three gaps once listed here have since shipped:
    F2's escape hatch now gets harder by shield level (#47), the journal can be
    read back (F17, #116), and roadmap 1.4 registers `flowshield://` so the
-   thank-you page's "Activate in FlowShield" button works (#51). What's
-   genuinely still open, per #37/#38 (reviewed 21 September 2026, though F20
-   and F23 have since shipped — #213 and #211): on the owner's side, F4
-   (start a sprint from the tray or keyboard), F16 (history and a weekly
-   view — the most unblocking item left; F14's milestones and F17's
-   read-back both wait on it), F5/F6 (breaks and study templates), F9
-   (blocklist profiles), and the server roadmap (5.2 → 5.4 → 5.1 → 5.7 →
-   4.1); on Miles's side, F7's remaining Soft overlay (#143), F21 (light
-   theme, keyboard and accessibility), F22 (Settings, blocked on
-   F5/F6/F9), and the #144 capture refresh once the design-system work
-   lands.
+   thank-you page's "Activate in FlowShield" button works (#51). An overnight
+   push (21–22 September 2026, #191 onward) shipped F4 (tray/keyboard start,
+   #214), F5 (breaks and study cycles, #230), F7's remaining Soft overlay
+   (#224), F9 (blocklist profiles, #233), F16 (history and a weekly view,
+   #217), F20 and F23 (#213, #211), and the server roadmap's 5.2 (#225) and
+   5.7 (#229). What's genuinely still open, per #37/#38 (reviewed
+   22 September 2026): on the owner's side, F6 (templates/schedules), F14
+   (milestones, #133, now unblocked by F16), roadmap 4.1 (updates) and 5.1
+   (buy in-app); on Miles's side, F21 (light theme, keyboard and
+   accessibility, open as #237), F22 (calm Settings — now unblocked, since
+   F5/F9 and notifications exist), roadmap 5.5 (email-only unlock, needs an
+   email provider), 3.7 (sleep schedule, needs F6), 4.3 (in-app Get help),
+   the #144 capture refresh (now that the visual language and features have
+   landed), bugs #203/#204, #234 (device-token HMAC), History list
+   virtualisation, and the F25/owner gates.
 2. **Stripe business name** (owner; found in a test purchase on 13 September
    2026). Checkout and the billing portal show "Focus Unlock sandbox". The
    sandbox and its parent account are both named FlowShield (the parent was

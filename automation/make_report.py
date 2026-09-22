@@ -222,9 +222,9 @@ The twist is **escalating shield levels** plus **momentum instead of streaks**:
 
 | Level | Name | Behaviour |
 | --- | --- | --- |
-| Shield I | Soft | A brief notice inside FlowShield; the blocked app keeps running. |
-| Shield II | Firm | Blocked apps are closed on sight; the blocklist stays editable. |
-| Shield III | Sealed | Closed on sight **and** the blocklist locks for the rest of the sprint. |
+| Shield I | Soft | A full-screen notice on its own screen; the blocked app keeps running. |
+| Shield II | Firm | Blocked apps are warned, then closed; the blocklist stays editable. |
+| Shield III | Sealed | Warned, then closed, **and** the blocklist locks for the rest of the sprint. |
 
 Momentum compounds on completed sprints and *decays* (×0.85 − 2, floored at zero)
 on abandoned ones rather than resetting — one bad afternoon should not erase a

@@ -91,15 +91,15 @@ roadmap item below has exactly one owner. Tracking issues: #37 (Keenan) and
 | --- | --- | --- |
 | F2 | Escape hatch that gets harder by shield level (Roadmap 1.9) | M |
 | F3 | Sprints survive restarts and crashes (Roadmap 1.10) | M |
-| F4 | Start a sprint from the tray or keyboard (Roadmap 3.9) | S |
-| F5 | Breaks and study cycles (Roadmap 3.4) | M |
+| F4 | Start a sprint from the tray or keyboard (Roadmap 3.9) (done, #214) | S |
+| F5 | Breaks and study cycles (Roadmap 3.4) (done, #230) | M |
 | F6 | Study templates and scheduled sprints | M |
 | F8 | App picker with student and gamer suggestions (Roadmap 2.2) (done, #58) | M |
 | F9 | Blocklist profiles (Roadmap 3.8) (done, #233) | M |
 | F16 | History and weekly view (Roadmap 3.1, 3.6) (done, #217) | M |
 | F18 | Three-step first run (Roadmap 2.1) (done, #68) | M |
 | F19 | Native notifications and tray (Roadmap 2.5, 2.7) (done, #95) | S |
-| F23 | Privacy promise: in-app "Your data" and the claims test (Roadmap 4.5); Miles writes the website section | S |
+| F23 | Privacy promise: in-app "Your data" and the claims test (Roadmap 4.5); Miles writes the website section (done, #211) | S |
 | F25 | Code signing in the release script (after the certificate is bought) | M |
 | Design §14 | `design/tokens.json`, the XAML and CSS generator, and the parity test | M |
 | Roadmap 1.3 | One instance only (done, #49) | S |
@@ -107,10 +107,10 @@ roadmap item below has exactly one owner. Tracking issues: #37 (Keenan) and
 | Roadmap 1.5 | Uninstall cleans up (done, #54) | S |
 | Roadmap 4.1 | Updates that just happen | M |
 | Roadmap 5.1 | Buy from inside the app with no key to copy (server) | M |
-| Roadmap 5.2 | Honest waiting while the licence server wakes | S |
-| Roadmap 5.4 | Lost your key? (server) | S |
+| Roadmap 5.2 | Honest waiting while the licence server wakes (done, #225) | S |
+| Roadmap 5.4 | Lost your key? (server) (done, #208) | S |
 | Roadmap 5.5 | Close the email-only unlock (server and email) | M |
-| Roadmap 5.7 | See and manage your devices | M |
+| Roadmap 5.7 | See and manage your devices (done, #229) | M |
 | After launch | F10 website blocking extension (owner decision first), F11 allow-only focus | L, M |
 
 ### Miles (Codex and Cursor)
@@ -118,13 +118,13 @@ roadmap item below has exactly one owner. Tracking issues: #37 (Keenan) and
 | Item | What | Effort |
 | --- | --- | --- |
 | F1 | Shield levels as clear commitment modes | S |
-| F7 | Soft overlay and graceful Firm close (Roadmap 1.7, 1.8) | M |
+| F7 | Soft overlay and graceful Firm close (Roadmap 1.7, 1.8) (done, #146, #224) | M |
 | F12 | Sprint summary card | S |
 | F13 | Set an intention before a sprint (Roadmap 3.3) | S |
 | F14 | Momentum explained, trend chart and milestones (Roadmap 3.2) | M |
 | F15 | Daily focus goal | S |
 | F17 | Read back and export the journal (Roadmap 3.5) | S |
-| F20 | A trial that never nags | S |
+| F20 | A trial that never nags (done, #213) | S |
 | F21 | Light theme, keyboard use and accessibility (Roadmap 4.6) | M |
 | F22 | Clear, calm Settings (Roadmap 4.2) | S |
 | F24 | One-time price as the headline, on the site | S |
@@ -782,7 +782,7 @@ Recorded so nobody re-proposes these without new reasons.
 
 FlowShield is ready for launch when:
 
-- [ ] Every **Launch** item above is ticked: F1, F2, F3, F7, F8, F12, F18, F19, F20, F23, F24, F25, F26 and F27.
+- [x] Every **Launch** item above is ticked except F25: F1, F2, F3, F7, F8, F12, F18, F19, F20, F23, F24, F26 and F27 are all done (22 September 2026). F25 (code signing) is the only one left, waiting on the certificate purchase.
 - [ ] The owner has recorded a decision on F10 (website blocking).
 - [ ] Roadmap Phase 1 (`CUSTOMER_EXPERIENCE_PROMPT.md`) is complete.
 - [ ] The app and site follow `DESIGN_SYSTEM.md`, including the accessibility fixes listed there.
