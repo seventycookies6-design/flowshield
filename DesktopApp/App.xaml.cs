@@ -87,6 +87,22 @@ public partial class App : Application
             Log.Info("free trial expired by --expire-trial flag");
         }
 
+        // --expire-trial-in=<seconds> backdates the trial so it runs out a few
+        // seconds after launch, instead of already being over. It exists so the
+        // automation suite can start a sprint on an active trial and watch it
+        // cross the boundary mid-sprint (F20: the lock must wait for the sprint
+        // to finish, never interrupt it).
+        var expireInArg = args.FirstOrDefault(a =>
+            a.StartsWith("--expire-trial-in=", StringComparison.OrdinalIgnoreCase));
+        if (expireInArg is not null
+            && int.TryParse(expireInArg["--expire-trial-in=".Length..], out var expireInSeconds))
+        {
+            ViewModel.Settings.TrialStartedUtc = DateTime.UtcNow
+                .AddDays(-Models.AppSettings.TrialDays)
+                .AddSeconds(expireInSeconds);
+            Log.Info($"free trial set to expire in {expireInSeconds}s by --expire-trial-in flag");
+        }
+
         // The first-run welcome (F18), decided after --expire-trial so a locked
         // trial never gets it. --skip-first-run keeps the UI tests on Today.
         if (args.Any(a => a.Equals("--skip-first-run", StringComparison.OrdinalIgnoreCase)))

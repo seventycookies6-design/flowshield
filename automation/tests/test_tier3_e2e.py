@@ -682,6 +682,59 @@ class TestTrialEnded:
         assert expired_app.app_log_contains("opening upgrade page")
 
 
+# ========================= a trial that expires mid-sprint (F20, #9) ========
+
+class TestTrialExpiringDuringASprint:
+    """
+    A trial that runs out while a sprint is in progress must not interrupt
+    it, and must not interrupt the summary card the sprint ends on either.
+    The lock is only allowed to appear once that card has been read and
+    dismissed with "Save entry" — never before.
+    """
+
+    def test_the_lock_waits_for_the_sprint_and_its_summary(self, trial_expiring_soon_app):
+        app = trial_expiring_soon_app
+        app.navigate_to_tab("Today")
+
+        # The shortest sprint FlowShield offers (5 minutes) comfortably
+        # outlasts the 8-second trial set by --expire-trial-in=8.
+        app.click("SprintLength_Custom")
+        app.set_text("CustomMinutesInput", "5")
+        time.sleep(0.5)
+        app.start_sprint()
+
+        # Give the trial time to actually cross its boundary, then confirm
+        # the sprint is still running with no lock screen anywhere in sight —
+        # this is the moment a naive "check access every minute" would fail.
+        time.sleep(15)
+        assert app.exists("StopSprintButton", timeout=1), \
+            "the sprint must still be running well after the trial has technically ended"
+        assert not app.exists("LockBuyButton", timeout=1.5), \
+            "the trial ending must never interrupt a running sprint"
+
+        # Wait for the sprint to finish on its own and the summary card to appear.
+        assert app.exists("SummaryTitle", timeout=340), \
+            "the 5-minute sprint never finished"
+        assert app.text_of("SummaryTitle") == "Sprint complete"
+
+        # The summary/journal card is up: the lock must still be held off so
+        # "what moved?" is never interrupted by "buy FlowShield".
+        time.sleep(2)
+        assert not app.exists("LockBuyButton", timeout=1.5), \
+            "the lock must wait until the summary card is dismissed"
+        assert app.tier_badge().upper() != "TRIAL ENDED", \
+            "the tier badge must not flip to ended while the summary is still on screen"
+
+        # Dismiss the card the normal way, exactly as F12 describes.
+        app.set_text("JournalInput", "watched the trial run out mid-sprint")
+        app.click("SaveJournalButton")
+
+        # Only now is the lock allowed to appear.
+        assert app.exists("LockBuyButton", timeout=5), \
+            "the lock must appear once the summary card has been dismissed"
+        assert app.tier_badge().upper() == "TRIAL ENDED"
+
+
 # ============================================ full purchase path (Stripe)
 
 @pytest.mark.stripe

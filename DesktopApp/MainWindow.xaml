@@ -62,7 +62,9 @@
                     <Border Style="{StaticResource Chip}" HorizontalAlignment="Left" Padding="12,4">
                         <StackPanel Orientation="Horizontal">
                             <Ellipse Width="6" Height="6" VerticalAlignment="Center"
-                                     Fill="{StaticResource Green}" Margin="0,0,8,0"/>
+                                     Fill="{Binding TierBadgeDotKey, Converter={StaticResource ResourceKeyToBrush}}"
+                                     AutomationProperties.AutomationId="TierBadgeDot"
+                                     Margin="0,0,8,0"/>
                             <TextBlock Text="{Binding TierBadge}" Style="{StaticResource Eyebrow}"
                                        AutomationProperties.AutomationId="TierBadge"
                                        Foreground="{StaticResource InkDim}"/>

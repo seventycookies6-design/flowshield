@@ -329,6 +329,99 @@ class TestFreeTrial:
         assert (bought or trial_active(start_days_ago)) is has_access
 
 
+# ==================================== a trial that never nags (F20, #9) =====
+
+def maybe_notify_trial_ending(*, is_trial: bool, trial_days_left: int,
+                               last_notified_date: date | None, today: date,
+                               sprint_running: bool = False) -> tuple[bool, date | None]:
+    """
+    Mirror of MainViewModel.MaybeNotifyTrialEnding, folding in the sprint guard
+    that Notify() applies through NotificationPolicy.ShouldShow. Returns
+    (shown, the new value of TrialEndingNotifiedLocal).
+    """
+    if not is_trial or trial_days_left > 1:
+        return False, last_notified_date
+    if last_notified_date == today:
+        return False, last_notified_date
+    if sprint_running:
+        # Suppressed by the sprint guard. Crucially, this must NOT be recorded
+        # as sent — the whole point is that it is still owed afterwards.
+        return False, last_notified_date
+    return True, today
+
+
+class TestTrialEndingNotice:
+    """
+    The only day FlowShield ever asks about the trial before it ends: one
+    notice, on the last day (TrialDaysLeft == 1, i.e. "day 6" of a 7-day
+    trial), sent at most once and never during a sprint.
+    """
+
+    SOURCE = Path(SERVER_DIR).parent / "DesktopApp" / "ViewModels" / "MainViewModel.cs"
+
+    @pytest.mark.parametrize("start_days_ago,expect_days_left,expect_notice", [
+        (0, 7, False),      # day 0: plenty of trial left
+        (5, 2, False),      # day 5: two days left, still quiet
+        (6, 1, True),       # day 6: "1 day left" — the one notice
+        (6.9, 1, True),     # still day 6 in the small hours
+    ])
+    def test_the_notice_only_fires_on_the_last_day(self, start_days_ago, expect_days_left, expect_notice):
+        days_left = trial_days_left(start_days_ago)
+        assert days_left == expect_days_left
+        shown, _ = maybe_notify_trial_ending(
+            is_trial=trial_active(start_days_ago), trial_days_left=days_left,
+            last_notified_date=None, today=date(2026, 1, 1))
+        assert shown is expect_notice
+
+    def test_it_is_sent_at_most_once(self):
+        today = date(2026, 1, 1)
+        shown_first, notified = maybe_notify_trial_ending(
+            is_trial=True, trial_days_left=1, last_notified_date=None, today=today)
+        assert shown_first is True
+        assert notified == today
+
+        # Checked again later the same day (e.g. the next access-timer tick):
+        # the flag it just set must stop a second notice.
+        shown_again, notified_again = maybe_notify_trial_ending(
+            is_trial=True, trial_days_left=1, last_notified_date=notified, today=today)
+        assert shown_again is False
+        assert notified_again == today
+
+    def test_a_sprint_delays_it_without_marking_it_sent(self):
+        today = date(2026, 1, 1)
+        shown, notified = maybe_notify_trial_ending(
+            is_trial=True, trial_days_left=1, last_notified_date=None, today=today,
+            sprint_running=True)
+        assert shown is False
+        assert notified is None, "a notice skipped for a running sprint is still owed afterwards"
+
+        # The next check, sprint finished, delivers the notice that was owed.
+        shown_after, notified_after = maybe_notify_trial_ending(
+            is_trial=True, trial_days_left=1, last_notified_date=notified, today=today)
+        assert shown_after is True
+        assert notified_after == today
+
+    def test_the_flag_persists_so_it_is_never_sent_a_second_trial(self):
+        """Once IsTrial goes false the trial cannot restart, so the persisted
+        TrialEndingNotifiedLocal date is enough to make the notice a
+        once-ever event, not just once-per-day."""
+        assert trial_active(8) is False  # the trial is long over
+        shown, _ = maybe_notify_trial_ending(
+            is_trial=trial_active(8), trial_days_left=0,
+            last_notified_date=date(2025, 12, 20), today=date(2026, 1, 1))
+        assert shown is False
+
+    def test_the_mirror_matches_the_app(self):
+        source = self.SOURCE.read_text(encoding="utf-8")
+        method = source.split("public void MaybeNotifyTrialEnding()")[1].split("\n    }")[0]
+        assert "!IsTrial || TrialDaysLeft > 1" in method, "must only ever fire on the last day"
+        assert "TrialEndingNotifiedLocal?.Date == today" in method, "must not repeat the same day"
+        assert "Settings.TrialEndingNotifiedLocal = today;" in method, "must persist that it was sent"
+        # It must go through Notify() — which applies the sprint guard — and
+        # only record the send if Notify() actually delivered it.
+        assert method.index("if (!Notify(") < method.index("TrialEndingNotifiedLocal = today")
+
+
 # ================================================================== momentum
 
 def apply_momentum(score: float, completed: bool, planned_minutes: int) -> float:

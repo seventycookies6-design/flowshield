@@ -257,6 +257,14 @@ public class MainViewModel : ViewModelBase
         : IsTrial ? $"TRIAL · {TrialDaysLeft} DAY{(TrialDaysLeft == 1 ? "" : "S")} LEFT"
         : "TRIAL ENDED";
 
+    /// <summary>
+    /// The tier badge's status dot (DESIGN_SYSTEM.md §7 "Tier badge"): primary
+    /// while trialling, ok once bought, warn once the trial has ended with
+    /// nothing bought. Looked up as a brush resource key by TierBadgeDotConverter.
+    /// </summary>
+    public string TierBadgeDotKey =>
+        IsPro ? "Green" : IsTrial ? "Primary" : "Amber";
+
     public string TrialEndedText =>
         "Your 7-day free trial has ended. Buy FlowShield once for $4.99 to keep using it — "
         + "no subscription. Already bought it? Enter your licence key below.";
@@ -300,11 +308,14 @@ public class MainViewModel : ViewModelBase
     /// Picks up the trial running out (or a day ticking by) while the app is open.
     ///
     /// A sprint already under way is left to finish: locking mid-sprint would
-    /// drop a shield the user deliberately raised, including a Sealed one.
+    /// drop a shield the user deliberately raised, including a Sealed one. The
+    /// sprint's summary card gets the same courtesy — the lock waits until it
+    /// has been read and dismissed, so "trial ended" never interrupts "what
+    /// moved?" (F20).
     /// </summary>
     public void RefreshAccess()
     {
-        if (IsSprintRunning) return;
+        if (IsSprintRunning || Today.JournalPromptVisible) return;
 
         var hasAccess = HasAccess;
         if (hasAccess != _lastHasAccess)
@@ -315,6 +326,7 @@ public class MainViewModel : ViewModelBase
         else
         {
             Raise(nameof(TierBadge));   // the days-left count changes daily
+            Raise(nameof(TierBadgeDotKey));
         }
 
         MaybeNotifyTrialEnding();
@@ -332,6 +344,7 @@ public class MainViewModel : ViewModelBase
         Raise(nameof(IsTrial));
         Raise(nameof(TrialDaysLeft));
         Raise(nameof(TierBadge));
+        Raise(nameof(TierBadgeDotKey));
 
         Today.OnTierChanged();
         BlockedApps.RefreshStatus();

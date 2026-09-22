@@ -1267,7 +1267,9 @@ class TestTrialThenOneTimePurchase:
     def test_the_trial_ending_mid_sprint_does_not_drop_the_shield(self):
         main = self.read("DesktopApp", "ViewModels", "MainViewModel.cs")
         refresh = main.split("public void RefreshAccess()")[1].split("\n    }")[0]
-        assert "if (IsSprintRunning) return;" in refresh
+        # F20 extended this to also hold off while the sprint's summary card
+        # is still on screen — see TestTrialNeverNagsDuringASprint below.
+        assert "if (IsSprintRunning || Today.JournalPromptVisible) return;" in refresh
 
     def test_the_expire_trial_flag_only_takes_access_away(self):
         app = self.read("DesktopApp", "App.xaml.cs")
@@ -1559,6 +1561,100 @@ class TestNotificationsStayQuiet:
         controller = (Path(DESKTOP_DIR).parent / "automation" / "desktop" / "app_controller.py").read_text(
             encoding="utf-8")
         assert "WINDOW_TITLE_RE" in controller and "title_re=WINDOW_TITLE_RE" in controller
+
+
+# ==================== a trial that never nags (F20, #9) =====================
+
+class TestTrialNeverNagsDuringASprint:
+    """
+    The trial is reduced to exactly three surfaces (checklist F20): the
+    sidebar tier badge, one "1 day left" notice on the last day, and the lock
+    screen after the trial ends. None of the three may reach a running sprint,
+    or the sprint's summary card, source-level — not just "the panel doesn't
+    happen to render on top".
+    """
+
+    @staticmethod
+    def read(*parts) -> str:
+        return (Path(DESKTOP_DIR).joinpath(*parts)).read_text(encoding="utf-8")
+
+    def test_every_notification_is_gated_on_sprint_state(self):
+        # Belt-and-braces with TestNotificationsStayQuiet above: Notify() is
+        # the single chokepoint every NotificationKind (including TrialEnding)
+        # goes through, and it always passes the live sprint state in.
+        main = self.read("ViewModels", "MainViewModel.cs")
+        notify = main.split("public bool Notify(")[1].split("\n    }")[0]
+        assert "NotificationPolicy.ShouldShow(kind, Settings, IsSprintRunning)" in notify
+
+        notifications = self.read("Models", "Notifications.cs")
+        interrupts = notifications.split("public static bool InterruptsFocus(")[1].split(";")[0]
+        assert "NotificationKind.TrialEnding" in interrupts, \
+            "TrialEnding must be one of the kinds NotificationPolicy blocks during a sprint"
+
+    def test_trial_ending_is_the_only_trial_notification_kind(self):
+        # F20: "the only trial messages are the badge, one day-6 notice, and
+        # the lock screen." If a second trial-related NotificationKind is ever
+        # added, it must also be wired into InterruptsFocus — this test forces
+        # that decision to be made, not skipped.
+        notifications = self.read("Models", "Notifications.cs")
+        kinds_block = notifications.split("public enum NotificationKind")[1].split("}")[0]
+        # Exactly one enum member name contains "Trial".
+        member_lines = [line.strip().rstrip(",") for line in kinds_block.splitlines()
+                         if line.strip() and not line.strip().startswith("//")
+                         and not line.strip().startswith("/*") and not line.strip().startswith("*")
+                         and not line.strip().startswith("<")]
+        trial_members = [m for m in member_lines if "Trial" in m]
+        assert trial_members == ["TrialEnding"], trial_members
+
+    def test_the_lock_screen_never_flips_on_mid_sprint(self):
+        # RefreshAccess is the only place IsLocked can change after launch
+        # (OnTierChanged only runs from inside it, from --expire-trial at
+        # startup, or after a purchase/deactivation). The sprint guard has to
+        # live at its top, before anything about access is read.
+        main = self.read("ViewModels", "MainViewModel.cs")
+        refresh = main.split("public void RefreshAccess()")[1].split("\n    }")[0]
+        code_lines = [line.strip() for line in refresh.splitlines()
+                      if line.strip() and not line.strip().startswith("//") and line.strip() != "{"]
+        assert code_lines[0].startswith("if (IsSprintRunning"), \
+            "the sprint guard must be the first statement RefreshAccess runs"
+
+    def test_the_lock_also_waits_out_the_summary_card(self):
+        # A trial can end between the last tick of a sprint and the moment its
+        # summary card is dismissed. The lock must wait for that dismissal too
+        # (checklist F20's worked example), not just for IsSprintRunning to
+        # flip false the instant the timer hits zero.
+        main = self.read("ViewModels", "MainViewModel.cs")
+        refresh = main.split("public void RefreshAccess()")[1].split("\n    }")[0]
+        assert "Today.JournalPromptVisible" in refresh, \
+            "RefreshAccess must also skip while the sprint summary/journal card is on screen"
+
+        today = self.read("ViewModels", "TodayViewModel.cs")
+        save_journal = today.split("private void SaveJournal()")[1].split("\n    }")[0]
+        assert "_main.RefreshAccess()" in save_journal, \
+            "dismissing the summary must re-check access immediately, not on the next minute's tick"
+
+    def test_the_tier_badge_dot_follows_the_design_system(self):
+        # DESIGN_SYSTEM.md §7 "Tier badge": primary while trialling, ok once
+        # bought, warn once the trial has ended.
+        main = self.read("ViewModels", "MainViewModel.cs")
+        dot = main.split("public string TierBadgeDotKey =>")[1].split(";")[0]
+        assert '"Green"' in dot and '"Primary"' in dot and '"Amber"' in dot
+        assert dot.index("IsPro") < dot.index('"Green"')
+
+    def test_no_gate_toast_fires_until_the_trial_has_actually_ended(self):
+        # The per-feature "your trial has ended" toasts (Today, Blocked Apps,
+        # Sleep Blocking, hard kill) are defence-in-depth behind the lock
+        # screen (CLAUDE.md "Covered controls"), never a standalone nag — each
+        # one is conditioned on _main.IsLocked, which is already false for the
+        # whole trial and for the running sprint/summary window above.
+        for file, guard in [
+            ("ViewModels/TodayViewModel.cs", "if (_main.IsLocked)"),
+            ("ViewModels/BlockedAppsViewModel.cs", "_main.IsLocked"),
+            ("ViewModels/SleepBlockingViewModel.cs", "_main.IsLocked"),
+            ("ViewModels/SettingsViewModel.cs", "_main.IsLocked"),
+        ]:
+            source = self.read(*file.split("/"))
+            assert guard in source, f"{file} must gate its trial-ended toast on IsLocked"
 
 
 # ============ a new user's first sprint blocked nothing (F18, #68)
