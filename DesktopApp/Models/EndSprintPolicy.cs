@@ -41,15 +41,34 @@ public static class EndSprintPolicy
     // suite passes. 3 s left no margin for a real UI-test process (app launch,
     // UIA probing, click dispatch) between starting a sprint and cancelling it
     // inside the grace period — cancel_sprint() kept losing the race under a
-    // loaded machine even though nothing was actually broken (#222). 6 s gives
-    // real headroom without slowing any test that already waits it out.
-    public static TimeSpan GracePeriod => UseShortTimers ? TimeSpan.FromSeconds(6) : TimeSpan.FromMinutes(2);
+    // loaded machine even though nothing was actually broken (#222).
+    //
+    // 6 s was not enough either: #241's three cancel tests failed the same way
+    // on an idle machine. A single UI-Automation element lookup on Today costs
+    // one to two seconds, and those tests spend four to six of them between the
+    // sprint starting and the click landing — the worst path measured about
+    // eight. 15 s is roughly double that, which is the margin this needs to
+    // stop being a coin toss. The real two minutes is untouched.
+    public static TimeSpan GracePeriod => UseShortTimers ? TimeSpan.FromSeconds(15) : TimeSpan.FromMinutes(2);
 
-    /// <summary>How long Firm's "End anyway" stays disabled.</summary>
-    public static TimeSpan FirmConfirmDelay => UseShortTimers ? TimeSpan.FromSeconds(2) : TimeSpan.FromSeconds(5);
+    /// <summary>
+    /// How long Firm's "End anyway" stays disabled.
+    ///
+    /// 6 s rather than 2 s under short timers, for the reason #222 widened the
+    /// grace period: the UI suite cannot observe a window shorter than its own
+    /// round trips. #242 reported the button as "enabled immediately"; the app
+    /// log showed it unlocking 2.507 s after the panel opened — the countdown
+    /// was exactly right, and the test simply could not read IsEnabled inside
+    /// a 2 s window. The real 5 s is untouched.
+    /// </summary>
+    public static TimeSpan FirmConfirmDelay => UseShortTimers ? TimeSpan.FromSeconds(6) : TimeSpan.FromSeconds(5);
 
-    /// <summary>How long Sealed makes you wait before the phrase can confirm.</summary>
-    public static TimeSpan SealedCountdown => UseShortTimers ? TimeSpan.FromSeconds(3) : TimeSpan.FromSeconds(30);
+    /// <summary>
+    /// How long Sealed makes you wait before the phrase can confirm. 8 s under
+    /// short timers for the same reason as <see cref="FirmConfirmDelay"/>, with
+    /// room for the phrase to be typed inside the window. The real 30 s stands.
+    /// </summary>
+    public static TimeSpan SealedCountdown => UseShortTimers ? TimeSpan.FromSeconds(8) : TimeSpan.FromSeconds(30);
 
     public static EndFlow FlowFor(ShieldLevel shield, TimeSpan elapsed) =>
         elapsed < GracePeriod
