@@ -37,7 +37,13 @@ public static class EndSprintPolicy
     public static bool UseShortTimers { get; set; }
 
     /// <summary>Time after starting in which a sprint can be cancelled without penalty.</summary>
-    public static TimeSpan GracePeriod => UseShortTimers ? TimeSpan.FromSeconds(3) : TimeSpan.FromMinutes(2);
+    // Short-timers is only set by --short-timers, which only the automation
+    // suite passes. 3 s left no margin for a real UI-test process (app launch,
+    // UIA probing, click dispatch) between starting a sprint and cancelling it
+    // inside the grace period — cancel_sprint() kept losing the race under a
+    // loaded machine even though nothing was actually broken (#222). 6 s gives
+    // real headroom without slowing any test that already waits it out.
+    public static TimeSpan GracePeriod => UseShortTimers ? TimeSpan.FromSeconds(6) : TimeSpan.FromMinutes(2);
 
     /// <summary>How long Firm's "End anyway" stays disabled.</summary>
     public static TimeSpan FirmConfirmDelay => UseShortTimers ? TimeSpan.FromSeconds(2) : TimeSpan.FromSeconds(5);

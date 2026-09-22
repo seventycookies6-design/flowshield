@@ -615,7 +615,14 @@ class TestShieldWording:
         fresh_app.navigate_to_tab("Today")
         for level, (promise, best_for) in self.EXPECTED.items():
             fresh_app.select_shield(level)
-            time.sleep(0.5)
+            # Wait for what happens, not for a duration (CLAUDE.md's testing
+            # gotchas, #146): a flat sleep(0.5) here was long enough on a quiet
+            # machine but not under the full suite's load, where the binding
+            # update can lag behind the click and the text still reads the
+            # previous shield's promise for a moment.
+            deadline = time.time() + 5
+            while time.time() < deadline and fresh_app.text_of("ShieldDescriptionText") != promise:
+                time.sleep(0.2)
             assert fresh_app.text_of("ShieldDescriptionText") == promise, level
             assert fresh_app.text_of("ShieldBestForText") == best_for, level
 

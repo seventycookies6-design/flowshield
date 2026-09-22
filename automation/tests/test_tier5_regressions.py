@@ -5426,6 +5426,21 @@ class TestHistoryPage:
                 assert "AutomationProperties.AutomationId" not in head, \
                     f"an AutomationId is on a {tag[1:]}, where nothing can find it"
 
+    def test_the_week_stat_values_are_not_hidden_behind_a_name_override(self):
+        """
+        A TextBlock has no ValuePattern, so UI Automation surfaces its content
+        through the element's Name — which is exactly what
+        AutomationProperties.Name overrides. Setting an explicit Name on
+        these three (as History briefly did) makes automation, and a screen
+        reader, read the eyebrow label instead of the number: "Sprints
+        completed this week" instead of "12". Regression for #222.
+        """
+        xaml = self._read(self.XAML)
+        for automation_id in ("WeekFocusHours", "WeekSprintsValue", "WeekDistractionsValue"):
+            block = xaml.split(f'AutomationProperties.AutomationId="{automation_id}"', 1)[1][:400]
+            assert "AutomationProperties.Name" not in block.split("/>", 1)[0], \
+                f"{automation_id} has a Name override hiding its bound value from automation"
+
     def test_the_page_offers_the_handles_a_test_needs(self):
         xaml = self._read(self.XAML)
         for automation_id in (
