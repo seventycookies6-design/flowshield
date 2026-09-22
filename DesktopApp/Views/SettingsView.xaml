@@ -2,7 +2,40 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:inf="clr-namespace:FlowShield.Infrastructure">
-    <ScrollViewer x:Name="SettingsScroll" VerticalScrollBarVisibility="Auto">
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="180"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- F22: the section rail. WrapPanel (not StackPanel) on purpose — a
+             later task flips Orientation to Horizontal on narrow windows. It
+             tracks scroll position via OnScrollChanged (code-behind) and
+             jumps via OnNavClick / JumpTo. -->
+        <WrapPanel x:Name="Rail" Grid.Column="0" Orientation="Vertical" Margin="0,0,16,0"
+                   AutomationProperties.Name="Settings sections">
+            <RadioButton x:Name="SettingsNav_Licence" Style="{StaticResource SettingsNavLink}"
+                         GroupName="SettingsNav" Tag="Licence" Content="Licence &amp; devices" IsChecked="True"
+                         AutomationProperties.AutomationId="SettingsNav_Licence" Click="OnNavClick"/>
+            <RadioButton x:Name="SettingsNav_Focus" Style="{StaticResource SettingsNavLink}"
+                         GroupName="SettingsNav" Tag="Focus" Content="Focus"
+                         AutomationProperties.AutomationId="SettingsNav_Focus" Click="OnNavClick"/>
+            <RadioButton x:Name="SettingsNav_App" Style="{StaticResource SettingsNavLink}"
+                         GroupName="SettingsNav" Tag="App" Content="App"
+                         AutomationProperties.AutomationId="SettingsNav_App" Click="OnNavClick"/>
+            <RadioButton x:Name="SettingsNav_Notifications" Style="{StaticResource SettingsNavLink}"
+                         GroupName="SettingsNav" Tag="Notifications" Content="Notifications"
+                         AutomationProperties.AutomationId="SettingsNav_Notifications" Click="OnNavClick"/>
+            <RadioButton x:Name="SettingsNav_Data" Style="{StaticResource SettingsNavLink}"
+                         GroupName="SettingsNav" Tag="Data" Content="Your data"
+                         AutomationProperties.AutomationId="SettingsNav_Data" Click="OnNavClick"/>
+            <RadioButton x:Name="SettingsNav_About" Style="{StaticResource SettingsNavLink}"
+                         GroupName="SettingsNav" Tag="About" Content="About"
+                         AutomationProperties.AutomationId="SettingsNav_About" Click="OnNavClick"/>
+        </WrapPanel>
+
+    <ScrollViewer x:Name="SettingsScroll" Grid.Column="1" VerticalScrollBarVisibility="Auto"
+                  ScrollChanged="OnScrollChanged">
         <!-- DESIGN_SYSTEM.md §4: the cards flow into two columns when the
              window is wide enough (three on a very wide one) and stack when it
              isn't, full width like Today and Blocked Apps (#189). This was one
@@ -667,4 +700,5 @@
             </StackPanel>
         </StackPanel>
     </ScrollViewer>
+    </Grid>
 </UserControl>

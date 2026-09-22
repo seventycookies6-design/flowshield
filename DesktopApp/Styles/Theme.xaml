@@ -430,6 +430,44 @@
         </Setter>
     </Style>
 
+    <!-- =================================================== settings rail -->
+
+    <!-- F22: the Settings section rail. Same hover/focus tokens as NavButton
+         above (Surface2 hover, InkDim -> Ink text) but a left bar rather than
+         the main nav's, and driven by IsChecked (it's a RadioButton) rather
+         than a Tag DataTrigger, since the rail tracks scroll position, not a
+         command binding. NavButton uses Primary for its bar/selected accent
+         since this app has no "Accent" token — this style follows suit. -->
+    <Style x:Key="SettingsNavLink" TargetType="RadioButton">
+        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusVisual}"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Foreground" Value="{DynamicResource InkDim}"/>
+        <Setter Property="FontFamily" Value="{StaticResource FontStack}"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="Padding" Value="12,8"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="RadioButton">
+                    <Border x:Name="bd" Background="Transparent" Padding="{TemplateBinding Padding}"
+                            BorderThickness="3,0,0,0" BorderBrush="Transparent">
+                        <ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="bd" Property="Background" Value="{DynamicResource Surface2}"/>
+                            <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
+                        </Trigger>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource Primary}"/>
+                            <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
+                            <Setter Property="FontWeight" Value="SemiBold"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <!-- ============================================================= inputs -->
 
     <Style x:Key="Field" TargetType="TextBox">

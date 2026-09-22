@@ -2440,3 +2440,20 @@ class TestLightTheme:
         window, which is exactly what tier 3 owns.
         """
         pytest.skip("keyboard walk: run as part of the scheduled tier 3 pass")
+
+
+# ============================================ settings rail (F22, Task 2)
+
+@pytest.mark.ui
+class TestSettingsRail:
+    """F22: the section rail jumps to a group and tracks scroll position.
+
+    Not run here — Smart App Control blocks launching the built app on this
+    machine. Written per the brief for Miles/Keenan to run once SAC is off.
+    """
+
+    def test_about_link_scrolls_updates_into_view(self, app):
+        app.navigate_to_tab("Settings")
+        app.click("SettingsNav_About")
+        assert app.is_on_screen("CheckForUpdatesButton")
+        assert app.is_selected("SettingsNav_About")

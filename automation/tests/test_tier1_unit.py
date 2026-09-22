@@ -4047,3 +4047,14 @@ class TestSettingsIsGrouped:
         for aid in ("OpenLogButton", "ShowFirstRunButton"):
             assert xaml.index(f'"{aid}"') > about, \
                 f"Advanced ({aid}) belongs in About, after Updates"
+
+    def test_rail_has_a_link_per_group(self):
+        xaml = self.XAML.read_text(encoding="utf-8")
+        for g in self.GROUPS:
+            assert f'AutomationProperties.AutomationId="SettingsNav_{g}"' in xaml
+            assert f'Tag="{g}"' in xaml
+
+    def test_rail_jump_focuses_the_header(self):
+        cs = (self.XAML.parent / "SettingsView.xaml.cs").read_text(encoding="utf-8")
+        assert "BringIntoView" in cs and ".Focus()" in cs
+        assert "ScrollChanged" in cs, "rail must follow scrolling"
