@@ -22,6 +22,26 @@ from config import (
 )
 
 
+def _server_env() -> dict:
+    """
+    Environment for the license server child process.
+
+    `PORT` and `WEBSITE_URL` are read by `Server/server.js` at startup, so
+    the server must be told the same ports this suite is configured for
+    (`FLOWSHIELD_SERVER_PORT` / `FLOWSHIELD_WEBSITE_PORT`) — otherwise it
+    falls back to its own defaults (3000 / http://localhost:5500) and two
+    agents running the suite in parallel collide on those ports. An explicit
+    PORT already in the environment wins over the suite's default, matching
+    how FLOWSHIELD_SERVER_PORT itself is read in config.py.
+    """
+    env = _npm_env()
+    # An explicit PORT already in the environment wins; otherwise use the
+    # port this suite was configured for (FLOWSHIELD_SERVER_PORT wins there).
+    env["PORT"] = os.environ.get("PORT", str(SERVER_PORT))
+    env["WEBSITE_URL"] = WEBSITE_URL
+    return env
+
+
 def port_is_open(port: int, host: str = "127.0.0.1", timeout: float = 0.6) -> bool:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
         sock.settimeout(timeout)
@@ -137,7 +157,7 @@ def license_server(logger=None) -> ManagedService:
         port=SERVER_PORT,
         health_url=f"{SERVER_URL}/health",
         logger=logger,
-        env=_npm_env(),
+        env=_server_env(),
     )
 
 
