@@ -5614,3 +5614,74 @@ class TestHistoryPage:
         assert 'AutomationProperties.AutomationId="HistoryRowIntention"' in xaml
         vm = self.VM.read_text(encoding="utf-8")
         assert "OrderByDescending(s => s.StartedUtc)" in vm, "newest first"
+
+
+# ==================================== tray and keyboard reuse the F2 flow (F4)
+
+class TestTrayAndKeyboardNeverBypassTheEndFlow:
+    """
+    F4 added a second and third way to end a sprint — the tray menu and the
+    Space key — on top of the StopSprintButton. All three must resolve to the
+    exact same RequestEnd() policy: a shortcut that ended a Firm or Sealed
+    sprint immediately would silently undo F2's escape-hatch rules (#47).
+    """
+
+    WINDOW = Path(DESKTOP_DIR) / "MainWindow.xaml.cs"
+    TODAY_VM = Path(DESKTOP_DIR) / "ViewModels" / "TodayViewModel.cs"
+    MAIN_XAML = Path(DESKTOP_DIR) / "MainWindow.xaml"
+    TODAY_XAML = Path(DESKTOP_DIR) / "Views" / "TodayView.xaml"
+
+    def test_tray_end_sprint_and_space_drive_the_same_stopcommand_as_the_button(self):
+        today_xaml = self.TODAY_XAML.read_text(encoding="utf-8")
+        assert 'Command="{Binding StopCommand}"' in today_xaml, \
+            "StopSprintButton must still bind StopCommand — this test assumes that binding"
+
+        window = self.WINDOW.read_text(encoding="utf-8")
+        assert "vm.Today.StopCommand.Execute(null)" in window, \
+            "the tray's End sprint must invoke StopCommand, the same RelayCommand as the button"
+
+        today_vm = self.TODAY_VM.read_text(encoding="utf-8")
+        # Space's command wraps TogglePrimary, which itself calls RequestEnd()
+        # while running — not a separate, weaker end path.
+        assert "ToggleOrEndCommand = new RelayCommand(TogglePrimary" in today_vm
+        assert "StopCommand = new RelayCommand(() => RequestEnd()" in today_vm
+
+    def test_no_new_entry_point_calls_endsprint_or_cancelsprint_directly(self):
+        """
+        RequestEnd() is the only door into EndSprint/CancelSprint — MainWindow
+        and the Space/tray wiring must go through it, mirroring the existing
+        rule for the old tray Quit and window-close paths (see
+        TestNoOneClickEscape.test_tray_quit_and_window_close_use_the_end_flow).
+        """
+        window = self.WINDOW.read_text(encoding="utf-8")
+        for method_name in ("BuildTrayMenu", "EndSprintFromTray", "WndProc"):
+            body = window.split(f"private void {method_name}(", 1)
+            if len(body) == 1:
+                body = window.split(f"private IntPtr {method_name}(", 1)
+            block = body[1].split("\n    }")[0]
+            assert "EndSprint(" not in block, f"{method_name} must not end a sprint directly"
+            assert "CancelSprint(" not in block, f"{method_name} must not cancel a sprint directly"
+
+    def test_the_global_hotkey_only_ever_starts_not_ends(self):
+        """The hotkey's one job is F4's 'start the last sprint' — it must never reach End."""
+        window = self.WINDOW.read_text(encoding="utf-8")
+        wnd_proc = window.split("private IntPtr WndProc(")[1].split("\n    }")[0]
+        assert "StartCommand.Execute(null)" in wnd_proc
+        assert "StopCommand" not in wnd_proc
+        assert "RequestEnd" not in wnd_proc
+
+    def test_page_ctrl_shortcuts_and_shield_shift_shortcuts_stay_disjoint(self):
+        """
+        Issue #37's settlement: Ctrl+1..5 is reserved for pages, Shift+1/2/3
+        for shields. Sharing a digit (Ctrl+1 vs Shift+1) is fine — they are
+        different combinations — but the same (modifier, key) pair must never
+        be bound twice, and nothing may claim Ctrl+1..5 for a shield.
+        """
+        xaml = self.MAIN_XAML.read_text(encoding="utf-8")
+        bindings = re.findall(r'<KeyBinding\s+(?:Modifiers="(\w+)"\s+)?Key="(\w+)"', xaml)
+        combos = [(mods or "", key) for mods, key in bindings]
+        assert len(combos) == len(set(combos)), f"duplicate KeyBinding combination(s) in {combos}"
+
+        shield_lines = [line for line in xaml.splitlines() if "SelectShield" in line]
+        assert shield_lines and all('Modifiers="Shift"' in line for line in shield_lines), \
+            "every shield shortcut must use Shift, keeping Ctrl+1..5 free for page navigation"

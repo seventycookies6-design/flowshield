@@ -1539,6 +1539,65 @@ class TestJournalExport:
         text = target.read_text(encoding="utf-8-sig")
         assert "'=1+1" in text, "a leading = must be defused before Excel opens it"
 
+
+# ============================== tray and keyboard start a sprint (F4)
+#
+# Written for F4 but not run in this session: UI tests take over the screen,
+# only one can run at a time on this machine, and the orchestrator schedules
+# them. See the PR description.
+
+class TestSpaceStartsAndEndsASprint:
+    """
+    Space on Today (F4) must behave exactly like clicking StartSprintButton
+    and StopSprintButton — including going through the F2 end flow, not
+    ending a Firm sprint immediately.
+    """
+
+    def test_space_starts_a_sprint_and_opens_the_firm_end_flow(self, fresh_app):
+        fresh_app.navigate_to_tab("Today")
+        fresh_app.select_shield("Firm")
+        time.sleep(0.4)
+
+        # Space with focus away from any text box starts the sprint, the same
+        # as StartSprintButton.
+        fresh_app.focus()
+        fresh_app.window.type_keys(" ")
+        assert fresh_app.exists("StopSprintButton", timeout=5), \
+            "Space did not start the sprint"
+
+        fresh_app.wait_out_grace_period()
+
+        # Space again must open the same F2 flow the button opens — a
+        # confirmation that waits — never end the sprint outright.
+        fresh_app.window.type_keys(" ")
+        assert fresh_app.exists("KeepGoingButton", timeout=3), \
+            "Space skipped Firm's confirmation and ended the sprint directly"
+        assert fresh_app.is_control_enabled("EndAnywayButton") is False, \
+            "End anyway must still wait out Firm's grace, whatever triggered it"
+
+        # Clean up through the real flow rather than leaving a sprint running.
+        fresh_app.click("KeepGoingButton")
+        time.sleep(0.5)
+        fresh_app.stop_sprint()
+
+    def test_space_typed_into_the_intention_field_stays_a_space(self, fresh_app):
+        """
+        The guard in TodayViewModel.CanUseSpaceShortcut: typing into the
+        intention box must not also start a sprint underneath the user.
+        """
+        fresh_app.navigate_to_tab("Today")
+        fresh_app.set_text("IntentionInput", "write the release notes")
+        # set_text leaves focus in the box; one more space must land in the
+        # text, not toggle the sprint.
+        intention_box = fresh_app.element("IntentionInput")
+        intention_box.type_keys(" ")
+        time.sleep(0.3)
+
+        assert not fresh_app.exists("StopSprintButton", timeout=1), \
+            "a space typed into the intention field also started a sprint"
+        assert fresh_app.text_of("IntentionInput").endswith(" "), \
+            "the space must still land in the text box"
+
     def test_an_empty_range_still_saves_a_file_with_headings(self, fresh_app, tmp_path):
         target = tmp_path / "empty.csv"
         fresh_app.navigate_to_tab("Settings")

@@ -1,3 +1,5 @@
+using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Threading;
 using FlowShield.Infrastructure;
 using FlowShield.Models;
@@ -38,6 +40,17 @@ public class TodayViewModel : ViewModelBase
         SaveJournalCommand = new RelayCommand(SaveJournal, () => JournalPromptVisible);
         GetProCommand = new RelayCommand(() => _main.OpenUpgradePage());
 
+        // F4: Space on Today starts or ends the sprint, the same as clicking
+        // StartSprintButton/StopSprintButton. Guarded so a space typed into
+        // the intention field (or any text box) never also toggles a sprint.
+        ToggleOrEndCommand = new RelayCommand(TogglePrimary, CanUseSpaceShortcut);
+
+        // F4: Shift+1/2/3 pick a shield, the same as clicking the segmented
+        // buttons — Ctrl+1..5 is reserved for page navigation (issue #37).
+        SelectShieldSoftCommand = new RelayCommand(() => SelectedShield = ShieldLevel.Soft, CanChangeShield);
+        SelectShieldFirmCommand = new RelayCommand(() => SelectedShield = ShieldLevel.Firm, CanChangeShield);
+        SelectShieldSealedCommand = new RelayCommand(() => SelectedShield = ShieldLevel.Sealed, CanChangeShield);
+
         _customMinutesText = S.LastCustomSprintMinutes.ToString();
         _customMinutes = S.LastCustomSprintMinutes;
 
@@ -54,6 +67,14 @@ public class TodayViewModel : ViewModelBase
     public RelayCommand KeepGoingCommand { get; }
     public RelayCommand EndAnywayCommand { get; }
     public RelayCommand SaveJournalCommand { get; }
+
+    /// <summary>Space on Today (F4): the same TogglePrimary the tray's Start/End reuses.</summary>
+    public RelayCommand ToggleOrEndCommand { get; }
+
+    /// <summary>Shift+1/2/3 on Today (F4).</summary>
+    public RelayCommand SelectShieldSoftCommand { get; }
+    public RelayCommand SelectShieldFirmCommand { get; }
+    public RelayCommand SelectShieldSealedCommand { get; }
 
     // ------------------------------------------------------ ending a sprint (F2)
 
@@ -634,6 +655,17 @@ public class TodayViewModel : ViewModelBase
         if (IsRunning) RequestEnd();
         else StartSprint();
     }
+
+    /// <summary>
+    /// The Space shortcut only fires on Today, and never while a text box has
+    /// focus — typing a space into the intention field (or anywhere else)
+    /// must stay a space, not also start or end a sprint (F4).
+    /// </summary>
+    private bool CanUseSpaceShortcut() =>
+        _main.CurrentPage == AppPage.Today && Keyboard.FocusedElement is not TextBox;
+
+    /// <summary>Shift+1/2/3 only change the shield where the segmented buttons do: idle, on Today.</summary>
+    private bool CanChangeShield() => _main.CurrentPage == AppPage.Today && !IsRunning;
 
     // ------------------------------------------- what is already running (F7)
 

@@ -26,6 +26,22 @@ public partial class MainWindow : Window
     [DllImport("dwmapi.dll", PreserveSig = true)]
     private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int value, int size);
 
+    // ------------------------------------------------------ global hotkey (F4)
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool UnregisterHotKey(IntPtr hWnd, int id);
+
+    private const int WM_HOTKEY = 0x0312;
+    private const int GlobalHotkeyId = 0x4653; // arbitrary, app-local id ("FS")
+    private const uint MOD_ALT = 0x0001;
+    private const uint MOD_CONTROL = 0x0002;
+    private const uint MOD_NOREPEAT = 0x4000;
+    private const uint VK_F = 0x46;
+    private bool _hotkeyRegistered;
+
     public MainWindow()
     {
         InitializeComponent();
@@ -82,6 +98,58 @@ public partial class MainWindow : Window
         {
             Log.Warn($"dark title bar unavailable: {ex.Message}");
         }
+
+        SetUpGlobalHotkey();
+    }
+
+    /// <summary>
+    /// Registers Ctrl+Alt+F to start the last sprint from anywhere (F4), if
+    /// the setting is on. Re-run whenever that setting changes, so turning it
+    /// on or off in Settings takes effect immediately, and on window close to
+    /// unregister. No admin rights: RegisterHotKey is a per-user API.
+    /// </summary>
+    private void SetUpGlobalHotkey()
+    {
+        var hwnd = new WindowInteropHelper(this).Handle;
+        if (hwnd == IntPtr.Zero) return; // not initialised yet; OnSourceInitialized retries
+
+        if (_hotkeyRegistered)
+        {
+            UnregisterHotKey(hwnd, GlobalHotkeyId);
+            _hotkeyRegistered = false;
+        }
+
+        if (Vm?.Settings.GlobalHotkeyEnabled != true) return;
+
+        if (RegisterHotKey(hwnd, GlobalHotkeyId, MOD_CONTROL | MOD_ALT | MOD_NOREPEAT, VK_F))
+        {
+            _hotkeyRegistered = true;
+            HwndSource.FromHwnd(hwnd)?.AddHook(WndProc);
+            Log.Info("global hotkey registered: Ctrl+Alt+F starts the last sprint");
+        }
+        else
+        {
+            // Another app already owns the combination. Leave the setting off
+            // rather than silently doing nothing when the user presses it.
+            Log.Warn("global hotkey Ctrl+Alt+F is already in use; leaving it off");
+            if (Vm is { } vm)
+            {
+                vm.SettingsPage.GlobalHotkeyEnabled = false;
+                vm.Toast("Ctrl+Alt+F is already used by another app, so the global hotkey stays off.");
+            }
+        }
+    }
+
+    private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+    {
+        if (msg == WM_HOTKEY && wParam.ToInt32() == GlobalHotkeyId)
+        {
+            // The same command the tray's "Start sprint (last settings)" and
+            // the Today button use — never a shortcut around CanStart's gates.
+            Vm?.Today.StartCommand.Execute(null);
+            handled = true;
+        }
+        return IntPtr.Zero;
     }
 
     private void SetUpTray()
@@ -98,10 +166,7 @@ public partial class MainWindow : Window
             };
 
             var menu = new Forms.ContextMenuStrip();
-            menu.Items.Add("Open FlowShield", null, (_, _) => RestoreFromTray());
-            menu.Items.Add(new Forms.ToolStripSeparator());
-            menu.Items.Add("Quit", null, (_, _) => Quit());
-
+            menu.Opening += (_, _) => BuildTrayMenu(menu);
             _tray.ContextMenuStrip = menu;
             _tray.DoubleClick += (_, _) => RestoreFromTray();
             _tray.BalloonTipClicked += OnNotificationClicked;
@@ -114,6 +179,62 @@ public partial class MainWindow : Window
             _trayRunningIcon = null;
             Log.Error("tray icon setup failed", ex);
         }
+    }
+
+    /// <summary>
+    /// Rebuilds the tray menu just before it opens (F4), so the time-left
+    /// item and the running/idle items are always current — a countdown that
+    /// only refreshed on launch would go stale within a minute.
+    /// </summary>
+    private void BuildTrayMenu(Forms.ContextMenuStrip menu)
+    {
+        menu.Items.Clear();
+
+        var running = Vm?.Today.IsRunning == true;
+        if (running)
+        {
+            menu.Items.Add(new Forms.ToolStripMenuItem($"{Vm!.Today.RemainingText} left") { Enabled = false });
+            menu.Items.Add(new Forms.ToolStripSeparator());
+            menu.Items.Add("Open", null, (_, _) => RestoreFromTray());
+            // Goes through the exact F2 flow the Today button uses: bring the
+            // window forward and invoke StopCommand, never end it directly.
+            menu.Items.Add("End sprint", null, (_, _) => EndSprintFromTray());
+        }
+        else
+        {
+            // Bound to the same StartCommand the Today button uses, with
+            // whatever length and shield were last used — they already
+            // persist as AppSettings.DefaultSprintMinutes/DefaultShield.
+            menu.Items.Add("Start sprint (last settings)", null, (_, _) => Vm?.Today.StartCommand.Execute(null));
+            menu.Items.Add("Start…", null, (_, _) => OpenToStartSprint());
+            menu.Items.Add(new Forms.ToolStripSeparator());
+            menu.Items.Add("Open FlowShield", null, (_, _) => RestoreFromTray());
+        }
+
+        menu.Items.Add(new Forms.ToolStripSeparator());
+        menu.Items.Add("Quit", null, (_, _) => Quit());
+    }
+
+    /// <summary>Tray's "Start…": opens the window on Today without starting anything (F4).</summary>
+    private void OpenToStartSprint()
+    {
+        if (Vm is not { } vm) return;
+        BringToFront();
+        vm.CurrentPage = AppPage.Today;
+    }
+
+    /// <summary>
+    /// Tray's "End sprint" (F4): brings the window forward and triggers the
+    /// same StopCommand the Today button uses, so Firm's confirmation and
+    /// Sealed's countdown-and-phrase apply exactly as they do from the window
+    /// — the tray is never a shortcut around the F2 flow.
+    /// </summary>
+    private void EndSprintFromTray()
+    {
+        if (Vm is not { } vm) return;
+        BringToFront();
+        vm.CurrentPage = AppPage.Today;
+        vm.Today.StopCommand.Execute(null);
     }
 
     private static System.Drawing.Icon LoadIcon(string name)
@@ -132,6 +253,7 @@ public partial class MainWindow : Window
             oldVm.Today.PropertyChanged -= OnTodayChanged;
             oldVm.Today.EndAbandoned -= OnEndAbandoned;
             oldVm.NotificationRequested -= OnNotificationRequested;
+            oldVm.SettingsPage.PropertyChanged -= OnSettingsPageChanged;
         }
 
         if (e.NewValue is MainViewModel newVm)
@@ -139,9 +261,18 @@ public partial class MainWindow : Window
             newVm.Today.PropertyChanged += OnTodayChanged;
             newVm.Today.EndAbandoned += OnEndAbandoned;
             newVm.NotificationRequested += OnNotificationRequested;
+            newVm.SettingsPage.PropertyChanged += OnSettingsPageChanged;
         }
 
         UpdateTrayIcon();
+        SetUpGlobalHotkey();
+    }
+
+    /// <summary>Turning the F4 hotkey setting on or off takes effect immediately.</summary>
+    private void OnSettingsPageChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(SettingsViewModel.GlobalHotkeyEnabled))
+            SetUpGlobalHotkey();
     }
 
     private void OnEndAbandoned(object? sender, EventArgs e) => _quitWhenSprintEnds = false;
@@ -413,8 +544,14 @@ public partial class MainWindow : Window
             {
                 currentVm.Today.PropertyChanged -= OnTodayChanged;
                 currentVm.Today.EndAbandoned -= OnEndAbandoned;
+                currentVm.SettingsPage.PropertyChanged -= OnSettingsPageChanged;
             }
             Vm?.SaveSettings();
+            if (_hotkeyRegistered)
+            {
+                UnregisterHotKey(new WindowInteropHelper(this).Handle, GlobalHotkeyId);
+                _hotkeyRegistered = false;
+            }
             if (_tray is not null)
             {
                 _tray.Visible = false;
