@@ -4135,3 +4135,59 @@ class TestPickerListsOnlyInstalledApps:
         assets = Path(SERVER_DIR).parent / "DesktopApp" / "Assets" / "Icons"
         assert not [p for p in assets.iterdir() if p.suffix.lower() in (".png", ".ico", ".svg")], \
             "no third-party app logos are shipped"
+
+
+JUNK_NAME_WORDS = ("uninstall", "update", "installer", "installation", "setup", "redistributable",
+                   "runtime", "sdk", "shared framework", "driver", "plugin", "module docs",
+                   "documentation", "readme", "release notes")
+JUNK_PROCESS_WORDS = ("unins", "uninstall", "setup", "install", "update", "redist", "runtime",
+                      "sdk-", "bundle", "download", "-amd64")
+
+
+def picker_is_not_an_app(name: str, process: str) -> bool:
+    """Mirror of AppPicker.IsNotAnApp: updaters, installers, runtimes and docs aren't apps anyone blocks."""
+    n, p = name.lower(), process.lower()
+    return any(w in n for w in JUNK_NAME_WORDS) or any(w in p for w in JUNK_PROCESS_WORDS)
+
+
+class TestPickerSkipsThingsThatArentApps:
+    """Real Start Menu and uninstall entries from a developer's PC (22 Sep 2026)."""
+
+    @pytest.mark.parametrize("name,process", [
+        ("Check for FxSound updates", "updater"),
+        ("Discord", "Update"),                       # Squirrel's shortcut target, not Discord
+        ("Uninstall Cisco Packet Tracer", "unins000"),
+        ("Visual Studio Installer", "setup"),
+        ("Roblox Studio", "RobloxStudioInstaller"),
+        ("Python 3.12 Module Docs (64-bit)", "python"),
+        ("Microsoft Visual C++ v14 Redistributable (x64) - 14.51.36247", "VC_redist.x64"),
+        ("Microsoft Windows Desktop Runtime - 8.0.26 (x64)", "windowsdesktop-runtime-8.0.26-win-x64"),
+        ("Microsoft .NET SDK 10.0.401 (x64)", "dotnet-sdk-10.0.401-win-x64"),
+        ("Microsoft ASP.NET Core 8.0.25 - Shared Framework (x64)", "AspNetCoreSharedFrameworkBundle-x64"),
+        ("Parsec Virtual Display Driver", "uninstall"),
+        ("Dell SupportAssist OS Recovery Plugin for Dell Update", "DellUpdateSupportAssistPlugin"),
+        ("Windows 11 Installation Assistant", "Windows10UpgraderApp"),
+        ("Logi Download Assistant", "logi_download_assistant"),
+        ("Microsoft OneDrive", "OneDriveSetup"),
+        ("Python 3.12.10 (64-bit)", "python-3.12.10-amd64"),   # the installer the uninstall entry names
+    ])
+    def test_junk_is_left_out(self, name, process):
+        assert picker_is_not_an_app(name, process)
+
+    @pytest.mark.parametrize("name,process", [
+        ("Discord", "Discord"), ("Steam", "steam"), ("Roblox Player", "RobloxPlayerBeta"),
+        ("Google Chrome", "chrome"), ("Notion", "Notion"), ("Cursor", "Cursor"),
+        ("Modrinth App", "Modrinth App"), ("VMware Workstation Pro", "vmware"),
+        ("Canva", "Canva"), ("FxSound", "FxSound"), ("Parsec", "parsecd"),
+        ("Python 3.12 (64-bit)", "python"), ("OneDrive", "OneDrive"),
+    ])
+    def test_real_apps_stay(self, name, process):
+        assert not picker_is_not_an_app(name, process)
+
+    def test_the_mirror_matches_the_app(self):
+        root = Path(SERVER_DIR).parent / "DesktopApp"
+        picker = (root / "Models" / "AppPicker.cs").read_text(encoding="utf-8")
+        for word in JUNK_NAME_WORDS + JUNK_PROCESS_WORDS:
+            assert f'"{word}"' in picker, word
+        catalog = (root / "Services" / "AppCatalog.cs").read_text(encoding="utf-8")
+        assert "AppPicker.IsNotAnApp(name, process)" in catalog

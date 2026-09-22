@@ -116,10 +116,7 @@ public static class AppCatalog
         if (!exe.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) || IsUnderWindows(exe)) return null;
 
         var process = Path.GetFileNameWithoutExtension(exe);
-        // Uninstallers and installers aren't what anyone means to block.
-        if (process.Contains("unins", StringComparison.OrdinalIgnoreCase)
-            || process.Contains("setup", StringComparison.OrdinalIgnoreCase)
-            || name.Contains("uninstall", StringComparison.OrdinalIgnoreCase)) return null;
+        if (AppPicker.IsNotAnApp(name, process)) return null;
 
         return new PickerEntry
         {

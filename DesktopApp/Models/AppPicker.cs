@@ -175,6 +175,29 @@ public static class AppPicker
         Suggestions(isProtected).FirstOrDefault(s =>
             s.Processes.Contains(processName, StringComparer.OrdinalIgnoreCase));
 
+    private static readonly string[] NotAnAppNameWords =
+    {
+        "uninstall", "update", "installer", "installation", "setup", "redistributable",
+        "runtime", "sdk", "shared framework", "driver", "plugin", "module docs",
+        "documentation", "readme", "release notes",
+    };
+
+    private static readonly string[] NotAnAppProcessWords =
+    {
+        "unins", "uninstall", "setup", "install", "update", "redist", "runtime",
+        "sdk-", "bundle", "download", "-amd64",
+    };
+
+    /// <summary>
+    /// Updaters, installers, uninstallers, runtimes, drivers and docs turn up in
+    /// the Start Menu and the uninstall list but aren't apps anyone blocks.
+    /// Discord's own shortcut points at Squirrel's Update.exe, which would
+    /// otherwise add a second "Discord" row that blocks the updater instead.
+    /// </summary>
+    public static bool IsNotAnApp(string name, string process) =>
+        NotAnAppNameWords.Any(w => name.Contains(w, StringComparison.OrdinalIgnoreCase))
+        || NotAnAppProcessWords.Any(w => process.Contains(w, StringComparison.OrdinalIgnoreCase));
+
     /// <summary>
     /// Combines suggestions with what's installed and running. An installed or
     /// running app that a suggestion already covers only lends it an exe for the
