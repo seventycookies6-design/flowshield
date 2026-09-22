@@ -353,6 +353,50 @@
                 </StackPanel>
             </Border>
 
+            <!-- =================================================== your data -->
+            <Border Style="{StaticResource Card}" Padding="24">
+                <StackPanel>
+                    <TextBlock Text="YOUR DATA" Style="{StaticResource Eyebrow}" Margin="0,0,0,8"/>
+                    <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,16">
+                        <Run Text="Sessions, journal, blocklist, momentum and your licence are stored on this PC, encrypted with Windows DPAPI, at"/>
+                        <Run Text="{Binding DataFilePath, Mode=OneWay}" Foreground="{StaticResource InkDim}"/>
+                        <Run Text=". A logs folder sits beside it."/>
+                    </TextBlock>
+                    <TextBlock Text="The only thing that ever leaves this PC is the licence check: your licence key, the email you used at checkout, a salted device identifier, and your device name, sent to the licence server to confirm your purchase."
+                               Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,16"
+                               AutomationProperties.AutomationId="WhatLeavesText"/>
+
+                    <Border Height="1" Background="{StaticResource Edge}" Margin="0,0,0,16"/>
+
+                    <StackPanel Orientation="Horizontal">
+                        <Button Style="{StaticResource BtnGhost}" Content="Export everything…"
+                                Command="{Binding ExportDataCommand}" Padding="16,8"
+                                AutomationProperties.AutomationId="ExportDataButton"
+                                AutomationProperties.Name="Export everything"/>
+
+                        <Button Style="{StaticResource BtnDanger}" Content="Delete everything"
+                                Command="{Binding DeleteEverythingCommand}" Margin="8,0,0,0" Padding="16,8"
+                                AutomationProperties.AutomationId="DeleteEverythingButton"
+                                AutomationProperties.Name="Delete everything"/>
+                    </StackPanel>
+
+                    <TextBlock Text="{Binding DataStatusText}" Style="{StaticResource Caption}"
+                               Margin="0,12,0,0" TextWrapping="Wrap"
+                               Visibility="{Binding DataStatusVisible, Converter={StaticResource BoolVis}}"
+                               AutomationProperties.AutomationId="DataStatusText"/>
+
+                    <!-- Same guard as RestartForUpdate: relaunching mid-sprint would
+                         drop a Sealed shield, so Delete everything waits too. -->
+                    <TextBlock Text="Finish your sprint first — deleting everything restarts the app, which would end it."
+                               Style="{StaticResource Caption}" Foreground="{StaticResource Rose}"
+                               Margin="0,12,0,0" TextWrapping="Wrap"
+                               Visibility="{Binding DataContext.IsSprintRunning,
+                                            RelativeSource={RelativeSource AncestorType=Window},
+                                            Converter={StaticResource BoolVis}}"
+                               AutomationProperties.AutomationId="DeleteEverythingBlockedText"/>
+                </StackPanel>
+            </Border>
+
             <!-- ==================================================== updates -->
             <Border Style="{StaticResource Card}" Padding="24">
                 <StackPanel>

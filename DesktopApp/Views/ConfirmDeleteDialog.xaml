@@ -1,0 +1,36 @@
+<Window x:Class="FlowShield.Views.ConfirmDeleteDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="FlowShield"
+        Width="460" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False"
+        Background="{StaticResource Bg}"
+        FontFamily="{StaticResource FontStack}"
+        TextOptions.TextFormattingMode="Ideal"
+        UseLayoutRounding="True"
+        AutomationProperties.AutomationId="ConfirmDeleteDialog">
+    <!-- DESIGN_SYSTEM.md §7 destructive pattern: BtnDanger sits beside a plain
+         Cancel, never alone, and the copy says exactly what is about to happen
+         (§9 voice — no exclamation marks, no scare language). -->
+    <Border Style="{StaticResource Card}" Margin="16" Padding="24">
+        <StackPanel>
+            <TextBlock Text="Delete everything on this PC."
+                       Style="{StaticResource H2}" TextWrapping="Wrap"
+                       AutomationProperties.AutomationId="ConfirmDeleteText"/>
+            <TextBlock Text="This removes your sessions, journal, blocklist, momentum and licence from this computer. If FlowShield is licensed here, that seat is freed for another machine first. This cannot be undone."
+                       Style="{StaticResource Body}" Margin="0,12,0,0" TextWrapping="Wrap"/>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,24,0,0">
+                <Button Style="{StaticResource BtnGhost}" Content="Cancel"
+                        Click="OnCancel" Padding="16,8"
+                        AutomationProperties.AutomationId="ConfirmDeleteCancelButton"
+                        AutomationProperties.Name="Cancel"/>
+                <Button Style="{StaticResource BtnDanger}" Content="Delete everything"
+                        Click="OnConfirm" Margin="12,0,0,0" Padding="24,8"
+                        AutomationProperties.AutomationId="ConfirmDeleteConfirmButton"
+                        AutomationProperties.Name="Delete everything"/>
+            </StackPanel>
+        </StackPanel>
+    </Border>
+</Window>

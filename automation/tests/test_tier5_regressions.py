@@ -136,6 +136,164 @@ class TestLegalPagesMatchTheProduct:
             "every agent must be told to re-check the legal list before a release or publish"
 
 
+# =============================================== F23 — the privacy promise
+
+class TestPrivacyClaimsMatchTheCode:
+    """
+    F23: every privacy sentence on the site's #privacy section, in the app's
+    Settings -> Your data card, and in legal.html's privacy policy is tied to
+    a code marker here. Add a marker when the copy changes; do not weaken a
+    claim just to make the test pass.
+    """
+
+    SITE = (Path(WEBSITE_DIR) / "index.html").read_text(encoding="utf-8")
+    LEGAL = (Path(WEBSITE_DIR) / "legal.html").read_text(encoding="utf-8")
+    SETTINGS_VIEW = (Path(DESKTOP_DIR) / "Views" / "SettingsView.xaml").read_text(encoding="utf-8")
+    LICENSE_SERVICE = (Path(DESKTOP_DIR) / "Services" / "LicenseService.cs").read_text(encoding="utf-8")
+    SETTINGS_SERVICE = (Path(DESKTOP_DIR) / "Services" / "SettingsService.cs").read_text(encoding="utf-8")
+    DATA_PRIVACY = (Path(DESKTOP_DIR) / "Services" / "DataPrivacyService.cs").read_text(encoding="utf-8")
+    SETTINGS_VM = (Path(DESKTOP_DIR) / "ViewModels" / "SettingsViewModel.cs").read_text(encoding="utf-8")
+
+    def test_site_has_a_privacy_section_before_the_faq(self):
+        assert '<section id="privacy">' in self.SITE
+        assert self.SITE.index('<section id="privacy">') < self.SITE.index('<section id="faq"'), \
+            "the privacy section must sit before the FAQ (F23 brief)"
+
+    def test_site_claims_are_backed_by_code(self):
+        assert "Your data stays on your PC" in self.SITE
+        assert "encrypted with Windows DPAPI" in self.SITE
+        assert "ProtectedData.Protect" in self.SETTINGS_SERVICE, \
+            "the site claims DPAPI encryption, but settings are no longer protected with it"
+
+    def test_app_card_claims_are_backed_by_code(self):
+        assert 'AutomationId="WhatLeavesText"' in self.SETTINGS_VIEW
+        assert "encrypted with Windows DPAPI" in self.SETTINGS_VIEW
+
+        # Export and delete controls exist and are wired to real commands.
+        assert 'AutomationId="ExportDataButton"' in self.SETTINGS_VIEW
+        assert 'Command="{Binding ExportDataCommand}"' in self.SETTINGS_VIEW
+        assert 'AutomationId="DeleteEverythingButton"' in self.SETTINGS_VIEW
+        assert 'Command="{Binding DeleteEverythingCommand}"' in self.SETTINGS_VIEW
+        assert 'Style="{StaticResource BtnDanger}"' in self.SETTINGS_VIEW.split(
+            'AutomationId="DeleteEverythingButton"')[0][-400:], \
+            "Delete everything must use the destructive button style (DESIGN_SYSTEM.md §7)"
+
+    def _what_leaves_text(self) -> str:
+        """Just the WhatLeavesText control's own Text attribute, not the whole
+        Settings page — "email" also appears in the unrelated LicenseEmailInput
+        label, which would let an omission here pass unnoticed."""
+        tag = re.search(
+            r'<TextBlock\b[^>]*AutomationProperties\.AutomationId="WhatLeavesText"[^>]*/>',
+            self.SETTINGS_VIEW)
+        assert tag, "the WhatLeavesText control is missing from SettingsView.xaml"
+        text = re.search(r'Text="([^"]*)"', tag.group(0))
+        assert text, "WhatLeavesText has no Text attribute"
+        return text.group(1).lower()
+
+    def _privacy_section_body(self) -> str:
+        """Just the #privacy section's own markup, not the whole page — "email"
+        also appears in the pricing section's checkout copy."""
+        section = re.search(r'<section id="privacy">(.*?)</section>', self.SITE, re.DOTALL)
+        assert section, "the site's #privacy section is missing"
+        return section.group(1).lower()
+
+    def _legal_what_we_collect(self) -> str:
+        """The "What we collect" block of the privacy policy, which is where
+        the licence key, email, device identifier and device name are all
+        actually disclosed — not the whole page."""
+        block = re.search(r"<h3>What we collect</h3>(.*?)<h3>", self.LEGAL, re.DOTALL)
+        assert block, 'legal.html\'s "What we collect" section is missing'
+        return block.group(1).lower()
+
+    def test_the_field_list_is_derived_from_the_code_and_disclosed_everywhere(self):
+        """
+        Reads the actual fields the client sends in POST /validate straight out
+        of LicenseService.cs, then requires a phrase for every one of them —
+        the mapping below has to be kept in step or this test itself fails —
+        and checks each phrase appears on the site, in the app card and in the
+        privacy policy. Each check is scoped to the disclosure text itself
+        (the WhatLeavesText control, the #privacy section body, the "What we
+        collect" block), not the whole file — the word "email" also shows up
+        in LicenseEmailInput's label and the pricing section, and checking the
+        whole page let a card that dropped "email" from WhatLeavesText still
+        pass. Add a field to the payload without updating the copy anywhere
+        this checks, and this is what catches it.
+        """
+        call = self.LICENSE_SERVICE.split("_http.PostAsJsonAsync(url, new")[1].split("});")[0]
+        sent_fields = set(re.findall(r"(\w+)\s*=", call))
+        assert sent_fields == {"licenseKey", "email", "deviceId", "deviceName"}, (
+            "the licence check's field list changed in LicenseService.cs; update the "
+            "phrase map in this test and the privacy copy on the site, in the app "
+            "card and in legal.html in the same PR"
+        )
+
+        phrase_for_field = {
+            "licenseKey": "licence key",
+            "email": "email",
+            "deviceId": "device identifier",
+            "deviceName": "device name",
+        }
+        assert set(phrase_for_field) == sent_fields, \
+            "every field the client sends needs a disclosed phrase mapped here"
+
+        surfaces = {
+            "the site's #privacy section": self._privacy_section_body(),
+            "the app's Your data card (WhatLeavesText)": self._what_leaves_text(),
+            "legal.html's \"What we collect\" block": self._legal_what_we_collect(),
+        }
+        for surface_name, text in surfaces.items():
+            for field, phrase in phrase_for_field.items():
+                assert phrase in text, (
+                    f"{surface_name} does not mention {phrase!r}, but the client sends "
+                    f"{field!r} on every licence check"
+                )
+
+    def test_export_never_includes_the_licence_key(self):
+        export_method = self.DATA_PRIVACY.split("public static void Export(")[1].split(
+            "public static async Task DeleteEverythingAsync(")[0]
+        assert "LicenseKey" not in export_method, \
+            "the data export must never include the licence key"
+        assert "licence key is deliberately not included" in export_method.lower() \
+            or "licenseKey is deliberately not included" in export_method
+
+    def test_delete_everything_releases_the_seat_first(self):
+        delete_method = self.DATA_PRIVACY.split("DeleteEverythingAsync(")[-1]
+        assert "DeactivateAsync" in delete_method
+        assert "settingsService.Reset()" in delete_method
+
+    def test_legal_privacy_policy_matches_the_same_fields(self):
+        policy = self.LEGAL.lower()
+        assert "device identifier" in policy and "device name" in policy
+        assert "email address" in policy
+        assert "dpapi" in policy
+        assert "none of it is uploaded" in policy or "is stored locally" in policy
+
+    def test_delete_everything_cannot_escape_a_running_sprint(self):
+        """
+        A sealed sprint locks the blocklist so it can't be escaped; relaunching
+        the app to delete everything would drop the shield entirely, same as
+        the update-restart path this mirrors. Checked in three places: the
+        command's CanExecute, an inline refusal inside the handler (in case a
+        covered or automation-invoked control bypasses CanExecute, per
+        CLAUDE.md's "covered controls" gotcha), and a visible reason in the UI.
+        """
+        can_execute = self.SETTINGS_VM.split("DeleteEverythingCommand = new AsyncRelayCommand(")[1].split(";")[0]
+        assert "_main.IsSprintRunning" in can_execute, \
+            "DeleteEverythingCommand must refuse to run while a sprint is active"
+
+        handler = self.SETTINGS_VM.split("private async Task DeleteEverythingAsync()")[1].split("\n    }")[0]
+        assert "if (_main.IsSprintRunning)" in handler, \
+            "the handler must also refuse inline, not rely on CanExecute alone"
+        guard = handler.split("if (_main.IsSprintRunning)")[1].split("ConfirmDeleteDialog")[0]
+        assert "return;" in guard, "the inline guard must actually stop execution"
+        assert "ConfirmDeleteDialog" in handler, "the confirm dialog must still be shown otherwise"
+
+        assert 'AutomationId="DeleteEverythingBlockedText"' in self.SETTINGS_VIEW
+        caption = self.SETTINGS_VIEW.split('AutomationId="DeleteEverythingBlockedText"')[0][-800:]
+        assert "IsSprintRunning" in caption, \
+            "the caption must be bound to sprint state, not a static warning"
+
+
 # ====================== the app uses one branded icon system everywhere
 
 class TestBrandedAppIcon:
