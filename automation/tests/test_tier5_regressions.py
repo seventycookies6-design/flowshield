@@ -2499,7 +2499,12 @@ class TestHonestLimitsAndPriceComparison:
             encoding="utf-8")
         assert "DeviceIdentity.Name" in license_service
         answer = self._site().split("Where does my data go?", 1)[1].split("</details>", 1)[0]
-        for words in ("licence server", "device ID", "user name", "privacy.html"):
+        # "legal.html#privacy", not "privacy.html" (#193): the answer linked to
+        # a page that has never existed, so the one link a privacy-conscious
+        # reader is most likely to follow 404'd. The policy is a section of
+        # legal.html. This test asserted the broken spelling, which is why it
+        # was never caught.
+        for words in ("licence server", "device ID", "user name", "legal.html#privacy"):
             assert words in answer, f"the FAQ's data answer no longer mentions {words!r}"
 
     def test_the_price_comparison_is_a_range_and_names_nobody(self):
@@ -2810,10 +2815,24 @@ class TestProductCaptures:
             assert marker in hero, f"{marker} should still be in the hero"
             assert marker not in above, (
                 f"{marker} sits above the product capture again, pushing it below the fold")
-        paragraphs = above.count("<p")
-        assert paragraphs <= 3, (
+        # `"<p"` also matched every `<path>` in an inline SVG, so this counted
+        # icon geometry as prose (#193). Count real paragraph tags instead.
+        paragraphs = len(re.findall(r"<p[ >]", above))
+        # Four, not three (#193): the SmartScreen note joins the lede, the copy
+        # confirmation and the note. It is the one caveat that has to be read
+        # before the click rather than after it — Microsoft's own advice for an
+        # unsigned build is to warn people in advance, and SELLING.md calls this
+        # the biggest install drop-off there is.
+        #
+        # Measured in a browser at the size this test was written for, before
+        # the change and after it: at 1366x768 the capture's top moved from
+        # 517px to 621px, so 147px of it still shows above the fold. That is
+        # what the rule is actually for (NN/g's fold guidance: let the next
+        # thing peek so people scroll), and the note is capped at 58ch so it
+        # stays three lines at a desktop width.
+        assert paragraphs <= 4, (
             f"{paragraphs} paragraphs above the capture; keep it to the lede, the "
-            "copy confirmation and the note")
+            "copy confirmation, the note and the SmartScreen caveat")
 
 
 class TestDesignReviewFixesB4:
@@ -3002,6 +3021,145 @@ class TestPhoneVisitorMarkup:
         # CSS hides the direct button on mobile and the copy button on desktop.
         assert "[data-download-copy]" in css, "copy button is not hidden on desktop"
         assert "data-download-direct" in css, "direct button is not hidden on mobile"
+
+        # #193: the swap is deliberate, so the phone says why. Without it the
+        # missing installer button reads as a broken page. It is shown by the
+        # same breakpoint that hides the direct link, so the two cannot drift.
+        assert 'class="phone-only"' in site, "phones get no reason for the copy button"
+        assert ".hero-note .phone-only { display: inline; }" in css, (
+            "the phone explanation must appear at the breakpoint that hides the installer link")
+
+
+# ================================ the conversion pass from evidence (#193)
+
+class TestSiteConversionPass:
+    """
+    #193. Three things the landing page owed a visitor, each backed by a
+    source rather than taste:
+
+    * The SmartScreen warning explained **before** the download click, not
+      only inside the panel that opens after it. Microsoft's guidance for an
+      unsigned build is to tell people in advance that they will see the
+      prompt, and `SELLING.md` already calls it the biggest install drop-off.
+    * The refund reachable from the decision point. It existed only in
+      `legal.html` and a footer link.
+    * Calls to action that name what the click does (NN/g, *"Get Started"
+      Stops Users*, 2017: "a link is a promise").
+
+    Every claim added here is one the shipped product can back: a refund
+    policy that exists, no account, no telemetry. No testimonials, no user
+    counts, no invented numbers.
+    """
+
+    INDEX = Path(WEBSITE_DIR) / "index.html"
+
+    def _site(self) -> str:
+        return self.INDEX.read_text(encoding="utf-8")
+
+    def _copy(self) -> str:
+        """The page with its HTML comments removed — what a visitor reads.
+
+        The comments in this file quote the old wording and name the things
+        being guarded against, so scanning the raw source for banned copy
+        matches the explanation of the ban.
+        """
+        return re.sub(r"<!--.*?-->", "", self._site(), flags=re.S)
+
+    def _hero(self) -> str:
+        site = self._site()
+        start = site.index('<section class="hero"')
+        return site[start:site.index("</section>", start)]
+
+    def test_the_smartscreen_note_sits_beside_the_download_button(self):
+        hero = self._hero()
+        assert "data-smartscreen-note" in hero, (
+            "the SmartScreen caveat must be in the hero, not only in the download panel")
+        note = hero.split("data-smartscreen-note", 1)[1].split("</p>", 1)[0]
+        lower = note.lower()
+        assert "windows protected your pc" in lower, (
+            "name the dialog Windows actually shows, in its own words")
+        assert "run anyway" in lower, "say which button gets past it"
+        assert "code-signed" in lower, "say why the warning happens"
+        # Before the click, not after it: the note has to precede the capture,
+        # and the CTA it explains has to precede the note.
+        assert hero.index("data-download-guide") < hero.index("data-smartscreen-note")
+        assert hero.index("data-smartscreen-note") < hero.index("media/today.png")
+
+    def test_the_smartscreen_note_goes_when_the_build_is_signed(self):
+        """
+        F25 buys a certificate and adds signing to `tools/build_release.ps1`.
+        The day that lands, this note becomes a lie; fail then, loudly.
+        """
+        script = (Path(DESKTOP_DIR).parent / "tools" / "build_release.ps1").read_text(
+            encoding="utf-8-sig")
+        assert "NOT CODE SIGNED" in script, (
+            "build_release.ps1 no longer warns that the build is unsigned — if F25 "
+            "landed, delete the hero SmartScreen note, the FAQ paragraph about it "
+            "and this test")
+
+    def test_the_refund_is_offered_where_the_price_is(self):
+        site = self._site()
+        pricing = site.split('<section id="pricing">', 1)[1].split("</section>", 1)[0]
+        assert "data-buy-reassure" in pricing, "nothing reassures beside the buy button"
+        block = pricing.split("data-buy-reassure", 1)[1].split("</p>", 1)[0]
+        assert 'href="legal.html#refunds"' in block, "link the policy, do not just assert it"
+        assert "14-day refund" in block
+        assert "No account" in block
+        # And the promise has to match the policy it links to.
+        legal = (Path(WEBSITE_DIR) / "legal.html").read_text(encoding="utf-8")
+        assert "within 14 days" in legal, (
+            "the refund window on the landing page no longer matches legal.html")
+
+    def test_the_refund_is_a_question_in_the_faq_too(self):
+        faq = self._site().split('id="faq"', 1)[1].split("</section>", 1)[0]
+        answer = faq.split("don&rsquo;t like it?", 1)
+        assert len(answer) == 2, "the FAQ has no refund question"
+        answer = answer[1].split("</details>", 1)[0]
+        assert "14 days" in answer and "legal.html#refunds" in answer
+
+    def test_the_download_buttons_say_what_the_click_does(self):
+        """
+        NN/g (Harley & Flaherty, 20 Aug 2017): state precisely what users
+        should expect. "Start free trial" never said an installer downloads.
+        """
+        copy = self._copy()
+        assert "Start free trial" not in copy and "Start the free trial" not in copy, (
+            "a download button must name the download")
+        # Both offers — the hero and the pricing card — carry the same label.
+        assert copy.count("Download for Windows") == 2
+
+    def test_no_invented_trust_signals(self):
+        """
+        Zero customers means zero testimonials. The only honest trust signals
+        are checkable facts, so guard against the usual substitutes.
+        """
+        lower = self._copy().lower()
+        for banned in ("testimonial", "customers love", "trusted by", "5 stars",
+                       "rated 5", "join thousands", "users worldwide", "money-back guarantee!"):
+            assert banned not in lower, f"{banned!r} is not something this product can back"
+
+    def test_every_relative_page_link_on_every_public_page_exists(self):
+        """
+        `TestFooterLinksPointToRealPages` only walks footers, so the FAQ's
+        link to a `privacy.html` that has never existed survived for months.
+        This walks every relative link on every public page.
+        """
+        pages = ("index.html", "legal.html", "success.html",
+                 "changelog.html", "support.html")
+        for name in pages:
+            html = (Path(WEBSITE_DIR) / name).read_text(encoding="utf-8")
+            for href in re.findall(r'href="([^"]+)"', html):
+                if href.startswith(("http://", "https://", "//", "/", "#",
+                                    "mailto:", "data:", "flowshield:")):
+                    continue
+                path, _, fragment = href.partition("#")
+                if not path.endswith(".html"):
+                    continue
+                target = Path(WEBSITE_DIR) / path
+                assert target.is_file(), f"{name} links to missing {href}"
+                if fragment:
+                    assert f'id="{fragment}"' in target.read_text(encoding="utf-8"), \
+                        f"{name} links to {href}, but {path} has no id={fragment!r}"
 
 
 # ==================================================== daily goal guards (F15)
@@ -3506,8 +3664,13 @@ class TestSiteSystemPassB3:
 
     def test_faq_uses_an_svg_chevron_not_a_unicode_marker(self):
         html = self.INDEX.read_text(encoding="utf-8")
-        faq = html.split('id="faq"', 1)[1]
-        assert html.count('class="chevron"') == 7, "expected one chevron icon per FAQ item"
+        faq = html.split('id="faq"', 1)[1].split("</section>", 1)[0]
+        # Counted against the FAQ's own entries rather than a hard-coded 7
+        # (#193): adding a question should not have to edit this number, but
+        # adding one *without* a chevron still has to fail.
+        entries = faq.count("<summary>")
+        assert entries >= 5, f"only {entries} FAQ entries"
+        assert faq.count('class="chevron"') == entries, "expected one chevron icon per FAQ item"
         assert "summary::after" not in (self.CSS.read_text(encoding="utf-8")), (
             "styles.css still drives the FAQ marker from a ::after content glyph"
         )
