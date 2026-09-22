@@ -145,6 +145,29 @@ public static class DailyGoal
     }
 
     /// <summary>
+    /// Counts <paramref name="date"/> into the streak, once and only once.
+    ///
+    /// The marker is <see cref="AppSettings.GoalMetDayLocal"/>, which exists for
+    /// exactly this. Before this, today could only be counted by the walk loop
+    /// in <see cref="Settle"/> — which runs only while the day has not been
+    /// settled yet, and settles it whether or not it counted. Since
+    /// RefreshStats settles today on launch, before the day's first sprint,
+    /// every later call fell into the "already settled" branch and could do no
+    /// more than <c>Max(CurrentStreak, 1)</c>: the streak stopped moving.
+    ///
+    /// Returns true the one time the day flips to counted.
+    /// </summary>
+    private static bool CountDayIfNewlyCounted(AppSettings s, DateTime date)
+    {
+        if (s.GoalMetDayLocal?.Date == date) return false;
+        if (Judge(s, date) != DayVerdict.Counted) return false;
+
+        s.GoalMetDayLocal = date;
+        s.CurrentStreak++;
+        return true;
+    }
+
+    /// <summary>
     /// Brings <see cref="AppSettings.CurrentStreak"/> up to date as of
     /// <paramref name="today"/>, walking every day since the last settlement.
     ///
@@ -170,7 +193,7 @@ public static class DailyGoal
         if (s.StreakSettledDayLocal is null)
         {
             s.StreakSettledDayLocal = date;
-            if (Judge(s, date) == DayVerdict.Counted) s.CurrentStreak = Math.Max(s.CurrentStreak, 1);
+            CountDayIfNewlyCounted(s, date);
             return s.CurrentStreak != streakBefore || settledBefore != s.StreakSettledDayLocal;
         }
 
@@ -180,8 +203,7 @@ public static class DailyGoal
         // today rather than walking a negative range.
         if (date <= settled)
         {
-            if (date == settled && Judge(s, date) == DayVerdict.Counted)
-                s.CurrentStreak = Math.Max(s.CurrentStreak, 1);
+            if (date == settled) CountDayIfNewlyCounted(s, date);
             return s.CurrentStreak != streakBefore;
         }
 
@@ -192,7 +214,9 @@ public static class DailyGoal
             if (day == date)
             {
                 // Today is still open: it can add to the streak, never break it.
-                if (verdict == DayVerdict.Counted) s.CurrentStreak++;
+                // Through the marker, so a later call on the same day can still
+                // count it once the goal is reached.
+                CountDayIfNewlyCounted(s, date);
                 break;
             }
 
@@ -219,13 +243,12 @@ public static class DailyGoal
     public static bool NoteProgress(AppSettings s, DateTime today)
     {
         var date = today.Date;
+
+        // Settling is what counts the day now, so "has it just flipped?" is
+        // read either side of it rather than decided again afterwards.
+        var metBefore = s.GoalMetDayLocal?.Date;
         Settle(s, date);
-
-        if (s.GoalMetDayLocal?.Date == date) return false;
-        if (Judge(s, date) != DayVerdict.Counted) return false;
-
-        s.GoalMetDayLocal = date;
-        return true;
+        return metBefore != date && s.GoalMetDayLocal?.Date == date;
     }
 
     /// <summary>A short line for the Today bar: "42 / 90 minutes" or "1 / 3 sprints".</summary>
