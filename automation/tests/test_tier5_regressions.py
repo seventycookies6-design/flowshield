@@ -177,16 +177,46 @@ class TestPrivacyClaimsMatchTheCode:
             'AutomationId="DeleteEverythingButton"')[0][-400:], \
             "Delete everything must use the destructive button style (DESIGN_SYSTEM.md §7)"
 
+    def _what_leaves_text(self) -> str:
+        """Just the WhatLeavesText control's own Text attribute, not the whole
+        Settings page — "email" also appears in the unrelated LicenseEmailInput
+        label, which would let an omission here pass unnoticed."""
+        tag = re.search(
+            r'<TextBlock\b[^>]*AutomationProperties\.AutomationId="WhatLeavesText"[^>]*/>',
+            self.SETTINGS_VIEW)
+        assert tag, "the WhatLeavesText control is missing from SettingsView.xaml"
+        text = re.search(r'Text="([^"]*)"', tag.group(0))
+        assert text, "WhatLeavesText has no Text attribute"
+        return text.group(1).lower()
+
+    def _privacy_section_body(self) -> str:
+        """Just the #privacy section's own markup, not the whole page — "email"
+        also appears in the pricing section's checkout copy."""
+        section = re.search(r'<section id="privacy">(.*?)</section>', self.SITE, re.DOTALL)
+        assert section, "the site's #privacy section is missing"
+        return section.group(1).lower()
+
+    def _legal_what_we_collect(self) -> str:
+        """The "What we collect" block of the privacy policy, which is where
+        the licence key, email, device identifier and device name are all
+        actually disclosed — not the whole page."""
+        block = re.search(r"<h3>What we collect</h3>(.*?)<h3>", self.LEGAL, re.DOTALL)
+        assert block, 'legal.html\'s "What we collect" section is missing'
+        return block.group(1).lower()
+
     def test_the_field_list_is_derived_from_the_code_and_disclosed_everywhere(self):
         """
         Reads the actual fields the client sends in POST /validate straight out
         of LicenseService.cs, then requires a phrase for every one of them —
         the mapping below has to be kept in step or this test itself fails —
         and checks each phrase appears on the site, in the app card and in the
-        privacy policy. Add a field there without updating the copy anywhere
-        this checks, and this is what catches it (the email-address gap: it
-        was sent on every check but only the app card's "what leaves" line
-        omitted it).
+        privacy policy. Each check is scoped to the disclosure text itself
+        (the WhatLeavesText control, the #privacy section body, the "What we
+        collect" block), not the whole file — the word "email" also shows up
+        in LicenseEmailInput's label and the pricing section, and checking the
+        whole page let a card that dropped "email" from WhatLeavesText still
+        pass. Add a field to the payload without updating the copy anywhere
+        this checks, and this is what catches it.
         """
         call = self.LICENSE_SERVICE.split("_http.PostAsJsonAsync(url, new")[1].split("});")[0]
         sent_fields = set(re.findall(r"(\w+)\s*=", call))
@@ -206,9 +236,9 @@ class TestPrivacyClaimsMatchTheCode:
             "every field the client sends needs a disclosed phrase mapped here"
 
         surfaces = {
-            "the site's #privacy section": self.SITE.lower(),
-            "the app's Your data card (WhatLeavesText)": self.SETTINGS_VIEW.lower(),
-            "legal.html's privacy policy": self.LEGAL.lower(),
+            "the site's #privacy section": self._privacy_section_body(),
+            "the app's Your data card (WhatLeavesText)": self._what_leaves_text(),
+            "legal.html's \"What we collect\" block": self._legal_what_we_collect(),
         }
         for surface_name, text in surfaces.items():
             for field, phrase in phrase_for_field.items():
