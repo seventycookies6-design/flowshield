@@ -2736,10 +2736,87 @@ class TestSoftOverlayPolicy:
             "a new sprint starts with no allowances carried over"
         )
 
+    # ---- the mirror above proves the rules are right; these prove the C# has
+    # them. Without this half, `if (false && !isNewSighting)` in ShouldShow
+    # left every Python test passing while the notice flashed on every sweep.
+
+    def _model(self) -> str:
+        return " ".join(self.MODEL.read_text(encoding="utf-8").split())
+
+    def _body(self, signature: str) -> str:
+        source = self.MODEL.read_text(encoding="utf-8")
+        assert signature in source, f"{signature} is gone from SoftOverlayPolicy.cs"
+        return " ".join(source.split(signature, 1)[1].split("\n    }", 1)[0].split())
+
     def test_the_windows_in_the_model_match_this_mirror(self):
         source = self.MODEL.read_text(encoding="utf-8")
         assert "TimeSpan.FromMinutes(5)" in source, "Allow 5 minutes has to be five minutes"
         assert f"TimeSpan.FromSeconds({self.BACK_TO_WORK_QUIET_SECONDS})" in source
+
+    def test_the_model_returns_early_for_a_sighting_it_has_already_answered(self):
+        body = self._body("public bool ShouldShow(string displayName, DateTime nowUtc)")
+        assert ("var isNewSighting = !string.Equals(_sighting, displayName, "
+                "StringComparison.OrdinalIgnoreCase);") in body, (
+            "the same-sighting test has to compare the remembered app with this one, "
+            "without case"
+        )
+        assert "if (!isNewSighting) return false;" in body, (
+            "once per sighting is this line; short-circuiting it (false && ...) "
+            "makes the notice appear on every two-second sweep"
+        )
+        assert "if (IsQuiet(displayName, nowUtc)) return false;" in body, (
+            "an allowance has to be checked where the notice is decided"
+        )
+        for dead in ("false &&", "true ||", "&& false", "|| true"):
+            assert dead not in body, f"{dead} disables a rule while leaving it in the source"
+
+    def test_the_sighting_is_remembered_even_when_nothing_is_drawn(self):
+        """
+        Otherwise a suppressed app is a new sighting every sweep, and the moment
+        its five minutes are up the notice lands on a window mid-sentence.
+        """
+        body = self._body("public bool ShouldShow(string displayName, DateTime nowUtc)")
+        assert body.index("_sighting = displayName;") < body.index("if (!isNewSighting)")
+
+    def test_each_answer_maps_to_its_own_window(self):
+        source = self._model()
+        assert ("public void AllowFiveMinutes(string displayName, DateTime nowUtc) => "
+                "Quieten(displayName, nowUtc, AllowWindow);") in source
+        assert ("public void BackToWork(string displayName, DateTime nowUtc) => "
+                "Quieten(displayName, nowUtc, BackToWorkQuiet);") in source
+        assert "AllowWindow = TimeSpan.FromMinutes(5)" in source
+        assert (f"BackToWorkQuiet = TimeSpan.FromSeconds"
+                f"({self.BACK_TO_WORK_QUIET_SECONDS})") in source
+
+    def test_a_quiet_window_is_recorded_per_app_and_read_back(self):
+        quieten = self._body(
+            "private void Quieten(string displayName, DateTime nowUtc, TimeSpan window)")
+        assert "_quietUntil[displayName] = nowUtc + window;" in quieten, (
+            "the window has to be stored against the app, or it silences everything"
+        )
+        assert "_sighting = null;" in quieten, (
+            "clearing the sighting is what makes coming back later a new one"
+        )
+        assert "_showing = false;" in quieten
+
+        is_quiet = self._model()
+        assert ("_quietUntil.TryGetValue(displayName, out var until) && nowUtc < until"
+                in is_quiet), "a window that is never compared against the clock never ends"
+
+    def test_the_notice_is_taken_down_only_when_one_was_up(self):
+        body = self._body("public bool LeftTheForeground()")
+        assert "var wasShowing = _showing;" in body
+        assert "_showing = false;" in body
+        assert "return wasShowing;" in body, (
+            "returning true unconditionally would ask MainWindow to close a "
+            "notice that was never opened"
+        )
+
+    def test_reset_forgets_every_allowance(self):
+        body = self._body("public void Reset()")
+        assert "_quietUntil.Clear();" in body
+        assert "_sighting = null;" in body
+        assert "_showing = false;" in body
 
     def test_the_policy_decides_nothing_about_closing_anything(self):
         """Soft notes distractions. A policy that could close one is the wrong shape."""

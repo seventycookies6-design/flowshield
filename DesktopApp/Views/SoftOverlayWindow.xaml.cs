@@ -1,5 +1,7 @@
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Interop;
 using FlowShield.Services;
 using Forms = System.Windows.Forms;
 
@@ -52,13 +54,24 @@ public partial class SoftOverlayWindow : Window
         BackToWorkButton.Focus();
     }
 
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool SetWindowPos(IntPtr window, IntPtr insertAfter,
+                                            int x, int y, int cx, int cy, uint flags);
+
+    private static readonly IntPtr HWND_TOPMOST = new(-1);
+    private const uint SWP_NOACTIVATE = 0x0010;
+
     /// <summary>
     /// Fills the monitor the blocked app's window is on.
     ///
-    /// Screen coordinates are physical pixels and WPF's are device-independent,
-    /// so they go through this window's own transform. A machine with two
-    /// monitors at different scale factors can be a few pixels out at the edges;
-    /// the panel is centred, so nothing important lands there.
+    /// Placed with <c>SetWindowPos</c> in the monitor's own physical pixels
+    /// rather than through WPF's <c>Left</c>/<c>Top</c>/<c>Width</c>/<c>Height</c>.
+    /// Those are device-independent units scaled by the DPI of the monitor the
+    /// window is on *at the time* — which, before the move, is whichever monitor
+    /// Windows first opened it on. On a 150%/100% pair that left the scrim
+    /// covering two thirds of the second screen, with the desktop showing round
+    /// the edges. Physical pixels need no conversion and cannot be scaled by the
+    /// wrong monitor's factor.
     /// </summary>
     private void PlaceOverTheDistraction()
     {
@@ -69,21 +82,15 @@ public partial class SoftOverlayWindow : Window
                 : Forms.Screen.FromHandle(_anchor);
             if (screen is null) return;
 
-            var source = PresentationSource.FromVisual(this);
-            var transform = source?.CompositionTarget?.TransformFromDevice;
+            var handle = new WindowInteropHelper(this).Handle;
+            if (handle == IntPtr.Zero) return;
 
-            var topLeft = new System.Windows.Point(screen.Bounds.Left, screen.Bounds.Top);
-            var size = new System.Windows.Point(screen.Bounds.Width, screen.Bounds.Height);
-            if (transform is { } matrix)
+            var bounds = screen.Bounds;
+            if (!SetWindowPos(handle, HWND_TOPMOST, bounds.Left, bounds.Top,
+                              bounds.Width, bounds.Height, SWP_NOACTIVATE))
             {
-                topLeft = matrix.Transform(topLeft);
-                size = matrix.Transform(size);
+                Log.Warn("could not place the soft notice over the blocked app's monitor");
             }
-
-            Left = topLeft.X;
-            Top = topLeft.Y;
-            Width = size.X;
-            Height = size.Y;
         }
         catch (Exception ex)
         {

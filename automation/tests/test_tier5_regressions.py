@@ -6010,6 +6010,31 @@ class TestSoftOverlayNeverCloses:
             "it opens on the monitor the blocked app is on, not always the primary"
         )
 
+    def test_it_covers_a_second_monitor_at_a_different_scale_factor(self):
+        """
+        WPF's Left/Top/Width/Height are device-independent units, scaled by the
+        DPI of the monitor the window is on *at the time* -- before the move,
+        whichever one Windows happened to open it on. On a 150%/100% pair that
+        left the scrim over two thirds of the second screen with the desktop
+        showing round the edges. Physical pixels need no conversion.
+        """
+        body = self.OVERLAY_CS.read_text(encoding="utf-8")
+        body = body.split("private void PlaceOverTheDistraction", 1)[1].split("\n    }", 1)[0]
+        assert "SetWindowPos(" in body, (
+            "placement must go through SetWindowPos in the target monitor's own "
+            "physical pixels"
+        )
+        assert "bounds.Width, bounds.Height" in body
+        assert "TransformFromDevice" not in body, (
+            "this is the bug: the current monitor's transform applied to another "
+            "monitor's bounds"
+        )
+        for wpf_property in ("Left =", "Top =", "Width =", "Height ="):
+            assert wpf_property not in body, (
+                f"{wpf_property} is a device-independent unit and re-introduces the "
+                f"mixed-DPI bug"
+            )
+
     def test_it_fades_in_and_is_instant_under_reduced_motion(self):
         """DESIGN_SYSTEM.md §8: one shared duration provider, zero when animations are off."""
         xaml = self.OVERLAY_XAML.read_text(encoding="utf-8")
@@ -6048,6 +6073,27 @@ class TestSoftOverlayNeverCloses:
         view = self.SETTINGS_VIEW.read_text(encoding="utf-8")
         assert 'AutomationProperties.AutomationId="SoftOverlayToggle"' in view
         assert "Show a full-screen notice at Soft" in view
+
+    def test_a_notice_cannot_outlive_the_sprint_that_raised_it(self):
+        """
+        The sighting is taken on the blocker's thread and handled on the
+        dispatcher, so a sprint can be cancelled in between. Enforcement has
+        stopped by then, so no later sighting arrives -- a notice shown here
+        would stay on screen with nothing left to take it down, over whatever
+        the user did next.
+        """
+        source = self.MAIN_VM.read_text(encoding="utf-8")
+        handler = source.split("private void OnSoftForeground", 1)[1].split("\n    }", 1)[0]
+        guard = " ".join(handler.split())
+        assert "if (!IsSprintRunning || !Blocker.IsEnforcing)" in guard, (
+            "the handler must re-check that the sprint is still running, on the "
+            "dispatcher, before showing anything"
+        )
+        # And it has to come before the decision to show, not after it.
+        assert handler.index("!Blocker.IsEnforcing") < handler.index("_softOverlay.ShouldShow")
+        # The stale notice is closed, not merely skipped.
+        stale = handler.split("!Blocker.IsEnforcing", 1)[1].split("return;", 1)[0]
+        assert "SoftOverlayDismissRequested" in stale
 
     def test_an_allowance_does_not_outlive_the_sprint(self):
         source = self.MAIN_VM.read_text(encoding="utf-8")

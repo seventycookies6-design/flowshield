@@ -327,10 +327,12 @@ class TestSoftShowsTheNotice:
     topmost full-screen notice naming it and the time left — and the app is
     still running afterwards, whichever button was pressed.
 
-    The decoy is a copy of Notepad rather than the copy of ping the other tier 3
-    blocker tests use: this one has to *have a window* and be the foreground
-    one, which is the whole trigger. Same name either way, so it is the same
-    entry on the blocklist.
+    The decoy is the same copy of ping the other tier 3 blocker tests use, with
+    one difference: it is launched *without* CREATE_NO_WINDOW, so it owns a
+    console window and can be the foreground one — which is the whole trigger.
+    Notepad would have been the obvious choice and is the wrong one: on Windows
+    11 it can hand off to the Store app and exit, leaving the test watching a
+    process that is already gone.
 
     The notice is its own top-level window, so it is found through Desktop
     rather than through the controller, which only searches the main window.
@@ -342,9 +344,13 @@ class TestSoftShowsTheNotice:
     def _decoy(self, tmp_path):
         import shutil
         exe = tmp_path / f"{self.TARGET}.exe"
-        shutil.copy2(Path(os.environ["WINDIR"]) / "System32" / "NOTEPAD.EXE", exe)
-        process = subprocess.Popen([str(exe)])
-        time.sleep(2.0)                       # let it open its window
+        shutil.copy2(Path(os.environ["WINDIR"]) / "System32" / "PING.EXE", exe)
+        # No CREATE_NO_WINDOW here, unlike the other blocker tests: this one
+        # needs a window Windows can put in the foreground.
+        process = subprocess.Popen(
+            [str(exe), "-n", "300", "127.0.0.1"],
+            creationflags=getattr(subprocess, "CREATE_NEW_CONSOLE", 0))
+        time.sleep(2.0)                       # let its console come up and take focus
         return process
 
     def _overlay(self, timeout=15):

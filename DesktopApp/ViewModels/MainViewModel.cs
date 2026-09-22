@@ -472,6 +472,18 @@ public class MainViewModel : ViewModelBase
 
         dispatcher.Invoke(() =>
         {
+            // The sighting was taken on the blocker's own thread; this runs on
+            // the dispatcher afterwards, so the sprint can have been cancelled
+            // or finished in between. A notice for a sprint that no longer
+            // exists would stay up forever: enforcement has stopped, so no
+            // later sighting would ever arrive to take it down.
+            if (!IsSprintRunning || !Blocker.IsEnforcing)
+            {
+                if (_softOverlay.LeftTheForeground())
+                    SoftOverlayDismissRequested?.Invoke(this, EventArgs.Empty);
+                return;
+            }
+
             if (e.DisplayName is null)
             {
                 // Something that is not a blocked app is in front, so the notice
