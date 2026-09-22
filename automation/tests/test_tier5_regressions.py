@@ -219,8 +219,15 @@ class TestPrivacyClaimsMatchTheCode:
         pass. Add a field to the payload without updating the copy anywhere
         this checks, and this is what catches it.
         """
-        call = self.LICENSE_SERVICE.split("_http.PostAsJsonAsync(url, new")[1].split("});")[0]
-        sent_fields = set(re.findall(r"(\w+)\s*=", call))
+        # Matched up to the anonymous object's own closing brace (it has no
+        # nested braces), not a fixed "});" suffix — Roadmap 5.2 added a
+        # per-attempt CancellationToken argument after the object literal,
+        # so the call no longer ends in "});".
+        match = re.search(
+            r"_http\.PostAsJsonAsync\(url, new\s*\{(.*?)\}",
+            self.LICENSE_SERVICE, re.DOTALL)
+        assert match, "could not find the /validate PostAsJsonAsync call in LicenseService.cs"
+        sent_fields = set(re.findall(r"(\w+)\s*=", match.group(1)))
         assert sent_fields == {"licenseKey", "email", "deviceId", "deviceName"}, (
             "the licence check's field list changed in LicenseService.cs; update the "
             "phrase map in this test and the privacy copy on the site, in the app "
@@ -942,6 +949,108 @@ class TestLicenseRevocation:
         failure = source.split("public static LicenseResult Failure")[1].split(";")[0]
         assert "Definitive: false" in failure, \
             "transport failures must be marked non-definitive"
+
+
+# ============ Roadmap 5.2 — honest waiting while the licence server wakes
+
+class TestHonestWaitingNeverClaimsInvalidKey:
+    """
+    A timeout while the Render free instance wakes up must never be worded
+    like a rejected key. Before this fix, the UI's headline was always
+    "❌ Not activated" regardless of whether the server rejected the key
+    or was simply unreachable, and the retry loop gave up after one short,
+    undelayed retry with no distinction between "the key is wrong" and
+    "the host hasn't woken up yet".
+    """
+
+    def test_activate_view_model_treats_transport_failure_differently(self):
+        source = (Path(DESKTOP_DIR) / "ViewModels" / "SettingsViewModel.cs").read_text(
+            encoding="utf-8")
+        activate = source.split("private async Task ActivateAsync")[1].split(
+            "\n    private async Task DeactivateAsync")[0]
+
+        assert "IsTransportFailure" in activate, (
+            "ActivateAsync must branch on whether the failure was a transport "
+            "problem before choosing its headline"
+        )
+        assert "Couldn't reach the licence server" in activate, (
+            "a timeout/connection failure needs its own honest headline, "
+            "distinct from a rejected key"
+        )
+        # The rejection headline must stay reachable, but only from the
+        # non-transport branch.
+        not_activated_index = activate.index('"❌ Not activated"')
+        transport_index = activate.index("IsTransportFailure")
+        assert transport_index < not_activated_index, (
+            "the transport-failure branch must be checked before falling "
+            "through to the generic rejection headline"
+        )
+
+    def test_license_service_never_maps_a_timeout_to_a_rejection_reason(self):
+        source = (Path(DESKTOP_DIR) / "Services" / "LicenseService.cs").read_text(
+            encoding="utf-8")
+        validate = source.split("public async Task<LicenseResult> ValidateAsync")[1].split(
+            "\n    /// <summary>Silent re-check")[0]
+
+        # Every path that gives up on the transport (response stays null)
+        # must return through LicenseResult.Failure, never construct a
+        # definitive rejection.
+        unreachable_branch = validate.split("if (response is null)")[1].split(
+            "using var _ = response;")[0]
+        assert "LicenseResult.Failure" in unreachable_branch
+        assert "Definitive: true" not in unreachable_branch
+
+    def test_retry_schedule_is_the_shared_pure_helper(self):
+        """Tier 1 unit-tests LicenseWaitCopy directly; this pins that the
+        retry loop actually uses it rather than duplicating its own numbers."""
+        source = (Path(DESKTOP_DIR) / "Services" / "LicenseService.cs").read_text(
+            encoding="utf-8")
+        validate = source.split("public async Task<LicenseResult> ValidateAsync")[1].split(
+            "\n    /// <summary>Silent re-check")[0]
+
+        assert "LicenseWaitCopy.TotalAttempts" in validate
+        assert "LicenseWaitCopy.TimeoutForAttempt" in validate
+        assert "LicenseWaitCopy.RetryDelaysSeconds" in validate
+        assert "LicenseWaitCopy.MessageFor" in validate
+
+
+class TestActivateButtonStaysDisabledWhileBusy:
+    """
+    AsyncRelayCommand.CanExecute returns false while its task is in flight, so
+    binding the button to it is what keeps it disabled during the (now much
+    longer, retrying) activation wait. If a future change swapped
+    ActivateCommand for a plain RelayCommand, or the button stopped binding to
+    it, the disabled-while-busy guarantee would silently disappear.
+    """
+
+    def test_activate_command_is_the_reentrancy_safe_async_command(self):
+        vm = (Path(DESKTOP_DIR) / "ViewModels" / "SettingsViewModel.cs").read_text(
+            encoding="utf-8")
+        assert "AsyncRelayCommand ActivateCommand" in vm, (
+            "ActivateCommand must stay an AsyncRelayCommand, whose CanExecute "
+            "is false for the whole duration of ActivateAsync"
+        )
+
+    def test_async_relay_command_disables_itself_while_running(self):
+        mvvm = (Path(DESKTOP_DIR) / "Infrastructure" / "Mvvm.cs").read_text(
+            encoding="utf-8")
+        can_execute = mvvm.split("public bool CanExecute(object? parameter) => !_running")
+        assert len(can_execute) == 2, (
+            "AsyncRelayCommand.CanExecute must gate on !_running so a "
+            "long-running Activate click can't be double-fired"
+        )
+
+    def test_activate_button_binds_to_the_async_command(self):
+        xaml = (Path(DESKTOP_DIR) / "Views" / "SettingsView.xaml").read_text(
+            encoding="utf-8")
+        button = xaml.split('AutomationId="ActivateProButton"')[0][-400:]
+        assert 'Command="{Binding ActivateCommand}"' in button
+
+    def test_busy_state_is_visible_on_the_licence_card(self):
+        xaml = (Path(DESKTOP_DIR) / "Views" / "SettingsView.xaml").read_text(
+            encoding="utf-8")
+        assert 'AutomationId="LicenseBusyText"' in xaml
+        assert 'Visibility="{Binding IsBusy, Converter={StaticResource BoolVis}}"' in xaml
 
 
 # ============ user data must not live inside the install directory

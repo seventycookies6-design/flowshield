@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text.Json.Serialization;
@@ -41,8 +42,6 @@ public class LicenseService
     /// licence is invalid", which is the worst possible way to be wrong.
     /// </summary>
     private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(35);
-
-    private const int TimeoutRetries = 2;
 
     public LicenseService(SettingsService settings, HttpClient? http = null)
     {
@@ -109,8 +108,14 @@ public class LicenseService
     /// Validates against the server and, on success, writes the Pro flag into
     /// settings. A network failure never downgrades an already-Pro install —
     /// the user paid, and a flaky connection is not grounds for revocation.
+    ///
+    /// <paramref name="progress"/>, if given, is reported with the copy ladder
+    /// message (<see cref="LicenseWaitCopy.MessageFor"/>) each time a wait
+    /// begins, so a caller such as <c>SettingsViewModel</c> can show honest,
+    /// time-aware status while a sleeping licence server wakes up.
     /// </summary>
-    public async Task<LicenseResult> ValidateAsync(string licenseKey, string email, AppSettings settings)
+    public async Task<LicenseResult> ValidateAsync(
+        string licenseKey, string email, AppSettings settings, IProgress<string>? progress = null)
     {
         var key = (licenseKey ?? "").Trim();
         var mail = (email ?? "").Trim();
@@ -124,32 +129,76 @@ public class LicenseService
         {
             Log.Info($"validating license against {url}");
 
-            // Retry only on timeout, and only a couple of times: a sleeping
-            // free-tier host wakes on the first request and answers the next.
-            // Other failures are not retried — repeating a rejected licence
-            // check just makes the user wait longer for the same answer.
+            // Retry on timeouts, dropped connections and 5xx responses — all
+            // transport trouble, most likely a sleeping free-tier host waking
+            // up — using LicenseWaitCopy's schedule: a generous first attempt
+            // (long enough for a genuine cold start), shorter follow-ups (the
+            // host should be awake by then), with short delays between so we
+            // don't hammer a host that is still booting. A rejected key is not
+            // retried; repeating that just makes the user wait longer for the
+            // same answer.
+            var stopwatch = Stopwatch.StartNew();
             HttpResponseMessage? response = null;
-            for (var attempt = 1; ; attempt++)
+            Exception? transportError = null;
+
+            for (var attempt = 1; attempt <= LicenseWaitCopy.TotalAttempts; attempt++)
             {
+                progress?.Report(LicenseWaitCopy.MessageFor(stopwatch.Elapsed.TotalSeconds));
+
+                using var cts = new CancellationTokenSource(
+                    TimeSpan.FromSeconds(LicenseWaitCopy.TimeoutForAttempt(attempt)));
                 try
                 {
-                    response = await _http.PostAsJsonAsync(url, new
+                    var attemptResponse = await _http.PostAsJsonAsync(url, new
                     {
                         licenseKey = key,
                         email = mail,
                         deviceId = DeviceIdentity.Id,
                         deviceName = DeviceIdentity.Name,
-                    });
-                    break;
+                    }, cts.Token);
+
+                    if ((int)attemptResponse.StatusCode >= 500)
+                    {
+                        transportError = new HttpRequestException(
+                            $"license server returned HTTP {(int)attemptResponse.StatusCode}");
+                        Log.Warn($"license request got a server error (attempt {attempt}): "
+                                 + $"HTTP {(int)attemptResponse.StatusCode}; the server may be waking up");
+                        attemptResponse.Dispose();
+                    }
+                    else
+                    {
+                        response = attemptResponse;
+                        break;
+                    }
                 }
-                catch (TaskCanceledException) when (attempt <= TimeoutRetries)
+                catch (Exception ex) when (ex is TaskCanceledException or OperationCanceledException or HttpRequestException)
                 {
-                    Log.Warn($"license request timed out (attempt {attempt}); the server may be waking up");
+                    transportError = ex;
+                    Log.Warn($"license request failed (attempt {attempt}): {ex.Message}; "
+                             + "the server may be waking up");
+                }
+
+                if (attempt < LicenseWaitCopy.TotalAttempts)
+                {
+                    var delay = LicenseWaitCopy.RetryDelaysSeconds[attempt - 1];
+                    await Task.Delay(TimeSpan.FromSeconds(delay));
                 }
             }
 
+            if (response is null)
+            {
+                // Transport failure across every attempt. This is never a
+                // verdict on the key — see LicenseResult.Failure — so it must
+                // never be worded like a rejected key.
+                Log.Error("license server unreachable after retries",
+                    transportError ?? new Exception("unknown transport failure"));
+                return LicenseResult.Failure(
+                    $"Couldn't reach the license server at {settings.LicenseServerUrl}. " +
+                    "It may still be waking up — check it's running, then try again.");
+            }
+
             using var _ = response;
-            var body = await response!.Content.ReadFromJsonAsync<ValidateResponse>();
+            var body = await response.Content.ReadFromJsonAsync<ValidateResponse>();
             if (body is null)
                 return LicenseResult.Failure("The license server returned an unreadable response.");
 
