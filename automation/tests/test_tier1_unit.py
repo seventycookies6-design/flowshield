@@ -588,15 +588,22 @@ class TestDocSteward:
 
 # ===================================================== sprints survive restarts
 
-def resume_decision(started_min_ago: float, planned: int, last_seen_min_ago: float) -> str:
-    """Mirror of RunningSprint.Decide, in minutes relative to now."""
+def resume_decision(started_min_ago: float, planned: int, last_seen_min_ago: float,
+                    watched_minutes: float | None = None) -> str:
+    """
+    Mirror of RunningSprint.Decide, in minutes relative to now.
+
+    watched_minutes is the accumulated WatchedMinutes; None stands for a
+    settings file written before that field existed, where Decide falls back to
+    the LastSeenUtc-minus-StartedUtc estimate.
+    """
     if planned <= 0:
         return "Discard"
     started = -started_min_ago
     ends = started + planned
     if 0 < ends:
         return "Resume"
-    watched = min(-last_seen_min_ago, ends) - started
+    watched = watched_minutes if watched_minutes is not None else min(-last_seen_min_ago, ends) - started
     return "RecordCompleted" if watched >= planned * 0.5 else "RecordInterrupted"
 
 
@@ -621,6 +628,29 @@ class TestSprintResume:
     ])
     def test_decision(self, started, planned, last_seen, expected):
         assert resume_decision(started, planned, last_seen) == expected
+
+    @pytest.mark.parametrize("started,planned,last_seen,watched,expected", [
+        # #198: the 60-minute sprint FlowShield watched 2 minutes of, reopened
+        # near the end so LastSeenUtc sits a minute before the finish line.
+        (65, 60, 6, 2, "RecordInterrupted"),
+        # The same timestamps with the app genuinely up the whole time.
+        (65, 60, 6, 59, "RecordCompleted"),
+        (65, 60, 6, 30, "RecordCompleted"),        # exactly half
+        (65, 60, 6, 29.9, "RecordInterrupted"),
+    ])
+    def test_the_decision_uses_watched_time_not_two_timestamps(
+            self, started, planned, last_seen, watched, expected):
+        assert resume_decision(started, planned, last_seen, watched) == expected
+        assert resume_decision(started, planned, last_seen) == "RecordCompleted", \
+            "the old estimate cannot tell these apart; that is the bug"
+
+    def test_a_settings_file_without_the_field_falls_back_to_the_old_estimate(self):
+        source = self.SOURCE.read_text(encoding="utf-8")
+        assert "public double? WatchedMinutes" in source, \
+            "WatchedMinutes must be nullable so pre-existing settings files still load"
+        decide = source.split("public SprintResume Decide(")[1].split("}", 1)[0]
+        assert "WatchedMinutes ??" in decide, \
+            "Decide must prefer WatchedMinutes and fall back when it is null"
 
 
 # ============================================== ending a sprint early (F2)
@@ -1279,23 +1309,31 @@ class Goal:
         counted = self.met_on(day) if self.is_set() else self.had_completed_sprint_on(day)
         return "counted" if counted else "missed"
 
+    def count_day_if_newly_counted(self, day) -> bool:
+        """Mirror of DailyGoal.CountDayIfNewlyCounted: once per day, ever."""
+        if self.met_day == day:
+            return False
+        if self.judge(day) != "counted":
+            return False
+        self.met_day = day
+        self.streak += 1
+        return True
+
     def settle(self, today):
         if self.settled is None:
             self.settled = today
-            if self.judge(today) == "counted":
-                self.streak = max(self.streak, 1)
+            self.count_day_if_newly_counted(today)
             return
         if today <= self.settled:
-            if today == self.settled and self.judge(today) == "counted":
-                self.streak = max(self.streak, 1)
+            if today == self.settled:
+                self.count_day_if_newly_counted(today)
             return
 
         day = self.settled + timedelta(days=1)
         while day <= today:
             verdict = self.judge(day)
             if day == today:
-                if verdict == "counted":
-                    self.streak += 1
+                self.count_day_if_newly_counted(today)
                 break
             if verdict == "counted":
                 self.streak += 1
@@ -1303,6 +1341,12 @@ class Goal:
                 self.streak = 0
             day += timedelta(days=1)
         self.settled = today
+
+    def note_progress(self, today) -> bool:
+        """Mirror of DailyGoal.NoteProgress."""
+        met_before = self.met_day
+        self.settle(today)
+        return met_before != today and self.met_day == today
 
 
 DAY = date(2026, 9, 18)
@@ -1418,6 +1462,34 @@ class TestDailyGoalStreak:
         g = Goal(sessions=[], settled=DAY - timedelta(days=2), streak=6)
         g.settle(DAY)
         assert g.streak == 0
+
+    def test_a_day_already_settled_can_still_be_counted_when_the_goal_lands(self):
+        """
+        #194: RefreshStats settles today at launch, before the day's first
+        sprint. Meeting the goal afterwards has to count that day.
+        """
+        g = Goal(GOAL_SPRINTS, 1, [], settled=DAY, streak=5)
+        g.settle(DAY)                              # launch: nothing yet
+        assert g.streak == 5
+        g.sessions.append((DAY, 25, True))         # the day's sprint completes
+        g.settle(DAY)
+        assert g.streak == 6, "a settled day must still be able to join the streak"
+
+    def test_a_day_is_counted_once_however_many_sprints_it_takes(self):
+        g = Goal(GOAL_SPRINTS, 1, [(DAY, 25, True)], settled=DAY, streak=5)
+        for _ in range(4):
+            g.settle(DAY)
+            g.sessions.append((DAY, 25, True))
+        assert g.streak == 6, "the streak counts days, not sprints"
+
+    def test_note_progress_reports_the_one_moment_the_goal_lands(self):
+        g = Goal(GOAL_SPRINTS, 2, [(DAY, 25, True)], settled=DAY, streak=0)
+        assert g.note_progress(DAY) is False, "one of two sprints is not a met goal"
+        g.sessions.append((DAY, 25, True))
+        assert g.note_progress(DAY) is True, "the toast fires on the sprint that meets it"
+        g.sessions.append((DAY, 25, True))
+        assert g.note_progress(DAY) is False, "and not again on every later sprint"
+        assert g.streak == 1
 
     def test_a_first_run_takes_the_existing_streak_as_given(self):
         g = Goal(GOAL_SPRINTS, 1, [], streak=11, settled=None)
@@ -1632,23 +1704,35 @@ class TestMomentumTrend:
     MODEL = DESKTOP / "Models" / "MomentumTrend.cs"
 
     @staticmethod
-    def _after(score, completed, minutes, sealed_=False):
+    def _after(score, completed, minutes, sealed_=False, interrupted=False):
+        # An interrupted sprint leaves the score alone, exactly as
+        # TodayViewModel.ApplyMomentum does — it is never called for one.
+        if interrupted:
+            return score
         if completed:
             weight = min(max(minutes / 25.0, 0.5), 3.0)
             return round(score + 10 * weight, 1)
         return round(max(0.0, score * 0.7 - 5) if sealed_ else max(0.0, score * 0.85 - 2), 1)
 
+    @staticmethod
+    def _unpack(session):
+        """Sessions are (day, completed, minutes, sealed) with optional interrupted."""
+        day, completed, minutes, sealed_ = session[:4]
+        return day, completed, minutes, sealed_, (len(session) > 4 and session[4])
+
     def _points(self, sessions, today, days=None):
         days = days or self.DAYS
         start = today - timedelta(days=days - 1)
         by_day, score = {}, 0.0
-        for day, completed, minutes, sealed_ in sorted(sessions):
-            score = self._after(score, completed, minutes, sealed_)
+        for session in sorted(sessions):
+            day, completed, minutes, sealed_, interrupted = self._unpack(session)
+            score = self._after(score, completed, minutes, sealed_, interrupted)
             by_day[day] = score
         running = 0.0
-        for day, completed, minutes, sealed_ in sorted(sessions):
+        for session in sorted(sessions):
+            day, completed, minutes, sealed_, interrupted = self._unpack(session)
             if day < start:
-                running = self._after(running, completed, minutes, sealed_)
+                running = self._after(running, completed, minutes, sealed_, interrupted)
         out = []
         for i in range(days):
             day = start + timedelta(days=i)
@@ -1727,6 +1811,19 @@ class TestMomentumTrend:
         assert "30% and 5 at Sealed" in explanation
         assert "never goes below zero" in explanation
         assert "does not decay overnight" in explanation
+
+    def test_an_interrupted_sprint_does_not_move_the_line(self):
+        """
+        #195: momentum is only ever changed by a finished sprint or a deliberate
+        early end, so the replay must leave an interrupted one alone — otherwise
+        the chart drifts below the score printed beside it.
+        """
+        today = date(2026, 9, 18)
+        points = self._points([
+            (date(2026, 9, 16), True, 25, False, False),
+            (date(2026, 9, 17), False, 25, False, True),   # interrupted
+        ], today)
+        assert points[-1][1] == 10.0, "an interrupted sprint enforces nothing and costs nothing"
 
     def test_the_trend_replays_rather_than_recording(self):
         """

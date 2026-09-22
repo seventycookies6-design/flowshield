@@ -4553,3 +4553,326 @@ class TestAppAdaptsToItsWindow:
         for binding in ("SessionsToday", "FocusMinutesToday", "BlocksToday"):
             tag = re.search(r'<TextBlock Text="\{Binding ' + binding + r'\}"[^>]*>', today, re.S).group(0)
             assert 'Style="{StaticResource Body}"' in tag, f"{binding} should use the Body style"
+
+
+# ===================================== bug hunt, 22 September 2026 (#194-#199)
+
+DESKTOP = Path(DESKTOP_DIR)
+
+
+class TestStreakCountsADayItAlreadySettled:
+    """
+    #194. DailyGoal.Settle could only add today to the streak inside its walk
+    loop, which runs while StreakSettledDayLocal < today -- and then writes
+    StreakSettledDayLocal = today whether or not the day counted. RefreshStats
+    settles today from the TodayViewModel constructor, i.e. at launch, before
+    the day's first sprint exists, so every later call that day fell into the
+    "date <= settled" branch whose only move was Max(CurrentStreak, 1). A user
+    meeting their goal daily stayed on the streak they arrived with; a new user
+    stuck at "1 day" forever.
+
+    The fix routes all three paths through CountDayIfNewlyCounted, which uses
+    the GoalMetDayLocal marker that already existed to make it once-per-day.
+    """
+
+    MODEL = DESKTOP / "Models" / "DailyGoal.cs"
+
+    # The shipped same-day branch, verbatim: proves the checker below rejects it
+    # rather than passing by construction.
+    PRE_FIX_FIXTURE = (
+        "        if (date <= settled)\n"
+        "        {\n"
+        "            if (date == settled && Judge(s, date) == DayVerdict.Counted)\n"
+        "                s.CurrentStreak = Math.Max(s.CurrentStreak, 1);\n"
+        "            return s.CurrentStreak != streakBefore;\n"
+        "        }\n"
+    )
+
+    def _same_day_branch(self, source: str) -> str:
+        match = re.search(r"if \(date <= settled\)\s*\{(.*?)\n        \}", source, re.S)
+        assert match, "Settle's clock-moved-backwards branch was not found; update this regex"
+        return match.group(1)
+
+    def test_the_fixture_of_the_shipped_branch_is_rejected(self):
+        branch = self._same_day_branch(self.PRE_FIX_FIXTURE)
+        assert "CountDayIfNewlyCounted" not in branch
+        assert "Math.Max(s.CurrentStreak, 1)" in branch, (
+            "the pre-fix branch clamps to 1 instead of counting the day"
+        )
+
+    def test_a_day_already_settled_goes_through_the_once_per_day_marker(self):
+        source = self.MODEL.read_text(encoding="utf-8")
+        branch = self._same_day_branch(source)
+        assert "CountDayIfNewlyCounted" in branch, (
+            "meeting the goal on a day Settle has already visited must still count it"
+        )
+        assert "Math.Max(s.CurrentStreak, 1)" not in source, (
+            "clamping to 1 is what pinned every existing streak in place"
+        )
+
+    def test_the_marker_is_the_one_that_already_existed(self):
+        source = self.MODEL.read_text(encoding="utf-8")
+        counter = source.split("private static bool CountDayIfNewlyCounted(", 1)
+        assert len(counter) == 2, "DailyGoal must expose the once-per-day counter"
+        body = counter[1].split("\n    }", 1)[0]
+        assert "s.GoalMetDayLocal?.Date == date" in body, (
+            "GoalMetDayLocal is the field that makes this once a day, not once a sprint"
+        )
+        assert "s.CurrentStreak++" in body
+
+    def test_every_path_that_can_count_today_uses_it(self):
+        source = self.MODEL.read_text(encoding="utf-8")
+        # First run, the already-settled branch, and the walk loop's today.
+        assert source.count("CountDayIfNewlyCounted(s,") >= 3, (
+            "first run, a re-settled today and the walk loop must all count today "
+            "the same way, or one of them goes back to being unable to"
+        )
+
+    def test_note_progress_reads_the_marker_rather_than_setting_it_again(self):
+        source = self.MODEL.read_text(encoding="utf-8")
+        note = source.split("public static bool NoteProgress(", 1)[1].split("\n    }", 1)[0]
+        assert "metBefore" in note and "Settle(s, date)" in note, (
+            "NoteProgress must read GoalMetDayLocal either side of Settle"
+        )
+        assert "s.GoalMetDayLocal = date" not in note, (
+            "two places setting the marker is how the toast and the streak drift apart"
+        )
+
+
+class TestTheGoalSeesTheSprintThatJustFinished:
+    """
+    #199. EndSprint called ApplyMomentum -- and through it
+    DailyGoal.NoteProgress, which counts S.Sessions -- before adding the
+    finished sprint to S.Sessions. So the goal was always judged one sprint
+    behind: with a two-sprint goal the bar on Today read "2 / 2" (RefreshStats
+    runs after the add) while the "Daily goal met" toast waited for a third
+    sprint that may never come. ResumeInterruptedSprint had the same order.
+    """
+
+    VM = DESKTOP / "ViewModels" / "TodayViewModel.cs"
+
+    def _order(self, body: str) -> tuple[int, int]:
+        add = body.find("Sessions.Add(")
+        momentum = body.find("ApplyMomentum(")
+        assert add >= 0 and momentum >= 0, (
+            "expected both the Sessions.Add and the ApplyMomentum call; update this test"
+        )
+        return add, momentum
+
+    def test_end_sprint_records_before_it_judges(self):
+        source = self.VM.read_text(encoding="utf-8")
+        body = source.split("private void EndSprint(bool completed)", 1)[1].split("\n    }", 1)[0]
+        add, momentum = self._order(body)
+        assert add < momentum, (
+            "S.Sessions.Add must come before ApplyMomentum, or the daily goal and "
+            "the streak are judged without the sprint that just finished"
+        )
+
+    def test_a_sprint_that_finished_while_closed_is_recorded_before_it_is_judged(self):
+        source = self.VM.read_text(encoding="utf-8")
+        body = source.split("case SprintResume.RecordCompleted:", 1)[1].split("break;", 1)[0]
+        add, momentum = self._order(body)
+        assert add < momentum, (
+            "the RecordCompleted branch must add the session before ApplyMomentum too"
+        )
+
+    def test_the_pre_fix_order_is_rejected(self):
+        add, momentum = self._order(
+            "        ApplyMomentum(completed, _current);\n"
+            "        S.Sessions.Add(_current);\n"
+        )
+        assert add > momentum, "the shipped order judged the goal before recording the sprint"
+
+
+class TestTheTrendLeavesAnInterruptedSprintAlone:
+    """
+    #195. MomentumTrend.After branched on Completed alone, so a sprint recorded
+    as Interrupted -- FlowShield was not running for most of it, nothing was
+    enforced -- was charged the ended-early decay on replay. ApplyMomentum is
+    never called for one, so the drawn line sank below the MomentumText printed
+    beside it, and TrendDescription (the only thing a screen reader gets)
+    described a shape that contradicted the number it quoted.
+    """
+
+    MODEL = DESKTOP / "Models" / "MomentumTrend.cs"
+    VM = DESKTOP / "ViewModels" / "TodayViewModel.cs"
+
+    def _after(self, source: str) -> str:
+        body = source.split("private static double After(double score, FocusSession session)", 1)
+        assert len(body) == 2, "MomentumTrend.After was not found; update this test"
+        return body[1].split(";", 1)[0]
+
+    def test_the_replay_carries_the_score_through_an_interrupted_sprint(self):
+        after = self._after(self.MODEL.read_text(encoding="utf-8"))
+        assert "session.Interrupted" in after, (
+            "the replay must skip an interrupted sprint; Completed alone cannot "
+            "tell 'gave up' from 'the app was not running'"
+        )
+
+    def test_the_pre_fix_body_is_rejected(self):
+        after = self._after(
+            "    private static double After(double score, FocusSession session) =>\n"
+            "        session.Completed\n"
+            "            ? Math.Round(score + 10 * Math.Clamp(session.PlannedMinutes / 25.0, 0.5, 3.0), 1)\n"
+            "            : EndSprintPolicy.MomentumAfterEndingEarly(score, session.Shield);\n"
+        )
+        assert "session.Interrupted" not in after
+
+    def test_the_live_score_still_never_moves_for_an_interrupted_sprint(self):
+        """The rule the replay is being matched against."""
+        vm = self.VM.read_text(encoding="utf-8")
+        resume = vm.split("case SprintResume.RecordCompleted:", 1)[1].split("break;", 1)[0]
+        assert "if (completed) ApplyMomentum" in resume, (
+            "momentum is applied only when the sprint counts as finished"
+        )
+
+
+class TestEnforcementBookkeepingIsForgottenWhenTheWindowCloses:
+    """
+    #196. _present and _closingAt were only cleared by BeginEnforcing and
+    StopEnforcing, which a sprint calls. The sleep window has no such moment:
+    Tick returns at the "nothing to enforce" guard, which sits above the
+    per-tick cleanup, so a close deadline written at 05:59 survived to 22:00 the
+    next night. The first sweep of the new window then found now >= deadline and
+    went straight to KillAll -- no warning, no ten seconds to save -- and
+    _present kept the sighting from counting as a distraction.
+    """
+
+    SERVICE = DESKTOP / "Services" / "AppBlockerService.cs"
+
+    def _idle_guard(self, source: str) -> str:
+        match = re.search(r"if \(!enforcing && !sleepActive\)(.*?)\n        \}", source, re.S)
+        if match is None:
+            # The shipped one-liner form.
+            match = re.search(r"if \(!enforcing && !sleepActive\)([^\n]*)", source)
+        assert match, "Tick's nothing-to-enforce guard was not found; update this regex"
+        return match.group(1)
+
+    def test_the_guard_clears_what_the_last_window_saw(self):
+        guard = self._idle_guard(self.SERVICE.read_text(encoding="utf-8"))
+        assert "_present.Clear()" in guard and "_closingAt.Clear()" in guard, (
+            "a deadline left over from the last window kills the app on sight when "
+            "the next one opens"
+        )
+
+    def test_the_pre_fix_guard_is_rejected(self):
+        guard = self._idle_guard(
+            "        var sleepActive = IsWithinSleepWindow(settings);\n"
+            "        if (!enforcing && !sleepActive) return;\n"
+        )
+        assert "_closingAt.Clear()" not in guard
+
+    def test_the_grace_period_is_still_what_it_promises(self):
+        source = self.SERVICE.read_text(encoding="utf-8")
+        assert "process.CloseMainWindow()" in source, "warn first"
+        assert "now < deadline) continue" in source, "then wait out the grace period"
+        grace = (DESKTOP / "Models" / "GracefulClose.cs").read_text(encoding="utf-8")
+        assert "TimeSpan.FromSeconds(10)" in grace
+
+
+class TestTheSleepWindowNeverDropsBelowFirm:
+    """
+    #197. The sleep window forced Firm only when no sprint was running
+    ("sleepActive && !enforcing"), so starting a Soft sprint at 23:00 switched
+    the nightly shield off for its whole length: blocked apps were noted and
+    left running, which is strictly less enforcement than having no sprint at
+    all. The floor belongs to the window, not to the sprint.
+    """
+
+    SERVICE = DESKTOP / "Services" / "AppBlockerService.cs"
+
+    FLOOR = re.compile(r"if \(sleepActive[^)]*\) shield = ShieldLevel\.Firm;")
+
+    def test_the_floor_does_not_depend_on_whether_a_sprint_is_running(self):
+        source = self.SERVICE.read_text(encoding="utf-8")
+        match = self.FLOOR.search(source)
+        assert match, "the sleep window's Firm floor was not found; update this regex"
+        assert "!enforcing" not in match.group(0), (
+            "a Soft sprint must not be able to lower the nightly shield below Firm"
+        )
+        assert "shield < ShieldLevel.Firm" in match.group(0), (
+            "raise a weaker shield to Firm and leave Firm and Sealed alone"
+        )
+
+    def test_the_pre_fix_line_is_rejected(self):
+        match = self.FLOOR.search(
+            "        if (sleepActive && !enforcing) shield = ShieldLevel.Firm;\n"
+        )
+        assert match and "!enforcing" in match.group(0)
+
+    def test_soft_outside_the_window_still_only_nudges(self):
+        source = self.SERVICE.read_text(encoding="utf-8")
+        assert "var terminate = shield >= ShieldLevel.Firm || hardKill;" in source, (
+            "Soft must still be notice-only when nothing else raises the floor"
+        )
+
+
+class TestResumingDoesNotCreditTimeFlowShieldWasClosed:
+    """
+    #198. F3 records a sprint whose time ran out while FlowShield was closed as
+    finished only if FlowShield was watching for at least half of it -- but
+    Decide measured that as LastSeenUtc minus StartedUtc, and
+    ResumeInterruptedSprint refreshes LastSeenUtc. Reopening the app for one
+    second near the end of a 60-minute sprint therefore counted all 60 minutes
+    as watched: the sprint was recorded Completed, took +24 momentum and a
+    streak day, having enforced nothing. RunningSprint now carries the watched
+    total itself, added to on each heartbeat and deliberately not across the gap
+    a resume spans.
+    """
+
+    SETTINGS = DESKTOP / "Models" / "AppSettings.cs"
+    VM = DESKTOP / "ViewModels" / "TodayViewModel.cs"
+
+    def _decide(self, source: str) -> str:
+        return source.split("public SprintResume Decide(", 1)[1].split("\n    }", 1)[0]
+
+    def test_the_decision_reads_an_accumulated_total(self):
+        decide = self._decide(self.SETTINGS.read_text(encoding="utf-8"))
+        assert "WatchedMinutes ??" in decide, (
+            "Decide must prefer the accumulated watched time over the two-timestamp "
+            "estimate a resume invalidates"
+        )
+        assert "CompletedIfWatchedFraction" in decide, "the half-watched bar itself is unchanged"
+
+    def test_the_pre_fix_decision_is_rejected(self):
+        decide = self._decide(
+            "    public SprintResume Decide(DateTime nowUtc)\n"
+            "    {\n"
+            "        if (PlannedMinutes <= 0) return SprintResume.Discard;\n"
+            "        if (nowUtc < EndsUtc) return SprintResume.Resume;\n"
+            "        var watched = (Min(LastSeenUtc, EndsUtc) - StartedUtc).TotalMinutes;\n"
+            "        return watched >= PlannedMinutes * CompletedIfWatchedFraction\n"
+            "            ? SprintResume.RecordCompleted\n"
+            "            : SprintResume.RecordInterrupted;\n"
+            "    }\n"
+        )
+        assert "WatchedMinutes" not in decide
+
+    def test_old_settings_files_still_load(self):
+        source = self.SETTINGS.read_text(encoding="utf-8")
+        assert "public double? WatchedMinutes { get; set; }" in source, (
+            "nullable, so a settings file written before this field falls back to "
+            "the old estimate instead of being judged as never watched"
+        )
+
+    def test_only_the_heartbeat_adds_to_it(self):
+        vm = self.VM.read_text(encoding="utf-8")
+        assert "NoteStillWatching(now, WatchedStretchCap)" in vm, (
+            "the heartbeat is the one place that records another watched stretch"
+        )
+        resume = vm.split("case SprintResume.Resume:", 1)[1].split("break;", 1)[0]
+        assert "saved.LastSeenUtc = now;" in resume
+        assert "NoteStillWatching" not in resume, (
+            "resuming must not credit the sprint with the time FlowShield was closed "
+            "-- that is the whole bug"
+        )
+
+    def test_a_suspended_machine_cannot_inflate_it(self):
+        source = self.SETTINGS.read_text(encoding="utf-8")
+        body = source.split("public void NoteStillWatching(", 1)[1].split("\n    }", 1)[0]
+        assert "Min(stretch, cap)" in body, (
+            "a DispatcherTimer does not tick while the machine sleeps, so an "
+            "uncapped gap would credit time nothing was enforced for"
+        )
+        vm = self.VM.read_text(encoding="utf-8")
+        assert "WatchedStretchCap = HeartbeatInterval * 2" in vm
