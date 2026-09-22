@@ -19,6 +19,7 @@
 - Settings-like pages flow cards with `inf:AdaptiveColumns` (MinColumnWidth 400, MaxColumns 3, gaps in `Spacing`, not card margins).
 - Inter, the §3 type scale, existing `Eyebrow`/`H2`/`Body`/`Caption` styles only. Lucide icons via the existing icon mechanism used by the main nav (#151).
 - Must work in light and dark themes and at 800×540 (1.13 Fit small screens).
+- CLAUDE.md #134: an `AutomationId` on a layout panel is never surfaced to UI Automation. The `SettingsGroup_*` ids therefore go on each group's header `TextBlock` (`Header_*`), never on the `StackPanel`.
 - Keyboard: every rail link reachable by Tab, activates with Enter/Space, has an accessible name.
 - Don't edit text files with PowerShell `Get-Content`/`Set-Content`.
 - Commits end with `Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>` (implementers) — branch `feat/f22-calm-settings` from `origin/main`, one PR closing a new F22 issue. Never merge; the owner's session merges.
@@ -55,7 +56,7 @@ Rail link ids: `SettingsNav_Licence`, `SettingsNav_Focus`, `SettingsNav_App`, `S
 - Test: `automation/tests/test_tier1_unit.py` (new class at end)
 
 **Interfaces:**
-- Produces: six `StackPanel`s with `x:Name="Group_Licence"` … `Group_About` and `AutomationProperties.AutomationId="SettingsGroup_*"` (names per table). Task 2 calls `BringIntoView` on these names.
+- Produces: six `StackPanel`s with `x:Name="Group_Licence"` … `Group_About`, each starting with a header `TextBlock` `x:Name="Header_*"` that carries `AutomationProperties.AutomationId="SettingsGroup_*"` (names per table). Task 2 calls `BringIntoView` on these names.
 
 - [ ] **Step 1: Write the failing test** — append to `test_tier1_unit.py`:
 
@@ -111,10 +112,9 @@ Expected: FAIL (`positions` contains -1).
 Restructure `SettingsView.xaml` so the `ScrollViewer` (give it `x:Name="SettingsScroll"`) holds `<StackPanel x:Name="GroupsPanel" Margin="0,0,8,0">`, containing per group:
 
 ```xml
-<StackPanel x:Name="Group_Focus"
-            AutomationProperties.AutomationId="SettingsGroup_Focus"
-            AutomationProperties.Name="Focus">
-    <TextBlock x:Name="Header_Focus" Text="Focus" Style="{StaticResource SettingsGroupHeader}"/>
+<StackPanel x:Name="Group_Focus">
+    <TextBlock x:Name="Header_Focus" Text="Focus" Style="{StaticResource SettingsGroupHeader}"
+               AutomationProperties.AutomationId="SettingsGroup_Focus"/>
     <inf:AdaptiveColumns MinColumnWidth="400" MaxColumns="3" Spacing="16">
         <!-- Daily goal card (moved verbatim) -->
         <!-- Breaks card (moved verbatim) -->
