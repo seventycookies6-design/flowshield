@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Runtime.InteropServices;
 using System.Windows;
+using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Interop;
 using FlowShield.Models;
@@ -32,11 +33,29 @@ public partial class MainWindow : Window
         SetUpTray();
     }
 
+    /// <summary>Below this client width the rail compacts to icons (DESIGN_SYSTEM.md §4).</summary>
+    public const double CompactRailBelow = 1000;
+
+    /// <summary>
+    /// Handled on the root grid, not the window: the grid's width is the space
+    /// the layout actually has, which is also what an offscreen render of the
+    /// window's content sees (#189).
+    /// </summary>
     private void OnSizeChanged(object sender, SizeChangedEventArgs e)
     {
-        bool narrow = ActualWidth < 1000;
-        NavColumn.Width = new GridLength(narrow ? 64 : 238);
-        NavDockPanel.Margin = narrow ? new Thickness(6, 22, 6, 18) : new Thickness(18, 22, 18, 18);
+        bool narrow = e.NewSize.Width < CompactRailBelow;
+        // 240 and 16 match the XAML (the §4 rail and 4-based spacing); 72 leaves
+        // each tab 56px, room for a 20px icon inside its 16px side padding.
+        NavColumn.Width = new GridLength(narrow ? 72 : 240);
+        NavDockPanel.Margin = narrow ? new Thickness(8, 24, 8, 16) : new Thickness(16, 24, 16, 16);
+        foreach (var tab in NavTabs.Children.OfType<Button>())
+        {
+            // Icons only: centre the icon, and keep the name available on hover.
+            tab.HorizontalContentAlignment = narrow ? HorizontalAlignment.Center : HorizontalAlignment.Left;
+            tab.ToolTip = narrow ? AutomationProperties.GetName(tab) : null;
+        }
+        NavBrand.HorizontalAlignment = narrow ? HorizontalAlignment.Center : HorizontalAlignment.Left;
+        NavBrand.Margin = narrow ? new Thickness(0, 0, 0, 24) : new Thickness(8, 0, 0, 24);
         NavBrandText.Visibility = narrow ? Visibility.Collapsed : Visibility.Visible;
         NavBottomPanel.Visibility = narrow ? Visibility.Collapsed : Visibility.Visible;
         NavTodayLabel.Visibility = narrow ? Visibility.Collapsed : Visibility.Visible;

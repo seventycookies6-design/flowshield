@@ -7,7 +7,7 @@
         <Grid Margin="0,0,8,0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
-                <ColumnDefinition x:Name="StatsColumn" Width="320"/>
+                <ColumnDefinition x:Name="StatsColumn" Width="0.4*" MinWidth="300" MaxWidth="420"/>
             </Grid.ColumnDefinitions>
             <Grid.RowDefinitions>
                 <RowDefinition x:Name="TimerRow" Height="*"/>
@@ -405,7 +405,7 @@
 
                         <Grid Margin="0,0,0,12">
                             <TextBlock Text="Sprints completed" Style="{StaticResource Body}"/>
-                            <TextBlock Text="{Binding SessionsToday}" HorizontalAlignment="Right"
+                            <TextBlock Text="{Binding SessionsToday}" HorizontalAlignment="Right" Style="{StaticResource Body}"
                                        Foreground="{StaticResource Ink}" FontWeight="SemiBold"
                                        Typography.NumeralAlignment="Tabular"
                                        AutomationProperties.AutomationId="SessionsTodayValue"/>
@@ -413,7 +413,7 @@
 
                         <Grid Margin="0,0,0,12">
                             <TextBlock Text="Focus minutes" Style="{StaticResource Body}"/>
-                            <TextBlock Text="{Binding FocusMinutesToday}" HorizontalAlignment="Right"
+                            <TextBlock Text="{Binding FocusMinutesToday}" HorizontalAlignment="Right" Style="{StaticResource Body}"
                                        Foreground="{StaticResource Ink}" FontWeight="SemiBold"
                                        Typography.NumeralAlignment="Tabular"
                                        AutomationProperties.AutomationId="FocusMinutesValue"/>
@@ -421,7 +421,7 @@
 
                         <Grid>
                             <TextBlock Text="Distractions blocked" Style="{StaticResource Body}"/>
-                            <TextBlock Text="{Binding BlocksToday}" HorizontalAlignment="Right"
+                            <TextBlock Text="{Binding BlocksToday}" HorizontalAlignment="Right" Style="{StaticResource Body}"
                                        Foreground="{StaticResource Ink}" FontWeight="SemiBold"
                                        Typography.NumeralAlignment="Tabular"
                                        AutomationProperties.AutomationId="BlocksTodayValue"/>
@@ -436,7 +436,7 @@
                                     Visibility="{Binding GoalVisible, Converter={StaticResource BoolVis}}">
                             <Grid>
                                 <TextBlock Text="Daily goal" Style="{StaticResource Body}"/>
-                                <TextBlock Text="{Binding GoalProgressText}" HorizontalAlignment="Right"
+                                <TextBlock Text="{Binding GoalProgressText}" HorizontalAlignment="Right" Style="{StaticResource Body}"
                                            Foreground="{StaticResource Ink}" FontWeight="SemiBold"
                                            Typography.NumeralAlignment="Tabular"
                                            AutomationProperties.AutomationId="DailyGoalProgressText"/>
