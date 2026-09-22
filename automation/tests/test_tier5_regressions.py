@@ -7474,3 +7474,22 @@ class TestHeroExampleMatchesTheOtherBoxes:
         assert "border-radius: var(--radius-sm)" in rule
         assert "border: 1px solid var(--color-border)" in rule
         assert "border-left: 3px" not in rule
+
+
+class TestCycleTextFollowsTheSprintLength:
+    """Choosing a sprint length after the cycle count left the cycle line
+    saying the old length ("4 sprints of 90 minutes" with 25 min selected):
+    SelectedMinutes never raised CycleDescription."""
+
+    VM = Path(SERVER_DIR).parent / "DesktopApp" / "ViewModels" / "TodayViewModel.cs"
+
+    def test_changing_the_length_refreshes_the_cycle_line(self):
+        source = self.VM.read_text(encoding="utf-8")
+        start = source.index("public int SelectedMinutes")
+        setter = source[start:source.index("\n    }\n", start)]
+        assert "Raise(nameof(CycleDescription))" in setter
+
+    def test_restoring_a_running_sprint_refreshes_it_too(self):
+        source = self.VM.read_text(encoding="utf-8")
+        restore = source.index("Raise(nameof(SelectedMinutes));\n                Raise(nameof(PresetMinutes));")
+        assert "Raise(nameof(CycleDescription))" in source[restore:restore + 400]

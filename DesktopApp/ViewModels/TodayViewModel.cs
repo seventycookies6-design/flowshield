@@ -326,6 +326,7 @@ public class TodayViewModel : ViewModelBase
         {
             if (!Set(ref _selectedMinutes, value)) return;
             Raise(nameof(PresetMinutes));
+            Raise(nameof(CycleDescription));
             UpdateIdleDisplay();
         }
     }
@@ -1258,6 +1259,7 @@ public class TodayViewModel : ViewModelBase
                 }
                 Raise(nameof(SelectedMinutes));
                 Raise(nameof(PresetMinutes));
+                Raise(nameof(CycleDescription));
                 Raise(nameof(SelectedShield));
                 Raise(nameof(ShieldDescription));
                 Raise(nameof(ShieldBestFor));
