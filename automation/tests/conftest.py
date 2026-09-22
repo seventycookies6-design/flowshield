@@ -129,3 +129,23 @@ def expired_app(logger):
 def app(fresh_app):
     """Readability alias — same isolation guarantees as `fresh_app`."""
     return fresh_app
+
+
+@pytest.fixture
+def trial_expiring_soon_app(logger):
+    """
+    A fresh FlowShield whose trial is still active at launch but runs out a
+    few seconds later — for F20's "expires mid-sprint" scenario, where the
+    lock must wait for the running sprint (and its summary card) rather than
+    interrupting either.
+    """
+    if not Path(APP_EXE).exists():
+        pytest.skip(f"{APP_EXE} not built")
+
+    ctrl = DesktopController(logger)
+    ctrl.launch_app(clean_state=True, extra_args=["--expire-trial-in=8"])
+    ctrl.connect_window()
+    time.sleep(1.0)
+    ctrl.focus(force=True)
+    yield ctrl
+    ctrl.close_app()

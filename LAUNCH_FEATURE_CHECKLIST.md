@@ -611,9 +611,15 @@ The recommendation is (b) plus the honest message (F26), unless early users say 
 
 ### F20 — A trial that never nags · **Launch** · S
 
-- [ ] Done
+- [x] Done (#212): the trial is exactly three surfaces now — the sidebar
+      badge (whose dot now follows DESIGN_SYSTEM.md §7: primary while
+      trialling, warn once ended, ok once bought), the day-6 notice, and the
+      lock screen, which also waits out the sprint's summary card so a trial
+      ending mid-sprint never interrupts either.
 
-**Assigned:** Miles (milessmart6-pixel), built with Codex and Cursor
+**Assigned:** Miles (milessmart6-pixel), built with Codex and Cursor; this
+pass built with Claude Code, since most of the plumbing (F19's notification
+policy and the settings fields) already lived on Keenan's side.
 
 **Borrowed from:** avoiding the anti-pattern reviewers criticise in BlockSite (constant upsells) and Freedom (a tightly limited free tier).
 

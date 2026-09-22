@@ -87,6 +87,40 @@ public partial class App : Application
             Log.Info("free trial expired by --expire-trial flag");
         }
 
+        // --expire-trial-in=<seconds> backdates the trial so it runs out a few
+        // seconds after launch, instead of already being over. It exists so the
+        // automation suite can start a sprint on an active trial and watch it
+        // cross the boundary mid-sprint (F20: the lock must wait for the sprint
+        // to finish, never interrupt it).
+        //
+        // Same invariant as --expire-trial above: it can only move the trial's
+        // start earlier (taking access away sooner), never later — an unbounded
+        // seconds value must never grant, restart or extend a trial.
+        var expireInArg = args.FirstOrDefault(a =>
+            a.StartsWith("--expire-trial-in=", StringComparison.OrdinalIgnoreCase));
+        if (expireInArg is not null
+            && int.TryParse(expireInArg["--expire-trial-in=".Length..], out var expireInSeconds)
+            && ViewModel.Settings.TrialStartedUtc is { } currentTrialStart)
+        {
+            var candidateStart = DateTime.UtcNow
+                .AddDays(-Models.AppSettings.TrialDays)
+                .AddSeconds(expireInSeconds);
+
+            // Only ever pulls the start earlier. A large --expire-trial-in
+            // value (or one bigger than TrialDays in seconds) would otherwise
+            // compute a start in the future, handing out a fresh trial.
+            if (candidateStart < currentTrialStart)
+            {
+                ViewModel.Settings.TrialStartedUtc = candidateStart;
+                Log.Info($"free trial set to expire in {expireInSeconds}s by --expire-trial-in flag");
+            }
+            else
+            {
+                Log.Warn($"--expire-trial-in={expireInSeconds} ignored: it would move the trial "
+                          + "start later, not earlier");
+            }
+        }
+
         // The first-run welcome (F18), decided after --expire-trial so a locked
         // trial never gets it. --skip-first-run keeps the UI tests on Today.
         if (args.Any(a => a.Equals("--skip-first-run", StringComparison.OrdinalIgnoreCase)))

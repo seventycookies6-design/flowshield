@@ -62,6 +62,7 @@
     <inf:PositiveToVisibilityConverter x:Key="PositiveVis"/>
     <inf:NonEmptyToVisibilityConverter x:Key="NonEmptyVis"/>
     <inf:ShieldLevelToGlyphConverter x:Key="ShieldGlyph"/>
+    <inf:ResourceKeyToBrushConverter x:Key="ResourceKeyToBrush"/>
 
     <!-- ========================================================= typography -->
 

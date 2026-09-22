@@ -116,6 +116,19 @@ public class ShieldRomanConverter : IValueConverter
     public object ConvertBack(object value, Type t, object p, CultureInfo c) => Binding.DoNothing;
 }
 
+/// <summary>
+/// Looks up a brush resource by name, e.g. MainViewModel.TierBadgeDotKey
+/// ("Primary", "Green" or "Amber") for the tier badge's status dot
+/// (DESIGN_SYSTEM.md §7 "Tier badge").
+/// </summary>
+public class ResourceKeyToBrushConverter : IValueConverter
+{
+    public object? Convert(object value, Type t, object p, CultureInfo c) =>
+        value is string key ? Application.Current.TryFindResource(key) : null;
+
+    public object ConvertBack(object value, Type t, object p, CultureInfo c) => Binding.DoNothing;
+}
+
 /// <summary>Shows an element only when its bound text has something in it.</summary>
 public class NonEmptyToVisibilityConverter : IValueConverter
 {

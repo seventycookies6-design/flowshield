@@ -1089,6 +1089,11 @@ public class TodayViewModel : ViewModelBase
         _main.SaveSettings();
         JournalPromptVisible = false;
         _main.Toast("Logged.");
+
+        // The summary card just closed. If the trial ran out while it was on
+        // screen, this is the first moment the lock is allowed to appear (F20)
+        // — check now rather than waiting up to a minute for the access timer.
+        _main.RefreshAccess();
     }
 
     public void UpdateIdleDisplay()
