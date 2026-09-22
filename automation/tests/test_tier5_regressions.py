@@ -2718,11 +2718,229 @@ class TestProductCaptures:
         )
 
     def test_the_hero_still_comes_first(self):
+        """
+        #147 §4 (issue #173, "B2") deliberately reverses part of #139: the
+        hero itself now shows the real Today capture, full width, directly
+        below the copy — it no longer sits beside a decorative day-mock, and
+        the day timeline is promoted to its own `#day` section right after
+        the hero instead. What #139 actually protected — that the hero's
+        text and primary button render before any product media, and that
+        the below-the-fold proof section never displaces the hero — still
+        holds and is checked more precisely here, not weakened.
+        """
         site = (Path(WEBSITE_DIR) / "index.html").read_text(encoding="utf-8")
-        hero = site.index('<section class="hero"')
+        hero_open = site.index('<section class="hero"')
+        hero_close = site.index("</section>", hero_open)
+        day = site.index('<section id="day"')
         captures = site.index('id="see-it"')
-        assert hero < captures, "the captures must not displace the hero"
-        assert "media/" not in site[:hero], "no product media above the hero"
+
+        assert hero_open < day < captures, (
+            "the sections must run hero, then day, then the captures proof section"
+        )
+        assert "media/" not in site[:hero_open], "no product media above the hero"
+
+        # The hero shows the real product now (§10/§0) — but text and the
+        # primary CTA must still render before that image reaches the DOM,
+        # which is what #139 actually guarded against.
+        hero = site[hero_open:hero_close]
+        assert "media/today.png" in hero, "the hero must lead with the real product capture"
+        h1_at = hero.index("<h1")
+        cta_at = hero.index("data-download-guide")
+        img_at = hero.index("media/today.png")
+        assert h1_at < cta_at < img_at, (
+            "the headline and primary CTA must both precede the product image in source order"
+        )
+
+        # The day timeline used to be aria-hidden decoration squeezed beside
+        # the hero copy (#139); it is now real, visible content in its own
+        # section, not inside the hero at all.
+        assert "timeline" not in hero, "the day timeline must not still be inside the hero"
+        assert hero_close < day, "the day section must start after the hero ends"
+        day_section = site[day:site.index("</section>", day)]
+        assert 'aria-hidden="true"' not in day_section.split(">", 1)[0], (
+            "the day section itself must not be hidden from assistive tech"
+        )
+        assert "<h2>" in day_section, "the day section needs a real, visible heading now"
+
+    def test_the_product_is_not_pushed_below_the_fold(self):
+        """
+        Leading with the product (#147 §4) only works if the capture reaches
+        the first screen. With the worked example and the stats row stacked
+        above it, the capture started at 95% of a 1440x900 screen and fully
+        below the fold at 1366x768. The copy above the capture stays short:
+        eyebrow, headline, lede, calls to action and the note. The example
+        and the numbers go below it.
+        """
+        site = (Path(WEBSITE_DIR) / "index.html").read_text(encoding="utf-8")
+        hero_open = site.index('<section class="hero"')
+        hero = site[hero_open:site.index("</section>", hero_open)]
+        img_at = hero.index("media/today.png")
+        above = hero[:img_at]
+        for marker in ('class="example"', 'class="trust"'):
+            assert marker in hero, f"{marker} should still be in the hero"
+            assert marker not in above, (
+                f"{marker} sits above the product capture again, pushing it below the fold")
+        paragraphs = above.count("<p")
+        assert paragraphs <= 3, (
+            f"{paragraphs} paragraphs above the capture; keep it to the lede, the "
+            "copy confirmation and the note")
+
+
+class TestDesignReviewFixesB4:
+    """
+    #183: an external review of the site stack found these, and each was
+    re-measured in a browser before the fix. Every test below fails on the
+    markup and CSS as #178 left them.
+    """
+
+    SITE = Path(WEBSITE_DIR) / "index.html"
+    CSS = Path(WEBSITE_DIR) / "styles.css"
+
+    def _css(self) -> str:
+        return self.CSS.read_text(encoding="utf-8")
+
+    def _rule(self, selector: str) -> str:
+        # Anchored to the start of a line, so ".shot-grid" can't match the
+        # tail of a compound selector such as ".shot-demo + .shot-grid".
+        css = self._css()
+        match = re.search(r"^" + re.escape(selector) + r" \{", css, re.M)
+        assert match, f"no top-level rule for {selector}"
+        return css[match.start():css.index("}", match.start())]
+
+    def test_the_mobile_menu_closes_when_a_destination_is_chosen(self):
+        """At 390px, tapping a nav link scrolled to the section but left the
+        open menu covering it."""
+        site = self.SITE.read_text(encoding="utf-8")
+        script = site[site.index("[data-menu-toggle]');"):]
+        assert "#primary-nav a" in script and "setMenu(false)" in script, (
+            "a nav link must close the menu when it is chosen")
+        assert "'Escape'" in script, "Escape must close the open menu"
+        assert "scroll-padding-top" in self._css(), (
+            "in-page links must land below the sticky header, not under it")
+
+    def test_explanations_are_body_size_not_label_size(self):
+        """§3: the site's body text is 17px. The card explanations were set at
+        the 13px label size."""
+        for selector in (".feature p", ".level .scenario", ".behaviors li", ".plan li"):
+            rule = self._rule(selector)
+            assert "var(--text-label)" not in rule, f"{selector} is still label-sized"
+            assert "var(--text-body)" in rule, f"{selector} should use the body size"
+
+    def test_gallery_columns_cannot_outgrow_a_narrow_phone(self):
+        """At 360px the grid was narrower than a 20rem column, so cards ran past
+        the right gutter."""
+        rule = self._rule(".shot-grid")
+        assert "minmax(min(100%, 20rem), 1fr)" in rule, (
+            "the column minimum must be capped at the grid's own width")
+
+    def test_no_decorative_status_or_accent_colour(self):
+        """§2: teal marks state, selection or progress, and status colours are
+        for status only. Static icons, a quote rule and fake window dots were
+        using them as decoration."""
+        css = self._css()
+        assert ".mock-bar i:first-child" not in css, "no red/amber/green window dots"
+        site = self.SITE.read_text(encoding="utf-8")
+        assert '<div class="mock-bar"><i>' not in site, "the window-dot markup is gone too"
+        assert "var(--color-primary)" not in self._rule(".behaviors li svg")
+        assert "color: var(--color-primary)" not in css[css.index(".feature-icon svg"):][:120]
+        assert "solid var(--color-primary)" not in self._rule(".hero .example")
+
+    def test_pricing_offers_phones_the_same_download_flow_as_the_hero(self):
+        """On a phone the hero copied the download link, while pricing still
+        offered the Windows installer."""
+        site = self.SITE.read_text(encoding="utf-8")
+        pricing = site[site.index('<section id="pricing"'):]
+        pricing = pricing[:pricing.index("</section>")]
+        assert "data-download-direct" in pricing, (
+            "pricing's installer link must hide on phones like the hero's")
+        assert "data-download-copy" in pricing, "pricing needs the phone copy button"
+        assert "data-copy-confirm" in pricing, "and a confirmation beside it"
+        assert "querySelectorAll('[data-download-copy]')" in site, (
+            "every copy button must be wired, not just the first one")
+
+    def test_eyebrows_keep_one_size(self):
+        """Paragraph rules in .section-head and .shields-intro enlarged the
+        eyebrow label to 18px, while every other eyebrow was 11px."""
+        css = self._css()
+        for unscoped in (".section-head p {", ".shields-intro p { margin: 0; font-size"):
+            assert unscoped not in css, f"`{unscoped}` resizes the .label eyebrow inside it"
+
+
+class TestLandingPageLengthB5:
+    """
+    #185: the external review found the page repeating itself before the
+    decision point. Pricing started about 7,900px down on desktop and
+    10,200px on a phone. The day was explained three times (the timeline,
+    #how, and a strip in #shields), momentum four times, and the Today
+    capture shown twice. These guard the cut against creeping back.
+    """
+
+    SITE = Path(WEBSITE_DIR) / "index.html"
+
+    def _site(self) -> str:
+        return self.SITE.read_text(encoding="utf-8")
+
+    def test_the_page_runs_in_decision_order(self):
+        site = self._site()
+        order = ['<section class="hero"', '<section id="day"', '<section id="shields"',
+                 '<section id="see-it"', '<section id="features"', '<section id="pricing"',
+                 '<section id="faq"']
+        at = [site.index(marker) for marker in order]
+        assert at == sorted(at), (
+            "hero, the day, the shields, one real demo, the benefits, then pricing and FAQ")
+        assert '<section id="how"' not in site, "how-it-works lives inside #day now"
+
+    def test_the_day_is_explained_once(self):
+        site = self._site()
+        day = site[site.index('<section id="day"'):]
+        day = day[:day.index("</section>")]
+        assert 'class="timeline"' in day and 'class="story-list' in day, (
+            "#day carries both the timeline and the three steps")
+        assert 'class="day-strip"' not in site, (
+            "the shields section must not repeat the day as a strip")
+
+    def test_the_today_capture_appears_once(self):
+        assert self._site().count("media/today.png") == 1, (
+            "the hero already shows Today; #see-it shows what the hero doesn't")
+
+    def test_the_demo_leads_the_proof_section(self):
+        site = self._site()
+        see_it = site[site.index('<section id="see-it"'):]
+        see_it = see_it[:see_it.index("</section>")]
+        assert see_it.index("<video") < see_it.index('class="shot-grid"'), (
+            "one real demonstration first, then the supporting captures")
+
+    def test_benefits_do_not_restate_other_sections(self):
+        site = self._site()
+        features = site[site.index('<section id="features"'):site.index('<section id="pricing"')]
+        for repeat in ("Escalating shield levels", "Momentum first", "Why it sticks"):
+            assert repeat not in features, f"{repeat!r} restates another section"
+        assert features.count('class="surface feature"') == 3
+
+
+class TestSiteToneB6:
+    """
+    #187: "Pick how much you trust yourself today" and "when you do not trust
+    yourself" framed the reader as untrustworthy. Miles chose to rewrite both
+    and to keep "The 1 a.m. version of you doesn't get a vote", which sides
+    with the reader against an impulse they chose to guard against
+    (DESIGN_SYSTEM.md §9: kind, never guilty).
+    """
+
+    def _site(self) -> str:
+        return " ".join((Path(WEBSITE_DIR) / "index.html").read_text(encoding="utf-8").split())
+
+    def test_the_site_does_not_call_the_reader_untrustworthy(self):
+        site = self._site().lower()
+        for phrase in ("trust yourself", "not trust yourself"):
+            assert phrase not in site, f"{phrase!r} frames the reader as untrustworthy"
+
+    def test_the_rewrites_and_the_kept_line_are_in_place(self):
+        site = self._site()
+        assert "Pick how hard it should be to quit today" in site
+        assert "“just checking” Steam turns into an hour" in site
+        assert "The 1 a.m. version of you doesn't get a vote." in site, (
+            "Miles chose to keep this line (#187)")
 
 
 class TestPhoneVisitorMarkup:
@@ -3074,3 +3292,1142 @@ class TestThirdPartyNoticesShip:
         for line in ("Copyright (c) for portions of Lucide are held by Cole Bemis",
                      "Permission to use, copy, modify, and/or distribute this software"):
             assert line in icons and line in notices
+
+class TestTheSiteStaysOfflineForTheBeta:
+    """
+    The site is offline for the internal beta (#165): GitHub Pages' terms
+    forbid selling from it, so it moves host before launch (#166). The
+    publish script refuses without -BetaIsOver so that an agent following an
+    older instruction cannot quietly put it back up.
+    """
+
+    SCRIPT = Path(__file__).resolve().parent.parent.parent / "tools" / "publish_site.ps1"
+
+    def test_publishing_needs_an_explicit_switch(self):
+        script = self.SCRIPT.read_text(encoding="utf-8")
+        assert "param([switch]$BetaIsOver)" in script
+        guard = script.split("if (-not $BetaIsOver)", 1)
+        assert len(guard) == 2, "the refusal is gone"
+        refusal = guard[1].split("}", 1)[0]
+        assert "exit 1" in refusal, "refusing must stop the script, not just warn"
+
+    def test_the_refusal_comes_before_anything_is_pushed(self):
+        script = self.SCRIPT.read_text(encoding="utf-8")
+        guard = script.index("if (-not $BetaIsOver)")
+        # Everything before the guard is the help block and the param line:
+        # no git call, no push, nothing that reaches gh-pages.
+        before = script[:guard].split("#>", 1)[1]
+        for command in ("git ", "Invoke-Git", "push", "Set-Location"):
+            assert command not in before, (
+                f"{command!r} runs before the beta guard, so it happens even when publishing is refused"
+            )
+        assert script.index("Invoke-Git", guard) > guard
+
+
+# =================== the site self-hosts Inter, no third-party font host (B1)
+
+class TestSiteFontsAreSelfHosted:
+    """
+    DESIGN_SYSTEM.md #147/#149: Inter replaces Syne + Source Sans 3, self-
+    hosted under Website/fonts/ so the site never contacts Google Fonts.
+    Written to fail against the pre-B1 site (Google Fonts <link>s in every
+    page's <head>, no Website/fonts/ directory) before the fix landed.
+    """
+
+    FONTS_DIR = Path(WEBSITE_DIR) / "fonts"
+    CSS = Path(WEBSITE_DIR) / "styles.css"
+    PAGES = ["index.html", "support.html", "changelog.html", "legal.html", "success.html"]
+
+    @pytest.mark.parametrize("page", PAGES)
+    def test_no_page_references_a_third_party_font_host(self, page):
+        html = (Path(WEBSITE_DIR) / page).read_text(encoding="utf-8")
+        assert "fonts.googleapis.com" not in html, f"{page} still links Google Fonts"
+        assert "fonts.gstatic.com" not in html, f"{page} still preconnects to Google Fonts"
+
+    def test_every_font_face_src_file_exists_on_disk(self):
+        css = self.CSS.read_text(encoding="utf-8")
+        faces = re.findall(r"@font-face\s*{[^}]*}", css)
+        assert faces, "styles.css has no @font-face rule — Inter isn't self-hosted"
+        found_local_src = False
+        checked_any_url = 0
+        for face in faces:
+            for url_match in re.finditer(r'url\(["\']?([^"\')]+)["\']?\)', face):
+                checked_any_url += 1
+                src_path = (Path(WEBSITE_DIR) / url_match.group(1)).resolve()
+                assert src_path.is_file(), f"@font-face src file is missing: {url_match.group(1)}"
+            if "local(" in face:
+                found_local_src = True
+        assert checked_any_url, "no @font-face rule has a url() src — nothing is actually self-hosted"
+        assert found_local_src, "the size-adjusted local() fallback face is missing"
+
+    def test_ofl_license_is_present(self):
+        license_file = self.FONTS_DIR / "OFL.txt"
+        assert license_file.is_file(), "Website/fonts/OFL.txt is missing"
+        text = license_file.read_text(encoding="utf-8")
+        assert "SIL OPEN FONT LICENSE" in text.upper()
+
+    def test_fallback_face_is_size_adjusted_to_avoid_reflow(self):
+        """
+        §11: the hero must render text before any image loads, which only
+        holds if the fallback-to-Inter swap doesn't visibly reflow it.
+        """
+        css = self.CSS.read_text(encoding="utf-8")
+        fallback = css.split('font-family: "Inter Fallback";', 1)
+        assert len(fallback) == 2, "the size-adjusted local fallback face is missing"
+        block = fallback[1].split("}", 1)[0]
+        for descriptor in ("size-adjust", "ascent-override", "descent-override"):
+            assert descriptor in block, f"the Inter Fallback face is missing {descriptor}"
+
+    def test_no_page_sets_swap_display_without_self_hosting(self):
+        # font-display: swap only helps if the font is actually local — make
+        # sure the primary Inter face uses it.
+        css = self.CSS.read_text(encoding="utf-8")
+        primary = css.split('font-family: "Inter";', 1)[1].split("}", 1)[0]
+        assert "font-display: swap" in primary
+
+
+# ==================================================== B3 — site system pass
+
+class TestSiteSystemPassB3:
+    """
+    DESIGN_SYSTEM.md §5-§7 / UI-SPEC.md B3: the full §7 button set at 44px,
+    the §6 shield glyph symbol set (echoing the app's A4
+    DesktopApp/Styles/ShieldGlyphs.xaml), the missing 6px chip radius step,
+    section rhythm on the 4-scale, and Lucide icons in place of the FAQ's
+    Unicode +/- markers. Written to fail against the pre-B3 site (plain-text
+    "Shield II" labels, no .btn-quiet/.btn-danger, no --radius-chip, 48/64px
+    section padding, a "+"/mojibake "-" FAQ marker) before the fix landed.
+    """
+
+    CSS = Path(WEBSITE_DIR) / "styles.css"
+    INDEX = Path(WEBSITE_DIR) / "index.html"
+    # DesktopApp/Styles/ShieldGlyphs.xaml (A4, #147) landed on the app track's
+    # own branch chain, not this site-track branch, so it isn't guaranteed to
+    # exist on disk here — the crest path is copied verbatim (see B3's PR
+    # body) rather than read cross-branch, which would make this test flaky
+    # depending on which stack a checkout has.
+    APP_SHIELD_CREST = (
+        "M12,3 L19.5,6 L19.5,11.5 C19.5,16.2 16.3,19.8 12,21 "
+        "C7.7,19.8 4.5,16.2 4.5,11.5 L4.5,6 Z"
+    )
+
+    def test_all_four_button_variants_are_44_high_radius_10(self):
+        css = self.CSS.read_text(encoding="utf-8")
+        base = css.split(".btn {", 1)[1].split("\n}", 1)[0]
+        assert "height: 44px" in base, ".btn is not fixed at 44px tall"
+        assert "border-radius: var(--radius-sm)" in base, ".btn does not use the 10px radius token"
+        for variant in (".btn-primary", ".btn-ghost", ".btn-quiet", ".btn-danger"):
+            assert re.search(re.escape(variant) + r"\s*{", css), f"{variant} is not defined in styles.css"
+
+    def test_disabled_buttons_are_45_percent_opacity(self):
+        css = self.CSS.read_text(encoding="utf-8")
+        rule = css.split(".btn:disabled", 1)[1].split("}", 1)[0]
+        assert "opacity: 0.45" in rule, ".btn:disabled is not at the §7 45% opacity"
+
+    def test_shield_glyph_symbol_set_matches_the_apps_geometry(self):
+        """
+        The site's three <symbol>s must be the same crest path the app's A4
+        ShieldGlyphs.xaml draws (not a hand-drawn approximation), and each
+        must carry the right bar count — Soft 1, Firm 2, Sealed 3 plus the
+        lock notch — the same escalation-through-fill-and-bars rule as §6.
+        """
+        html = self.INDEX.read_text(encoding="utf-8")
+
+        assert html.count(self.APP_SHIELD_CREST) == 3, (
+            "index.html's shield <symbol> set doesn't reuse the app's exact crest geometry "
+            "in all three symbols"
+        )
+
+        soft = html.split('id="shield-soft-glyph"', 1)[1].split("</symbol>", 1)[0]
+        firm = html.split('id="shield-firm-glyph"', 1)[1].split("</symbol>", 1)[0]
+        sealed = html.split('id="shield-sealed-glyph"', 1)[1].split("</symbol>", 1)[0]
+
+        assert soft.count("<path") == 2, "Soft glyph should be an outline plus exactly one bar"
+        assert firm.count("<path") == 2, "Firm glyph should be an outline plus a two-bar path"
+        assert 'fill="var(--color-primary)"' in sealed, "Sealed glyph isn't solid-filled"
+        assert sealed.count("<path") >= 3, "Sealed glyph is missing its three-bar path and/or lock notch"
+        assert "<circle" in sealed, "Sealed glyph is missing the lock notch"
+
+    def test_shields_section_uses_the_glyphs_not_plain_text(self):
+        html = self.INDEX.read_text(encoding="utf-8")
+        shields = html.split('id="shields"', 1)[1].split('id="features"', 1)[0]
+        assert '<div class="num">' not in shields, (
+            "the shields section still has the old plain-text Shield II/III label "
+            "instead of the glyph symbol set"
+        )
+        for glyph in ("#shield-soft-glyph", "#shield-firm-glyph", "#shield-sealed-glyph"):
+            assert f'href="{glyph}"' in shields, f"the shields section never references {glyph}"
+
+    def test_chip_radius_token_exists_and_is_used(self):
+        css = self.CSS.read_text(encoding="utf-8")
+        assert "--radius-chip: 6px;" in css, "the missing 6px chip radius step (REFERENCES gap #20) wasn't added"
+        assert css.count("var(--radius-chip)") >= 2, (
+            "the 6px chip token exists but nothing outside the token block actually uses it"
+        )
+
+    def test_section_rhythm_uses_composed_4_scale_multiples(self):
+        css = self.CSS.read_text(encoding="utf-8")
+        assert "--space-20: 80px;" in css and "--space-24: 96px;" in css, (
+            "section-break spacing tokens (80/96, composed from the 32/48/64 steps) are missing"
+        )
+        rule = css.split("\nsection { padding:", 1)
+        assert len(rule) == 2, "the base `section` rule is missing or was restructured"
+        assert "var(--space-20)" in rule[1].split("}", 1)[0]
+
+    def test_faq_uses_an_svg_chevron_not_a_unicode_marker(self):
+        html = self.INDEX.read_text(encoding="utf-8")
+        faq = html.split('id="faq"', 1)[1]
+        assert html.count('class="chevron"') == 7, "expected one chevron icon per FAQ item"
+        assert "summary::after" not in (self.CSS.read_text(encoding="utf-8")), (
+            "styles.css still drives the FAQ marker from a ::after content glyph"
+        )
+        # The old marker was corrupted (\xc2\x91 + "2") mojibake for a minus
+        # sign — make sure that byte sequence is gone for good, not just the
+        # rule that displayed it.
+        raw = self.CSS.read_bytes()
+        assert b"\xc2\x91" not in raw, "the mojibake minus-sign byte is still in styles.css"
+
+    def test_every_feature_card_has_a_lucide_icon(self):
+        html = self.INDEX.read_text(encoding="utf-8")
+        features = html.split('id="features"', 1)[1].split('id="pricing"', 1)[0]
+        card_count = features.count('class="surface feature"')
+        icon_count = features.count('class="feature-icon"')
+        assert card_count == 3, (
+            "fixture assumption changed: expected 3 feature cards (six until #185 cut the repeats)")
+        assert icon_count == card_count, (
+            f"{card_count} feature cards but only {icon_count} have a .feature-icon — "
+            "every feature needs a Lucide icon, not just some of them"
+        )
+
+    def test_no_legacy_colour_aliases_reintroduced_by_this_pass(self):
+        # TestNoLegacyColourAliases already covers the app and the general
+        # site case; this just re-confirms the exact files B3 touched.
+        css = self.CSS.read_text(encoding="utf-8")
+        html = self.INDEX.read_text(encoding="utf-8")
+        for name in ("--violet", "--cyan", "--grad"):
+            assert f"{name}:" not in css
+            assert f"var({name})" not in html
+
+class TestTheSiteDescribesTheCloseTheAppDoes:
+    """
+    F7 (#146) made Firm and Sealed warn first, but the landing page kept
+    saying they close apps "on sight" — a claim the build stopped making the
+    day it merged, contradicting the legal page beside it. Nothing checked the
+    marketing copy against GracefulClose, only the legal page.
+    """
+
+    def test_no_page_promises_an_instant_close_while_the_app_warns(self):
+        model = (Path(DESKTOP_DIR) / "Models" / "GracefulClose.cs").read_text(encoding="utf-8")
+        if "!hardKill && shield >= ShieldLevel.Firm" not in model:
+            pytest.skip("Firm no longer warns; this claim test no longer applies")
+        for page in sorted(Path(WEBSITE_DIR).glob("*.html")):
+            text = " ".join(re.sub(r"<[^>]+>", " ", page.read_text(encoding="utf-8")).split()).lower()
+            for claim in ("on sight", "hard close"):
+                assert claim not in text, (
+                    f"{page.name} says {claim!r}, but Firm and Sealed warn and wait "
+                    f"before closing (GracefulClose.IsGraceful)"
+                )
+
+    def test_the_shields_section_says_it_warns(self):
+        index = (Path(WEBSITE_DIR) / "index.html").read_text(encoding="utf-8")
+        flat = " ".join(re.sub(r"<[^>]+>", " ", index).split())
+        assert "Warns, then closes" in flat
+        assert "Hard kill mode skips the warning" in flat, (
+            "the page must not imply every user gets a warning — Hard kill gives none"
+        )
+
+class TestInterTypeScale:
+    """
+    DESIGN_SYSTEM.md §3: Inter, embedded, is the only face the app actually
+    renders in (today's fallback chain put it third, behind two Segoe UI
+    entries nobody's machine was missing). Embedded as a resource, with its
+    OFL licence kept alongside, and its pack URI assembly-qualified so it
+    also resolves when the render kit hosts the built DLL rather than
+    launching FlowShield.exe.
+    """
+
+    FONTS_DIR = Path(DESKTOP_DIR) / "Assets" / "Fonts"
+    CSPROJ = Path(DESKTOP_DIR) / "FlowShield.csproj"
+    THEME = Path(DESKTOP_DIR) / "Styles" / "Theme.xaml"
+    TODAY_VIEW = Path(DESKTOP_DIR) / "Views" / "TodayView.xaml"
+    VIEWS = ("MainWindow.xaml", "Views/BlockedAppsView.xaml", "Views/FriendlyErrorDialog.xaml",
+             "Views/SleepBlockingView.xaml", "Views/TodayView.xaml", "Views/SettingsView.xaml")
+
+    EMBEDDED_WEIGHTS = ("Inter-Regular.ttf", "Inter-Medium.ttf", "Inter-SemiBold.ttf")
+
+    # A view is allowed to reference the FontStack resource, or -- for
+    # licence keys and anything the user must copy exactly, §3's own
+    # exception -- the Cascadia Mono fallback. Nothing else.
+    ALLOWED_FONT_FAMILY_VALUES = ("{StaticResource FontStack}", "Cascadia Mono, Consolas, monospace")
+
+    def test_fonts_are_embedded_on_disk_and_in_the_csproj(self):
+        csproj = self.CSPROJ.read_text(encoding="utf-8")
+        for weight in self.EMBEDDED_WEIGHTS:
+            font_path = self.FONTS_DIR / weight
+            assert font_path.is_file(), (
+                f"{font_path} is missing -- Inter must actually be embedded, not just "
+                f"referenced")
+            assert f'Assets\\Fonts\\{weight}' in csproj, (
+                f"{weight} exists on disk but has no <Resource Include> entry in "
+                f"FlowShield.csproj, so it won't ship in the build")
+
+    def test_bold_is_not_embedded_unless_the_scale_uses_it(self):
+        """
+        §3's scale doesn't use weight 700 anywhere in the app (it's reserved
+        for the site hero). UI-SPEC.md §2 is explicit: don't embed Inter-Bold
+        unless a real in-app use is found. A stray Bold file would be dead
+        weight nobody meant to ship.
+        """
+        assert not (self.FONTS_DIR / "Inter-Bold.ttf").exists(), (
+            "Inter-Bold is embedded but nothing in the §3 app scale uses weight 700 -- "
+            "either use it for something real and document why, or drop it")
+
+    def test_the_ofl_licence_is_present(self):
+        licence = self.FONTS_DIR / "OFL.txt"
+        assert licence.is_file(), "Inter is OFL-licensed; its licence text must ship with it"
+        text = licence.read_text(encoding="utf-8")
+        assert "SIL Open Font License" in text
+
+    def test_font_stack_is_an_assembly_qualified_pack_uri(self):
+        """
+        A relative pack URI resolves fine when FlowShield.exe launches itself,
+        but silently falls back to a system font when the render kit hosts
+        the built DLL directly -- the exact split this test guards against.
+        """
+        theme = self.THEME.read_text(encoding="utf-8")
+        match = re.search(r'<FontFamily x:Key="FontStack">([^<]+)</FontFamily>', theme)
+        assert match, "Theme.xaml should define the FontStack FontFamily resource"
+        stack = match.group(1)
+        assert stack.startswith("pack://application:,,,/FlowShield;component/Assets/Fonts/#Inter"), (
+            f"FontStack is {stack!r} -- it must start with the assembly-qualified pack "
+            f"URI form, or the render kit's hosted-DLL rendering falls back to Segoe")
+
+    def test_no_view_sets_a_font_family_other_than_the_stack(self):
+        offenders = []
+        for name in self.VIEWS:
+            path = Path(DESKTOP_DIR) / name
+            if not path.exists():
+                continue
+            for n, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+                for value in re.findall(r'FontFamily="([^"]+)"', line):
+                    if value not in self.ALLOWED_FONT_FAMILY_VALUES:
+                        offenders.append(f"{name}:{n} sets FontFamily={value!r}")
+        assert not offenders, (
+            "a view should reference the FontStack resource (or, for licence keys "
+            "only, the Cascadia Mono fallback), not set its own literal FontFamily:\n  "
+            + "\n  ".join(offenders))
+
+    def _tag_for(self, xml: str, automation_id: str) -> str:
+        """The full opening tag (attributes only) that carries this AutomationId."""
+        match = re.search(
+            r'<(\w+)\b((?:(?!/?>).)*?AutomationId="' + re.escape(automation_id) + r'"(?:(?!/?>).)*?)/?>',
+            xml, re.S)
+        assert match, f"no element with AutomationId={automation_id!r} found"
+        return match.group(2)
+
+    def test_timer_and_stat_numbers_are_tabular(self):
+        """
+        §3: the timer, momentum, and every Today stat are tabular so the
+        digits don't jiggle as they change. Checked by AutomationId, which
+        survives a restyle better than matching on FontSize.
+        """
+        xml = self.TODAY_VIEW.read_text(encoding="utf-8")
+        tabular_ids = (
+            "SprintTimerText", "MomentumValue", "SessionsTodayValue",
+            "FocusMinutesValue", "BlocksTodayValue", "DailyGoalProgressText",
+        )
+        offenders = []
+        for automation_id in tabular_ids:
+            tag = self._tag_for(xml, automation_id)
+            if 'Typography.NumeralAlignment="Tabular"' not in tag:
+                offenders.append(automation_id)
+        assert not offenders, (
+            "these number displays are missing Typography.NumeralAlignment=\"Tabular\": "
+            + ", ".join(offenders))
+
+    def test_blocked_app_row_name_and_summary_do_not_wrap(self):
+        """
+        Regression (PR #171 review): Inter's wider metrics overflowed the
+        blocked-app row's fixed-width name column, which fit under Segoe UI
+        but, post-swap, wrapped "Minecraft Launcher" to two lines and its
+        exe-name line ("minecraftlauncher.exe, Minecraft.Windows.exe") to
+        three, with mid-word splits ("minecraftlauncher.ex" / "e"). Both
+        TextBlocks must trim to a single line with an ellipsis instead of
+        wrapping, so a long app or process name never breaks mid-word again
+        regardless of how narrow the row gets.
+        """
+        view = Path(DESKTOP_DIR) / "Views" / "BlockedAppsView.xaml"
+        xml = view.read_text(encoding="utf-8")
+
+        name_match = re.search(
+            r'<TextBlock Text="\{Binding DisplayName\}"(?:(?!/?>).)*?/>', xml, re.S)
+        assert name_match, "expected the blocked-app row's name TextBlock bound to DisplayName"
+        name_tag = name_match.group(0)
+        assert 'TextWrapping="NoWrap"' in name_tag, (
+            "the blocked-app row's name TextBlock must set TextWrapping=\"NoWrap\" -- "
+            "otherwise a long app name wraps across lines under Inter's wider metrics")
+        assert 'TextTrimming="CharacterEllipsis"' in name_tag, (
+            "the blocked-app row's name TextBlock must set TextTrimming=\"CharacterEllipsis\" "
+            "so a long name trims with an ellipsis instead of being clipped bare")
+
+        summary_match = re.search(
+            r'<TextBlock Style="\{StaticResource Caption\}"(?:(?!/?>).)*?>'
+            r'\s*<Run Text="\{Binding ProcessSummary', xml, re.S)
+        assert summary_match, (
+            "expected the blocked-app row's process-summary TextBlock bound to "
+            "ProcessSummary via a Run")
+        summary_tag = summary_match.group(0)
+        assert 'TextWrapping="NoWrap"' in summary_tag, (
+            "the blocked-app row's process-summary TextBlock must set "
+            "TextWrapping=\"NoWrap\" -- otherwise a single long exe name (no spaces) "
+            "forces a mid-word break to fit the narrow column")
+        assert 'TextTrimming="CharacterEllipsis"' in summary_tag, (
+            "the blocked-app row's process-summary TextBlock must set "
+            "TextTrimming=\"CharacterEllipsis\" so a long exe name trims with an "
+            "ellipsis instead of breaking mid-word")
+
+
+class TestShieldGlyphsA4:
+    """
+    DESIGN_SYSTEM.md §6: the three shields are built once, as XAML geometry,
+    and reused everywhere a shield glyph appears. UI-SPEC.md A4 wires that
+    resource into the Today page's shield chips and the timer ring.
+    """
+
+    GLYPHS = Path(DESKTOP_DIR) / "Styles" / "ShieldGlyphs.xaml"
+    THEME = Path(DESKTOP_DIR) / "Styles" / "Theme.xaml"
+    TODAY_VIEW = Path(DESKTOP_DIR) / "Views" / "TodayView.xaml"
+
+    def _resource_block(self, xml: str, key: str) -> str:
+        match = re.search(
+            r'<DrawingImage x:Key="' + re.escape(key) + r'">.*?</DrawingImage>', xml, re.S)
+        assert match, f"no ShieldGlyph{key.replace('ShieldGlyph', '')} DrawingImage resource found"
+        return match.group(0)
+
+    def test_glyph_file_exists_and_merges_tokens(self):
+        assert self.GLYPHS.is_file(), (
+            "DesktopApp/Styles/ShieldGlyphs.xaml is missing -- the shield glyphs must be "
+            "built once, in a shared resource dictionary (UI-SPEC.md A4)")
+        xml = self.GLYPHS.read_text(encoding="utf-8")
+        assert '<ResourceDictionary Source="Tokens.xaml"/>' in xml, (
+            "ShieldGlyphs.xaml must merge Tokens.xaml itself -- a StaticResource brush "
+            "lookup only sees its own dictionary's merged dictionaries, not its "
+            "sibling dictionaries in Theme.xaml")
+
+    def test_theme_merges_the_glyph_dictionary(self):
+        theme = self.THEME.read_text(encoding="utf-8")
+        assert '<ResourceDictionary Source="ShieldGlyphs.xaml"/>' in theme, (
+            "Theme.xaml must merge ShieldGlyphs.xaml or the glyph resources are never "
+            "loaded into the app")
+
+    def test_exactly_three_levels_are_defined(self):
+        xml = self.GLYPHS.read_text(encoding="utf-8")
+        for key in ("ShieldGlyphSoft", "ShieldGlyphFirm", "ShieldGlyphSealed"):
+            assert xml.count(f'x:Key="{key}"') == 1, (
+                f"expected exactly one {key} resource")
+
+    def test_soft_is_outline_and_one_bar_in_text_muted(self):
+        """§6: Soft is a shield outline with one bar, in text-muted (InkDim), never primary."""
+        block = self._resource_block(self.GLYPHS.read_text(encoding="utf-8"), "ShieldGlyphSoft")
+        assert "{StaticResource InkDim}" in block
+        assert "{StaticResource Primary}" not in block, (
+            "Soft must never use primary -- strength escalates through fill and bar "
+            "count, not colour (§6)")
+        assert block.count("M8.5,") == 1, "Soft should draw exactly one bar"
+
+    def test_firm_is_outline_and_two_bars_in_primary(self):
+        block = self._resource_block(self.GLYPHS.read_text(encoding="utf-8"), "ShieldGlyphFirm")
+        assert block.count("{StaticResource Primary}") >= 1
+        assert "{StaticResource InkDim}" not in block
+        assert block.count("M8.5,") == 2, "Firm should draw exactly two bars"
+
+    def test_sealed_is_solid_primary_with_three_bars_and_a_lock_notch_in_primary_ink(self):
+        block = self._resource_block(self.GLYPHS.read_text(encoding="utf-8"), "ShieldGlyphSealed")
+        assert 'Brush="{StaticResource Primary}"' in block, (
+            "Sealed's shield shape must be a solid primary fill, not an outline")
+        assert block.count("{StaticResource PrimaryInk}") >= 2, (
+            "Sealed's bars and lock notch must be drawn in primary-ink for contrast "
+            "against the solid fill")
+        assert block.count("M8.5,") == 3, "Sealed should draw exactly three bars"
+
+    def test_shield_chips_reference_the_shared_glyph_resource(self):
+        xml = self.TODAY_VIEW.read_text(encoding="utf-8")
+        for key in ("ShieldGlyphSoft", "ShieldGlyphFirm", "ShieldGlyphSealed"):
+            assert f'Source="{{StaticResource {key}}}"' in xml, (
+                f"the {key} chip should render the shared glyph resource, not its own "
+                f"re-derived geometry")
+
+    def test_timer_ring_uses_the_glyph_via_a_converter(self):
+        xml = self.TODAY_VIEW.read_text(encoding="utf-8")
+        assert 'Converter={StaticResource ShieldGlyph}' in xml, (
+            "the timer ring should show the active shield's glyph via a level->glyph "
+            "converter (one resource, reused, not a duplicate drawing)")
+
+
+class TestTimerRingA4:
+    """UI-SPEC.md A4, §1.7.2 doc amendment: 222px ring, 12px stroke, round cap."""
+
+    THEME = Path(DESKTOP_DIR) / "Styles" / "Theme.xaml"
+    TODAY_VIEW = Path(DESKTOP_DIR) / "Views" / "TodayView.xaml"
+
+    def test_ring_is_222px_with_a_12px_round_capped_stroke(self):
+        xml = self.TODAY_VIEW.read_text(encoding="utf-8")
+        ring_grid = re.search(r'<Grid Width="222" Height="222"[^>]*>', xml)
+        assert ring_grid, "the timer ring's outer Grid must be 222x222 (§1.7.2 doc amendment)"
+        strokes = re.findall(r'<Ellipse [^>]*StrokeThickness="(\d+)"', xml)
+        assert strokes and all(s == "12" for s in strokes[:2]), (
+            "both ring ellipses (track and progress) must use a 12px stroke")
+        assert 'StrokeDashCap="Round"' in xml, "the progress arc must have a round cap"
+
+    def test_progress_dash_radius_matches_the_ring_geometry(self):
+        """
+        The dash-array converter computes off the stroke's centreline: radius =
+        (ellipse diameter - stroke thickness) / 2. A mismatch here would make the
+        arc visibly overshoot or undershoot the track it's drawn over.
+        """
+        theme = self.THEME.read_text(encoding="utf-8")
+        match = re.search(
+            r'<inf:ProgressToDashConverter x:Key="ProgressDash" Radius="([\d.]+)" '
+            r'Thickness="([\d.]+)"/>', theme)
+        assert match, "expected the ProgressDash converter resource in Theme.xaml"
+        radius, thickness = float(match.group(1)), float(match.group(2))
+
+        xml = self.TODAY_VIEW.read_text(encoding="utf-8")
+        ellipse_widths = {float(w) for w in re.findall(r'<Ellipse Width="([\d.]+)"', xml)}
+        assert len(ellipse_widths) == 1, f"expected one consistent ring diameter, got {ellipse_widths}"
+        diameter = next(iter(ellipse_widths))
+
+        assert radius == pytest.approx((diameter - thickness) / 2), (
+            f"ProgressDash Radius={radius} doesn't match the ring geometry "
+            f"(diameter={diameter}, stroke={thickness} -> expected radius "
+            f"{(diameter - thickness) / 2})")
+
+    def test_long_times_shrink_to_fit_inside_the_ring(self):
+        """
+        At the 64 px timer size "45:00" fits inside the ring, but "1:29:59"
+        (a running sprint of an hour or more) and "240:00" (the custom
+        maximum, TodayViewModel.CustomMaxMinutes) ran across the 12 px stroke.
+        The number sits in a Viewbox that only ever shrinks it, capped inside
+        the ring's 198 px inner diameter.
+        """
+        xml = self.TODAY_VIEW.read_text(encoding="utf-8")
+        fit = re.search(r'<Viewbox x:Name="TimerFit"([^>]*)>(.*?)</Viewbox>', xml, re.S)
+        assert fit, "the timer TextBlock must sit inside the TimerFit Viewbox"
+        attrs, body = fit.group(1), fit.group(2)
+        assert 'StretchDirection="DownOnly"' in attrs, (
+            "the Viewbox must only shrink the number; enlarging short times would "
+            "change the timer's size as it counts down")
+        max_width = re.search(r'MaxWidth="([\d.]+)"', attrs)
+        inner = 222 - 2 * 12
+        assert max_width and float(max_width.group(1)) < inner, (
+            f"the Viewbox needs a MaxWidth inside the ring's {inner} px inner diameter")
+        assert 'AutomationProperties.AutomationId="SprintTimerText"' in body, (
+            "SprintTimerText stays on the TextBlock itself, inside the Viewbox")
+
+    def test_timer_and_stat_styles_use_inter_display(self):
+        """
+        UI-SPEC.md A4 / DESIGN_SYSTEM.md §3: the timer and stat numbers set
+        Inter Display, the tighter optical size for display-scale digits.
+        """
+        theme = self.THEME.read_text(encoding="utf-8")
+        for style_key in ("Timer", "Stat"):
+            style_match = re.search(
+                r'<Style x:Key="' + style_key + r'" TargetType="TextBlock">.*?</Style>',
+                theme, re.S)
+            assert style_match, f"expected the {style_key} style in Theme.xaml"
+            assert '{StaticResource FontStackDisplay}' in style_match.group(0), (
+                f"the {style_key} style should set FontFamily to FontStackDisplay")
+
+    def test_inter_display_semibold_is_embedded(self):
+        font_path = Path(DESKTOP_DIR) / "Assets" / "Fonts" / "InterDisplay-SemiBold.ttf"
+        assert font_path.is_file(), "InterDisplay-SemiBold.ttf must be embedded on disk"
+        csproj = (Path(DESKTOP_DIR) / "FlowShield.csproj").read_text(encoding="utf-8")
+        assert r"Assets\Fonts\InterDisplay-SemiBold.ttf" in csproj, (
+            "InterDisplay-SemiBold.ttf exists on disk but has no <Resource Include> "
+            "entry in FlowShield.csproj, so it won't ship in the build")
+
+
+class TestTodayAutomationIdsUnchangedA4:
+    """
+    Three past incidents put an AutomationId on a layout panel during a
+    restyle (#134 and friends) -- UI Automation never surfaces it, so a test
+    asking for it would pass whether the control was drawn or not. A4
+    rebuilds the ring and the shield chips; every AutomationId that existed
+    before must still exist, on a real control, not a Border/Grid/StackPanel/
+    Image wrapper.
+    """
+
+    TODAY_VIEW = Path(DESKTOP_DIR) / "Views" / "TodayView.xaml"
+
+    # The full set of AutomationIds TodayView.xaml carried before A4 touched it
+    # (PR #171 / design/a1-inter-app). A4 must not remove or rename any of these.
+    EXPECTED_IDS = {
+        "SprintTimerText", "SessionStateText", "SprintIntentionText",
+        "StartSprintButton", "StopSprintButton",
+        "RunningAppsTitle", "RunningAppsExplanation", "RunningAppsList",
+        "CloseThemNowButton", "StartAnywayButton",
+        "EndSprintPanel", "EndPanelTitle", "EndPanelText", "EndPhraseInput",
+        "EndCountdownText", "KeepGoingButton", "EndAnywayButton",
+        "SprintLength_15", "SprintLength_25", "SprintLength_45", "SprintLength_60",
+        "SprintLength_90", "SprintLength_Custom",
+        "CustomMinutesInput", "CustomMinutesError",
+        "Shield_Soft", "Shield_Firm", "Shield_Sealed",
+        "ShieldDescriptionText", "ShieldBestForText",
+        "SealedRestartHint", "SoftHardKillHint",
+        "IntentionInput",
+        "SummaryTitle", "SummaryMinutesValue", "SummaryDistractionsValue",
+        "SummaryMomentumText", "SummaryStreakText", "SummaryIntentionText",
+        "JournalPromptTitle", "JournalInput", "SaveJournalButton",
+        "MomentumValue", "StreakText", "MomentumTrendRange", "MomentumTrendPeak",
+        "MomentumExplainerButton", "MomentumExplainerText",
+        "SessionsTodayValue", "FocusMinutesValue", "BlocksTodayValue",
+        "DailyGoalProgressText", "DailyGoalBar", "DailyGoalNote",
+    }
+
+    # Elements UI Automation never surfaces -- an AutomationId here can never
+    # be resolved, so it's not a legitimate handle for anything. Border and
+    # ItemsControl are deliberately excluded here: two pre-existing ids
+    # (EndSprintPanel, MomentumExplainerText) already sit on those element
+    # types from before A4 and are out of this item's scope to relitigate.
+    # This list guards the element types A4's own rebuild actually
+    # introduces (the ring's Grid, the shield chips' wrapper StackPanel and
+    # Image) against the same mistake.
+    PANEL_ELEMENTS = ("Grid", "StackPanel", "WrapPanel", "DockPanel", "Image")
+
+    def test_every_expected_automation_id_is_still_present(self):
+        xml = self.TODAY_VIEW.read_text(encoding="utf-8")
+        found = set(re.findall(r'AutomationId="([^"]+)"', xml))
+        missing = self.EXPECTED_IDS - found
+        assert not missing, f"AutomationIds removed or renamed by A4: {sorted(missing)}"
+
+    def test_no_automation_id_sits_on_a_layout_panel(self):
+        xml = self.TODAY_VIEW.read_text(encoding="utf-8")
+        offenders = []
+        for tag in re.finditer(r'<(\w+)\b((?:(?!/?>).)*?)/?>', xml, re.S):
+            element, attrs = tag.group(1), tag.group(2)
+            if element in self.PANEL_ELEMENTS and 'AutomationId="' in attrs:
+                offenders.append(f"<{element}> has an AutomationId -- never surfaced to UI Automation")
+        assert not offenders, "\n".join(offenders)
+
+
+class TestMotionA4:
+    """
+    DESIGN_SYSTEM.md §8: 120/200/300ms, ease-out entering / ease-in leaving,
+    honouring SystemParameters.ClientAreaAnimation everywhere. UI-SPEC.md A4
+    asks for one shared duration provider rather than a per-animation check.
+    """
+
+    MOTION = Path(DESKTOP_DIR) / "Infrastructure" / "Motion.cs"
+    THEME = Path(DESKTOP_DIR) / "Styles" / "Theme.xaml"
+
+    def test_motion_helper_exists_and_defines_the_three_durations(self):
+        assert self.MOTION.is_file(), (
+            "DesktopApp/Infrastructure/Motion.cs is missing -- every Today-view "
+            "animation must share one duration provider, not read "
+            "SystemParameters.ClientAreaAnimation individually")
+        src = self.MOTION.read_text(encoding="utf-8")
+        assert "SystemParameters.ClientAreaAnimation" in src, (
+            "Motion must read the live OS reduced-motion setting")
+        for prop, ms in (("Hover", 120), ("Selection", 200), ("Page", 300)):
+            pattern = re.search(
+                r'Duration ' + prop + r' =>.*?Of\((\d+)\)', src)
+            assert pattern, f"expected a {prop} duration property"
+            assert pattern.group(1) == str(ms), (
+                f"{prop} should be {ms}ms per DESIGN_SYSTEM.md §8, got {pattern.group(1)}ms")
+
+    def test_durations_collapse_to_zero_when_animations_are_disabled(self):
+        """
+        Prove the reduced-motion branch actually exists: every duration must
+        be computed as "AnimationsEnabled ? <ms> : 0", not a hardcoded
+        millisecond value that ignores the setting.
+
+        Proven to fail first: with the ternary replaced by a bare literal
+        (e.g. `private static Duration Of(int ms) =>
+        new(TimeSpan.FromMilliseconds(ms));`), this test fails, because the
+        conditional this regex looks for is gone.
+        """
+        src = self.MOTION.read_text(encoding="utf-8")
+        match = re.search(
+            r'private static Duration Of\(int ms\) =>\s*'
+            r'new\(TimeSpan\.FromMilliseconds\(AnimationsEnabled \? ms : 0\)\);', src)
+        assert match, (
+            "Motion.Of must compute its duration as \"AnimationsEnabled ? ms : 0\" so "
+            "every duration in the app is exactly zero when Windows' Animation "
+            "effects setting (or the test override) is off")
+
+    def test_motion_has_a_test_seam_for_the_os_setting(self):
+        src = self.MOTION.read_text(encoding="utf-8")
+        assert "AnimationsEnabledOverride" in src, (
+            "Motion needs an injectable override -- SystemParameters.ClientAreaAnimation "
+            "reads the live host setting, which a test can't flip")
+
+    def test_segment_and_field_styles_animate_through_shared_motion_durations(self):
+        """
+        The disabled-but-visible chip/field treatment (UI-SPEC.md A4: sprint
+        length, shield level and intention all dim to 45% opacity while a
+        sprint runs) must animate through Motion.Selection, not a hardcoded
+        Storyboard duration that would ignore reduced motion.
+        """
+        theme = self.THEME.read_text(encoding="utf-8")
+        for style_key in ("Segment", "SegmentShield", "Field"):
+            style_match = re.search(
+                r'<Style x:Key="' + style_key + r'".*?(?=<Style x:Key|\Z)', theme, re.S)
+            assert style_match, f"expected the {style_key} style in Theme.xaml"
+            block = style_match.group(0)
+            assert 'Duration="{x:Static inf:Motion.Selection}"' in block, (
+                f"{style_key}'s IsEnabled/IsChecked animations must bind Duration to "
+                f"{{x:Static inf:Motion.Selection}}, not a literal duration")
+            assert not re.search(r'Duration="0:0:0\.\d+"', block), (
+                f"{style_key} has a hardcoded animation Duration instead of using "
+                f"Motion.Selection")
+
+
+class TestContrastAndTokensA3:
+    """
+    UI-SPEC.md A3 (#147, DESIGN_SYSTEM.md §2): text-faint and the light-theme
+    ok/warn/danger values were measured below WCAG 2.1's 4.5:1 normal-text
+    threshold. This computes the ratios straight from design/tokens.json --
+    the single source of truth -- for every pair in DESIGN_SYSTEM.md's
+    "Contrast" table, in both themes.
+
+    Proven to fail first: run against the pre-fix values (text-faint dark
+    #7E7B73 / light #8A867E; ok light #2F7D4A; warn light #9A6B1F; danger
+    light #B33A4A) and text-faint on surface measures 4.07:1 (dark) / 3.27:1
+    (light) -- both below 4.5, matching the doc's own "current" column -- and
+    the light ok/warn pairs also fail. Restoring the pre-fix hex values below
+    and rerunning reproduces that failure; the fixed values in tokens.json
+    pass every pair.
+    """
+
+    ROOT = Path(DESKTOP_DIR).parent
+    TOKENS = ROOT / "design" / "tokens.json"
+
+    PRE_FIX_TEXT_FAINT = {"dark": "#7E7B73", "light": "#8A867E"}
+    PRE_FIX_STATUS_LIGHT = {"ok": "#2F7D4A", "warn": "#9A6B1F", "danger": "#B33A4A"}
+
+    # Every pair DESIGN_SYSTEM.md §2's "Contrast" table measures.
+    PAIRS = [
+        ("text", "bg"),
+        ("text-muted", "bg"),
+        ("text-faint", "surface"),
+        ("primary", "bg"),
+        ("primary-ink", "primary"),
+        ("warn", "bg"),
+        ("ok", "bg"),
+        ("danger", "bg"),
+    ]
+
+    THRESHOLD = 4.5
+
+    @staticmethod
+    def _hex_to_rgb(value: str) -> tuple[int, int, int]:
+        value = value.lstrip("#")
+        return int(value[0:2], 16), int(value[2:4], 16), int(value[4:6], 16)
+
+    @classmethod
+    def _resolve(cls, theme: dict, name: str, seen: tuple = ()) -> tuple[int, int, int, float]:
+        """A token as (r, g, b, alpha), following {"ref", "alpha"} references --
+        the same resolution rule tools/build_tokens.py uses."""
+        assert name not in seen, f"circular token reference: {seen + (name,)}"
+        value = theme[name]
+        if isinstance(value, str):
+            r, g, b = cls._hex_to_rgb(value)
+            return r, g, b, 1.0
+        r, g, b, _ = cls._resolve(theme, value["ref"], seen + (name,))
+        return r, g, b, float(value["alpha"])
+
+    @staticmethod
+    def _composite(fg: tuple[int, int, int, float], bg: tuple[int, int, int, float]) -> tuple[int, int, int]:
+        """Alpha-composite fg over bg (both already resolved), for tokens defined as a ref+alpha."""
+        fr, fg_, fb, fa = fg
+        br, bgc, bb, _ba = bg
+        return (
+            round(fr * fa + br * (1 - fa)),
+            round(fg_ * fa + bgc * (1 - fa)),
+            round(fb * fa + bb * (1 - fa)),
+        )
+
+    @staticmethod
+    def _luminance(rgb: tuple[int, int, int]) -> float:
+        def lin(c: int) -> float:
+            c = c / 255
+            return c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4
+        r, g, b = rgb
+        return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b)
+
+    @classmethod
+    def _contrast(cls, rgb1: tuple[int, int, int], rgb2: tuple[int, int, int]) -> float:
+        l1, l2 = cls._luminance(rgb1), cls._luminance(rgb2)
+        lighter, darker = max(l1, l2), min(l1, l2)
+        return (lighter + 0.05) / (darker + 0.05)
+
+    def _ratio(self, theme: dict, fg_name: str, bg_name: str) -> float:
+        fg = self._resolve(theme, fg_name)
+        bg = self._resolve(theme, bg_name)
+        fg_rgb = self._composite(fg, bg) if fg[3] < 1.0 else fg[:3]
+        bg_rgb = bg[:3]
+        return self._contrast(fg_rgb, bg_rgb)
+
+    def _themes(self) -> dict:
+        return json.loads(self.TOKENS.read_text(encoding="utf-8"))["themes"]
+
+    @pytest.mark.parametrize("theme_name", ["dark", "light"])
+    def test_every_section_2_pair_meets_wcag_normal_text(self, theme_name):
+        themes = self._themes()
+        theme = themes[theme_name]
+        failures = []
+        for fg_name, bg_name in self.PAIRS:
+            ratio = self._ratio(theme, fg_name, bg_name)
+            if ratio < self.THRESHOLD:
+                failures.append(f"{fg_name} on {bg_name} ({theme_name}): {ratio:.2f}:1")
+        assert not failures, (
+            "tokens.json pairs fail WCAG 2.1's 4.5:1 normal-text threshold: "
+            + "; ".join(failures)
+        )
+
+    @pytest.mark.parametrize("theme_name", ["dark", "light"])
+    def test_pre_fix_values_would_have_failed(self, theme_name):
+        """Confirms this test is actually load-bearing: swap in the exact
+        pre-fix hex values DESIGN_SYSTEM.md's "current" column measured, and
+        the same computation must fail below 4.5:1."""
+        themes = self._themes()
+        theme = dict(themes[theme_name])
+        theme["text-faint"] = self.PRE_FIX_TEXT_FAINT[theme_name]
+        if theme_name == "light":
+            theme.update(self.PRE_FIX_STATUS_LIGHT)
+
+        ratio = self._ratio(theme, "text-faint", "surface")
+        assert ratio < self.THRESHOLD, (
+            f"expected the pre-fix text-faint/surface ratio to fail below 4.5:1, got {ratio:.2f}:1 "
+            f"-- this test would no longer prove the fix does anything")
+
+        if theme_name == "light":
+            for status in ("ok", "warn"):
+                ratio = self._ratio(theme, status, "bg")
+                assert ratio < self.THRESHOLD, (
+                    f"expected the pre-fix light {status}/bg ratio to fail below 4.5:1, got {ratio:.2f}:1")
+
+
+class TestNoHardcodedColoursA3:
+    """
+    UI-SPEC.md A3 (#147, DESIGN_SYSTEM.md §2 "No hard-coded colours in
+    views"): every colour in the restyled files must come from a
+    design/tokens.json-generated resource, referenced by name -- never a
+    literal #RRGGBB/#AARRGGBB in the markup itself.
+
+    Proven to fail first: this test fails against the pre-A3 Theme.xaml
+    (Card's DropShadowEffect Color="#FF000000", BtnDanger's
+    Background="#22FF6B8B"/BorderBrush="#55FF6B8B", the scrollbar thumb's
+    Background="#30FFFFFF") and the pre-A3 MainWindow.xaml (four scrim
+    Background="#F2121110"/"#B3121110"/"#F7121110" occurrences).
+    """
+
+    ROOT = Path(DESKTOP_DIR).parent
+    HEX = re.compile(r'#[0-9A-Fa-f]{6,8}\b')
+
+    FILES = (
+        [Path(DESKTOP_DIR) / "Styles" / "Theme.xaml"]
+        + sorted((Path(DESKTOP_DIR) / "Views").glob("*.xaml"))
+        + [Path(DESKTOP_DIR) / "MainWindow.xaml"]
+    )
+
+    def test_no_hex_colour_literal_remains(self):
+        offenders = []
+        for path in self.FILES:
+            text = path.read_text(encoding="utf-8")
+            for match in self.HEX.finditer(text):
+                line_no = text.count("\n", 0, match.start()) + 1
+                offenders.append(f"{path.relative_to(self.ROOT)}:{line_no}: {match.group(0)}")
+        assert not offenders, (
+            "hard-coded hex colour literal(s) found -- reference a Tokens.xaml-generated "
+            "brush resource instead:\n" + "\n".join(offenders)
+        )
+
+    def test_the_files_list_actually_covers_something(self):
+        """A regex that silently matched zero files would pass for the wrong
+        reason -- confirm the scan really walks a non-trivial set of XAML."""
+        assert len(self.FILES) >= 5, "expected Theme.xaml, MainWindow.xaml and several Views/*.xaml"
+
+
+class TestCornerRadiusNormalisedA2:
+    """
+    UI-SPEC.md A2 (#147, DESIGN_SYSTEM.md §4): every CornerRadius in the app
+    must be one of the four legal values -- 6 (small chips/tags), 10
+    (buttons/inputs/toggles/interactive rows), 14 (cards/dialogs/surfaces),
+    or "fully round" -- and every one of them must be a StaticResource
+    reference to Theme.xaml's four named resources (RadiusChip/RadiusControl/
+    RadiusCard), not a bare number repeated at each call site. Fully round
+    elements use inf:Pill.IsRound instead of a radius (TestPillsAreComputed).
+
+    Proven to fail first: the FIXTURE strings below are lifted verbatim from
+    the pre-A2 XAML (CornerRadius="11" on NavButton, CornerRadius="7" on the
+    FirstRun app-icon badge, <Setter Property="CornerRadius" Value="12"/> on
+    RowCard) -- none of them are legal literals and none reference a
+    resource, so test_fixture_of_known_pre_fix_values_is_rejected below
+    fails against them, and passes only once every real call site is
+    converted (test_every_cornerradius_is_a_named_resource).
+    """
+
+    ROOT = Path(DESKTOP_DIR).parent
+    FILES = (
+        [Path(DESKTOP_DIR) / "Styles" / "Theme.xaml"]
+        + sorted((Path(DESKTOP_DIR) / "Views").glob("*.xaml"))
+        + [Path(DESKTOP_DIR) / "MainWindow.xaml"]
+    )
+
+    LEGAL_RESOURCE_KEYS = {"RadiusChip", "RadiusControl", "RadiusCard"}
+    LEGAL_VALUES = {"RadiusChip": 6, "RadiusControl": 10, "RadiusCard": 14}
+
+    # Matches both CornerRadius="X" (inline) and
+    # <Setter Property="CornerRadius" Value="X"/> (style setters).
+    INLINE = re.compile(r'CornerRadius="([^"]*)"')
+    SETTER = re.compile(r'Property="CornerRadius"\s+Value="([^"]*)"')
+    RESOURCE_REF = re.compile(r'^\{StaticResource (\w+)\}$')
+
+    # Verbatim pre-A2 fragments (Theme.xaml/MainWindow.xaml as they existed
+    # before this change): a bare literal on a Border, and a bare literal on
+    # a style Setter. Neither is a StaticResource reference.
+    PRE_FIX_FIXTURE = '\n'.join([
+        '<Border x:Name="bd" Background="{TemplateBinding Background}" CornerRadius="11"',
+        '<Border CornerRadius="7" Background="{StaticResource PrimarySoft}"',
+        '<Setter Property="CornerRadius" Value="12"/>',
+    ])
+
+    def _offenders(self, text: str) -> list[str]:
+        bad = []
+        for m in self.INLINE.finditer(text):
+            bad.append(m.group(1))
+        for m in self.SETTER.finditer(text):
+            bad.append(m.group(1))
+        offenders = []
+        for val in bad:
+            rm = self.RESOURCE_REF.match(val)
+            if not rm or rm.group(1) not in self.LEGAL_RESOURCE_KEYS:
+                offenders.append(val)
+        return offenders
+
+    def test_fixture_of_known_pre_fix_values_is_rejected(self):
+        """This test's own checker must actually catch the bug: run it
+        against verbatim pre-A2 fragments and confirm every one is flagged."""
+        offenders = self._offenders(self.PRE_FIX_FIXTURE)
+        assert len(offenders) == 3, (
+            f"expected the checker to flag all 3 pre-fix fragments, flagged {len(offenders)}: {offenders}"
+        )
+
+    def test_every_cornerradius_is_a_named_resource(self):
+        offenders = []
+        for path in self.FILES:
+            text = path.read_text(encoding="utf-8")
+            for m in self.INLINE.finditer(text):
+                val = m.group(1)
+                rm = self.RESOURCE_REF.match(val)
+                if not rm or rm.group(1) not in self.LEGAL_RESOURCE_KEYS:
+                    line_no = text.count("\n", 0, m.start()) + 1
+                    offenders.append(f"{path.relative_to(self.ROOT)}:{line_no}: CornerRadius=\"{val}\"")
+            for m in self.SETTER.finditer(text):
+                val = m.group(1)
+                rm = self.RESOURCE_REF.match(val)
+                if not rm or rm.group(1) not in self.LEGAL_RESOURCE_KEYS:
+                    line_no = text.count("\n", 0, m.start()) + 1
+                    offenders.append(f"{path.relative_to(self.ROOT)}:{line_no}: Setter CornerRadius Value=\"{val}\"")
+        assert not offenders, (
+            "CornerRadius value(s) that aren't a {StaticResource RadiusChip|RadiusControl|RadiusCard} "
+            "reference found -- every corner radius must draw from Theme.xaml's three named resources, "
+            "or the element must use inf:Pill.IsRound "
+            "(DESIGN_SYSTEM.md §4, UI-SPEC.md A2):\n" + "\n".join(offenders)
+        )
+
+    def test_named_resources_hold_the_legal_scale_values(self):
+        """The three resources themselves must equal the doc's own numbers --
+        a passing test above would be meaningless if RadiusCard were
+        silently redefined to something off-scale."""
+        theme_text = (Path(DESKTOP_DIR) / "Styles" / "Theme.xaml").read_text(encoding="utf-8")
+        for key, expected in self.LEGAL_VALUES.items():
+            m = re.search(rf'<CornerRadius x:Key="{key}">(\d+)</CornerRadius>', theme_text)
+            assert m, f"expected a <CornerRadius x:Key=\"{key}\"> resource definition in Theme.xaml"
+            assert int(m.group(1)) == expected, (
+                f"{key} is defined as {m.group(1)}, expected {expected}"
+            )
+
+    def test_the_files_list_actually_covers_something(self):
+        assert len(self.FILES) >= 5, "expected Theme.xaml, MainWindow.xaml and several Views/*.xaml"
+
+
+class TestPillsAreComputed:
+    """
+    A2 first expressed "fully round" as CornerRadius="9999", on the belief
+    that WPF clips corner geometry to half the smaller side. It doesn't: CSS
+    clamps an oversized border-radius, but WPF scales the curves, so the
+    renders showed the tier badge as an ellipse and the 5 px scrollbar thumb
+    as a spike. Pills now set inf:Pill.IsRound, which keeps the radius at half
+    the element's smaller side as it resizes (Infrastructure/Pill.cs).
+    """
+
+    THEME = Path(DESKTOP_DIR) / "Styles" / "Theme.xaml"
+    PILL = Path(DESKTOP_DIR) / "Infrastructure" / "Pill.cs"
+    FILES = (
+        [Path(DESKTOP_DIR) / "Styles" / "Theme.xaml", Path(DESKTOP_DIR) / "MainWindow.xaml"]
+        + sorted((Path(DESKTOP_DIR) / "Views").glob("*.xaml"))
+    )
+    # Anything at or beyond this is "make it round" by brute force, which WPF
+    # renders as an ellipse on any element that isn't square.
+    BRUTE_FORCE = 100
+
+    def test_no_corner_radius_is_large_enough_to_draw_an_ellipse(self):
+        offenders = []
+        for path in self.FILES:
+            text = path.read_text(encoding="utf-8")
+            values = re.findall(r'CornerRadius="([\d.,\s]+)"', text)
+            values += re.findall(r'<CornerRadius x:Key="\w+">([\d.,\s]+)</CornerRadius>', text)
+            values += re.findall(r'Property="CornerRadius"\s+Value="([\d.,\s]+)"', text)
+            for v in values:
+                if any(float(part) >= self.BRUTE_FORCE for part in v.split(",") if part.strip()):
+                    offenders.append(f"{path.name}: {v}")
+        assert not offenders, (
+            "a huge CornerRadius draws an ellipse in WPF, not a pill; use "
+            "inf:Pill.IsRound=\"True\":\n  " + "\n  ".join(offenders))
+
+    def test_the_round_elements_use_the_pill_behaviour(self):
+        theme = self.THEME.read_text(encoding="utf-8")
+        chip = re.search(r'<Style x:Key="Chip" TargetType="Border">.*?</Style>', theme, re.S)
+        assert chip and 'Property="inf:Pill.IsRound" Value="True"' in chip.group(0), (
+            "the Chip style (the tier badge) must be fully round via inf:Pill.IsRound")
+        # The nav bar, toggle track, scrollbar thumb, and both progress bar
+        # borders, plus the Chip setter above.
+        assert theme.count('inf:Pill.IsRound="True"') >= 5, (
+            "expected the nav bar, toggle track, scrollbar thumb and progress "
+            "bar borders to set inf:Pill.IsRound")
+
+    def test_the_radius_is_half_the_smaller_side(self):
+        source = self.PILL.read_text(encoding="utf-8")
+        assert "Math.Min(width, height)" in source and "smaller / 2" in source, (
+            "Pill.RadiusFor must use half the SMALLER side; half the larger side "
+            "is exactly the ellipse this replaced")
+        assert "SizeChanged" in source, "the radius must follow the element as it resizes"
+
+
+class TestBlockedAppsRowSwitchNotClipped:
+    """
+    PR #182 review (§4): the per-app enable/disable switch in the Blocked
+    Apps list (Steam/Discord/Minecraft Launcher rows) was clipped by the
+    card's right edge. The row's Grid has one flexible column (app name,
+    MinWidth 120) and four Auto columns -- icon, "blocked N x" stat, Remove
+    button, switch -- inside a ListBox with
+    ScrollViewer.HorizontalScrollBarVisibility="Disabled", which clips
+    overflow instead of scrolling it. This PR's own spacing bumps (icon
+    margin 13->12, "blocked N" margin 14->16, Remove button padding
+    14,0->16,0, switch margin 14,0,0,0->16,0,0,0) pushed the row's required
+    width past the card's available width (roughly 480px once the 1180px
+    window's 240px nav rail, 32px page margins, 300px picker column, 16px
+    gap, 24px Card padding and 16px RowCard padding are all subtracted), so
+    the switch -- the last Auto column -- lost its right edge.
+
+    The review fix pulled the Remove button's own padding and the switch's
+    own margin back down to 12 (still on the §4 4/8/12/16/24/32/48/64
+    scale), reclaiming 12px. This test sums the four literal spacing values
+    straight from the live XAML rather than reimplementing WPF's
+    text-measurement and layout engine -- those four numbers are the whole
+    cause the review named, and BUDGET is the same arithmetic used to find
+    and fix it.
+    """
+
+    VIEW = Path(DESKTOP_DIR) / "Views" / "BlockedAppsView.xaml"
+
+    # 76 (pre-fix: 12+16+32+16) overflowed the card; 64 (post-fix:
+    # 12+16+24+12) fits with margin to spare. Drawn at 70 so a future bump
+    # of any one value by a single further 4px §4 step trips it again.
+    BUDGET = 70
+
+    ICON_MARGIN = re.compile(
+        r'Grid\.Column="0" Width="34" Height="34".*?Margin="0,0,(\d+),0">', re.DOTALL
+    )
+    STAT_MARGIN = re.compile(
+        r'Grid\.Column="2" VerticalAlignment="Center" Margin="0,0,(\d+),0"\s*\n\s*'
+        r'Style="\{StaticResource Caption\}">\s*\n\s*<Run Text="blocked"'
+    )
+    BUTTON_PADDING = re.compile(
+        r'Style="\{StaticResource BtnDanger\}" Content="Remove"\s*\n\s*Padding="(\d+),0"'
+    )
+    SWITCH_MARGIN = re.compile(
+        r'Style="\{StaticResource Switch\}"\s*\n\s*VerticalAlignment="Center" Margin="(\d+),0,0,0"'
+    )
+
+    # Verbatim pre-fix fragment (this PR's own shipped numbers, before the
+    # review caught the clip): proves the checker below actually rejects
+    # the failing set rather than passing by construction.
+    PRE_FIX_FIXTURE = (
+        '<Border Grid.Column="0" Width="34" Height="34" CornerRadius="{StaticResource RadiusControl}"\n'
+        '        Background="{StaticResource PrimarySoft}" BorderBrush="{StaticResource Primary}" BorderThickness="1"\n'
+        '        Margin="0,0,12,0">\n'
+        '<TextBlock Grid.Column="2" VerticalAlignment="Center" Margin="0,0,16,0"\n'
+        '           Style="{StaticResource Caption}">\n'
+        '    <Run Text="blocked"/>\n'
+        '<Button Grid.Column="3" Style="{StaticResource BtnDanger}" Content="Remove"\n'
+        '        Padding="16,0" VerticalAlignment="Center"\n'
+        '<CheckBox Grid.Column="4" Style="{StaticResource Switch}"\n'
+        '          VerticalAlignment="Center" Margin="16,0,0,0"\n'
+    )
+
+    def _total(self, text: str) -> int:
+        icon = self.ICON_MARGIN.search(text)
+        stat = self.STAT_MARGIN.search(text)
+        button = self.BUTTON_PADDING.search(text)
+        switch = self.SWITCH_MARGIN.search(text)
+        assert icon and stat and button and switch, (
+            "one of the Blocked Apps row's spacing patterns wasn't found -- "
+            "has the row's XAML structure changed? update this test's regexes to match."
+        )
+        return (
+            int(icon.group(1))
+            + int(stat.group(1))
+            + int(button.group(1)) * 2
+            + int(switch.group(1))
+        )
+
+    def test_fixture_of_known_pre_fix_values_is_rejected(self):
+        """Proves the checker catches the bug: the pre-fix numbers
+        (12+16+32+16=76) must exceed BUDGET."""
+        total = self._total(self.PRE_FIX_FIXTURE)
+        assert total > self.BUDGET, (
+            f"expected the pre-fix fixture ({total}) to exceed BUDGET ({self.BUDGET})"
+        )
+
+    def test_blocked_apps_row_spacing_fits_the_card(self):
+        text = self.VIEW.read_text(encoding="utf-8")
+        total = self._total(text)
+        assert total <= self.BUDGET, (
+            f"Blocked Apps row spacing (icon margin + stat margin + 2x Remove "
+            f"button padding + switch margin = {total}) exceeds the "
+            f"{self.BUDGET}px budget that keeps the switch from being "
+            "clipped by the card's right edge (PR #182 review) -- pull one "
+            "of these back to the next lower §4 scale step."
+        )
+
+
+class TestFontAndSiteIconNoticesShip:
+    """
+    Inter (OFL) is embedded in the app and Lucide (ISC) is drawn inline on the
+    site. Both licences ask for their notice to travel with the copy. A file in
+    the repo that never reaches the output, or a page with the icons and no
+    notice beside it, distributes the work without the licence.
+    """
+
+    def test_the_font_licence_is_copied_next_to_the_app(self):
+        csproj = (Path(DESKTOP_DIR) / "FlowShield.csproj").read_text(encoding="utf-8")
+        entry = csproj.split('Include="Assets\\Fonts\\OFL.txt"', 1)
+        assert len(entry) == 2, "Inter's OFL.txt is no longer in the project"
+        assert "CopyToOutputDirectory" in entry[1].split("/>", 1)[0], (
+            "OFL.txt is in the project but never reaches the output folder"
+        )
+        notices = (Path(DESKTOP_DIR) / "THIRD-PARTY-NOTICES.txt").read_text(encoding="utf-8")
+        assert "Inter" in notices and "Open Font License" in notices
+
+    def test_every_page_with_lucide_icons_links_the_notice(self):
+        site = Path(WEBSITE_DIR)
+        assert (site / "icons-LICENSE.txt").is_file(), "the site serves Lucide icons with no notice"
+        for page in sorted(site.glob("*.html")):
+            html = page.read_text(encoding="utf-8")
+            if 'stroke="currentColor"' in html:
+                assert 'rel="license" href="icons-LICENSE.txt"' in html, (
+                    f"{page.name} draws Lucide icons but does not link their licence"
+                )

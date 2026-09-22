@@ -174,9 +174,9 @@ mundane, high-probability risk — higher than most of the exotic ones.
 | # | Item | Status |
 | --- | --- | --- |
 | 8.1 | The name "FlowShield" cleared against existing trademarks | **GAP / OWNER** — never searched. Do a USPTO search (free) before spending on branding; a lawyer's clearance search is a few hundred dollars. Renaming after launch costs far more |
-| 8.2 | Third-party open-source notices shipped with the app | **Partly** — `DesktopApp/THIRD-PARTY-NOTICES.txt` ships beside the exe from 1.0.8 and covers the .NET runtime, `System.Security.Cryptography.ProtectedData`, Velopack (MIT) and the Lucide icons (ISC, a Feather fork). Tier 5 fails if it stops shipping. **Still to do:** the same for the server (express, better-sqlite3, stripe, nodemailer, cors), and Inter's OFL notice when the font is embedded |
-| 8.3 | Fonts licensed for web use | **OK** — Syne and Source Sans 3 come from Google Fonts under the Open Font License |
-| 8.4 | Icons and images are ours or licensed | **OK** — the shield mark and tray icons were drawn for this project; no stock assets |
+| 8.2 | Third-party open-source notices shipped with the app | **Partly** — `DesktopApp/THIRD-PARTY-NOTICES.txt` ships beside the exe from 1.0.8 and covers the .NET runtime, `System.Security.Cryptography.ProtectedData`, Velopack (MIT), the Lucide icons (ISC, a Feather fork) and the embedded Inter font (SIL Open Font License). Tier 5 fails if it stops shipping or misses a package the app references. **Still to do:** the same for the server (express, better-sqlite3, stripe, nodemailer, cors) |
+| 8.3 | Fonts licensed for web use | **OK** — the site self-hosts Inter (`Website/fonts/InterVariable.woff2`) under the SIL Open Font License; the licence text ships alongside it at `Website/fonts/OFL.txt`. No third-party font host (Google Fonts, previously Syne and Source Sans 3) is used or contacted anymore (#147/B1) |
+| 8.4 | Icons and images are ours or licensed | **OK** — the shield mark, shield glyphs and tray icons were drawn for this project; the app's navigation and list icons and the site's inline icons are Lucide (ISC). The notice ships with the app in `THIRD-PARTY-NOTICES.txt`, and on the site as `icons-LICENSE.txt`, linked with `rel="license"` from every page that uses them (#151, B3). Tier 5 checks both. No stock assets |
 | 8.5 | Competitor names used fairly | **OK** — the app's blocklist names apps (Steam, Discord) descriptively, which is nominative fair use, and the site names none |
 | 8.6 | No competitor's code or copy was reused | **OK** |
 
@@ -191,6 +191,7 @@ mundane, high-probability risk — higher than most of the exotic ones.
 | 9.3 | No claim that FlowShield is parental-control or enforcement software | **OK today, watch it** — it has no admin rights, no password lock and no website blocking, so any "stop your kid gaming" claim would be false and is also the most likely source of an angry-customer complaint |
 | 9.4 | Data-loss risk disclosed before it can happen | **OK** — the terms gate states it in the first line a new user sees, and Stripe's consent box repeats it at checkout |
 | 9.5 | The blocker stays timid | **OK, automated** — `CriticalProcesses` is never closed, no admin rights, no drivers, no hosts-file edits; tier 5 guards it |
+| 9.6 | The site is hosted somewhere whose terms allow selling | **GAP, before the first sale** — GitHub Pages' terms say it is "not intended for or allowed to be used as a free web-hosting service to run your online business, e-commerce site, or any other website that is primarily directed at either facilitating commercial transactions". The site has a Buy button, a checkout and a post-purchase page. Harmless while Stripe is in test mode, and the site is offline for the beta (#165); it moves host in the go-live batch (#166), and everything that points at the Pages URL moves with it — including the terms URL in 2.2 |
 
 ---
 
@@ -241,13 +242,15 @@ mundane, high-probability risk — higher than most of the exotic ones.
 5. Ship `THIRD-PARTY-NOTICES.txt` with the app and the server (8.2).
 6. ~~Minimum age, subprocessors, retention periods~~ — done in #107.
 7. Search the USPTO for "FlowShield" (8.1).
+8. Move the site off GitHub Pages to a host whose terms allow selling (9.6),
+   in the go-live batch (#166).
 
 **Soon after:**
 
-8. Licence database backups (11.5) and Dependabot (11.6).
-9. Accessibility pass to WCAG 2.1 AA on the site and the app (7.1–7.3).
-10. A written data-request and breach procedure (5.4, 5.9).
-11. GDPR EU representative, or a decision not to sell into the EU (5.7).
+9. Licence database backups (11.5) and Dependabot (11.6).
+10. Accessibility pass to WCAG 2.1 AA on the site and the app (7.1–7.3).
+11. A written data-request and breach procedure (5.4, 5.9).
+12. GDPR EU representative, or a decision not to sell into the EU (5.7).
 
 **Owner decisions only a person can make:** the legal entity, the EU
 representative, merchant of record, trademark clearance, and whether a lawyer

@@ -68,6 +68,34 @@ public class SleepBlockingViewModel : ViewModelBase
     private string _windowText = "";
     public string WindowText { get => _windowText; private set => Set(ref _windowText, value); }
 
+    // ---- Sleep-window ring (UI-SPEC.md A3): reuses the Today timer-ring's
+    // dash-array trick (Theme.xaml's ProgressDash resource) with a rotation
+    // offset, so the arc starts at the window's start time instead of always
+    // at 12 o'clock. Both are presentation-only doubles, recomputed whenever
+    // the window changes.
+
+    private double _windowSweepFraction;
+    /// <summary>The window's length as a fraction of 24h (0..1), handling a
+    /// window that crosses midnight. Feeds the ring's StrokeDashArray via
+    /// the shared ProgressDash converter, exactly like the Today ring's
+    /// Progress.</summary>
+    public double WindowSweepFraction { get => _windowSweepFraction; private set => Set(ref _windowSweepFraction, value); }
+
+    private double _windowStartAngle;
+    /// <summary>Degrees to rotate the arc so it begins at the start time's
+    /// clock position (0 = midnight/top after the ring's own -90° offset,
+    /// 360 = a full day). Bound to a RenderTransform Angle alongside the
+    /// ring's existing -90° so the dash pattern's "on" segment starts there
+    /// instead of at 12 o'clock.</summary>
+    public double WindowStartAngle { get => _windowStartAngle; private set => Set(ref _windowStartAngle, value); }
+
+    private static double SweepFraction(TimeSpan start, TimeSpan end)
+    {
+        var minutes = (end - start).TotalMinutes;
+        if (minutes <= 0) minutes += TimeSpan.FromDays(1).TotalMinutes;
+        return Math.Clamp(minutes / TimeSpan.FromDays(1).TotalMinutes, 0, 1);
+    }
+
     private void Save()
     {
         if (_main.IsLocked)
@@ -109,6 +137,9 @@ public class SleepBlockingViewModel : ViewModelBase
         var inWindow = AppBlockerService.IsWithinSleepWindow(_main.Settings);
 
         WindowText = $"{StartText} → {EndText}";
+
+        WindowSweepFraction = SweepFraction(_main.Settings.SleepBlockStartTime, _main.Settings.SleepBlockEndTime);
+        WindowStartAngle = -90 + _main.Settings.SleepBlockStartTime.TotalMinutes / TimeSpan.FromDays(1).TotalMinutes * 360.0;
 
         StatusText = _main.IsLocked
             ? "Your free trial has ended. Buy FlowShield to schedule a nightly shield."

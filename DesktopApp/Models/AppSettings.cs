@@ -56,6 +56,15 @@ public class BlockedApp : INotifyPropertyChanged
     [JsonIgnore]
     public string ProcessSummary => string.Join(", ", AllProcessNames.Select(n => n + ".exe"));
 
+    /// <summary>The suggestion catalog's category ("Chat", "Music" …) for
+    /// this row's process, if it's a known app; null for a custom entry
+    /// (UI-SPEC.md A3 category tag chip, graft from the raycast sketch).</summary>
+    [JsonIgnore]
+    public string? Category => AppPicker.CategoryFor(ProcessName);
+
+    [JsonIgnore]
+    public bool HasCategory => !string.IsNullOrEmpty(Category);
+
     private bool _isEnabled = true;
     public bool IsEnabled
     {

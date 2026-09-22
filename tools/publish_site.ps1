@@ -11,9 +11,26 @@
     set up, so publishing stays a deliberate, one-person step run from an
     up-to-date main (see CLAUDE.md).
 
+.PARAMETER BetaIsOver
+    Required. The site is deliberately offline during the internal beta
+    (#165): GitHub Pages' terms forbid selling from it, so it moves to another
+    host before launch anyway (#166). Until then this script refuses to run, so
+    an agent following older instructions cannot quietly put it back up.
+
 .EXAMPLE
-    pwsh tools/publish_site.ps1
+    pwsh tools/publish_site.ps1 -BetaIsOver
 #>
+
+param([switch]$BetaIsOver)
+
+if (-not $BetaIsOver) {
+    Write-Host ''
+    Write-Host '  Not publishing: the site is offline for the internal beta (#165).' -ForegroundColor Yellow
+    Write-Host '  Preview it locally instead:  python -m http.server 5500 -d Website' -ForegroundColor Yellow
+    Write-Host '  It returns with the go-live batch (#166), on a host that allows selling.' -ForegroundColor Yellow
+    Write-Host ''
+    exit 1
+}
 
 # Native commands write progress to stderr, which Windows PowerShell turns into
 # a terminating NativeCommandError under 'Stop'. Check $LASTEXITCODE instead.

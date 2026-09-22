@@ -68,6 +68,11 @@ OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 PERFORMANCE OF THIS SOFTWARE.
 
 --------------------------------------------------------------------------
-Fonts: FlowShield currently uses the fonts already present on Windows. When
-Inter is embedded (DESIGN_SYSTEM.md section 3), its SIL Open Font License
-notice must be added here in the same change.
+Inter and Inter Display — The Inter Project Authors — SIL Open Font License 1.1
+    https://github.com/rsms/inter
+
+Copyright (c) 2016 The Inter Project Authors (https://github.com/rsms/inter)
+
+The fonts are embedded in FlowShield and are not sold on their own. The full
+licence text ships beside this file at Assets\Fonts\OFL.txt, as the Open Font
+License asks.

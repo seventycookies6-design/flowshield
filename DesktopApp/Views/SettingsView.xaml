@@ -10,16 +10,29 @@
                     <Grid Margin="0,0,0,16">
                         <StackPanel>
                             <TextBlock Text="LICENSE" Style="{StaticResource Eyebrow}"/>
+
+                            <!-- big-number treatment (UI-SPEC.md A3), matching the
+                                 app-pages sketch's "05 days left on free trial":
+                                 text, not teal, and only while the trial is the
+                                 active state (Pro and trial-ended have no count to show). -->
+                            <StackPanel Orientation="Horizontal" Margin="0,8,0,0"
+                                        Visibility="{Binding IsTrial, Converter={StaticResource BoolVis}}">
+                                <TextBlock Style="{StaticResource Stat}"
+                                           Text="{Binding TrialDaysLeft, StringFormat={}{0:00}}"/>
+                                <TextBlock Text="days left on free trial" Style="{StaticResource Body}"
+                                           Foreground="{StaticResource InkDim}"
+                                           VerticalAlignment="Bottom" Margin="12,0,0,4"/>
+                            </StackPanel>
+
                             <TextBlock Text="{Binding LicenseStatusText}"
-                                       FontSize="19" FontWeight="SemiBold" Margin="0,6,0,0"
-                                       Foreground="{StaticResource Ink}"
+                                       Style="{StaticResource H2}" Margin="0,8,0,0"
                                        AutomationProperties.AutomationId="LicenseStatusText"/>
                             <TextBlock Text="{Binding LicenseDetailText}" Style="{StaticResource Caption}"
                                        Margin="0,4,0,0"
                                        AutomationProperties.AutomationId="LicenseDetailText"/>
 
                             <TextBlock Text="{Binding DeviceText}" Style="{StaticResource Caption}"
-                                       Margin="0,6,0,0" TextWrapping="Wrap" MaxWidth="420"
+                                       Margin="0,8,0,0" TextWrapping="Wrap" MaxWidth="420"
                                        HorizontalAlignment="Left"
                                        Foreground="{StaticResource InkFaint}"
                                        Visibility="{Binding HasDeviceInfo, Converter={StaticResource BoolVis}}"
@@ -34,9 +47,9 @@
                                 AutomationProperties.Name="Buy FlowShield"/>
                     </Grid>
 
-                    <Border Height="1" Background="{StaticResource Edge}" Margin="0,0,0,18"/>
+                    <Border Height="1" Background="{StaticResource Edge}" Margin="0,0,0,16"/>
 
-                    <TextBlock Text="LICENSE KEY" Style="{StaticResource Eyebrow}" Margin="0,0,0,7"/>
+                    <TextBlock Text="LICENSE KEY" Style="{StaticResource Eyebrow}" Margin="0,0,0,8"/>
                     <TextBox Style="{StaticResource Field}"
                              Text="{Binding LicenseKeyInput, UpdateSourceTrigger=PropertyChanged}"
                              FontFamily="Cascadia Mono, Consolas, monospace"
@@ -45,7 +58,7 @@
                              AutomationProperties.HelpText="FS-XXXX-XXXX-XXXX-XXXX"/>
 
                     <TextBlock Text="EMAIL USED AT CHECKOUT (OPTIONAL)" Style="{StaticResource Eyebrow}"
-                               Margin="0,14,0,7"/>
+                               Margin="0,16,0,8"/>
                     <TextBox Style="{StaticResource Field}"
                              Text="{Binding LicenseEmailInput, UpdateSourceTrigger=PropertyChanged}"
                              AutomationProperties.AutomationId="LicenseEmailInput"
@@ -53,12 +66,12 @@
 
                     <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
                         <Button Style="{StaticResource BtnPrimary}" Content="Activate licence"
-                                Command="{Binding ActivateCommand}" Padding="26,10"
+                                Command="{Binding ActivateCommand}" Padding="24,12"
                                 AutomationProperties.AutomationId="ActivateProButton"
                                 AutomationProperties.Name="Activate licence"/>
 
                         <Button Style="{StaticResource BtnQuiet}" Content="Deactivate"
-                                Command="{Binding DeactivateCommand}" Margin="9,0,0,0"
+                                Command="{Binding DeactivateCommand}" Margin="8,0,0,0"
                                 Visibility="{Binding IsPro, Converter={StaticResource BoolVis}}"
                                 AutomationProperties.AutomationId="DeactivateButton"/>
 
@@ -73,15 +86,15 @@
             <!-- =============================================== preferences -->
             <Border Style="{StaticResource Card}" Padding="24" Margin="0,0,0,16">
                 <StackPanel>
-                    <TextBlock Text="PREFERENCES" Style="{StaticResource Eyebrow}" Margin="0,0,0,18"/>
+                    <TextBlock Text="PREFERENCES" Style="{StaticResource Eyebrow}" Margin="0,0,0,16"/>
 
                     <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding StartWithWindows}"
                               AutomationProperties.AutomationId="StartWithWindowsToggle"
                               AutomationProperties.Name="Start with Windows">
                         <StackPanel>
-                            <TextBlock Text="Start with Windows" Foreground="{StaticResource Ink}" FontSize="13.5"/>
+                            <TextBlock Text="Start with Windows" Style="{StaticResource Label}"/>
                             <TextBlock Text="Launches minimised to the tray at sign-in."
-                                       Style="{StaticResource Caption}" Margin="0,2,0,0"/>
+                                       Style="{StaticResource Caption}" Margin="0,4,0,0"/>
                         </StackPanel>
                     </CheckBox>
 
@@ -91,10 +104,9 @@
                               AutomationProperties.AutomationId="MinimizeToTrayToggle"
                               AutomationProperties.Name="Minimize to tray on close">
                         <StackPanel>
-                            <TextBlock Text="Minimise to tray on close" Foreground="{StaticResource Ink}"
-                                       FontSize="13.5"/>
+                            <TextBlock Text="Minimise to tray on close" Style="{StaticResource Label}"/>
                             <TextBlock Text="Closing the window keeps the shield running in the background."
-                                       Style="{StaticResource Caption}" Margin="0,2,0,0"/>
+                                       Style="{StaticResource Caption}" Margin="0,4,0,0"/>
                         </StackPanel>
                     </CheckBox>
 
@@ -105,9 +117,9 @@
                               AutomationProperties.AutomationId="HardKillModeToggle"
                               AutomationProperties.Name="Hard kill mode">
                         <StackPanel>
-                            <TextBlock Text="Hard kill mode" Foreground="{StaticResource Ink}" FontSize="13.5"/>
+                            <TextBlock Text="Hard kill mode" Style="{StaticResource Label}"/>
                             <TextBlock Text="Terminate blocked apps the moment they launch — no grace period."
-                                       Style="{StaticResource Caption}" Margin="0,2,0,0"/>
+                                       Style="{StaticResource Caption}" Margin="0,4,0,0"/>
                         </StackPanel>
                     </CheckBox>
                 </StackPanel>
@@ -116,18 +128,18 @@
             <!-- ================================================ daily goal -->
             <Border Style="{StaticResource Card}" Padding="24" Margin="0,0,0,16">
                 <StackPanel>
-                    <TextBlock Text="DAILY GOAL" Style="{StaticResource Eyebrow}" Margin="0,0,0,6"/>
+                    <TextBlock Text="DAILY GOAL" Style="{StaticResource Eyebrow}" Margin="0,0,0,8"/>
                     <TextBlock Text="With a goal set, a day counts towards your streak only once you reach it."
                                Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,16"/>
 
                     <RadioButton GroupName="DailyGoal" Content="No goal" IsChecked="{Binding GoalOff}"
-                                 Foreground="{StaticResource Ink}" FontSize="13.5" Margin="0,0,0,10"
+                                 Foreground="{StaticResource Ink}" FontSize="13" Margin="0,0,0,12"
                                  AutomationProperties.AutomationId="GoalOffRadio"/>
                     <RadioButton GroupName="DailyGoal" Content="Minutes focused" IsChecked="{Binding GoalInMinutes}"
-                                 Foreground="{StaticResource Ink}" FontSize="13.5" Margin="0,0,0,10"
+                                 Foreground="{StaticResource Ink}" FontSize="13" Margin="0,0,0,12"
                                  AutomationProperties.AutomationId="GoalMinutesRadio"/>
                     <RadioButton GroupName="DailyGoal" Content="Sprints completed" IsChecked="{Binding GoalInSprints}"
-                                 Foreground="{StaticResource Ink}" FontSize="13.5"
+                                 Foreground="{StaticResource Ink}" FontSize="13"
                                  AutomationProperties.AutomationId="GoalSprintsRadio"/>
 
                     <StackPanel Margin="0,16,0,0"
@@ -138,7 +150,7 @@
                                      AutomationProperties.AutomationId="GoalTargetInput"
                                      AutomationProperties.Name="Daily goal target"/>
                             <TextBlock Text="{Binding GoalUnitLabel}" Style="{StaticResource Body}"
-                                       VerticalAlignment="Center" Margin="10,0,0,0"
+                                       VerticalAlignment="Center" Margin="12,0,0,0"
                                        AutomationProperties.AutomationId="GoalUnitLabel"/>
                         </StackPanel>
                         <TextBlock Text="{Binding GoalTargetError}" Style="{StaticResource Caption}"
@@ -149,7 +161,7 @@
                         <Border Height="1" Background="{StaticResource Edge}" Margin="0,16,0,16"/>
 
                         <TextBlock Text="A planned day off keeps your streak without counting as focus."
-                                   Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,10"/>
+                                   Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,12"/>
                         <StackPanel Orientation="Horizontal">
                             <Button Command="{Binding SkipTodayCommand}"
                                     Style="{StaticResource BtnQuiet}"
@@ -167,39 +179,39 @@
             <!-- ============================================ journal export -->
             <Border Style="{StaticResource Card}" Padding="24" Margin="0,0,0,16">
                 <StackPanel>
-                    <TextBlock Text="EXPORT YOUR JOURNAL" Style="{StaticResource Eyebrow}" Margin="0,0,0,6"/>
+                    <TextBlock Text="EXPORT YOUR JOURNAL" Style="{StaticResource Eyebrow}" Margin="0,0,0,8"/>
                     <TextBlock Text="Save your sprints and journal lines as a file you keep. It is written only where you choose — nothing is uploaded."
                                Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,16"/>
 
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
-                        <StackPanel Margin="0,0,18,0">
-                            <TextBlock Text="FROM" Style="{StaticResource Eyebrow}" Margin="0,0,0,6"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
+                        <StackPanel Margin="0,0,16,0">
+                            <TextBlock Text="FROM" Style="{StaticResource Eyebrow}" Margin="0,0,0,8"/>
                             <DatePicker SelectedDate="{Binding ExportFrom}" Width="150"
                                         AutomationProperties.AutomationId="ExportFromDate"
                                         AutomationProperties.Name="Export from date"/>
                         </StackPanel>
                         <StackPanel>
-                            <TextBlock Text="TO" Style="{StaticResource Eyebrow}" Margin="0,0,0,6"/>
+                            <TextBlock Text="TO" Style="{StaticResource Eyebrow}" Margin="0,0,0,8"/>
                             <DatePicker SelectedDate="{Binding ExportTo}" Width="150"
                                         AutomationProperties.AutomationId="ExportToDate"
                                         AutomationProperties.Name="Export to date"/>
                         </StackPanel>
                     </StackPanel>
 
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
                         <RadioButton GroupName="ExportFormat" Content="CSV (spreadsheet)"
                                      IsChecked="{Binding ExportAsCsv}"
-                                     Foreground="{StaticResource Ink}" FontSize="13.5"
+                                     Foreground="{StaticResource Ink}" FontSize="13"
                                      AutomationProperties.AutomationId="ExportCsvRadio"/>
                         <RadioButton GroupName="ExportFormat" Content="Markdown"
-                                     IsChecked="{Binding ExportAsMarkdown}" Margin="20,0,0,0"
-                                     Foreground="{StaticResource Ink}" FontSize="13.5"
+                                     IsChecked="{Binding ExportAsMarkdown}" Margin="24,0,0,0"
+                                     Foreground="{StaticResource Ink}" FontSize="13"
                                      AutomationProperties.AutomationId="ExportMarkdownRadio"/>
                     </StackPanel>
 
                     <StackPanel Orientation="Horizontal">
                         <Button Style="{StaticResource BtnPrimary}" Content="Export…"
-                                Command="{Binding ExportJournalCommand}" Padding="26,10"
+                                Command="{Binding ExportJournalCommand}" Padding="24,12"
                                 AutomationProperties.AutomationId="ExportJournalButton"
                                 AutomationProperties.Name="Export journal"/>
                         <TextBlock Text="{Binding ExportRangeText}" Style="{StaticResource Caption}"
@@ -208,7 +220,7 @@
                     </StackPanel>
 
                     <TextBlock Text="{Binding ExportStatusText}" Style="{StaticResource Caption}"
-                               Margin="0,10,0,0" TextWrapping="Wrap"
+                               Margin="0,12,0,0" TextWrapping="Wrap"
                                Visibility="{Binding ExportStatusVisible, Converter={StaticResource BoolVis}}"
                                AutomationProperties.AutomationId="ExportStatusText"/>
                 </StackPanel>
@@ -217,14 +229,14 @@
             <!-- ============================================== notifications -->
             <Border Style="{StaticResource Card}" Padding="24" Margin="0,0,0,16">
                 <StackPanel>
-                    <TextBlock Text="NOTIFICATIONS" Style="{StaticResource Eyebrow}" Margin="0,0,0,6"/>
+                    <TextBlock Text="NOTIFICATIONS" Style="{StaticResource Eyebrow}" Margin="0,0,0,8"/>
                     <TextBlock Text="FlowShield notifies from the tray, and never about buying while a sprint is running."
                                Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,16"/>
 
                     <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding NotificationsEnabled}"
                               AutomationProperties.AutomationId="NotificationsToggle"
                               AutomationProperties.Name="Notifications">
-                        <TextBlock Text="Notifications" Foreground="{StaticResource Ink}" FontSize="13.5"/>
+                        <TextBlock Text="Notifications" Style="{StaticResource Label}"/>
                     </CheckBox>
 
                     <Border Height="1" Background="{StaticResource Edge}" Margin="0,16,0,16"/>
@@ -233,53 +245,53 @@
                         <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding NotifySprintStarted}"
                                   AutomationProperties.AutomationId="NotifySprintStartedToggle"
                                   AutomationProperties.Name="Sprint started">
-                            <TextBlock Text="Sprint started" Foreground="{StaticResource Ink}" FontSize="13.5"/>
+                            <TextBlock Text="Sprint started" Style="{StaticResource Label}"/>
                         </CheckBox>
 
                         <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding NotifyFiveMinutesLeft}"
-                                  Margin="0,14,0,0"
+                                  Margin="0,16,0,0"
                                   AutomationProperties.AutomationId="NotifyFiveMinutesLeftToggle"
                                   AutomationProperties.Name="Five minutes left">
-                            <TextBlock Text="5 minutes left" Foreground="{StaticResource Ink}" FontSize="13.5"/>
+                            <TextBlock Text="5 minutes left" Style="{StaticResource Label}"/>
                         </CheckBox>
 
                         <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding NotifySprintComplete}"
-                                  Margin="0,14,0,0"
+                                  Margin="0,16,0,0"
                                   AutomationProperties.AutomationId="NotifySprintCompleteToggle"
                                   AutomationProperties.Name="Sprint complete">
-                            <TextBlock Text="Sprint complete" Foreground="{StaticResource Ink}" FontSize="13.5"/>
+                            <TextBlock Text="Sprint complete" Style="{StaticResource Label}"/>
                         </CheckBox>
 
                         <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding NotifySprintInterrupted}"
-                                  Margin="0,14,0,0"
+                                  Margin="0,16,0,0"
                                   AutomationProperties.AutomationId="NotifySprintInterruptedToggle"
                                   AutomationProperties.Name="Sprint interrupted">
                             <StackPanel>
-                                <TextBlock Text="Sprint interrupted" Foreground="{StaticResource Ink}" FontSize="13.5"/>
+                                <TextBlock Text="Sprint interrupted" Style="{StaticResource Label}"/>
                                 <TextBlock Text="When a sprint is picked up again after a restart or a crash."
-                                           Style="{StaticResource Caption}" Margin="0,2,0,0"/>
+                                           Style="{StaticResource Caption}" Margin="0,4,0,0"/>
                             </StackPanel>
                         </CheckBox>
 
                         <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding NotifyAppClosing}"
-                                  Margin="0,14,0,0"
+                                  Margin="0,16,0,0"
                                   AutomationProperties.AutomationId="NotifyAppClosingToggle"
                                   AutomationProperties.Name="Blocked app closing">
                             <StackPanel>
-                                <TextBlock Text="A blocked app is closing" Foreground="{StaticResource Ink}" FontSize="13.5"/>
+                                <TextBlock Text="A blocked app is closing" Style="{StaticResource Label}"/>
                                 <TextBlock Text="A few seconds' warning before it closes, so you can save."
-                                           Style="{StaticResource Caption}" Margin="0,2,0,0"/>
+                                           Style="{StaticResource Caption}" Margin="0,4,0,0"/>
                             </StackPanel>
                         </CheckBox>
 
                         <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding NotifyTrialEnding}"
-                                  Margin="0,14,0,0"
+                                  Margin="0,16,0,0"
                                   AutomationProperties.AutomationId="NotifyTrialEndingToggle"
                                   AutomationProperties.Name="Trial ending">
                             <StackPanel>
-                                <TextBlock Text="Free trial ending" Foreground="{StaticResource Ink}" FontSize="13.5"/>
+                                <TextBlock Text="Free trial ending" Style="{StaticResource Label}"/>
                                 <TextBlock Text="Once, on the last day. Never during a sprint."
-                                           Style="{StaticResource Caption}" Margin="0,2,0,0"/>
+                                           Style="{StaticResource Caption}" Margin="0,4,0,0"/>
                             </StackPanel>
                         </CheckBox>
                     </StackPanel>
@@ -287,18 +299,18 @@
             </Border>
 
             <!-- =================================================== advanced -->
-            <Border Style="{StaticResource Card}" Padding="24" Margin="0,0,0,10">
+            <Border Style="{StaticResource Card}" Padding="24" Margin="0,0,0,12">
                 <StackPanel>
-                    <TextBlock Text="ADVANCED" Style="{StaticResource Eyebrow}" Margin="0,0,0,14"/>
+                    <TextBlock Text="ADVANCED" Style="{StaticResource Eyebrow}" Margin="0,0,0,16"/>
 
                     <StackPanel x:Name="DevOnlyFields">
-                        <TextBlock Text="License server" Style="{StaticResource Caption}" Margin="2,0,0,6"/>
+                        <TextBlock Text="License server" Style="{StaticResource Caption}" Margin="4,0,0,8"/>
                         <TextBox Style="{StaticResource Field}"
                                  Text="{Binding LicenseServerUrl, UpdateSourceTrigger=LostFocus}"
                                  AutomationProperties.AutomationId="LicenseServerUrlInput"
                                  AutomationProperties.Name="License server URL"/>
 
-                        <TextBlock Style="{StaticResource Caption}" Margin="2,14,0,0" TextWrapping="Wrap">
+                        <TextBlock Style="{StaticResource Caption}" Margin="4,16,0,0" TextWrapping="Wrap">
                             <Run Text="Settings are DPAPI-encrypted at"/>
                             <Run Text="{Binding SettingsFilePath, Mode=OneWay}" Foreground="{StaticResource InkDim}"/>
                         </TextBlock>
@@ -306,13 +318,13 @@
 
                     <TextBlock Text="{Binding DataContext.TermsAcceptedText,
                                      RelativeSource={RelativeSource AncestorType=Window}}"
-                               Style="{StaticResource Caption}" Margin="2,14,0,0" TextWrapping="Wrap"
+                               Style="{StaticResource Caption}" Margin="4,16,0,0" TextWrapping="Wrap"
                                Visibility="{Binding DataContext.HasAcceptedTerms,
                                             RelativeSource={RelativeSource AncestorType=Window},
                                             Converter={StaticResource BoolVis}}"
                                AutomationProperties.AutomationId="TermsAcceptedText"/>
 
-                    <StackPanel Orientation="Horizontal" Margin="-10,4,0,0">
+                    <StackPanel Orientation="Horizontal" Margin="-12,4,0,0">
                         <Button Style="{StaticResource BtnQuiet}" Content="Terms of service"
                                 Command="{Binding DataContext.OpenTermsCommand,
                                           RelativeSource={RelativeSource AncestorType=Window}}"
@@ -324,38 +336,37 @@
                     </StackPanel>
 
                     <Button Style="{StaticResource BtnQuiet}" Content="Show the welcome again"
-                            HorizontalAlignment="Left" Margin="-10,10,0,0"
+                            HorizontalAlignment="Left" Margin="-12,12,0,0"
                             Command="{Binding DataContext.ShowFirstRunCommand,
                                       RelativeSource={RelativeSource AncestorType=Window}}"
                             AutomationProperties.AutomationId="ShowFirstRunButton"/>
 
                     <Button Style="{StaticResource BtnQuiet}" Content="Open diagnostic log"
-                            HorizontalAlignment="Left" Margin="-10,10,0,0"
+                            HorizontalAlignment="Left" Margin="-12,12,0,0"
                             Command="{Binding OpenLogCommand}"
                             AutomationProperties.AutomationId="OpenLogButton"/>
                 </StackPanel>
             </Border>
 
             <!-- ==================================================== updates -->
-            <Border Style="{StaticResource Card}" Padding="24" Margin="0,0,0,10">
+            <Border Style="{StaticResource Card}" Padding="24" Margin="0,0,0,12">
                 <StackPanel>
                     <TextBlock Text="UPDATES" Style="{StaticResource Eyebrow}" Margin="0,0,0,12"/>
 
-                    <TextBlock Text="{Binding VersionText}" Foreground="{StaticResource Ink}"
-                               FontSize="13.5"
+                    <TextBlock Text="{Binding VersionText}" Style="{StaticResource Label}"
                                AutomationProperties.AutomationId="VersionText"/>
 
                     <TextBlock Text="{Binding UpdateStatusText}" Style="{StaticResource Caption}"
-                               Margin="0,6,0,0" TextWrapping="Wrap"
+                               Margin="0,8,0,0" TextWrapping="Wrap"
                                AutomationProperties.AutomationId="UpdateStatusText"/>
 
-                    <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+                    <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
                         <Button Style="{StaticResource BtnGhost}" Content="Check for updates"
                                 Command="{Binding CheckForUpdatesCommand}"
                                 AutomationProperties.AutomationId="CheckForUpdatesButton"/>
 
                         <Button Style="{StaticResource BtnPrimary}" Content="Restart to update"
-                                Command="{Binding RestartForUpdateCommand}" Margin="9,0,0,0"
+                                Command="{Binding RestartForUpdateCommand}" Margin="8,0,0,0"
                                 Visibility="{Binding UpdateReady, Converter={StaticResource BoolVis}}"
                                 AutomationProperties.AutomationId="RestartForUpdateButton"/>
                     </StackPanel>
