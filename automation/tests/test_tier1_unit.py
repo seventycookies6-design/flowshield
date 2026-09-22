@@ -4032,3 +4032,18 @@ class TestSettingsIsGrouped:
         app = xaml.index('SettingsGroup_App"')
         for aid in ("SoftOverlayToggle", "HardKillModeToggle"):
             assert focus < xaml.index(f'"{aid}"') < app, f"{aid} belongs in Focus"
+
+    def test_cards_sit_in_the_bound_groups(self):
+        """Binding Groups table: App = Preferences, Appearance.
+        About = Updates, then Advanced."""
+        xaml = self.XAML.read_text(encoding="utf-8")
+        app = xaml.index('SettingsGroup_App"')
+        notifications = xaml.index('SettingsGroup_Notifications"')
+        about = xaml.index('SettingsGroup_About"')
+
+        assert app < xaml.index('"ThemeSystemRadio"') < notifications, \
+            "Appearance (ThemeSystemRadio) belongs in App"
+
+        for aid in ("OpenLogButton", "ShowFirstRunButton"):
+            assert xaml.index(f'"{aid}"') > about, \
+                f"Advanced ({aid}) belongs in About, after Updates"

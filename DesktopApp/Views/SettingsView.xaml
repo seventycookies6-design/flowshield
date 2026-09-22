@@ -393,56 +393,6 @@
                             </StackPanel>
                         </StackPanel>
                     </Border>
-
-                    <!-- =================================================== advanced -->
-                    <Border Style="{StaticResource Card}" Padding="24">
-                        <StackPanel>
-                            <TextBlock Text="ADVANCED" Style="{StaticResource Eyebrow}" Margin="0,0,0,16"/>
-
-                            <StackPanel x:Name="DevOnlyFields">
-                                <TextBlock Text="License server" Style="{StaticResource Caption}" Margin="4,0,0,8"/>
-                                <TextBox Style="{StaticResource Field}"
-                                         Text="{Binding LicenseServerUrl, UpdateSourceTrigger=LostFocus}"
-                                         AutomationProperties.AutomationId="LicenseServerUrlInput"
-                                         AutomationProperties.Name="License server URL"/>
-
-                                <TextBlock Style="{StaticResource Caption}" Margin="4,16,0,0" TextWrapping="Wrap">
-                                    <Run Text="Settings are DPAPI-encrypted at"/>
-                                    <Run Text="{Binding SettingsFilePath, Mode=OneWay}" Foreground="{DynamicResource InkDim}"/>
-                                </TextBlock>
-                            </StackPanel>
-
-                            <TextBlock Text="{Binding DataContext.TermsAcceptedText,
-                                             RelativeSource={RelativeSource AncestorType=Window}}"
-                                       Style="{StaticResource Caption}" Margin="4,16,0,0" TextWrapping="Wrap"
-                                       Visibility="{Binding DataContext.HasAcceptedTerms,
-                                                    RelativeSource={RelativeSource AncestorType=Window},
-                                                    Converter={StaticResource BoolVis}}"
-                                       AutomationProperties.AutomationId="TermsAcceptedText"/>
-
-                            <StackPanel Orientation="Horizontal" Margin="-12,4,0,0">
-                                <Button Style="{StaticResource BtnQuiet}" Content="Terms of service"
-                                        Command="{Binding DataContext.OpenTermsCommand,
-                                                  RelativeSource={RelativeSource AncestorType=Window}}"
-                                        AutomationProperties.AutomationId="SettingsTermsButton"/>
-                                <Button Style="{StaticResource BtnQuiet}" Content="Privacy policy"
-                                        Command="{Binding DataContext.OpenPrivacyCommand,
-                                                  RelativeSource={RelativeSource AncestorType=Window}}"
-                                        AutomationProperties.AutomationId="SettingsPrivacyButton"/>
-                            </StackPanel>
-
-                            <Button Style="{StaticResource BtnQuiet}" Content="Show the welcome again"
-                                    HorizontalAlignment="Left" Margin="-12,12,0,0"
-                                    Command="{Binding DataContext.ShowFirstRunCommand,
-                                              RelativeSource={RelativeSource AncestorType=Window}}"
-                                    AutomationProperties.AutomationId="ShowFirstRunButton"/>
-
-                            <Button Style="{StaticResource BtnQuiet}" Content="Open diagnostic log"
-                                    HorizontalAlignment="Left" Margin="-12,12,0,0"
-                                    Command="{Binding OpenLogCommand}"
-                                    AutomationProperties.AutomationId="OpenLogButton"/>
-                        </StackPanel>
-                    </Border>
                 </inf:AdaptiveColumns>
             </StackPanel>
 
@@ -661,6 +611,56 @@
                                         Visibility="{Binding UpdateReady, Converter={StaticResource BoolVis}}"
                                         AutomationProperties.AutomationId="RestartForUpdateButton"/>
                             </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- =================================================== advanced -->
+                    <Border Style="{StaticResource Card}" Padding="24">
+                        <StackPanel>
+                            <TextBlock Text="ADVANCED" Style="{StaticResource Eyebrow}" Margin="0,0,0,16"/>
+
+                            <StackPanel x:Name="DevOnlyFields">
+                                <TextBlock Text="License server" Style="{StaticResource Caption}" Margin="4,0,0,8"/>
+                                <TextBox Style="{StaticResource Field}"
+                                         Text="{Binding LicenseServerUrl, UpdateSourceTrigger=LostFocus}"
+                                         AutomationProperties.AutomationId="LicenseServerUrlInput"
+                                         AutomationProperties.Name="License server URL"/>
+
+                                <TextBlock Style="{StaticResource Caption}" Margin="4,16,0,0" TextWrapping="Wrap">
+                                    <Run Text="Settings are DPAPI-encrypted at"/>
+                                    <Run Text="{Binding SettingsFilePath, Mode=OneWay}" Foreground="{DynamicResource InkDim}"/>
+                                </TextBlock>
+                            </StackPanel>
+
+                            <TextBlock Text="{Binding DataContext.TermsAcceptedText,
+                                             RelativeSource={RelativeSource AncestorType=Window}}"
+                                       Style="{StaticResource Caption}" Margin="4,16,0,0" TextWrapping="Wrap"
+                                       Visibility="{Binding DataContext.HasAcceptedTerms,
+                                                    RelativeSource={RelativeSource AncestorType=Window},
+                                                    Converter={StaticResource BoolVis}}"
+                                       AutomationProperties.AutomationId="TermsAcceptedText"/>
+
+                            <StackPanel Orientation="Horizontal" Margin="-12,4,0,0">
+                                <Button Style="{StaticResource BtnQuiet}" Content="Terms of service"
+                                        Command="{Binding DataContext.OpenTermsCommand,
+                                                  RelativeSource={RelativeSource AncestorType=Window}}"
+                                        AutomationProperties.AutomationId="SettingsTermsButton"/>
+                                <Button Style="{StaticResource BtnQuiet}" Content="Privacy policy"
+                                        Command="{Binding DataContext.OpenPrivacyCommand,
+                                                  RelativeSource={RelativeSource AncestorType=Window}}"
+                                        AutomationProperties.AutomationId="SettingsPrivacyButton"/>
+                            </StackPanel>
+
+                            <Button Style="{StaticResource BtnQuiet}" Content="Show the welcome again"
+                                    HorizontalAlignment="Left" Margin="-12,12,0,0"
+                                    Command="{Binding DataContext.ShowFirstRunCommand,
+                                              RelativeSource={RelativeSource AncestorType=Window}}"
+                                    AutomationProperties.AutomationId="ShowFirstRunButton"/>
+
+                            <Button Style="{StaticResource BtnQuiet}" Content="Open diagnostic log"
+                                    HorizontalAlignment="Left" Margin="-12,12,0,0"
+                                    Command="{Binding OpenLogCommand}"
+                                    AutomationProperties.AutomationId="OpenLogButton"/>
                         </StackPanel>
                     </Border>
                 </inf:AdaptiveColumns>
