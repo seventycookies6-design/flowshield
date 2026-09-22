@@ -3,6 +3,7 @@ using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text.Json.Serialization;
 using FlowShield.Models;
+using System.Linq;
 
 namespace FlowShield.Services;
 
@@ -344,5 +345,115 @@ public class LicenseService
             s.DeviceLimit = 0;
         });
         Log.Info("license deactivated locally");
+    }
+
+    /// <summary>
+    /// Updates the cached device count/limit shown on the licence card
+    /// (DeviceText) after a fresh <see cref="ListDevicesAsync"/> or
+    /// <see cref="ReleaseDeviceAsync"/> call, through the same
+    /// <see cref="MutateAndSave"/> path every other settings mutation uses
+    /// (#202) rather than writing the fields directly from the view model.
+    /// </summary>
+    public void SaveDeviceCounts(AppSettings settings, int deviceCount, int deviceLimit) =>
+        MutateAndSave(settings, s =>
+        {
+            s.DeviceCount = deviceCount;
+            s.DeviceLimit = deviceLimit;
+        });
+
+    private sealed class DeviceRow
+    {
+        [JsonPropertyName("name")] public string? Name { get; set; }
+        [JsonPropertyName("lastSeen")] public long? LastSeen { get; set; }
+        [JsonPropertyName("isCurrent")] public bool IsCurrent { get; set; }
+        [JsonPropertyName("deviceToken")] public string? DeviceToken { get; set; }
+    }
+
+    private sealed class DevicesResponse
+    {
+        [JsonPropertyName("ok")] public bool Ok { get; set; }
+        [JsonPropertyName("deviceCount")] public int DeviceCount { get; set; }
+        [JsonPropertyName("deviceLimit")] public int DeviceLimit { get; set; }
+        [JsonPropertyName("devices")] public List<DeviceRow>? Devices { get; set; }
+        [JsonPropertyName("message")] public string? Message { get; set; }
+    }
+
+    /// <summary>
+    /// Roadmap 5.7 — the licence's "Your devices" list. Fetched on demand
+    /// only (the Settings card calls this when it's expanded, or on its
+    /// Refresh button) — never polled.
+    /// </summary>
+    public async Task<DeviceListResult> ListDevicesAsync(AppSettings settings)
+    {
+        var key = settings.LicenseKey;
+        if (string.IsNullOrWhiteSpace(key))
+            return new DeviceListResult(false, Array.Empty<DeviceInfo>(), 0, 0,
+                "No licence key to look up.");
+
+        var url = settings.LicenseServerUrl.TrimEnd('/') + "/devices";
+        try
+        {
+            using var response = await _http.PostAsJsonAsync(url, new
+            {
+                licenseKey = key,
+                deviceId = DeviceIdentity.Id,
+            });
+            var body = await response.Content.ReadFromJsonAsync<DevicesResponse>();
+            if (body is null || !body.Ok)
+            {
+                return new DeviceListResult(false, Array.Empty<DeviceInfo>(), 0, 0,
+                    body?.Message ?? "Couldn't load your devices.");
+            }
+
+            var devices = (body.Devices ?? new List<DeviceRow>())
+                .Select(d => new DeviceInfo(
+                    string.IsNullOrWhiteSpace(d.Name) ? "Unnamed device" : d.Name!,
+                    d.DeviceToken ?? "",
+                    d.IsCurrent,
+                    d.LastSeen is { } seconds
+                        ? DateTimeOffset.FromUnixTimeSeconds(seconds).UtcDateTime
+                        : null))
+                .ToList();
+
+            return new DeviceListResult(true, devices, body.DeviceCount, body.DeviceLimit);
+        }
+        catch (Exception ex)
+        {
+            Log.Warn($"could not list devices: {ex.Message}");
+            return new DeviceListResult(false, Array.Empty<DeviceInfo>(), 0, 0,
+                "Couldn't reach the licence server.");
+        }
+    }
+
+    /// <summary>
+    /// Releases one *other* device's seat by the opaque token its row in
+    /// <see cref="ListDevicesAsync"/> carried — never by a raw device id,
+    /// which the server does not hand back (Roadmap 5.7). Releasing this
+    /// machine's own seat instead goes through <see cref="DeactivateAsync"/>,
+    /// which already knows its own id.
+    /// </summary>
+    public async Task<bool> ReleaseDeviceAsync(AppSettings settings, string deviceToken)
+    {
+        var key = settings.LicenseKey;
+        if (string.IsNullOrWhiteSpace(key) || string.IsNullOrWhiteSpace(deviceToken))
+            return false;
+
+        var url = settings.LicenseServerUrl.TrimEnd('/') + "/devices";
+        try
+        {
+            using var response = await _http.PostAsJsonAsync(url, new
+            {
+                licenseKey = key,
+                action = "release",
+                releaseToken = deviceToken,
+            });
+            Log.Info($"device release by token: HTTP {(int)response.StatusCode}");
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            Log.Warn($"could not release device: {ex.Message}");
+            return false;
+        }
     }
 }
