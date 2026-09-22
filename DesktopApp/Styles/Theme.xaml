@@ -185,6 +185,13 @@
         <Setter Property="LineHeight" Value="14"/>
     </Style>
 
+    <!-- F22: header for each of Settings' six labelled groups. Focusable so
+         Task 2's section rail can BringIntoView + focus it. -->
+    <Style x:Key="SettingsGroupHeader" TargetType="TextBlock" BasedOn="{StaticResource H2}">
+        <Setter Property="Margin" Value="0,32,0,12"/>
+        <Setter Property="Focusable" Value="True"/>
+    </Style>
+
     <!-- timer: the sprint countdown. Tabular by default so the digits never
          jiggle. §3's WPF column suggests CharacterSpacing="-20" here too;
          see the Eyebrow comment above for why that isn't available on this

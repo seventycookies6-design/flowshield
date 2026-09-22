@@ -3997,3 +3997,38 @@ class TestTokenContrast:
         assert theme["ok"] == "#276A3E"
         assert theme["warn"] == "#7A5413"
         assert theme["danger"] == "#A3334A"
+
+
+class TestSettingsIsGrouped:
+    """F22: Settings is six labelled groups in a fixed order, and moving
+    cards into them lost no control."""
+
+    XAML = Path(SERVER_DIR).parent / "DesktopApp" / "Views" / "SettingsView.xaml"
+    GROUPS = ["Licence", "Focus", "App", "Notifications", "Data", "About"]
+    # every id the suite relies on; must survive the move
+    KEPT_IDS = ["LicenseKeyInput", "ActivateProButton", "DevicesList",
+                "StartWithWindowsToggle", "MinimizeToTrayToggle", "SoftOverlayToggle",
+                "HardKillModeToggle", "GlobalHotkeyToggle", "ThemeSystemRadio",
+                "GoalOffRadio", "ShortBreakMinutesInput", "ExportJournalButton",
+                "NotificationsToggle", "NotifyTrialEndingToggle", "ExportDataButton",
+                "DeleteEverythingButton", "VersionText", "CheckForUpdatesButton",
+                "OpenLogButton", "ShowFirstRunButton"]
+
+    def test_groups_exist_in_order(self):
+        xaml = self.XAML.read_text(encoding="utf-8")
+        positions = [xaml.find(f'AutomationProperties.AutomationId="SettingsGroup_{g}"')
+                     for g in self.GROUPS]
+        assert all(p >= 0 for p in positions), positions
+        assert positions == sorted(positions), "groups out of order"
+
+    def test_every_existing_id_survives(self):
+        xaml = self.XAML.read_text(encoding="utf-8")
+        for aid in self.KEPT_IDS:
+            assert xaml.count(f'AutomationProperties.AutomationId="{aid}"') == 1, aid
+
+    def test_shield_toggles_live_in_focus(self):
+        xaml = self.XAML.read_text(encoding="utf-8")
+        focus = xaml.index('SettingsGroup_Focus"')
+        app = xaml.index('SettingsGroup_App"')
+        for aid in ("SoftOverlayToggle", "HardKillModeToggle"):
+            assert focus < xaml.index(f'"{aid}"') < app, f"{aid} belongs in Focus"
