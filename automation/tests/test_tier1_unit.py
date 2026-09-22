@@ -872,10 +872,18 @@ class TestTermsAcceptance:
         assert "TermsAcceptedUtc" in accept
 
     def test_checkout_asks_the_buyer_to_agree(self):
+        # custom_text cannot be used once Managed Payments is enabled (Stripe
+        # rejects the whole session with it present, #192), so the checkbox no
+        # longer carries its own custom message per request — it links to the
+        # terms-of-service URL configured on the Stripe account itself
+        # (Dashboard -> Settings -> Checkout), which points at
+        # legal.html#terms. That page carries the "closes programs / unsaved
+        # work" warning in full (checked against the legal page in tier 5,
+        # and stated up front by the app's own first-run terms gate above).
         server = (Path(SERVER_DIR) / "server.js").read_text(encoding="utf-8")
         assert "consent_collection: { terms_of_service: 'required' }" in server
-        consent = server.split("custom_text: {")[1].split("},")[0].lower()
-        assert "closes programs" in consent and "unsaved work" in consent
+        assert "custom_text:" not in server, \
+            "custom_text cannot be used once Managed Payments is enabled"
 
 
 class TestFirstRunPolicy:
