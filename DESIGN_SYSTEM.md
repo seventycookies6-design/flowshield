@@ -175,6 +175,7 @@ All roles are Inter.
     - **Settings-like pages** (Settings, Sleep Blocking) flow their cards into as many columns as fit at 400 px or more each, up to three, in order, balancing the heights (`inf:AdaptiveColumns`). Put the gaps in the panel's `Spacing`, not in the cards' margins.
     - **Two-pane pages** give the side pane a proportional width with a minimum and maximum, never a fixed one: Today's stats (`0.4*`, 300–420 px) and Blocked Apps' picker (`0.65*`, 260–460 px). Below a view width of 700 px (Today) or 780 px (Blocked Apps), the side pane stacks under the main one and the page scrolls.
     - **Fully round shapes** use `inf:Pill.IsRound`, never a huge `CornerRadius` (WPF draws that as an ellipse).
+    - Settings is six labelled groups with a section rail; below 900px the rail becomes a chip row.
   - **Fixed-height controls:** a control's vertical padding must leave room for its content. `BtnBase` fixes the height at 40, and navigation rows are 44 with no vertical padding, so their 20 px icons are never clipped.
   - **Site:** a 1120 px maximum width (`--maxw`).
   - **Minimum app size:** 800 × 540 (Roadmap 1.13).

@@ -295,8 +295,8 @@ go-ahead.
    What's genuinely still open, per #37/#38 (reviewed 22 September 2026): on
    the owner's side, F6 (templates/schedules), F14 (milestones, #133, now
    unblocked by F16), roadmap 4.1 (updates) and 5.1 (buy in-app); on Miles's
-   side, F22 (calm Settings — now unblocked, since F5/F9 and notifications
-   exist), roadmap 5.5 (email-only unlock, needs an
+   side, F22 shipped (calm Settings, #253); still open there is
+   roadmap 5.5 (email-only unlock, needs an
    email provider), 3.7 (sleep schedule, needs F6), 4.3 (in-app Get help),
    the #144 capture refresh (now that the visual language and features have
    landed), bugs #203/#204, #234 (device-token HMAC), History list
