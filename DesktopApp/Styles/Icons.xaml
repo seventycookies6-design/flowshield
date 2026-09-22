@@ -20,6 +20,12 @@
     <!-- moon -->
     <StreamGeometry x:Key="IconSleep">M 20.985 12.486 A 9 9 0 1 1 11.515 3.015 A 7 7 0 1 0 20.985 12.486 Z</StreamGeometry>
 
+    <!-- chart-column (History, F16). A bar chart rather than Lucide's own
+         "history" clock-with-an-arrow, which at 20 px is hard to tell from the
+         Today clock two rows above it. Bounds are 3–21 on both axes, the same
+         18 of the 24 grid as the icons around it. -->
+    <StreamGeometry x:Key="IconHistory">M 3 3 L 3 19 A 2 2 0 0 0 5 21 L 21 21 M 18 17 L 18 9 M 13 17 L 13 5 M 8 17 L 8 14</StreamGeometry>
+
     <!-- settings (gear: a toothed ring, plus the hub) -->
     <StreamGeometry x:Key="IconSettings">M 9.671 4.136 A 1.75 1.75 0 0 1 12 2.5 A 1.75 1.75 0 0 1 14.329 4.136 L 14.548 5.106 A 1.75 1.75 0 0 0 16.43 6.193 L 17.415 6.06 A 1.75 1.75 0 0 1 19.5 8.222 A 1.75 1.75 0 0 1 18.783 10.318 L 17.973 10.894 A 1.75 1.75 0 0 0 17.253 12.14 A 1.75 1.75 0 0 0 17.973 13.106 L 18.783 13.682 A 1.75 1.75 0 0 1 19.5 15.778 A 1.75 1.75 0 0 1 17.415 17.94 L 16.43 17.807 A 1.75 1.75 0 0 0 14.548 18.894 L 14.329 19.864 A 1.75 1.75 0 0 1 12 21.5 A 1.75 1.75 0 0 1 9.671 19.864 L 9.452 18.894 A 1.75 1.75 0 0 0 7.57 17.807 L 6.585 17.94 A 1.75 1.75 0 0 1 4.5 15.778 A 1.75 1.75 0 0 1 5.217 13.682 L 6.027 13.106 A 1.75 1.75 0 0 0 6.747 12.14 A 1.75 1.75 0 0 0 6.027 10.894 L 5.217 10.318 A 1.75 1.75 0 0 1 4.5 8.222 A 1.75 1.75 0 0 1 6.585 6.06 L 7.57 6.193 A 1.75 1.75 0 0 0 9.452 5.106 Z M 15 12 A 3 3 0 1 1 9 12 A 3 3 0 1 1 15 12 Z</StreamGeometry>
 
