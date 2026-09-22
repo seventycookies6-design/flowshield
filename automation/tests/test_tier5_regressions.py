@@ -7299,3 +7299,124 @@ class TestTheThemeActuallySwitchesF21:
         for forbidden in ("new Window", ".Show()", ".ShowDialog()", "app.Run("):
             assert forbidden not in source, \
                 f"the theme probe must not {forbidden} -- it runs beside the UI suite"
+
+
+# ================== what the first full UI-suite run taught us (#242-#245)
+
+class TestTheUiSuiteCanObserveWhatItAsserts:
+    """
+    Four of the first full UI run's failures were the suite measuring itself
+    rather than the product (#242, #243, #245). None of them could fail loudly:
+    each looked exactly like a product bug. These are the source-level traps,
+    so the same classes of mistake cannot come back quietly.
+    """
+
+    POLICY = Path(DESKTOP_DIR) / "Models" / "EndSprintPolicy.cs"
+    CONTROLLER = Path(DESKTOP_DIR).parent / "automation" / "desktop" / "app_controller.py"
+    TIER3 = Path(DESKTOP_DIR).parent / "automation" / "tests" / "test_tier3_e2e.py"
+
+    def _short_seconds(self, name: str) -> float:
+        source = self.POLICY.read_text(encoding="utf-8")
+        match = re.search(
+            name + r"\s*=>\s*UseShortTimers\s*\?\s*TimeSpan\.FromSeconds\((\d+(?:\.\d+)?)\)"
+            r"\s*:\s*TimeSpan\.From(\w+)\((\d+(?:\.\d+)?)\)",
+            source,
+        )
+        assert match, f"{name}'s short/real pair was not found; update this test"
+        return float(match.group(1))
+
+    def _real(self, name: str) -> tuple[str, float]:
+        source = self.POLICY.read_text(encoding="utf-8")
+        match = re.search(
+            name + r"\s*=>\s*UseShortTimers\s*\?\s*TimeSpan\.FromSeconds\(\d+(?:\.\d+)?\)"
+            r"\s*:\s*TimeSpan\.From(\w+)\((\d+(?:\.\d+)?)\)",
+            source,
+        )
+        assert match, f"{name}'s short/real pair was not found; update this test"
+        return match.group(1), float(match.group(2))
+
+    # A UIA element lookup plus an IsEnabled read costs a second or more on
+    # Today. #242's log showed End anyway unlocking 2.507 s after the panel
+    # opened -- correct against a 2 s delay, and unobservable by the test that
+    # was meant to catch it. Anything under this is a window the suite cannot
+    # see into, so a test asserting on it is really asserting on its own speed.
+    OBSERVABLE_SECONDS = 5.0
+
+    def test_every_shortened_wait_is_long_enough_to_observe(self):
+        for name in ("GracePeriod", "FirmConfirmDelay", "SealedCountdown"):
+            seconds = self._short_seconds(name)
+            assert seconds >= self.OBSERVABLE_SECONDS, (
+                f"{name} is {seconds}s under --short-timers, shorter than a UIA "
+                f"round trip; a test asserting the gate would fail on the app's "
+                f"correct behaviour, as #242 did"
+            )
+
+    def test_shortening_never_touches_what_a_customer_gets(self):
+        assert self._real("GracePeriod") == ("Minutes", 2.0)
+        assert self._real("FirmConfirmDelay") == ("Seconds", 5.0)
+        assert self._real("SealedCountdown") == ("Seconds", 30.0)
+
+    def test_the_driver_agrees_with_the_shortened_grace_period(self):
+        """
+        #222 widened the grace period and left SHORT_GRACE_SECONDS at the old
+        value with a comment naming timers that no longer existed. A stale
+        mirror of a constant is worse than no mirror.
+        """
+        source = self.CONTROLLER.read_text(encoding="utf-8")
+        match = re.search(r"SHORT_GRACE_SECONDS\s*=\s*(\d+(?:\.\d+)?)", source)
+        assert match, "SHORT_GRACE_SECONDS was not found in the controller"
+        assert float(match.group(1)) == self._short_seconds("GracePeriod"), (
+            "the driver's idea of the shortened grace period must match "
+            "EndSprintPolicy.cs"
+        )
+
+    def test_no_ui_test_sends_a_bare_space_to_type_keys(self):
+        """
+        pywinauto drops " " from type_keys unless with_spaces=True, so
+        `type_keys(" ")` sends nothing at all -- which is why F4's Space
+        shortcut tests failed against a shortcut that works (#245). {SPACE}
+        is unambiguous and needs no flag.
+        """
+        # A real call, so the sentence above describing the trap is not itself
+        # an offender.
+        pattern = re.compile(r"\.type_keys\(\s*(['\"])( +)\1\s*\)")
+        for path in (self.TIER3, self.CONTROLLER):
+            text = path.read_text(encoding="utf-8")
+            assert not pattern.search(text), (
+                f"{path.name}: type_keys with a bare space sends no key; use "
+                '"{SPACE}" or pass with_spaces=True'
+            )
+
+    def test_no_test_asserts_on_whitespace_text_of_strips(self):
+        """
+        text_of() strips both ends, so an assertion about a leading or trailing
+        space can never pass however the app behaves -- #245's second test
+        asserted exactly that and read as a product bug for a night.
+        """
+        text = self.TIER3.read_text(encoding="utf-8")
+        offenders = re.findall(
+            r"text_of\([^)]*\)\.(?:startswith|endswith)\(\s*(['\"]) +\1", text)
+        assert not offenders, (
+            "text_of() strips whitespace; assert on an interior space instead"
+        )
+
+    def test_the_trial_that_expires_mid_sprint_gets_a_usable_runway(self):
+        """
+        #243: --expire-trial-in=8 ran out before the driver had finished
+        connecting, so the app correctly refused the Pro-gated custom sprint
+        length and F20's scenario never started a sprint at all.
+        """
+        conftest = (Path(DESKTOP_DIR).parent / "automation" / "tests" / "conftest.py").read_text(
+            encoding="utf-8")
+        block = conftest.split("def trial_expiring_soon_app(", 1)
+        assert len(block) == 2, "the trial_expiring_soon_app fixture was not found"
+        match = re.search(r"runway\s*=\s*(\d+)", block[1])
+        assert match, "the fixture should name its runway in one place"
+        assert int(match.group(1)) >= 60, (
+            "a trial shorter than the driver's own setup expires before the test "
+            "can pick a Pro-gated sprint length"
+        )
+        assert "trial_ends_at" in block[1], (
+            "the fixture must publish when the trial ends so the test can wait "
+            "for the real boundary rather than sleeping a guess"
+        )
