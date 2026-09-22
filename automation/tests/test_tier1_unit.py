@@ -1190,6 +1190,59 @@ class TestLicenseWaitCopy:
         assert "2.0" in delays and "5.0" in delays
 
 
+# ========================= Roadmap 5.7 — see and manage your devices (token)
+
+class TestDeviceToken:
+    """
+    Server/devicetoken.js: the opaque, per-(licence, device) token the
+    /devices list hands back instead of the raw hashed device id, so
+    Settings' "Your devices" list can target one *other* device for release
+    without the server ever disclosing another machine's real identifier.
+
+    Pure crypto, no database and no HTTP — split into its own module
+    specifically so it is testable without starting the server (server.js
+    calls app.listen() unconditionally at require time).
+    """
+
+    def _token(self, license_key: str, device_id: str) -> str:
+        out = node_eval(
+            "const {deviceToken}=require('./devicetoken');"
+            f"console.log(JSON.stringify({{t:deviceToken({license_key!r},{device_id!r})}}))"
+        )
+        return out["t"]
+
+    def test_deterministic_for_the_same_pair(self):
+        a = self._token("FS-AAAA-BBBB-CCCC-DDDD", "device-1")
+        b = self._token("FS-AAAA-BBBB-CCCC-DDDD", "device-1")
+        assert a == b
+
+    def test_distinct_for_different_devices(self):
+        a = self._token("FS-AAAA-BBBB-CCCC-DDDD", "device-1")
+        b = self._token("FS-AAAA-BBBB-CCCC-DDDD", "device-2")
+        assert a != b
+
+    def test_distinct_for_different_licences(self):
+        """The same physical device on two licences must not share a token —
+        that would let one customer's list fingerprint another's device."""
+        a = self._token("FS-AAAA-BBBB-CCCC-DDDD", "device-1")
+        b = self._token("FS-EEEE-FFFF-GGGG-HHHH", "device-1")
+        assert a != b
+
+    def test_never_equal_to_the_raw_device_id(self):
+        device_id = "a" * 32
+        token = self._token("FS-AAAA-BBBB-CCCC-DDDD", device_id)
+        assert token != device_id
+        assert device_id not in token
+
+    def test_is_not_reversible_to_the_device_id(self):
+        """Sanity check: it's a hash digest, not the id itself or a trivial
+        transform of it (e.g. a prefix or suffix)."""
+        device_id = "b" * 32
+        token = self._token("FS-AAAA-BBBB-CCCC-DDDD", device_id)
+        assert not device_id.startswith(token)
+        assert not token.startswith(device_id[:16])
+
+
 # ============================================= sprint summary card (F12)
 
 def summary_title(completed: bool, start_momentum: float, end_momentum: float) -> str:

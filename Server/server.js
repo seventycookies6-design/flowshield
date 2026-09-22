@@ -26,6 +26,7 @@ const licensekey = require('./licensekey');
 const mail = require('./email');
 const { loadKeys, describe, KEYS_PATH } = require('./keys');
 const { createLimiter } = require('./ratelimit');
+const { deviceToken } = require('./devicetoken');
 
 const PORT = Number(process.env.PORT || 3000);
 
@@ -831,6 +832,8 @@ app.post('/devices', limiter.middleware('devices'), async (req, res) => {
   const key = licensekey.normalize(req.body?.licenseKey ?? req.body?.license_key ?? '');
   const action = String(req.body?.action || 'list').toLowerCase();
   const deviceId = typeof req.body?.deviceId === 'string' ? req.body.deviceId.trim() : '';
+  const releaseToken =
+    typeof req.body?.releaseToken === 'string' ? req.body.releaseToken.trim() : '';
 
   if (!key) {
     return res.status(400).json({
@@ -861,22 +864,40 @@ app.post('/devices', limiter.middleware('devices'), async (req, res) => {
   }
 
   if (action === 'release') {
-    if (!deviceId) {
-      return res.status(400).json({ error: 'missing_device', message: 'deviceId is required.' });
+    // Two ways in: the app's own device id (self-deactivation, LicenseService
+    // .DeactivateAsync — it already knows its own id) or a releaseToken from
+    // a prior list response (releasing a *different* device from Settings'
+    // "Your devices" list, Roadmap 5.7 — the list never hands back a raw id).
+    let targetId = deviceId;
+    if (!targetId && releaseToken) {
+      const match = db.listDevices(row.license_key)
+        .find((d) => deviceToken(row.license_key, d.device_id) === releaseToken);
+      targetId = match?.device_id || '';
     }
-    const removed = db.removeDevice(row.license_key, deviceId);
+
+    if (!targetId) {
+      return res.status(400).json({
+        error: 'missing_device',
+        message: 'deviceId or releaseToken is required.',
+      });
+    }
+    const removed = db.removeDevice(row.license_key, targetId);
     log(`device ${removed ? 'released' : 'not found'} for ${row.license_key}`);
   } else if (action === 'release-all') {
     db.removeAllDevices(row.license_key);
     log(`all devices released for ${row.license_key}`);
   }
 
-  // Names only, never the raw ids — those are the client's to hold.
+  // Names only, never the raw ids — those are the client's to hold. Each row
+  // does carry a deviceToken, a one-way, per-licence value derived from the
+  // raw id (see deviceToken above), so the app can target a specific *other*
+  // device for release without ever being told its real device id.
   const devices = db.listDevices(row.license_key).map((d) => ({
     name: d.device_name || 'Unnamed device',
     firstSeen: d.first_seen,
     lastSeen: d.last_seen,
     isCurrent: !!deviceId && d.device_id === deviceId,
+    deviceToken: deviceToken(row.license_key, d.device_id),
   }));
 
   res.json({

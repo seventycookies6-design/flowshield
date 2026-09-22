@@ -178,6 +178,19 @@ class TestPrivacyClaimsMatchTheCode:
             'AutomationId="DeleteEverythingButton"')[0][-400:], \
             "Delete everything must use the destructive button style (DESIGN_SYSTEM.md §7)"
 
+    def test_legal_html_can_see_and_remove_devices_is_backed_by_code(self):
+        """
+        legal.html already promised "you can see and remove your own
+        devices" before Roadmap 5.7 built that feature — rule #5 ("never
+        claim a feature the shipped build doesn't have") means that promise
+        had to become true in this PR, not just stay written down.
+        """
+        assert "see and remove your own devices" in self.LEGAL.lower()
+        assert 'AutomationId="DevicesList"' in self.SETTINGS_VIEW
+        assert 'Binding DataContext.ConfirmReleaseCommand' in self.SETTINGS_VIEW
+        assert "ListDevicesAsync" in self.LICENSE_SERVICE
+        assert "ReleaseDeviceAsync" in self.LICENSE_SERVICE
+
     def _what_leaves_text(self) -> str:
         """Just the WhatLeavesText control's own Text attribute, not the whole
         Settings page — "email" also appears in the unrelated LicenseEmailInput
@@ -3795,6 +3808,135 @@ class TestNavigationUsesIconsNotUnicodeGlyphs:
         assert notice.exists(), "Lucide is ISC-licensed; keep its notice with the icons"
         text = notice.read_text(encoding="utf-8")
         assert "ISC License" in text and "Lucide" in text
+
+
+# ===================== Roadmap 5.7 — see and manage your devices (UI)
+
+class TestDevicesListIsFetchedOnDemandOnly:
+    """
+    The device list must be fetched only when the card is expanded (the
+    first time) or Refresh is pressed — never on a timer, never in the
+    background. A regression here (e.g. a DispatcherTimer wired to
+    LoadDevicesAsync, or a fetch in the constructor) would hit the licence
+    server on every Settings open and on every tick, for no reason.
+    """
+
+    SETTINGS_VM = (Path(DESKTOP_DIR) / "ViewModels" / "SettingsViewModel.cs").read_text(
+        encoding="utf-8")
+
+    def test_no_timer_touches_the_device_loader(self):
+        assert "DispatcherTimer" not in self.SETTINGS_VM, (
+            "devices must never be polled; fetch only on expand or Refresh"
+        )
+
+    def test_the_constructor_does_not_call_the_loader_directly(self):
+        """
+        LoadDevicesAsync legitimately appears in the constructor as a command
+        lambda (`() => LoadDevicesAsync(...)`, wired to RefreshDevicesCommand)
+        — that's fine, it only runs when the button is clicked. What must not
+        appear is an *immediate* call, i.e. `await LoadDevicesAsync` or
+        `ListDevicesAsync` reached directly rather than through a command.
+        """
+        ctor = self.SETTINGS_VM.split("public SettingsViewModel(")[1].split(
+            "\n    public AsyncRelayCommand ActivateCommand")[0]
+        assert "await LoadDevicesAsync" not in ctor
+        assert "await ListDevicesAsync" not in ctor
+        assert "await _license.ListDevicesAsync" not in ctor
+
+    def test_toggle_only_fetches_the_first_time_it_expands(self):
+        toggle = self.SETTINGS_VM.split("private async Task ToggleDevicesAsync")[1].split(
+            "\n    private async Task LoadDevicesAsync")[0]
+        assert "_devicesLoadedOnce" in toggle, (
+            "collapsing and re-expanding must not re-fetch; only the first "
+            "expand (or an explicit Refresh) should hit the server"
+        )
+
+    def test_refresh_always_forces_a_fetch(self):
+        assert "RefreshDevicesCommand = new AsyncRelayCommand(() => LoadDevicesAsync(force: true))" \
+               in self.SETTINGS_VM
+
+
+class TestDeviceReleaseNeedsConfirmation:
+    """
+    Release is a quiet button (DESIGN_SYSTEM.md §7), but it still removes a
+    device's seat, so a single click must not do it. There has to be an
+    explicit confirm/cancel step between the two, and the confirm control
+    must be visually distinct (BtnDanger) from the initial Release click.
+    """
+
+    SETTINGS_VIEW = (Path(DESKTOP_DIR) / "Views" / "SettingsView.xaml").read_text(
+        encoding="utf-8")
+    SETTINGS_VM = (Path(DESKTOP_DIR) / "ViewModels" / "SettingsViewModel.cs").read_text(
+        encoding="utf-8")
+
+    def test_release_does_not_call_the_server_directly(self):
+        """Clicking Release only requests confirmation; it must not itself
+        call ReleaseDeviceAsync."""
+        vm = self.SETTINGS_VM
+        request = vm.split("RequestReleaseCommand = new RelayCommand(")[1].split(");")[0]
+        assert "ReleaseDeviceAsync" not in request
+        assert "IsConfirmingRelease = true" in request
+
+    def test_a_second_explicit_step_is_required_to_actually_release(self):
+        vm = self.SETTINGS_VM
+        confirm = vm.split("ConfirmReleaseCommand = new AsyncRelayCommand(")[1].split(");")[0]
+        assert "ReleaseDeviceAsync" in confirm
+
+    def test_cancel_is_available_and_does_not_release(self):
+        vm = self.SETTINGS_VM
+        cancel = vm.split("CancelReleaseCommand = new RelayCommand(")[1].split(");")[0]
+        assert "ReleaseDeviceAsync" not in cancel
+        assert "IsConfirmingRelease = false" in cancel
+
+    def test_the_confirm_button_uses_the_destructive_style(self):
+        xaml = self.SETTINGS_VIEW
+        confirm_button = xaml.split('Command="{Binding DataContext.ConfirmReleaseCommand')[0][-400:]
+        assert 'Style="{StaticResource BtnDanger}"' in confirm_button
+
+    def test_the_initial_release_button_uses_the_quiet_style(self):
+        xaml = self.SETTINGS_VIEW
+        release_button = xaml.split('Command="{Binding DataContext.RequestReleaseCommand')[0][-400:]
+        assert 'Style="{StaticResource BtnQuiet}"' in release_button
+
+    def test_a_device_can_never_release_its_own_seat_from_this_list(self):
+        """CanRelease is false for the current device — that's Deactivate,
+        not a row in this list."""
+        vm = (Path(DESKTOP_DIR) / "ViewModels" / "DeviceRowViewModel.cs").read_text(
+            encoding="utf-8")
+        assert "CanRelease => !IsCurrent" in vm
+
+
+class TestDeviceCapShowsTheListInline:
+    """
+    Hitting the 3-device cap during Activate must not be a dead end — the
+    app shows the message right there and loads the list so the customer can
+    release a seat without hunting for a separate control (Roadmap 5.7).
+    """
+
+    SETTINGS_VM = (Path(DESKTOP_DIR) / "ViewModels" / "SettingsViewModel.cs").read_text(
+        encoding="utf-8")
+
+    def test_activate_recognises_the_cap_reason(self):
+        activate = self.SETTINGS_VM.split("private async Task ActivateAsync")[1].split(
+            "\n    private async Task DeactivateAsync")[0]
+        assert 'result.Status == "device_limit_reached"' in activate
+
+    def test_the_cap_message_names_the_limit_and_the_fix(self):
+        activate = self.SETTINGS_VM.split("private async Task ActivateAsync")[1].split(
+            "\n    private async Task DeactivateAsync")[0]
+        cap_branch = activate.split('result.Status == "device_limit_reached"')[1].split(
+            "else")[0]
+        assert "PCs" in cap_branch
+        assert "Release one to activate here" in cap_branch
+
+    def test_hitting_the_cap_loads_and_expands_the_device_list(self):
+        activate = self.SETTINGS_VM.split("private async Task ActivateAsync")[1].split(
+            "\n    private async Task DeactivateAsync")[0]
+        cap_branch = activate.split('result.Status == "device_limit_reached"')[1].split(
+            "else")[0]
+        assert "LoadDevicesAsync" in cap_branch
+        assert "IsDevicesExpanded = true" in cap_branch
+
 
 # ============================ issue hygiene check (#158)
 
