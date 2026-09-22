@@ -125,7 +125,7 @@ roadmap item below has exactly one owner. Tracking issues: #37 (Keenan) and
 | F15 | Daily focus goal | S |
 | F17 | Read back and export the journal (Roadmap 3.5) | S |
 | F20 | A trial that never nags (done, #213) | S |
-| F21 | Light theme, keyboard use and accessibility (Roadmap 4.6) | M |
+| F21 | Light theme, keyboard use and accessibility (Roadmap 4.6) (done, #237) | M |
 | F22 | Clear, calm Settings (Roadmap 4.2) | S |
 | F24 | One-time price as the headline, on the site | S |
 | F26 | Honest limits and the FAQ (Roadmap 6.2) | S |

@@ -290,13 +290,13 @@ go-ahead.
    push (21–22 September 2026, #191 onward) shipped F4 (tray/keyboard start,
    #214), F5 (breaks and study cycles, #230), F7's remaining Soft overlay
    (#224), F9 (blocklist profiles, #233), F16 (history and a weekly view,
-   #217), F20 and F23 (#213, #211), and the server roadmap's 5.2 (#225) and
-   5.7 (#229). What's genuinely still open, per #37/#38 (reviewed
-   22 September 2026): on the owner's side, F6 (templates/schedules), F14
-   (milestones, #133, now unblocked by F16), roadmap 4.1 (updates) and 5.1
-   (buy in-app); on Miles's side, F21 (light theme, keyboard and
-   accessibility, open as #237), F22 (calm Settings — now unblocked, since
-   F5/F9 and notifications exist), roadmap 5.5 (email-only unlock, needs an
+   #217), F20 and F23 (#213, #211), F21 (light theme, keyboard use and
+   accessibility, #237), and the server roadmap's 5.2 (#225) and 5.7 (#229).
+   What's genuinely still open, per #37/#38 (reviewed 22 September 2026): on
+   the owner's side, F6 (templates/schedules), F14 (milestones, #133, now
+   unblocked by F16), roadmap 4.1 (updates) and 5.1 (buy in-app); on Miles's
+   side, F22 (calm Settings — now unblocked, since F5/F9 and notifications
+   exist), roadmap 5.5 (email-only unlock, needs an
    email provider), 3.7 (sleep schedule, needs F6), 4.3 (in-app Get help),
    the #144 capture refresh (now that the visual language and features have
    landed), bugs #203/#204, #234 (device-token HMAC), History list
