@@ -5686,6 +5686,29 @@ class TestTrayAndKeyboardNeverBypassTheEndFlow:
         assert shield_lines and all('Modifiers="Shift"' in line for line in shield_lines), \
             "every shield shortcut must use Shift, keeping Ctrl+1..5 free for page navigation"
 
+    def test_ctrl_number_shortcuts_match_the_nav_rails_tab_order(self):
+        """
+        F16 added History as the rail's second tab (Today, History, Blocked
+        Apps, Sleep Blocking, Settings), which used the fifth Ctrl+N slot F4
+        left free. Ctrl+N must walk the tabs in the order they are drawn, or
+        the shortcut a user memorises from looking at the rail stops matching
+        what pressing it actually does.
+        """
+        xaml = self.MAIN_XAML.read_text(encoding="utf-8")
+        tabs = xaml.split('<StackPanel x:Name="NavTabs"', 1)[1].split("<Grid/>", 1)[0]
+        rail_order = re.findall(r'CommandParameter="(\w+)"', tabs)
+        assert rail_order == ["Today", "History", "BlockedApps", "SleepBlocking", "Settings"], \
+            f"the rail's own tab order is {rail_order}; update the expectation or the rail"
+
+        ctrl_bindings = re.findall(
+            r'<KeyBinding Modifiers="Ctrl" Key="D(\d)" Command="\{Binding NavigateCommand\}" '
+            r'CommandParameter="(\w+)"/>', xaml)
+        ctrl_order = [page for _, page in sorted(ctrl_bindings, key=lambda pair: int(pair[0]))]
+        assert ctrl_order == rail_order, (
+            f"Ctrl+1..{len(ctrl_order)} goes to {ctrl_order}, which does not match the rail's "
+            f"own order {rail_order}"
+        )
+
 
 # ============================ Space cannot reach through the first-run wizard
 
