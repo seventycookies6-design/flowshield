@@ -194,7 +194,7 @@
                                                Source="{Binding Shield, Converter={StaticResource ShieldGlyph}}"/>
 
                                         <StackPanel Grid.Column="1">
-                                            <TextBlock Foreground="{StaticResource Ink}" FontWeight="SemiBold"
+                                            <TextBlock Foreground="{DynamicResource Ink}" FontWeight="SemiBold"
                                                        FontSize="13" TextWrapping="Wrap"
                                                        Typography.NumeralAlignment="Tabular"
                                                        AutomationProperties.Name="{Binding AccessibleName}"

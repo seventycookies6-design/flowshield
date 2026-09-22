@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import shutil
 import struct
 import subprocess
 import sys
@@ -1623,8 +1624,17 @@ class TestDesignTokensStayInSync:
         assert result.returncode == 0, result.stdout + result.stderr
 
     def test_theme_takes_its_palette_from_the_tokens(self):
+        """
+        F21 moved the Tokens merge out of Theme.xaml and into App.xaml, so the
+        dictionary can be swapped at run time; a second merge anywhere else
+        would shadow the swapped one. Theme.xaml still must not define a colour
+        of its own.
+        """
         theme = (Path(DESKTOP_DIR) / "Styles" / "Theme.xaml").read_text(encoding="utf-8")
-        assert '<ResourceDictionary Source="Tokens.xaml"/>' in theme
+        app = (Path(DESKTOP_DIR) / "App.xaml").read_text(encoding="utf-8")
+        assert '<ResourceDictionary Source="Styles/Tokens.xaml"/>' in app
+        assert '<ResourceDictionary Source="Tokens.xaml"/>' not in theme, \
+            "Theme.xaml must not merge the tokens itself -- it would shadow the swapped dictionary"
         for key in ("Bg", "Surface", "Ink", "InkFaint", "Primary", "Edge", "Green", "Amber", "Rose"):
             assert f'x:Key="{key}"' not in theme, f"{key} is defined in Theme.xaml instead of the tokens"
 
@@ -4454,21 +4464,29 @@ class TestShieldGlyphsA4:
         assert match, f"no ShieldGlyph{key.replace('ShieldGlyph', '')} DrawingImage resource found"
         return match.group(0)
 
-    def test_glyph_file_exists_and_merges_tokens(self):
+    def test_glyph_file_exists_and_takes_its_brushes_from_the_tokens(self):
+        """
+        F21: the glyphs no longer merge Tokens.xaml themselves -- that copy
+        would shadow the dictionary ThemeService swaps, and the glyphs would
+        stay dark on a light background. They use DynamicResource instead, and
+        App.xaml merges the tokens ahead of them.
+        """
         assert self.GLYPHS.is_file(), (
             "DesktopApp/Styles/ShieldGlyphs.xaml is missing -- the shield glyphs must be "
             "built once, in a shared resource dictionary (UI-SPEC.md A4)")
         xml = self.GLYPHS.read_text(encoding="utf-8")
-        assert '<ResourceDictionary Source="Tokens.xaml"/>' in xml, (
-            "ShieldGlyphs.xaml must merge Tokens.xaml itself -- a StaticResource brush "
-            "lookup only sees its own dictionary's merged dictionaries, not its "
-            "sibling dictionaries in Theme.xaml")
+        assert '<ResourceDictionary Source="Tokens.xaml"/>' not in xml, (
+            "ShieldGlyphs.xaml must not merge the tokens itself -- that copy shadows "
+            "the dictionary F21 swaps at run time")
+        assert "{DynamicResource" in xml and "{StaticResource" not in xml, (
+            "the glyph brushes must be DynamicResource so a fresh load of this "
+            "dictionary picks up the theme in force")
 
-    def test_theme_merges_the_glyph_dictionary(self):
-        theme = self.THEME.read_text(encoding="utf-8")
-        assert '<ResourceDictionary Source="ShieldGlyphs.xaml"/>' in theme, (
-            "Theme.xaml must merge ShieldGlyphs.xaml or the glyph resources are never "
-            "loaded into the app")
+    def test_the_app_merges_the_glyph_dictionary(self):
+        app = (Path(DESKTOP_DIR) / "App.xaml").read_text(encoding="utf-8")
+        assert '<ResourceDictionary Source="Styles/ShieldGlyphs.xaml"/>' in app, (
+            "App.xaml must merge ShieldGlyphs.xaml, after the tokens, or the glyph "
+            "resources are never loaded into the app")
 
     def test_exactly_three_levels_are_defined(self):
         xml = self.GLYPHS.read_text(encoding="utf-8")
@@ -4479,31 +4497,35 @@ class TestShieldGlyphsA4:
     def test_soft_is_outline_and_one_bar_in_text_muted(self):
         """§6: Soft is a shield outline with one bar, in text-muted (InkDim), never primary."""
         block = self._resource_block(self.GLYPHS.read_text(encoding="utf-8"), "ShieldGlyphSoft")
-        assert "{StaticResource InkDim}" in block
-        assert "{StaticResource Primary}" not in block, (
+        assert "{DynamicResource InkDim}" in block
+        assert "{DynamicResource Primary}" not in block, (
             "Soft must never use primary -- strength escalates through fill and bar "
             "count, not colour (§6)")
         assert block.count("M8.5,") == 1, "Soft should draw exactly one bar"
 
     def test_firm_is_outline_and_two_bars_in_primary(self):
         block = self._resource_block(self.GLYPHS.read_text(encoding="utf-8"), "ShieldGlyphFirm")
-        assert block.count("{StaticResource Primary}") >= 1
-        assert "{StaticResource InkDim}" not in block
+        assert block.count("{DynamicResource Primary}") >= 1
+        assert "{DynamicResource InkDim}" not in block
         assert block.count("M8.5,") == 2, "Firm should draw exactly two bars"
 
     def test_sealed_is_solid_primary_with_three_bars_and_a_lock_notch_in_primary_ink(self):
         block = self._resource_block(self.GLYPHS.read_text(encoding="utf-8"), "ShieldGlyphSealed")
-        assert 'Brush="{StaticResource Primary}"' in block, (
+        assert 'Brush="{DynamicResource Primary}"' in block, (
             "Sealed's shield shape must be a solid primary fill, not an outline")
-        assert block.count("{StaticResource PrimaryInk}") >= 2, (
+        assert block.count("{DynamicResource PrimaryInk}") >= 2, (
             "Sealed's bars and lock notch must be drawn in primary-ink for contrast "
             "against the solid fill")
         assert block.count("M8.5,") == 3, "Sealed should draw exactly three bars"
 
     def test_shield_chips_reference_the_shared_glyph_resource(self):
+        """
+        DynamicResource since F21: ThemeService reloads the glyph dictionary on
+        a theme change, and a StaticResource would hold the old instance.
+        """
         xml = self.TODAY_VIEW.read_text(encoding="utf-8")
         for key in ("ShieldGlyphSoft", "ShieldGlyphFirm", "ShieldGlyphSealed"):
-            assert f'Source="{{StaticResource {key}}}"' in xml, (
+            assert f'Source="{{DynamicResource {key}}}"' in xml, (
                 f"the {key} chip should render the shared glyph resource, not its own "
                 f"re-derived geometry")
 
@@ -4897,6 +4919,59 @@ class TestNoHardcodedColoursA3:
         """A regex that silently matched zero files would pass for the wrong
         reason -- confirm the scan really walks a non-trivial set of XAML."""
         assert len(self.FILES) >= 5, "expected Theme.xaml, MainWindow.xaml and several Views/*.xaml"
+
+    # ------------------------------------------------------------------ C#
+    #
+    # F21 (#236): the markup was the only thing checked, so a colour could
+    # still be built in code and escape the tokens entirely -- and two were.
+    # The tray's countdown icon was drawn in a literal teal and near-black
+    # (Color.FromArgb(0xFF, 0x3A, 0xA8, 0x92) / (0xFF, 0x0E, 0x14, 0x12)) and
+    # the heatmap ramp fell back to Color.FromRgb(0x18, 0x20, 0x1E) /
+    # (0x3A, 0xA8, 0x92). All four are the dark theme's colours frozen into
+    # code: in the light theme the tray icon stayed dark-theme teal on a
+    # near-black disc. This test fails against each of them.
+
+    CSHARP_FILES = tuple(
+        path for path in Path(DESKTOP_DIR).rglob("*.cs")
+        if "obj" not in path.parts and "bin" not in path.parts
+    )
+
+    #: A colour built from literals, rather than read from a token.
+    LITERAL_COLOUR = re.compile(
+        r"From(?:A?)[Rr]gb\(\s*(?:0[xX][0-9A-Fa-f]+|\d+)\s*(?:,\s*(?:0[xX][0-9A-Fa-f]+|\d+)\s*)+\)"
+    )
+    #: A colour taken from the framework's palette instead of the tokens.
+    NAMED_COLOUR = re.compile(r"\bBrushes\.\w+|new SolidColorBrush\(Colors\.\w+")
+    #: A hex literal in a string, e.g. ColorConverter.ConvertFromString("#3AA892").
+    HEX_IN_CODE = re.compile(r'"#[0-9A-Fa-f]{6,8}"')
+
+    def test_no_colour_is_built_from_literals_in_code(self):
+        offenders = []
+        for path in self.CSHARP_FILES:
+            text = path.read_text(encoding="utf-8")
+            for pattern in (self.LITERAL_COLOUR, self.NAMED_COLOUR, self.HEX_IN_CODE):
+                for match in pattern.finditer(text):
+                    line_no = text.count("\n", 0, match.start()) + 1
+                    offenders.append(
+                        f"{path.relative_to(self.ROOT)}:{line_no}: {match.group(0)}")
+        assert not offenders, (
+            "colours built in C# do not follow the theme -- read the token with "
+            "ThemeService.TryColour instead:\n" + "\n".join(offenders))
+
+    def test_the_csharp_scan_covers_the_app(self):
+        assert len(self.CSHARP_FILES) >= 20, \
+            f"expected the whole app to be scanned, got {len(self.CSHARP_FILES)} files"
+
+    def test_the_patterns_catch_the_colours_that_were_there(self):
+        """The four literals F21 removed, verbatim -- the regexes must match them."""
+        assert self.LITERAL_COLOUR.search(
+            "new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(0xFF, 0x3A, 0xA8, 0x92))")
+        assert self.LITERAL_COLOUR.search("MediaColor.FromRgb(0x18, 0x20, 0x1E)")
+        assert self.NAMED_COLOUR.search("new SolidColorBrush(Colors.HotPink)")
+        assert self.HEX_IN_CODE.search('ColorConverter.ConvertFromString("#3AA892")')
+        # And must not flag the ramp's computed mix, which is the correct shape.
+        assert not self.LITERAL_COLOUR.search(
+            "MediaColor.FromRgb((byte)Math.Round(from.R + (to.R - from.R) * mix), g, b)")
 
 
 class TestCornerRadiusNormalisedA2:
@@ -6268,9 +6343,11 @@ class TestSoftOverlayNeverCloses:
 
     def test_the_window_is_topmost_full_screen_and_chromeless(self):
         xaml = self.OVERLAY_XAML.read_text(encoding="utf-8")
+        # DynamicResource since F21: the notice follows a theme change while
+        # it is open, like every other window.
         for attribute in ('WindowStyle="None"', 'Topmost="True"',
                           'ShowInTaskbar="False"',
-                          'Background="{StaticResource Scrim}"'):
+                          'Background="{DynamicResource Scrim}"'):
             assert attribute in xaml, f"the Soft notice is missing {attribute}"
         code = self.OVERLAY_CS.read_text(encoding="utf-8")
         assert "Screen.FromHandle(_anchor)" in code, (
@@ -6624,7 +6701,9 @@ class TestTheRingSaysWhichClockIsRunning:
         xaml = self.XAML.read_text(encoding="utf-8")
         assert 'Visibility="{Binding SprintRingVisible' in xaml
         assert 'Visibility="{Binding BreakRingVisible' in xaml
-        assert 'Stroke="{StaticResource InkDim}" StrokeThickness="12"' in xaml, \
+        # DynamicResource since F21: a colour reference has to re-resolve when
+        # the light theme swaps the tokens dictionary under it.
+        assert 'Stroke="{DynamicResource InkDim}" StrokeThickness="12"' in xaml, \
             "the break arc is text-muted, not primary"
 
     def test_the_view_model_keeps_them_exclusive(self):
@@ -6740,3 +6819,468 @@ class TestTheTrayFollowsTheBreak:
             "private void BuildTrayMenu(")[1].split("\n    /// <summary>")[0]
         assert "Vm?.Today.StartCommand.Execute(null)" in build
         assert "StartBreak" not in build, "the tray never reaches into the break itself"
+# ================================= the light theme and the keyboard (F21, #236)
+
+class TestLightThemeSwitchF21:
+    """
+    F21 / DESIGN_SYSTEM.md §12 "Theme": the app draws in dark, light, or
+    whatever Windows is set to, and switches while it runs.
+
+    Proven to fail first: before F21, App.xaml merged only Theme.xaml,
+    Theme.xaml and ShieldGlyphs.xaml each merged Tokens.xaml themselves, every
+    colour reference in every view was a StaticResource, and there was no
+    ThemeService at all -- each assertion below fails against that tree.
+
+    The arrangement is load-bearing and not obvious, which is why it is pinned
+    here: WPF resolves a merged dictionary's keys nearest-last, so a *second*
+    Tokens merge anywhere would shadow the one ThemeService swaps, and the app
+    would silently stay dark for ever.
+    """
+
+    DESKTOP = Path(DESKTOP_DIR)
+    SERVICE = Path(DESKTOP_DIR) / "Services" / "ThemeService.cs"
+
+    def read(self, *parts) -> str:
+        return self.DESKTOP.joinpath(*parts).read_text(encoding="utf-8")
+
+    def _xaml_files(self):
+        return [p for p in self.DESKTOP.rglob("*.xaml")
+                if "obj" not in p.parts and "bin" not in p.parts]
+
+    def test_app_merges_the_tokens_first_and_on_their_own(self):
+        app = self.read("App.xaml")
+        order = [app.find('Source="Styles/Tokens.xaml"'),
+                 app.find('Source="Styles/ShieldGlyphs.xaml"'),
+                 app.find('Source="Styles/Theme.xaml"')]
+        assert all(position > 0 for position in order), \
+            "App.xaml must merge Tokens.xaml, ShieldGlyphs.xaml and Theme.xaml itself"
+        assert order == sorted(order), \
+            "the tokens must be merged before the glyphs and the styles that reference them"
+
+    def test_nothing_else_merges_a_tokens_dictionary(self):
+        offenders = []
+        for path in self._xaml_files():
+            if path.name == "App.xaml":
+                continue
+            text = path.read_text(encoding="utf-8")
+            if re.search(r'<ResourceDictionary Source="[^"]*Tokens(\.Light)?\.xaml"', text):
+                offenders.append(path.name)
+        assert not offenders, (
+            "a second Tokens merge shadows the dictionary ThemeService swaps, pinning "
+            "the app to one theme: " + ", ".join(offenders))
+
+    def test_every_colour_reference_is_dynamic(self):
+        """
+        A StaticResource brush is resolved once, when the XAML loads. Swapping
+        the dictionary under it changes nothing, so every colour token is
+        referenced dynamically -- with one documented exception.
+        """
+        names = json.loads((Path(DESKTOP_DIR).parent / "design" / "tokens.json")
+                           .read_text(encoding="utf-8"))["app_names"]
+        keys = set(names.values()) | {value + "Color" for value in names.values()}
+
+        # The Card style's drop shadow is a Freezable inside a sealed Style
+        # setter, which cannot carry a DynamicResource. It is black in both
+        # themes (design/tokens.json "shadow"), so it never needs to change.
+        allowed = {("Theme.xaml", "ShadowColor")}
+
+        offenders = []
+        for path in self._xaml_files():
+            if path.name.startswith("Tokens"):
+                continue
+            text = path.read_text(encoding="utf-8")
+            for key in re.findall(r"\{StaticResource\s+([^}\s]+)\}", text):
+                if key in keys and (path.name, key) not in allowed:
+                    offenders.append(f"{path.name}: {key}")
+        assert not offenders, (
+            "colour tokens referenced with StaticResource will not follow a theme "
+            "change: " + ", ".join(sorted(set(offenders))))
+
+    def test_the_shield_glyphs_are_referenced_dynamically_too(self):
+        """
+        A DynamicResource inside a Freezable resolves once and never again, so
+        ThemeService reloads the glyph dictionary instead. Anything holding the
+        old DrawingImage by StaticResource would keep the old colours.
+        """
+        for path in self._xaml_files():
+            text = path.read_text(encoding="utf-8")
+            for key in ("ShieldGlyphSoft", "ShieldGlyphFirm", "ShieldGlyphSealed"):
+                assert f"{{StaticResource {key}}}" not in text, \
+                    f"{path.name} holds {key} statically; it will not be recoloured"
+
+    def test_the_service_swaps_the_dictionary_and_follows_windows(self):
+        source = self.SERVICE.read_text(encoding="utf-8")
+        assert "Tokens.Light.xaml" in source and "Tokens.xaml" in source, \
+            "ThemeService must swap between the two generated token dictionaries"
+        assert "MergedDictionaries" in source, "the swap happens in App.Resources"
+        assert "AppsUseLightTheme" in source, \
+            "System must follow Windows' own app theme"
+        assert "SystemEvents.UserPreferenceChanged" in source, \
+            "a Windows theme change must be picked up without a restart"
+        assert "Registry.CurrentUser.OpenSubKey" in source, "HKCU, read-only"
+        for write in ("SetValue", "CreateSubKey", "DeleteValue", "LocalMachine"):
+            assert write not in source, \
+                f"the Windows theme is read-only; ThemeService must not call {write}"
+
+    def test_the_glyphs_are_reloaded_when_the_theme_changes(self):
+        source = self.SERVICE.read_text(encoding="utf-8")
+        swap = source.split("private static void Swap(")[1].split("\n    private ")[0]
+        assert "ShieldGlyphs" in swap, \
+            "the swap must reload ShieldGlyphs.xaml -- its brushes are inside Freezables"
+        assert "RefreshConverterBindings" in swap, \
+            "converters that look colours up themselves must be re-run after the swap"
+
+    def test_the_converters_that_read_colours_reread_them(self):
+        converters = self.read("Infrastructure", "Converters.cs")
+        for converter in ("HeatStepToBrushConverter", "ResourceKeyToBrushConverter",
+                          "ShieldLevelToGlyphConverter"):
+            assert converter in converters
+        assert "TryFindResource" in converters or "TryColour" in converters, \
+            "these converters must look the resource up each time, not cache it"
+
+    def test_the_setting_defaults_to_following_windows_and_persists(self):
+        settings = self.read("Models", "AppSettings.cs")
+        assert "public AppTheme Theme { get; set; } = AppTheme.System;" in settings, \
+            "the stored default must be System, so an upgrade keeps following Windows"
+        theme = self.read("Models", "AppTheme.cs")
+        assert "System = 0" in theme, \
+            "System must serialise as 0 or every settings file written before F21 reads as Dark"
+
+        view_model = self.read("ViewModels", "SettingsViewModel.cs")
+        appearance = view_model.split("public AppTheme Theme")[1].split("\n    /// <summary>")[0]
+        assert "ThemeService.Apply(value)" in appearance, "the choice applies immediately"
+        assert "_main.SaveSettings()" in appearance, "and is saved"
+
+    def test_settings_offers_the_three_choices_with_ids(self):
+        xaml = self.read("Views", "SettingsView.xaml")
+        assert "APPEARANCE" in xaml
+        for automation_id, name in (("ThemeSystemRadio", "System theme"),
+                                    ("ThemeDarkRadio", "Dark theme"),
+                                    ("ThemeLightRadio", "Light theme")):
+            assert f'AutomationProperties.AutomationId="{automation_id}"' in xaml
+            assert f'AutomationProperties.Name="{name}"' in xaml
+
+    def test_the_title_bar_and_the_tray_icon_follow_the_theme(self):
+        window = self.read("MainWindow.xaml.cs")
+        assert "ThemeService.IsLight ? 0 : 1" in window, \
+            "DWM's dark title bar must be off in the light theme"
+        assert "ThemeService.Changed += OnThemeChanged" in window, \
+            "the window must redraw what it painted in code when the theme changes"
+        countdown = window.split("private static System.Drawing.Icon? CountdownIcon(")[1]
+        assert "ThemeService.TryColour(\"PrimaryColor\"" in countdown, \
+            "the tray countdown icon must be drawn in the current theme's primary"
+
+
+class TestKeyboardAndFocusF21:
+    """
+    DESIGN_SYSTEM.md §13: every interactive element is reachable and usable
+    from the keyboard, with a visible 2px focus ring.
+
+    Proven to fail first: before F21 the app set no FocusVisualStyle anywhere,
+    so every control fell back to WPF's 1px dotted rectangle -- which on these
+    surfaces is next to invisible -- and Escape did nothing on any dialog.
+    """
+
+    DESKTOP = Path(DESKTOP_DIR)
+    THEME = Path(DESKTOP_DIR) / "Styles" / "Theme.xaml"
+
+    #: Styles a customer operates, each of which must carry the focus ring.
+    FOCUSABLE_STYLES = ("BtnBase", "Field", "Switch", "Segment", "SegmentShield",
+                        "PlainItem", "PickerItem")
+
+    def theme(self) -> str:
+        return self.THEME.read_text(encoding="utf-8")
+
+    @staticmethod
+    def _style_block(xaml: str, key: str) -> str:
+        blocks = [b for b in xaml.split("<Style ")[1:] if f'x:Key="{key}"' in b]
+        assert blocks, f"no <Style x:Key=\"{key}\"> in Theme.xaml"
+        return blocks[0]
+
+    def test_the_focus_ring_is_two_pixels_of_the_focus_ring_token(self):
+        block = self._style_block(self.theme(), "FocusVisual")
+        assert 'StrokeThickness="2"' in block, "§13 asks for a 2px ring"
+        assert "{DynamicResource FocusRing}" in block, \
+            "the ring must use the focus-ring token, and follow the theme"
+
+    @pytest.mark.parametrize("key", FOCUSABLE_STYLES)
+    def test_every_operable_style_sets_the_focus_visual(self, key):
+        block = self._style_block(self.theme(), key)
+        assert '<Setter Property="FocusVisualStyle" Value="{StaticResource FocusVisual}"/>' in block, \
+            f"{key} must show the shared 2px focus ring"
+
+    def test_plain_radio_buttons_and_check_boxes_get_it_implicitly(self):
+        xaml = self.theme()
+        for target in ("RadioButton", "CheckBox"):
+            blocks = [b for b in xaml.split("<Style ")[1:]
+                      if b.startswith(f'TargetType="{target}">')]
+            assert blocks, f"expected an implicit <Style TargetType=\"{target}\">"
+            assert "FocusVisualStyle" in blocks[0], \
+                f"unstyled {target}s must take the focus ring too"
+
+    def test_the_heatmap_cells_take_focus(self):
+        """
+        §7: a heatmap must not rely on colour alone, and a cell has to be
+        reachable to be read out. HeatCellItem inherits PlainItem's ring.
+        """
+        block = self._style_block(self.theme(), "HeatCellItem")
+        assert 'BasedOn="{StaticResource PlainItem}"' in block
+        assert '<Setter Property="Focusable" Value="True"/>' in block
+
+    def test_focusable_false_is_only_on_decoration(self):
+        """
+        Focusable="False" on something a customer has to operate makes it
+        unreachable from the keyboard. Each exception is listed here with its
+        reason, so a new one has to be argued for rather than typed.
+        """
+        allowed_tags = {
+            # The scrollbar's paging buttons: the ScrollViewer itself handles
+            # Page Up/Down, and these are invisible (Opacity 0).
+            "RepeatButton",
+        }
+        allowed_styles = {
+            # The heatmap legend's five swatches are decoration beside the
+            # "Less"/"More" captions, which carry the meaning.
+            "HeatLegendItem",
+        }
+        allowed_ids = {
+            # The same legend's own list: not hit-testable either, and every
+            # cell it explains is focusable in its place (HeatCellItem).
+            "HeatmapLegend",
+        }
+
+        offenders = []
+        for path in self.DESKTOP.rglob("*.xaml"):
+            if "obj" in path.parts or "bin" in path.parts:
+                continue
+            text = path.read_text(encoding="utf-8")
+
+            for match in re.finditer(r'<(\w+)((?:[^<>]|\n)*?)Focusable="False"((?:[^<>])*?)>',
+                                     text):
+                element = match.group(2) + match.group(3)
+                automation_id = re.search(r'AutomationProperties.AutomationId="([^"]+)"', element)
+                if match.group(1) in allowed_tags:
+                    continue
+                if automation_id and automation_id.group(1) in allowed_ids:
+                    continue
+                offenders.append(f"{path.name}: <{match.group(1)}>")
+
+            for match in re.finditer(
+                    r'<Setter Property="Focusable" Value="False"\s*/>', text):
+                key = re.findall(r'x:Key="([^"]+)"', text[:match.start()])
+                if not key or key[-1] not in allowed_styles:
+                    offenders.append(f"{path.name}: style {key[-1] if key else '?'}")
+
+        assert not offenders, (
+            "these are taken out of the tab order without a reason on record: "
+            + ", ".join(sorted(set(offenders))))
+
+    def test_escape_closes_the_dialogs_that_can_be_cancelled(self):
+        for name in ("ConfirmDeleteDialog", "FriendlyErrorDialog"):
+            xaml = (self.DESKTOP / "Views" / f"{name}.xaml").read_text(encoding="utf-8")
+            assert 'IsCancel="True"' in xaml, \
+                f"{name} must have a cancel button, so Escape closes it"
+
+    def test_escape_closes_the_panels_that_can_be_cancelled(self):
+        window = (self.DESKTOP / "MainWindow.xaml.cs").read_text(encoding="utf-8")
+        handler = window.split("protected override void OnPreviewKeyDown(")[1] \
+                        .split("\n    /// <summary>")[0]
+        assert "Key.Escape" in handler
+        assert "DismissActivationCommand" in handler, \
+            "Escape must dismiss the activation prompt, which has a Cancel button"
+        assert "FirstRun.SkipCommand" in handler, \
+            "Escape must skip the welcome, which has a Skip button"
+
+    def test_an_open_panel_keeps_the_keyboard_inside_it(self):
+        """
+        UI Automation can still reach controls under an overlay (CLAUDE.md,
+        "Covered controls"), and so could Tab. Each overlay is a Cycle tab
+        scope, and takes focus when it opens.
+        """
+        xaml = (self.DESKTOP / "MainWindow.xaml").read_text(encoding="utf-8")
+        assert xaml.count('KeyboardNavigation.TabNavigation="Cycle"') >= 4, \
+            "the lock screen, welcome, activation prompt and terms gate are each a tab scope"
+        assert xaml.count('IsVisibleChanged="OnOverlayVisibleChanged"') >= 4
+
+
+class TestAccessibleNamesF21:
+    """
+    DESIGN_SYSTEM.md §13: every control has an accessible name. A button whose
+    content is a bound string or a TextBlock reads out as nothing useful, and a
+    text box has no visible label to borrow from at all.
+
+    Proven to fail first: SettingsView's "Skip today" button and TodayView's
+    momentum explainer toggle both had an AutomationId and no name.
+    """
+
+    DESKTOP = Path(DESKTOP_DIR)
+    TAGS = ("Button", "CheckBox", "RadioButton", "TextBox", "DatePicker",
+            "ListBox", "PasswordBox", "ComboBox", "Slider")
+
+    def _views(self):
+        return [p for p in self.DESKTOP.rglob("*.xaml")
+                if "obj" not in p.parts and "bin" not in p.parts
+                and p.parent.name != "Styles"]
+
+    def test_every_control_has_a_name_or_literal_content(self):
+        element = re.compile(r"<(" + "|".join(self.TAGS) + r")(?=[\s/>])(.*?)(/>|>)", re.S)
+        offenders = []
+        for path in self._views():
+            text = path.read_text(encoding="utf-8")
+            for match in element.finditer(text):
+                tag, attributes = match.group(1), match.group(2)
+                if "AutomationProperties.Name=" in attributes:
+                    continue
+                # A literal Content is the control's own visible label, which
+                # UI Automation already reads out; a bound one is not.
+                if re.search(r'Content="([^"{]+)"', attributes):
+                    continue
+                line = text.count("\n", 0, match.start()) + 1
+                offenders.append(f"{path.name}:{line} <{tag}>")
+        assert not offenders, (
+            "controls with no accessible name: " + ", ".join(offenders))
+
+    def test_the_scan_actually_finds_controls(self):
+        """A regex that matched nothing would pass for the wrong reason."""
+        element = re.compile(r"<(" + "|".join(self.TAGS) + r")(?=[\s/>])", re.S)
+        found = sum(len(element.findall(p.read_text(encoding="utf-8"))) for p in self._views())
+        assert found > 50, f"expected the app's controls to be scanned, found {found}"
+
+    def test_the_new_appearance_control_did_not_displace_an_existing_id(self):
+        """Every AutomationId in the app is still unique to one control."""
+        seen = {}
+        for path in self._views():
+            for automation_id in re.findall(r'AutomationProperties.AutomationId="([^"]+)"',
+                                            path.read_text(encoding="utf-8")):
+                # A bound id ({Binding AutomationId}) is one per row at run time.
+                if automation_id.startswith("{"):
+                    continue
+                seen.setdefault(automation_id, []).append(path.name)
+        duplicates = {k: v for k, v in seen.items() if len(set(v)) > 1}
+        # A handful are deliberately shared between a page and the lock screen.
+        allowed = {"LicenseKeyInput"}
+        assert not (set(duplicates) - allowed), f"duplicate AutomationIds: {duplicates}"
+
+
+#: Where the offscreen theme probe lives, and where it is run from.
+THEME_PROBE = Path(DESKTOP_DIR).parent / "automation" / "probe" / "ThemeProbe"
+
+
+@pytest.fixture(scope="module")
+def theme_probe():
+    """
+    Runs `automation/probe/ThemeProbe` once and hands back its report.
+
+    Module-scoped: it builds and runs the real app's resources, which costs a
+    few seconds, and every assertion below reads the same three snapshots.
+    """
+    dotnet = shutil.which("dotnet")
+    if dotnet is None:
+        pytest.skip("no .NET SDK on this machine")
+
+    result = subprocess.run(
+        [dotnet, "run", "--project", str(THEME_PROBE), "-c", "Release", "-v", "q", "--nologo"],
+        cwd=str(Path(DESKTOP_DIR).parent), capture_output=True, text=True, timeout=600)
+
+    assert result.returncode == 0, (
+        "the theme probe did not run:\n" + result.stdout[-2000:] + result.stderr[-2000:])
+
+    # The build writes to stdout too; the report is the last JSON line.
+    lines = [line for line in result.stdout.splitlines() if line.startswith("{")]
+    assert lines, "the probe printed no report:\n" + result.stdout[-2000:]
+    return json.loads(lines[-1])
+
+
+class TestTheThemeActuallySwitchesF21:
+    """
+    The one F21 test that is not source text.
+
+    Every other test in this file reads the XAML and the C# and checks that the
+    right words are in the right places. All of them passed against a
+    ThemeService that did nothing at all: it looked for the merged dictionary
+    with
+
+        merged.FirstOrDefault(d => d.Source == DarkTokens)
+
+    where DarkTokens is an absolute pack URI, while App.xaml merges the
+    dictionary with a *relative* Source ("Styles/Tokens.xaml").
+    ResourceDictionary.Source hands back exactly the Uri that was set on it, so
+    the two never compared equal, the lookup found nothing, the swap logged
+    "theme not switched" and returned, and Settings -> Appearance moved a radio
+    button and changed no pixels. Source tests cannot see that, and neither can
+    a probe that merges the dictionaries itself with pack URIs -- it builds the
+    equality the app does not have.
+
+    So this runs the real App.xaml. `automation/probe/ThemeProbe` creates the
+    app's own Application subclass, calls InitializeComponent() to merge exactly
+    what App.xaml merges in exactly the way it spells it, asks ThemeService to
+    switch, and prints what each resource resolves to. No window is created and
+    nothing is shown, so it is safe to run beside a UI suite.
+
+    Proven to fail first: restoring the Uri-equality line above makes
+    test_switching_to_light_changes_every_colour fail with Bg still #FF121110.
+    """
+
+    PROBE = THEME_PROBE
+
+    #: A few tokens whose two themes are far apart, with their values from
+    #: design/tokens.json. If these are right, the dictionary really was swapped.
+    EXPECTED_DARK = {"Bg": "#FF121110", "Ink": "#FFF2F0EB", "Primary": "#FF3AA892"}
+    EXPECTED_LIGHT = {"Bg": "#FFE6E4DF", "Ink": "#FF1A1917", "Primary": "#FF0C6B5C"}
+
+    @pytest.fixture()
+    def probe(self, theme_probe):
+        return theme_probe
+
+    def test_the_app_starts_dark(self, probe):
+        assert probe["start"]["isLight"] is False
+        for key, value in self.EXPECTED_DARK.items():
+            assert probe["start"][key] == value, f"{key} is wrong before any switch"
+
+    def test_switching_to_light_changes_every_colour(self, probe):
+        """The check the whole feature rests on: the resources really change."""
+        assert probe["light"]["isLight"] is True, \
+            "ThemeService reported no switch -- it did not find the dictionary to replace"
+        for key, value in self.EXPECTED_LIGHT.items():
+            assert probe["light"][key] == value, (
+                f"{key} is still {probe['light'][key]} after Apply(Light) -- the merged "
+                f"Tokens dictionary was not swapped")
+
+        changed = sum(1 for key, value in probe["start"].items()
+                      if key != "isLight" and probe["light"][key] != value)
+        assert changed >= 14, (
+            f"only {changed} resources changed; the light theme redefines all of them")
+
+    def test_switching_back_to_dark_restores_every_colour(self, probe):
+        for key, value in probe["start"].items():
+            assert probe["dark"][key] == value, \
+                f"{key} did not come back to its dark value"
+
+    def test_the_shield_glyphs_are_recoloured_too(self, probe):
+        """
+        The case a DynamicResource cannot serve: these brushes are inside
+        DrawingImages, which are Freezables, so the dictionary is reloaded. If
+        the reload is skipped the glyphs keep the dark theme's colours -- and a
+        text-muted glyph on a light surface is close to invisible.
+        """
+        assert probe["start"]["glyphSoft"] == "#FFB0ADA5"
+        assert probe["light"]["glyphSoft"] == "#FF5C5954", \
+            "the Soft glyph kept its dark colour; ShieldGlyphs.xaml was not reloaded"
+        assert probe["light"]["glyphFirm"] == "#FF0C6B5C"
+        assert probe["dark"]["glyphSoft"] == "#FFB0ADA5"
+
+    def test_the_heatmap_ramp_follows_the_theme(self, probe):
+        """Mixed in code from surface-2 and primary, so it has to re-read them."""
+        assert probe["start"]["heatTop"] == "#FF3AA892"
+        assert probe["light"]["heatTop"] == "#FF0C6B5C", \
+            "the heatmap's top step is still the dark theme's primary"
+
+    def test_the_probe_shows_no_window(self):
+        """
+        It must stay safe to run while a UI suite owns the screen, so it may
+        never create or show a window.
+        """
+        source = (self.PROBE / "Program.cs").read_text(encoding="utf-8")
+        for forbidden in ("new Window", ".Show()", ".ShowDialog()", "app.Run("):
+            assert forbidden not in source, \
+                f"the theme probe must not {forbidden} -- it runs beside the UI suite"

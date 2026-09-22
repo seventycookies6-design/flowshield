@@ -3,7 +3,19 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <Application.Resources>
         <ResourceDictionary>
+            <!-- F21: the colour tokens are merged here, first and on their own,
+                 because ThemeService swaps this one entry between Tokens.xaml
+                 (dark) and Tokens.Light.xaml (light) while the app runs. Every
+                 colour reference in the rest of the app is a DynamicResource so
+                 it re-resolves through this slot; nothing else merges a Tokens
+                 file, because a later merge would shadow the swapped one.
+
+                 ShieldGlyphs.xaml comes next and is reloaded on a theme change:
+                 its brushes live inside DrawingImages, and a DynamicResource
+                 inside a Freezable resolves once and never again. -->
             <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="Styles/Tokens.xaml"/>
+                <ResourceDictionary Source="Styles/ShieldGlyphs.xaml"/>
                 <ResourceDictionary Source="Styles/Theme.xaml"/>
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>

@@ -24,8 +24,8 @@
                          RemainingText and the arc's dash array both update
                          once a second straight off the binding, per §7. -->
                     <Grid Width="222" Height="222" HorizontalAlignment="Center" Margin="0,8,0,0">
-                        <Ellipse Width="222" Height="222" Stroke="{StaticResource Track}" StrokeThickness="12"/>
-                        <Ellipse Width="222" Height="222" Stroke="{StaticResource Primary}" StrokeThickness="12"
+                        <Ellipse Width="222" Height="222" Stroke="{DynamicResource Track}" StrokeThickness="12"/>
+                        <Ellipse Width="222" Height="222" Stroke="{DynamicResource Primary}" StrokeThickness="12"
                                  StrokeDashCap="Round"
                                  StrokeDashArray="{Binding Progress, Converter={StaticResource ProgressDash}}"
                                  Visibility="{Binding SprintRingVisible, Converter={StaticResource BoolVis}}"
@@ -38,7 +38,7 @@
                         <!-- The break arc is the same ring in text-muted (§7).
                              §2: teal means state, selection or progress through a
                              sprint — a break is visibly not a sprint (F5). -->
-                        <Ellipse Width="222" Height="222" Stroke="{StaticResource InkDim}" StrokeThickness="12"
+                        <Ellipse Width="222" Height="222" Stroke="{DynamicResource InkDim}" StrokeThickness="12"
                                  StrokeDashCap="Round"
                                  StrokeDashArray="{Binding Progress, Converter={StaticResource ProgressDash}}"
                                  Visibility="{Binding BreakRingVisible, Converter={StaticResource BoolVis}}"
@@ -120,7 +120,7 @@
                                        AutomationProperties.AutomationId="RunningAppsExplanation"/>
 
                             <TextBlock Text="{Binding RunningAppsSummary}" Style="{StaticResource Body}"
-                                       Foreground="{StaticResource Ink}" TextWrapping="Wrap"
+                                       Foreground="{DynamicResource Ink}" TextWrapping="Wrap"
                                        Margin="0,12,0,0"
                                        AutomationProperties.AutomationId="RunningAppsList"/>
 
@@ -221,7 +221,7 @@
                                        VerticalAlignment="Center" Margin="8,0,0,0"/>
                         </StackPanel>
                         <TextBlock Text="{Binding CustomMinutesError}" Style="{StaticResource Caption}"
-                                   Foreground="{StaticResource Amber}" Margin="0,8,0,0"
+                                   Foreground="{DynamicResource Amber}" Margin="0,8,0,0"
                                    Visibility="{Binding CustomMinutesErrorVisible, Converter={StaticResource BoolVis}}"
                                    AutomationProperties.AutomationId="CustomMinutesError"/>
                     </StackPanel>
@@ -238,7 +238,7 @@
                                      IsChecked="{Binding SelectedShield, Converter={StaticResource EnumEq},
                                                  ConverterParameter={x:Static models:ShieldLevel.Soft}}">
                             <StackPanel>
-                                <Image Source="{StaticResource ShieldGlyphSoft}" Width="18" Height="18"
+                                <Image Source="{DynamicResource ShieldGlyphSoft}" Width="18" Height="18"
                                        Stretch="Uniform" HorizontalAlignment="Center"/>
                                 <TextBlock Text="I · Soft" HorizontalAlignment="Center" Margin="0,4,0,0"/>
                             </StackPanel>
@@ -250,7 +250,7 @@
                                      IsChecked="{Binding SelectedShield, Converter={StaticResource EnumEq},
                                                  ConverterParameter={x:Static models:ShieldLevel.Firm}}">
                             <StackPanel>
-                                <Image Source="{StaticResource ShieldGlyphFirm}" Width="18" Height="18"
+                                <Image Source="{DynamicResource ShieldGlyphFirm}" Width="18" Height="18"
                                        Stretch="Uniform" HorizontalAlignment="Center"/>
                                 <TextBlock Text="II · Firm" HorizontalAlignment="Center" Margin="0,4,0,0"/>
                             </StackPanel>
@@ -261,7 +261,7 @@
                                      IsChecked="{Binding SelectedShield, Converter={StaticResource EnumEq},
                                                  ConverterParameter={x:Static models:ShieldLevel.Sealed}}">
                             <StackPanel>
-                                <Image Source="{StaticResource ShieldGlyphSealed}" Width="18" Height="18"
+                                <Image Source="{DynamicResource ShieldGlyphSealed}" Width="18" Height="18"
                                        Stretch="Uniform" HorizontalAlignment="Center"/>
                                 <TextBlock Text="III · Sealed" HorizontalAlignment="Center" Margin="0,4,0,0"/>
                             </StackPanel>
@@ -274,12 +274,12 @@
                                Margin="0,4,0,0"
                                AutomationProperties.AutomationId="ShieldBestForText"/>
                     <TextBlock Style="{StaticResource Caption}" Margin="0,8,0,0" TextWrapping="Wrap"
-                               Foreground="{StaticResource Amber}"
+                               Foreground="{DynamicResource Amber}"
                                Visibility="{Binding SealedRestartHintVisible, Converter={StaticResource BoolVis}}"
                                AutomationProperties.AutomationId="SealedRestartHint"
                                Text="If FlowShield closes, a Sealed sprint picks up again when it reopens. After a reboot that only happens by itself if FlowShield starts with Windows (Settings → Preferences)."/>
                     <TextBlock Style="{StaticResource Caption}" Margin="0,8,0,0" TextWrapping="Wrap"
-                               Foreground="{StaticResource Amber}"
+                               Foreground="{DynamicResource Amber}"
                                Visibility="{Binding SoftHardKillHintVisible, Converter={StaticResource BoolVis}}"
                                AutomationProperties.AutomationId="SoftHardKillHint"
                                Text="Hard kill mode is on (Settings), so Soft closes blocked apps instead of nudging."/>
@@ -450,7 +450,7 @@
                         <TextBlock Style="{StaticResource Body}" Margin="0,4,0,0"
                                    AutomationProperties.AutomationId="StreakText">
                             <Run Text="Streak:"/>
-                            <Run Text="{Binding StreakText, Mode=OneWay}" Foreground="{StaticResource PrimaryHover}"/>
+                            <Run Text="{Binding StreakText, Mode=OneWay}" Foreground="{DynamicResource PrimaryHover}"/>
                         </TextBlock>
                         <TextBlock Text="Finished sprints compound. Abandoned ones decay — they don't reset."
                                    Style="{StaticResource Caption}" Margin="0,8,0,0"/>
@@ -470,13 +470,13 @@
                                  a name on a drawn line. -->
                             <Grid Height="64" Width="250" HorizontalAlignment="Left">
                                 <Line X1="0" Y1="0" X2="250" Y2="0"
-                                      Stroke="{StaticResource Edge}" StrokeThickness="1"/>
+                                      Stroke="{DynamicResource Edge}" StrokeThickness="1"/>
                                 <Line X1="0" Y1="32" X2="250" Y2="32"
-                                      Stroke="{StaticResource Edge}" StrokeThickness="1"/>
+                                      Stroke="{DynamicResource Edge}" StrokeThickness="1"/>
                                 <Line X1="0" Y1="63" X2="250" Y2="63"
-                                      Stroke="{StaticResource Edge}" StrokeThickness="1"/>
+                                      Stroke="{DynamicResource Edge}" StrokeThickness="1"/>
                                 <Polyline Points="{Binding TrendPoints}"
-                                          Stroke="{StaticResource Primary}" StrokeThickness="2"
+                                          Stroke="{DynamicResource Primary}" StrokeThickness="2"
                                           StrokeLineJoin="Round"/>
                             </Grid>
                             <Grid Margin="0,8,0,0" Width="250" HorizontalAlignment="Left">
@@ -496,7 +496,8 @@
                                 Margin="-12,8,0,0"
                                 Content="{Binding ExplainerToggleText}"
                                 Command="{Binding ToggleExplainerCommand}"
-                                AutomationProperties.AutomationId="MomentumExplainerButton"/>
+                                AutomationProperties.AutomationId="MomentumExplainerButton"
+                                AutomationProperties.Name="{Binding ExplainerToggleText}"/>
                         <ItemsControl ItemsSource="{Binding MomentumExplanation}" Margin="0,4,0,0"
                                       Visibility="{Binding ExplainerVisible, Converter={StaticResource BoolVis}}"
                                       AutomationProperties.AutomationId="MomentumExplainerText">
@@ -517,7 +518,7 @@
                         <Grid Margin="0,0,0,12">
                             <TextBlock Text="Sprints completed" Style="{StaticResource Body}"/>
                             <TextBlock Text="{Binding SessionsToday}" HorizontalAlignment="Right" Style="{StaticResource Body}"
-                                       Foreground="{StaticResource Ink}" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource Ink}" FontWeight="SemiBold"
                                        Typography.NumeralAlignment="Tabular"
                                        AutomationProperties.AutomationId="SessionsTodayValue"/>
                         </Grid>
@@ -525,7 +526,7 @@
                         <Grid Margin="0,0,0,12">
                             <TextBlock Text="Focus minutes" Style="{StaticResource Body}"/>
                             <TextBlock Text="{Binding FocusMinutesToday}" HorizontalAlignment="Right" Style="{StaticResource Body}"
-                                       Foreground="{StaticResource Ink}" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource Ink}" FontWeight="SemiBold"
                                        Typography.NumeralAlignment="Tabular"
                                        AutomationProperties.AutomationId="FocusMinutesValue"/>
                         </Grid>
@@ -533,7 +534,7 @@
                         <Grid>
                             <TextBlock Text="Distractions blocked" Style="{StaticResource Body}"/>
                             <TextBlock Text="{Binding BlocksToday}" HorizontalAlignment="Right" Style="{StaticResource Body}"
-                                       Foreground="{StaticResource Ink}" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource Ink}" FontWeight="SemiBold"
                                        Typography.NumeralAlignment="Tabular"
                                        AutomationProperties.AutomationId="BlocksTodayValue"/>
                         </Grid>
@@ -548,7 +549,7 @@
                             <Grid>
                                 <TextBlock Text="Daily goal" Style="{StaticResource Body}"/>
                                 <TextBlock Text="{Binding GoalProgressText}" HorizontalAlignment="Right" Style="{StaticResource Body}"
-                                           Foreground="{StaticResource Ink}" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource Ink}" FontWeight="SemiBold"
                                            Typography.NumeralAlignment="Tabular"
                                            AutomationProperties.AutomationId="DailyGoalProgressText"/>
                             </Grid>

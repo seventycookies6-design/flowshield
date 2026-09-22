@@ -656,7 +656,7 @@ policy and the settings fields) already lived on Keenan's side.
 
 ### F21 — Light theme, keyboard use and accessibility · **Launch+** · M · Roadmap 4.6
 
-- [ ] Done
+- [x] Done (#237)
 
 **Assigned:** Miles (milessmart6-pixel), built with Codex and Cursor
 

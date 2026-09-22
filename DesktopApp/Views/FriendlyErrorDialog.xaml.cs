@@ -46,5 +46,6 @@ public partial class FriendlyErrorDialog : Window
         }
     }
 
-    private void OnOk(object sender, RoutedEventArgs e) => Close();
+    // OK is IsDefault/IsCancel in the XAML, so WPF closes the dialog itself —
+    // by click, by Enter, or by Escape (F21, DESIGN_SYSTEM.md §13).
 }

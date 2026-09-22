@@ -2258,11 +2258,13 @@ class TestMomentumTrendView:
         xaml = self.XAML.read_text(encoding="utf-8")
         chart = xaml.split('<Grid Height="64"', 1)[1].split("</Grid>", 1)[0]
 
-        assert 'Stroke="{StaticResource Primary}"' in chart
+        # DynamicResource since F21: a colour reference has to re-resolve when
+        # the light theme swaps the tokens dictionary under it.
+        assert 'Stroke="{DynamicResource Primary}"' in chart
         assert 'StrokeThickness="2"' in chart
         assert "Fill=" not in chart, "a line chart has no area fill"
         assert chart.count("<Polyline") == 1, "no more than one series"
-        assert 'Stroke="{StaticResource Edge}"' in chart, "gridlines use the border token"
+        assert 'Stroke="{DynamicResource Edge}"' in chart, "gridlines use the border token"
 
         for line in chart.split("<Line")[1:]:
             head = line.split("/>", 1)[0]
@@ -3899,3 +3901,99 @@ class TestBreaksAndCyclesSource:
         for field in ("StartedUtc", "EndsUtc", "SprintsPlanned", "SprintsDone"):
             assert field in run, f"a resumed break needs {field}"
         assert "BreakResume.EndQuietly" in run
+# ============================ every token pair meets WCAG AA (F21, DESIGN_SYSTEM.md §2)
+
+class TestTokenContrast:
+    """
+    DESIGN_SYSTEM.md §2 "Contrast" lists the pairs that matter and the ratio
+    each one measured at; §13 asks that all of them meet WCAG AA. Normal text
+    needs 4.5:1.
+
+    The light theme is no longer decoration: F21 lets a customer run the app in
+    it, so both themes are measured here, from design/tokens.json, in the same
+    arithmetic WCAG 2.1 defines. Changing a colour in the JSON without checking
+    what it lands on now fails this test rather than shipping.
+    """
+
+    ROOT = Path(SERVER_DIR).parent
+    MINIMUM = 4.5
+
+    #: (foreground token, background token) — exactly §2's "Contrast" table.
+    PAIRS = (
+        ("text", "bg"),
+        ("text-muted", "bg"),
+        ("text-faint", "surface"),
+        ("primary", "bg"),
+        ("primary-ink", "primary"),
+        ("warn", "bg"),
+        ("ok", "bg"),
+        ("danger", "bg"),
+    )
+
+    def tokens(self) -> dict:
+        return json.loads((self.ROOT / "design" / "tokens.json").read_text(encoding="utf-8"))
+
+    @staticmethod
+    def _resolve(theme: dict, name: str) -> tuple[str, float]:
+        """A token as (hex, alpha). A {"ref": …} token follows what it points at."""
+        value = theme[name]
+        if isinstance(value, str):
+            return value, 1.0
+        base, alpha = TestTokenContrast._resolve(theme, value["ref"])
+        return base, alpha * float(value.get("alpha", 1.0))
+
+    @staticmethod
+    def _channels(hex_colour: str) -> tuple[int, int, int]:
+        digits = hex_colour.lstrip("#")
+        assert len(digits) == 6, f"expected #RRGGBB, got {hex_colour!r}"
+        return tuple(int(digits[i:i + 2], 16) for i in (0, 2, 4))  # type: ignore[return-value]
+
+    @staticmethod
+    def _relative_luminance(rgb: tuple[int, int, int]) -> float:
+        """WCAG 2.1 relative luminance."""
+        def linear(channel: int) -> float:
+            value = channel / 255
+            return value / 12.92 if value <= 0.03928 else ((value + 0.055) / 1.055) ** 2.4
+        red, green, blue = (linear(c) for c in rgb)
+        return 0.2126 * red + 0.7152 * green + 0.0722 * blue
+
+    @classmethod
+    def ratio(cls, foreground: str, background: str) -> float:
+        light = cls._relative_luminance(cls._channels(foreground))
+        dark = cls._relative_luminance(cls._channels(background))
+        brighter, dimmer = max(light, dark), min(light, dark)
+        return (brighter + 0.05) / (dimmer + 0.05)
+
+    def test_the_maths_matches_the_published_examples(self):
+        """A sanity check on the formula itself: black on white is 21:1."""
+        assert self.ratio("#000000", "#FFFFFF") == pytest.approx(21.0, abs=0.01)
+        assert self.ratio("#FFFFFF", "#FFFFFF") == pytest.approx(1.0, abs=0.01)
+        assert self.ratio("#767676", "#FFFFFF") == pytest.approx(4.54, abs=0.01)
+
+    @pytest.mark.parametrize("theme_name", ("dark", "light"))
+    def test_every_documented_pair_passes_AA(self, theme_name):
+        theme = self.tokens()["themes"][theme_name]
+        failures = []
+        for foreground, background in self.PAIRS:
+            fg, fg_alpha = self._resolve(theme, foreground)
+            bg, bg_alpha = self._resolve(theme, background)
+            # Every pair in §2 is between two opaque tokens; a translucent one
+            # would need the colour underneath it to mean anything.
+            assert fg_alpha == 1.0 and bg_alpha == 1.0,                 f"{foreground} on {background} is not an opaque pair any more"
+            measured = self.ratio(fg, bg)
+            if measured < self.MINIMUM:
+                failures.append(f"{theme_name}: {foreground} on {background} is "
+                                f"{measured:.2f}:1, below {self.MINIMUM}:1")
+        assert not failures, "; ".join(failures)
+
+    def test_the_light_theme_carries_the_corrected_values(self):
+        """
+        §2 marks four light tokens **change**; the corrected values are what
+        make warn, ok, danger and text-faint pass above. Regressing any of them
+        to the pre-#180 value would put the light theme back under AA.
+        """
+        theme = self.tokens()["themes"]["light"]
+        assert theme["text-faint"] == "#625E57"
+        assert theme["ok"] == "#276A3E"
+        assert theme["warn"] == "#7A5413"
+        assert theme["danger"] == "#A3334A"

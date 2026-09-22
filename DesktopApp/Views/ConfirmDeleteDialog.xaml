@@ -6,7 +6,7 @@
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize"
         ShowInTaskbar="False"
-        Background="{StaticResource Bg}"
+        Background="{DynamicResource Bg}"
         FontFamily="{StaticResource FontStack}"
         TextOptions.TextFormattingMode="Ideal"
         UseLayoutRounding="True"
@@ -22,8 +22,12 @@
             <TextBlock Text="This removes your sessions, journal, blocklist, momentum and licence from this computer. If FlowShield is licensed here, that seat is freed for another machine first. This cannot be undone."
                        Style="{StaticResource Body}" Margin="0,12,0,0" TextWrapping="Wrap"/>
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,24,0,0">
+                <!-- IsCancel, rather than a Click handler: it closes the dialog
+                     with DialogResult false exactly as the old handler did, and
+                     it also makes Escape do it (§13). Both together would set
+                     DialogResult twice, the second time after the close. -->
                 <Button Style="{StaticResource BtnGhost}" Content="Cancel"
-                        Click="OnCancel" Padding="16,8"
+                        IsCancel="True" Padding="16,8"
                         AutomationProperties.AutomationId="ConfirmDeleteCancelButton"
                         AutomationProperties.Name="Cancel"/>
                 <Button Style="{StaticResource BtnDanger}" Content="Delete everything"

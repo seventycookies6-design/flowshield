@@ -2218,3 +2218,99 @@ class TestBreaksAndCycles:
             "skipping a break must not change momentum"
         assert cycle_app.text_of("FocusMinutesValue") == minutes_before, \
             "a break is not focus time"
+# ==================================== the light theme, on screen (F21, #236)
+
+class TestLightTheme:
+    """
+    F21: Settings -> Appearance switches the app between dark, light and
+    whatever Windows is set to, without a restart.
+
+    Written, not run: tier 3 takes over the screen, so the orchestrator
+    schedules it. Everything a source test can prove about F21 is already in
+    tier 5; what only a running window can show is that the pixels changed --
+    that the swapped Tokens dictionary actually reaches what is drawn.
+
+    The measurement is the window's own mean brightness rather than one pixel:
+    the page is mostly background in both themes, so dark sits far below the
+    midpoint and light far above it, wherever the cards happen to land at that
+    window size.
+    """
+
+    #: 0-255. The dark theme's bg is #121110 and its surfaces barely lighter;
+    #: the light theme's bg is #E6E4DF. Nothing legitimate lands between these.
+    DARK_CEILING = 110
+    LIGHT_FLOOR = 170
+
+    @staticmethod
+    def _mean_brightness(app) -> float:
+        image = app.window.capture_as_image().convert("L")
+        # A quarter-size sample is plenty and keeps the test quick.
+        thumbnail = image.resize((image.width // 4 or 1, image.height // 4 or 1))
+        pixels = list(thumbnail.getdata())
+        return sum(pixels) / len(pixels)
+
+    def test_switching_to_light_redraws_the_window(self, fresh_app):
+        fresh_app.navigate_to_tab("Settings")
+
+        dark = self._mean_brightness(fresh_app)
+        assert dark < self.DARK_CEILING, (
+            f"the app should start dark; measured {dark:.0f}/255")
+
+        fresh_app.choose("ThemeLightRadio")
+        time.sleep(1.0)  # the swap is synchronous; this is one render pass
+
+        light = self._mean_brightness(fresh_app)
+        assert light > self.LIGHT_FLOOR, (
+            f"the light theme never reached the screen; measured {light:.0f}/255 "
+            f"(was {dark:.0f})")
+        assert light - dark > 60, "the two themes must be plainly different"
+
+        # And the choice is what was saved, not just what was drawn.
+        assert verify.read_settings().get("Theme") == 2, "Light is AppTheme.Light (2)"
+
+    def test_switching_back_to_dark_restores_it(self, fresh_app):
+        fresh_app.navigate_to_tab("Settings")
+        fresh_app.choose("ThemeLightRadio")
+        time.sleep(1.0)
+        assert self._mean_brightness(fresh_app) > self.LIGHT_FLOOR
+
+        fresh_app.choose("ThemeDarkRadio")
+        time.sleep(1.0)
+        assert self._mean_brightness(fresh_app) < self.DARK_CEILING, \
+            "Dark must undo the swap, not leave a half-lit window"
+        assert verify.read_settings().get("Theme") == 1, "Dark is AppTheme.Dark (1)"
+
+    def test_system_is_the_default_and_survives_a_restart(self, fresh_app):
+        """
+        System is 0, so a settings file written before F21 still means "follow
+        Windows" rather than "dark for ever".
+        """
+        fresh_app.navigate_to_tab("Settings")
+        assert fresh_app.is_selected("ThemeSystemRadio"), \
+            "a clean install must start on System"
+
+        fresh_app.choose("ThemeLightRadio")
+        time.sleep(1.0)
+        assert verify.read_settings().get("Theme") == 2
+
+        # Relaunch against the same settings file, as a customer would.
+        fresh_app.close_app()
+        fresh_app.launch_app(clean_state=False, extra_args=["--skip-first-run"])
+        fresh_app.connect_window()
+        time.sleep(1.0)
+        fresh_app.focus(force=True)
+
+        fresh_app.navigate_to_tab("Settings")
+        assert fresh_app.is_selected("ThemeLightRadio"), \
+            "the choice must come back after a restart"
+        assert self._mean_brightness(fresh_app) > self.LIGHT_FLOOR
+
+    def test_the_keyboard_can_reach_and_use_the_appearance_control(self):
+        """
+        DESIGN_SYSTEM.md §13. Tab must land on the Appearance options and Space
+        must choose one -- the control is not mouse-only.
+
+        Left for the orchestrator's run: it needs real key input to the focused
+        window, which is exactly what tier 3 owns.
+        """
+        pytest.skip("keyboard walk: run as part of the scheduled tier 3 pass")
