@@ -196,8 +196,11 @@ public class LicenseService
             // rather than letting it read as a payment failure.
             if (reason == "device_limit_reached")
             {
-                settings.DeviceCount = body.DeviceCount ?? 0;
-                settings.DeviceLimit = body.DeviceLimit ?? 0;
+                MutateAndSave(settings, s =>
+                {
+                    s.DeviceCount = body.DeviceCount ?? 0;
+                    s.DeviceLimit = body.DeviceLimit ?? 0;
+                });
             }
 
             Log.Warn($"license rejected: {reason}");

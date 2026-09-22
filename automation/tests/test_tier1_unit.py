@@ -1952,6 +1952,39 @@ class TestSettingsSaveDoesNotRaceItsMutators:
     DESKTOP = Path(SERVER_DIR).parent / "DesktopApp"
     SETTINGS_SERVICE = DESKTOP / "Services" / "SettingsService.cs"
     LICENSE_SERVICE = DESKTOP / "Services" / "LicenseService.cs"
+    APP_SETTINGS = DESKTOP / "Models" / "AppSettings.cs"
+
+    def test_clone_is_a_deep_copy_not_a_shallow_one(self):
+        """
+        Save's snapshot-before-the-slow-part guard (below) is only a guard if
+        Clone() actually deep-copies the object — a MemberwiseClone would
+        still hand Save a shared reference to the same Sessions/BlockedApps/
+        ActiveSprint/SkipDatesLocal/NotificationKinds instances the live
+        settings object points at, so a concurrent structural mutation of any
+        of them would still be visible to (and could still crash) the
+        serializer, exactly as if Clone() were never called.
+
+        Pinned as the JSON round-trip Clone() actually uses: serializing the
+        whole graph and deserializing a fresh instance is what guarantees
+        every nested list and dictionary comes back as a new instance, not a
+        shared reference. MemberwiseClone would pass every other test in this
+        file untouched, since none of them execute the C# — there's no dotnet
+        test project here (CLAUDE.md) — so this has to pin it by source.
+        """
+        source = self.APP_SETTINGS.read_text(encoding="utf-8")
+        clone = source.split("public AppSettings Clone()")[1].split("\n    }")[0]
+
+        assert "MemberwiseClone" not in clone, (
+            "MemberwiseClone copies reference fields (Sessions, BlockedApps, "
+            "ActiveSprint, SkipDatesLocal, NotificationKinds, ...) rather than "
+            "the objects they point at, so it would not actually snapshot "
+            "anything Save is protecting against"
+        )
+        assert "JsonSerializer.Serialize(this)" in clone, \
+            "Clone must serialize the whole object graph, not a subset of fields"
+        assert "JsonSerializer.Deserialize<AppSettings>(" in clone, \
+            "Clone must deserialize into a brand-new AppSettings, so every " \
+            "nested collection is a new instance rather than a shared reference"
 
     def test_save_snapshots_before_the_slow_part(self):
         """
