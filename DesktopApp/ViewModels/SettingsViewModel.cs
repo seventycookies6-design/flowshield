@@ -286,6 +286,24 @@ public class SettingsViewModel : ViewModelBase
         }
     }
 
+    /// <summary>
+    /// Off by default (F4). MainWindow reacts to this changing by
+    /// registering or unregistering Ctrl+Alt+F with <c>RegisterHotKey</c>,
+    /// and turns it back off through this same setter if the combination
+    /// turns out to be taken by another app.
+    /// </summary>
+    public bool GlobalHotkeyEnabled
+    {
+        get => _main.Settings.GlobalHotkeyEnabled;
+        set
+        {
+            if (_main.Settings.GlobalHotkeyEnabled == value) return;
+            _main.Settings.GlobalHotkeyEnabled = value;
+            _main.SaveSettings();
+            Raise();
+        }
+    }
+
     public string LicenseServerUrl
     {
         get => _main.Settings.LicenseServerUrl;

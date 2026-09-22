@@ -2652,3 +2652,136 @@ class TestYourDataSettingsCard:
         method = vm.split("private async Task DeleteEverythingAsync()")[1].split("\n    }")[0]
         assert "ConfirmDeleteDialog" in method and "ShowDialog()" in method
         assert "RestartToFirstRun()" in method
+
+
+# ======================================= tray and keyboard start a sprint (F4)
+
+class TestSpaceShortcutSource:
+    """
+    Space on Today must start or end a sprint like the buttons do, but never
+    while a text box (the intention field, the sealed phrase, the custom
+    length) has focus — otherwise typing a space anywhere also toggled the
+    sprint underneath the user.
+    """
+
+    TODAY_VM = Path(SERVER_DIR).parent / "DesktopApp" / "ViewModels" / "TodayViewModel.cs"
+    MAIN_XAML = Path(SERVER_DIR).parent / "DesktopApp" / "MainWindow.xaml"
+
+    def source(self) -> str:
+        return self.TODAY_VM.read_text(encoding="utf-8")
+
+    def test_space_is_ignored_with_focus_in_a_text_box(self):
+        source = self.source()
+        guard = source.split("private bool CanUseSpaceShortcut()")[1].split("\n\n")[0]
+        assert "Keyboard.FocusedElement is not TextBox" in guard, \
+            "the Space shortcut must refuse while a text box has focus"
+
+    def test_space_only_fires_on_today(self):
+        source = self.source()
+        guard = source.split("private bool CanUseSpaceShortcut()")[1].split("\n\n")[0]
+        assert "AppPage.Today" in guard
+
+    def test_space_reuses_the_same_toggle_as_the_buttons(self):
+        source = self.source()
+        assert "ToggleOrEndCommand = new RelayCommand(TogglePrimary, CanUseSpaceShortcut)" in source
+        # TogglePrimary is exactly what StartSprintButton/StopSprintButton drive
+        # (RequestEnd while running, StartSprint otherwise) — not a shortcut
+        # around either.
+        toggle = source.split("public void TogglePrimary()")[1].split("\n    }")[0]
+        assert "RequestEnd()" in toggle and "StartSprint()" in toggle
+
+    def test_the_window_binds_space_and_shift_shields_not_a_global_hook(self):
+        xaml = self.MAIN_XAML.read_text(encoding="utf-8")
+        assert '<KeyBinding Key="Space" Command="{Binding Today.ToggleOrEndCommand}"/>' in xaml
+        for n in (1, 2, 3):
+            assert f'Modifiers="Shift" Key="D{n}"' in xaml
+        # Ctrl+1..5 is reserved for page navigation (issue #37, one slot per
+        # nav-rail tab since F16 added History); Shift must never collide with it.
+        for n in (1, 2, 3, 4, 5):
+            assert f'Modifiers="Ctrl" Key="D{n}"' in xaml
+        assert "RegisterWindowsHookEx" not in xaml
+        assert "SetWindowsHookEx" not in (Path(SERVER_DIR).parent / "DesktopApp" / "MainWindow.xaml.cs").read_text(
+            encoding="utf-8"), "keyboard shortcuts must be WPF KeyBindings, not a global hook"
+
+
+class TestGlobalHotkeySource:
+    """The optional Ctrl+Alt+F hotkey (F4): off by default, per-user, no admin rights."""
+
+    SETTINGS = Path(SERVER_DIR).parent / "DesktopApp" / "Models" / "AppSettings.cs"
+    WINDOW = Path(SERVER_DIR).parent / "DesktopApp" / "MainWindow.xaml.cs"
+    SETTINGS_VM = Path(SERVER_DIR).parent / "DesktopApp" / "ViewModels" / "SettingsViewModel.cs"
+    SETTINGS_XAML = Path(SERVER_DIR).parent / "DesktopApp" / "Views" / "SettingsView.xaml"
+
+    def test_the_setting_defaults_to_off(self):
+        source = self.SETTINGS.read_text(encoding="utf-8")
+        field = source.split("public bool GlobalHotkeyEnabled")[1].split("\n")[0]
+        assert "= true" not in field, "the global hotkey must be off until the user turns it on"
+
+    def test_registration_uses_registerhotkey_not_admin_rights(self):
+        window = self.WINDOW.read_text(encoding="utf-8")
+        assert 'DllImport("user32.dll"' in window
+        assert "RegisterHotKey(" in window
+        assert "UnregisterHotKey(" in window
+        assert "runas" not in window.lower()
+
+    def test_a_taken_combination_turns_the_setting_back_off(self):
+        window = self.WINDOW.read_text(encoding="utf-8")
+        setup = window.split("private void SetUpGlobalHotkey()")[1].split("\n    private ")[0]
+        assert "if (RegisterHotKey(" in setup
+        failure = setup.split("else")[1]
+        assert "GlobalHotkeyEnabled = false" in failure
+        assert "vm.Toast(" in failure, "a taken hotkey must tell the user, not fail silently"
+
+    def test_the_hotkey_is_unregistered_on_close(self):
+        window = self.WINDOW.read_text(encoding="utf-8")
+        closing = window.split("protected override void OnClosing")[1]
+        assert "UnregisterHotKey(" in closing
+
+    def test_the_setting_persists_through_the_normal_settings_pipeline(self):
+        vm = self.SETTINGS_VM.read_text(encoding="utf-8")
+        assert "public bool GlobalHotkeyEnabled" in vm
+        assert "_main.SaveSettings();" in vm.split("public bool GlobalHotkeyEnabled")[1].split("}\n    }")[0]
+
+        xaml = self.SETTINGS_XAML.read_text(encoding="utf-8")
+        assert 'AutomationProperties.AutomationId="GlobalHotkeyToggle"' in xaml
+        assert "{Binding GlobalHotkeyEnabled}" in xaml
+
+
+class TestTrayMenuSource:
+    """
+    The tray menu (F4): start with last settings, start via the window, and —
+    while running — the time left plus an End sprint that goes through the F2
+    flow rather than ending the sprint directly.
+    """
+
+    WINDOW = Path(SERVER_DIR).parent / "DesktopApp" / "MainWindow.xaml.cs"
+
+    def source(self) -> str:
+        return self.WINDOW.read_text(encoding="utf-8")
+
+    def test_the_menu_is_rebuilt_before_it_opens(self):
+        source = self.source()
+        assert "menu.Opening += (_, _) => BuildTrayMenu(menu);" in source
+
+    def test_idle_offers_last_settings_and_start(self):
+        source = self.source()
+        build = source.split("private void BuildTrayMenu(")[1].split("\n    private ")[0]
+        assert '"Start sprint (last settings)"' in build
+        assert "Vm?.Today.StartCommand.Execute(null)" in build
+        assert '"Start…"' in build
+
+    def test_running_shows_time_left_and_end_sprint(self):
+        source = self.source()
+        build = source.split("private void BuildTrayMenu(")[1].split("\n    private ")[0]
+        assert "RemainingText" in build
+        assert "Enabled = false" in build, "the time-left row must not be clickable"
+        assert '"End sprint"' in build
+        assert "EndSprintFromTray()" in build
+
+    def test_end_sprint_from_tray_goes_through_the_f2_flow(self):
+        source = self.source()
+        end = source.split("private void EndSprintFromTray()")[1].split("\n    }")[0]
+        assert "BringToFront()" in end
+        assert "vm.Today.StopCommand.Execute(null)" in end, \
+            "the tray must trigger the same StopCommand as the Today button, not end the sprint directly"
+        assert "EndSprint(" not in end

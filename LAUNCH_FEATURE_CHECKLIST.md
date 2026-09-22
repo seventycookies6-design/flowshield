@@ -275,7 +275,7 @@ A summary of the research, to explain the choices below.
 
 ### F4 — Start a sprint from anywhere in one action · **Launch+** · S · Roadmap 2.7, 3.9
 
-- [ ] Done
+- [x] Done (#214)
 
 **Assigned:** Keenan (seventycookies6-design), built with Claude Code
 
