@@ -259,6 +259,13 @@ public class TodayViewModel : ViewModelBase
 
     public bool NotRunning => !IsRunning;
 
+    /// <summary>
+    /// When the running sprint is due to finish, in UTC. Default when nothing is
+    /// running. Read by the Soft notice (F7), which names the time the blocklist
+    /// holds until.
+    /// </summary>
+    public DateTime EndsAtUtc => _endsAtUtc;
+
     private TimeSpan _remaining;
     /// <summary>Time left in the running sprint; drives the tray countdown (F19).</summary>
     public TimeSpan Remaining { get => _remaining; private set => Set(ref _remaining, value); }

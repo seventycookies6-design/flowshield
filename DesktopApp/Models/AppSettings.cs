@@ -242,6 +242,13 @@ public class AppSettings
     /// </summary>
     public bool GlobalHotkeyEnabled { get; set; }
 
+    /// <summary>
+    /// The Soft shield's full-screen notice (F7, roadmap 1.7). On by default:
+    /// without it Soft's only sign of life is a toast inside a window that is
+    /// usually behind the distraction. Stored locally like everything else here.
+    /// </summary>
+    public bool ShowSoftOverlayEnabled { get; set; } = true;
+
     /// <summary>The first-run welcome (F18) has been shown, finished or skipped.</summary>
     public bool FirstRunCompleted { get; set; }
 

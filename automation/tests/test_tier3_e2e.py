@@ -321,6 +321,140 @@ class TestFirmWarnsBeforeClosing:
                 process.kill()
 
 
+class TestSoftShowsTheNotice:
+    """
+    F7 / roadmap 1.7: at Soft, a blocked app coming to the front gets a
+    topmost full-screen notice naming it and the time left — and the app is
+    still running afterwards, whichever button was pressed.
+
+    The decoy is the same copy of ping the other tier 3 blocker tests use, with
+    one difference: it is launched *without* CREATE_NO_WINDOW, so it owns a
+    console window and can be the foreground one — which is the whole trigger.
+    Notepad would have been the obvious choice and is the wrong one: on Windows
+    11 it can hand off to the Store app and exit, leaving the test watching a
+    process that is already gone.
+
+    The notice is its own top-level window, so it is found through Desktop
+    rather than through the controller, which only searches the main window.
+    """
+
+    TARGET = "flowshield-test-target"
+    OVERLAY = "SoftOverlayWindow"
+
+    def _decoy(self, tmp_path):
+        import shutil
+        exe = tmp_path / f"{self.TARGET}.exe"
+        shutil.copy2(Path(os.environ["WINDIR"]) / "System32" / "PING.EXE", exe)
+        # No CREATE_NO_WINDOW here, unlike the other blocker tests: this one
+        # needs a window Windows can put in the foreground.
+        process = subprocess.Popen(
+            [str(exe), "-n", "300", "127.0.0.1"],
+            creationflags=getattr(subprocess, "CREATE_NEW_CONSOLE", 0))
+        time.sleep(2.0)                       # let its console come up and take focus
+        return process
+
+    def _overlay(self, timeout=15):
+        """The notice's window, or None. Raced, not slept on (#146)."""
+        from pywinauto import Desktop
+
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            try:
+                window = Desktop(backend="uia").window(auto_id=self.OVERLAY)
+                if window.exists(timeout=0.5):
+                    return window
+            except Exception:
+                pass
+            time.sleep(0.4)
+        return None
+
+    def _arm_and_start(self, app):
+        app.navigate_to_tab("Blocked Apps")
+        assert app.add_blocked_app(self.TARGET)
+        time.sleep(0.6)
+        app.navigate_to_tab("Today")
+        app.choose("Shield_Soft")
+        time.sleep(0.4)
+        app.start_sprint(confirm_open_apps=True)
+
+    def test_a_blocked_app_in_front_gets_a_notice_that_closes_nothing(self, fresh_app, tmp_path):
+        process = self._decoy(tmp_path)
+        try:
+            self._arm_and_start(fresh_app)
+
+            overlay = self._overlay()
+            assert overlay is not None, (
+                "a blocked app was the foreground window at Soft and nothing said so"
+            )
+
+            named = overlay.child_window(auto_id="SoftOverlayText").window_text()
+            assert self.TARGET.lower() in named.lower(), named
+            assert "on your blocklist until" in named, named
+            assert overlay.child_window(auto_id="SoftOverlayTimeLeft").exists()
+
+            # Soft's promise: the distraction is noted, not closed.
+            assert process.poll() is None, "Soft must never close the blocked app"
+
+            overlay.child_window(auto_id="SoftOverlayBackToWorkButton").click_input()
+            time.sleep(1.5)
+            assert self._overlay(timeout=2) is None, "Back to work must take it down"
+            assert process.poll() is None, "Back to work must not close the blocked app"
+        finally:
+            if process.poll() is None:
+                process.kill()
+
+    def test_allow_five_minutes_keeps_it_quiet(self, fresh_app, tmp_path):
+        process = self._decoy(tmp_path)
+        try:
+            self._arm_and_start(fresh_app)
+
+            overlay = self._overlay()
+            assert overlay is not None
+            overlay.child_window(auto_id="SoftOverlayAllowButton").click_input()
+            time.sleep(1.0)
+
+            # Back to the decoy: inside the five minutes, nothing appears.
+            process_window = None
+            from pywinauto import Desktop
+            try:
+                process_window = Desktop(backend="uia").window(process_id=process.pid)
+                process_window.set_focus()
+            except Exception:
+                pass
+            time.sleep(6.0)                     # three sweeps of the blocker
+            assert self._overlay(timeout=2) is None, (
+                "Allow 5 minutes has to mean five minutes"
+            )
+            assert process.poll() is None
+        finally:
+            if process.poll() is None:
+                process.kill()
+
+    def test_firm_closes_the_app_instead_of_covering_it(self, fresh_app, tmp_path):
+        """The notice is Soft's. Firm has seconds to save in, and a panel over
+        the window being saved would be the worst possible moment for one."""
+        process = self._decoy(tmp_path)
+        try:
+            fresh_app.navigate_to_tab("Blocked Apps")
+            assert fresh_app.add_blocked_app(self.TARGET)
+            time.sleep(0.6)
+            fresh_app.navigate_to_tab("Today")
+            fresh_app.choose("Shield_Firm")
+            time.sleep(0.4)
+            fresh_app.start_sprint(confirm_open_apps=True)
+
+            deadline = time.time() + 25
+            while time.time() < deadline and process.poll() is None:
+                assert self._overlay(timeout=0.5) is None, (
+                    "Firm must not show the Soft notice"
+                )
+                time.sleep(0.5)
+            assert process.poll() is not None, "Firm still closes the app"
+        finally:
+            if process.poll() is None:
+                process.kill()
+
+
 class TestDistractionsAreCountedPerApp:
     """
     One app closing is one distraction, however many processes it runs.

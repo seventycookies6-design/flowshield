@@ -28,6 +28,7 @@ public class MainViewModel : ViewModelBase
 
         Blocker = new AppBlockerService(settingsService, Settings);
         Blocker.Blocked += OnBlocked;
+        Blocker.SoftForeground += OnSoftForeground;
 
         Today = new TodayViewModel(this);
         History = new HistoryViewModel(this);
@@ -430,6 +431,102 @@ public class MainViewModel : ViewModelBase
     {
         Raise(nameof(IsSprintRunning));
         BlockedApps.RefreshStatus();
+
+        // An allowance belongs to the sprint it was granted in, and a notice
+        // must never outlive the shield that raised it.
+        _softOverlay.Reset();
+        SoftOverlayDismissRequested?.Invoke(this, EventArgs.Empty);
+    }
+
+    // ------------------------------------------------- the Soft notice (F7, 1.7)
+
+    private readonly SoftOverlayPolicy _softOverlay = new();
+
+    /// <summary>What MainWindow needs to put the Soft notice on screen.</summary>
+    public sealed record SoftOverlayRequest(
+        string DisplayName, string Sentence, string TimeLeft, IntPtr Window);
+
+    /// <summary>Show the Soft notice for a blocked app that has just come to the front.</summary>
+    public event EventHandler<SoftOverlayRequest>? SoftOverlayRequested;
+
+    /// <summary>Take the Soft notice down, if one is up.</summary>
+    public event EventHandler? SoftOverlayDismissRequested;
+
+    /// <summary>
+    /// True while any FlowShield panel is up: the terms gate, the lock screen,
+    /// the welcome, an activation prompt, the end-sprint flow, the "what moved?"
+    /// prompt or the pre-sprint question.
+    ///
+    /// The Soft notice never opens over one of these. They are all things the
+    /// user is in the middle of answering, and a full-screen panel from another
+    /// window would take the keyboard away mid-sentence.
+    /// </summary>
+    public bool ModalPanelVisible =>
+        TermsGateVisible || IsLocked || FirstRun.IsVisible || ActivationPromptVisible
+        || Today.EndPanelVisible || Today.JournalPromptVisible || Today.RunningAppsPanelVisible;
+
+    private void OnSoftForeground(object? sender, ForegroundSighting e)
+    {
+        var dispatcher = App.Current?.Dispatcher;
+        if (dispatcher is null) return;
+
+        dispatcher.Invoke(() =>
+        {
+            // The sighting was taken on the blocker's own thread; this runs on
+            // the dispatcher afterwards, so the sprint can have been cancelled
+            // or finished in between. A notice for a sprint that no longer
+            // exists would stay up forever: enforcement has stopped, so no
+            // later sighting would ever arrive to take it down.
+            if (!IsSprintRunning || !Blocker.IsEnforcing)
+            {
+                if (_softOverlay.LeftTheForeground())
+                    SoftOverlayDismissRequested?.Invoke(this, EventArgs.Empty);
+                return;
+            }
+
+            if (e.DisplayName is null)
+            {
+                // Something that is not a blocked app is in front, so the notice
+                // has done its job. FlowShield's own windows are never reported
+                // here, so this is not the notice seeing itself.
+                if (_softOverlay.LeftTheForeground())
+                    SoftOverlayDismissRequested?.Invoke(this, EventArgs.Empty);
+                return;
+            }
+
+            if (!Settings.ShowSoftOverlayEnabled) return;
+            if (ModalPanelVisible) return;
+            if (!_softOverlay.ShouldShow(e.DisplayName, DateTime.UtcNow)) return;
+
+            Log.Info($"soft notice shown for {e.DisplayName}");
+            SoftOverlayRequested?.Invoke(this, new SoftOverlayRequest(
+                e.DisplayName,
+                SoftOverlayCopy.Sentence(e.DisplayName, Today.EndsAtUtc.ToLocalTime()),
+                SoftOverlayCopy.TimeLeft(Today.Remaining),
+                e.Window));
+        });
+    }
+
+    /// <summary>
+    /// "Back to work" on the Soft notice. The blocked app is left running — Soft
+    /// closes nothing, and that promise is the whole shield.
+    /// </summary>
+    public void SoftOverlayBackToWork(string displayName)
+    {
+        _softOverlay.BackToWork(displayName, DateTime.UtcNow);
+        Log.Info($"soft notice dismissed: back to work from {displayName}");
+    }
+
+    /// <summary>
+    /// "Allow 5 minutes". The sighting was already counted as a distraction when
+    /// it happened, once, so this changes nothing about the count.
+    /// </summary>
+    public void SoftOverlayAllowFiveMinutes(string displayName)
+    {
+        _softOverlay.AllowFiveMinutes(displayName, DateTime.UtcNow);
+        Toast(SoftOverlayCopy.Allowed(displayName));
+        Log.Info($"soft notice: {displayName} allowed for "
+                 + $"{SoftOverlayPolicy.AllowWindow.TotalMinutes:0} minutes");
     }
 
     private void OnBlocked(object? sender, BlockEvent e)

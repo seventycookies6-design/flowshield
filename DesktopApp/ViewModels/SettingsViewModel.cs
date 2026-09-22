@@ -274,6 +274,23 @@ public class SettingsViewModel : ViewModelBase
         }
     }
 
+    /// <summary>
+    /// The Soft shield's full-screen notice (F7). Soft closes nothing, so this
+    /// is the only thing it does that is visible from outside FlowShield —
+    /// which is also why someone might want it off.
+    /// </summary>
+    public bool ShowSoftOverlayEnabled
+    {
+        get => _main.Settings.ShowSoftOverlayEnabled;
+        set
+        {
+            if (_main.Settings.ShowSoftOverlayEnabled == value) return;
+            _main.Settings.ShowSoftOverlayEnabled = value;
+            _main.SaveSettings();
+            Raise();
+        }
+    }
+
     public bool MinimizeToTrayOnClose
     {
         get => _main.Settings.MinimizeToTrayOnClose;

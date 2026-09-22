@@ -265,7 +265,7 @@ These are where FlowShield steps between the user and a distraction (checklist
 F7, and F10's blocked page). They share one pattern:
 
 - A compact `surface` panel with the shield glyph, one sentence ("Discord is on your blocklist until 5:45 PM"), and the time left.
-- Soft adds one Secondary action ("Continue anyway"); Firm shows a short countdown before closing.
+- Soft adds one Secondary action ("Allow 5 minutes"); Firm shows a short countdown before closing.
 - **No red, no alarm icons, no shaking animations.** It should feel like a polite colleague tapping your shoulder.
 
 ### Toasts and native notifications

@@ -1,0 +1,85 @@
+<Window x:Class="FlowShield.Views.SoftOverlayWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:inf="clr-namespace:FlowShield.Infrastructure"
+        Title="FlowShield"
+        WindowStyle="None" ResizeMode="NoResize" ShowInTaskbar="False"
+        AllowsTransparency="True" Topmost="True"
+        Background="{StaticResource Scrim}"
+        FontFamily="{StaticResource FontStack}"
+        TextOptions.TextFormattingMode="Ideal"
+        UseLayoutRounding="True"
+        AutomationProperties.AutomationId="SoftOverlayWindow"
+        AutomationProperties.Name="Blocked app notice">
+
+    <!-- ================================================ the Soft notice (F7, 1.7)
+         DESIGN_SYSTEM.md §7 "Intervention moments": a scrim over a compact
+         surface panel with the shield glyph, one sentence naming the app, and
+         the time left. No red, no alarm icon, nothing that shakes — a polite
+         colleague tapping your shoulder, on the monitor the distraction is on.
+
+         §8 motion: it fades in over Motion.Selection (200 ms, panels), which
+         collapses to zero when Windows' animation effects are off, so under
+         reduced motion it simply appears.
+
+         No AutomationId sits on a Border, Grid or StackPanel here: UI
+         Automation never surfaces those, so an id on one could never be found
+         (#134). The text and both buttons are real controls. -->
+
+    <Window.Triggers>
+        <EventTrigger RoutedEvent="Window.Loaded">
+            <BeginStoryboard>
+                <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="Root"
+                                     Storyboard.TargetProperty="Opacity"
+                                     From="0" To="1" Duration="{x:Static inf:Motion.Selection}">
+                        <DoubleAnimation.EasingFunction>
+                            <CubicEase EasingMode="EaseOut"/>
+                        </DoubleAnimation.EasingFunction>
+                    </DoubleAnimation>
+                </Storyboard>
+            </BeginStoryboard>
+        </EventTrigger>
+    </Window.Triggers>
+
+    <Grid x:Name="Root">
+        <Border Style="{StaticResource Card}" Padding="32" MaxWidth="520" Margin="24"
+                HorizontalAlignment="Center" VerticalAlignment="Center">
+            <StackPanel>
+                <StackPanel Orientation="Horizontal">
+                    <Image Source="{StaticResource ShieldGlyphSoft}" Width="20" Height="20"
+                           Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                    <TextBlock Text="SHIELD I · SOFT" Style="{StaticResource Eyebrow}"
+                               VerticalAlignment="Center"
+                               AutomationProperties.AutomationId="SoftOverlayEyebrow"/>
+                </StackPanel>
+
+                <TextBlock x:Name="SentenceText" Style="{StaticResource H1}" TextWrapping="Wrap"
+                           Margin="0,16,0,0"
+                           AutomationProperties.AutomationId="SoftOverlayText"/>
+
+                <TextBlock x:Name="TimeLeftText" Style="{StaticResource Body}" TextWrapping="Wrap"
+                           Margin="0,12,0,0"
+                           AutomationProperties.AutomationId="SoftOverlayTimeLeft"/>
+
+                <TextBlock Text="Nothing has been closed. Soft notes the distraction and leaves the app running."
+                           Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,12,0,0"
+                           AutomationProperties.AutomationId="SoftOverlayNote"/>
+
+                <StackPanel Orientation="Horizontal" Margin="0,24,0,0">
+                    <!-- IsCancel so Escape is the same as Back to work. -->
+                    <Button x:Name="BackToWorkButton" Style="{StaticResource BtnPrimary}"
+                            Content="Back to work" Padding="24,12" IsCancel="True" IsDefault="True"
+                            Click="OnBackToWork"
+                            AutomationProperties.AutomationId="SoftOverlayBackToWorkButton"
+                            AutomationProperties.Name="Back to work"/>
+                    <Button Style="{StaticResource BtnGhost}" Content="Allow 5 minutes"
+                            Padding="24,12" Margin="12,0,0,0"
+                            Click="OnAllowFiveMinutes"
+                            AutomationProperties.AutomationId="SoftOverlayAllowButton"
+                            AutomationProperties.Name="Allow 5 minutes"/>
+                </StackPanel>
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>
