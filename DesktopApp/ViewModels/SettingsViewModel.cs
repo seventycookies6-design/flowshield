@@ -152,12 +152,19 @@ public class SettingsViewModel : ViewModelBase
     private async Task ActivateAsync()
     {
         IsBusy = true;
-        LicenseStatusText = "Checking your license…";
+        // The licence server may be a sleeping Render free instance — the
+        // first request after idle can take up to a minute. Roadmap 5.2:
+        // start with the honest "contacting" copy; ValidateAsync's progress
+        // callback swaps it for the "waking up" message once the wait has
+        // gone on long enough to say so (LicenseWaitCopy.MessageFor).
+        LicenseStatusText = LicenseWaitCopy.MessageFor(0);
         LicenseDetailText = "";
+
+        var progress = new Progress<string>(message => LicenseStatusText = message);
 
         try
         {
-            var result = await _license.ValidateAsync(LicenseKeyInput, LicenseEmailInput, _main.Settings);
+            var result = await _license.ValidateAsync(LicenseKeyInput, LicenseEmailInput, _main.Settings, progress);
 
             if (result.IsPro)
             {
@@ -166,6 +173,13 @@ public class SettingsViewModel : ViewModelBase
                 _main.OnTierChanged();
                 RefreshLicenseStatus();
                 _main.Toast("FlowShield activated. Thanks for buying it.");
+            }
+            else if (LicenseWaitCopy.IsTransportFailure(result.Definitive))
+            {
+                // A timeout or dropped connection is not a verdict on the key —
+                // never word it like a rejection (Roadmap 5.2).
+                LicenseStatusText = "Couldn't reach the licence server";
+                LicenseDetailText = result.Message;
             }
             else
             {

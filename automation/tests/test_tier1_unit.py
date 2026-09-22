@@ -1128,6 +1128,68 @@ class TestEndSprintPolicy:
         assert phrase_matches(typed) is ok
 
 
+# ================= Roadmap 5.2 — honest waiting while the licence server wakes
+
+def wait_message_for(elapsed_seconds: float) -> str:
+    """Mirror of LicenseWaitCopy.MessageFor."""
+    waking_up_after = 8.0
+    if elapsed_seconds < waking_up_after:
+        return "Contacting the licence server…"
+    return "The server is waking up. This can take up to a minute."
+
+
+def timeout_for_attempt(attempt: int) -> float:
+    """Mirror of LicenseWaitCopy.TimeoutForAttempt."""
+    first, retry = 35.0, 15.0
+    return first if attempt <= 1 else retry
+
+
+class TestLicenseWaitCopy:
+    """
+    Pure helper (DesktopApp/Services/LicenseWaitCopy.cs) behind the honest
+    waiting UI: the copy ladder shown while activation retries, and the
+    backoff schedule the retries follow. No network, no app — this class
+    mirrors its logic and cross-checks the constants against the source.
+    """
+
+    SOURCE = Path(SERVER_DIR).parent / "DesktopApp" / "Services" / "LicenseWaitCopy.cs"
+
+    @pytest.mark.parametrize("elapsed,expected", [
+        (0.0, "Contacting the licence server…"),
+        (7.9, "Contacting the licence server…"),
+        (8.0, "The server is waking up. This can take up to a minute."),
+        (60.0, "The server is waking up. This can take up to a minute."),
+    ])
+    def test_message_ladder(self, elapsed, expected):
+        assert wait_message_for(elapsed) == expected
+
+    def test_message_never_says_invalid_for_a_wait(self):
+        for elapsed in (0.0, 3.0, 8.0, 30.0, 74.0):
+            message = wait_message_for(elapsed)
+            assert "invalid" not in message.lower()
+            assert "not activated" not in message.lower()
+
+    @pytest.mark.parametrize("attempt,expected", [(1, 35.0), (2, 15.0), (3, 15.0)])
+    def test_timeout_schedule(self, attempt, expected):
+        assert timeout_for_attempt(attempt) == expected
+
+    def test_total_budget_is_around_75_seconds(self):
+        source = self.SOURCE.read_text(encoding="utf-8")
+        assert "35.0" in source and "15.0" in source
+
+        # first attempt + two retries, each with a short delay first
+        total = timeout_for_attempt(1) + 2.0 + timeout_for_attempt(2) + 5.0 + timeout_for_attempt(3)
+        assert 60.0 <= total <= 75.0, (
+            f"retry budget is {total}s; roadmap 5.2 asks for backoff up to "
+            "~75s total"
+        )
+
+    def test_retry_delays_match_the_source(self):
+        source = self.SOURCE.read_text(encoding="utf-8")
+        delays = source.split("RetryDelaysSeconds = new[] {")[1].split("}")[0]
+        assert "2.0" in delays and "5.0" in delays
+
+
 # ============================================= sprint summary card (F12)
 
 def summary_title(completed: bool, start_momentum: float, end_momentum: float) -> str:
