@@ -234,6 +234,14 @@ public class AppSettings
     public bool HardKillModeEnabled { get; set; }
     public bool MinimizeToTrayOnClose { get; set; } = true;
 
+    /// <summary>
+    /// Off by default (F4, roadmap 3.9). When on, Ctrl+Alt+F starts the last
+    /// sprint from anywhere, registered with <c>RegisterHotKey</c> — no admin
+    /// rights, no global keyboard hook. Turned back off automatically if the
+    /// combination is already taken by another app.
+    /// </summary>
+    public bool GlobalHotkeyEnabled { get; set; }
+
     /// <summary>The first-run welcome (F18) has been shown, finished or skipped.</summary>
     public bool FirstRunCompleted { get; set; }
 

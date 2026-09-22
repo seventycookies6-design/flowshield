@@ -96,7 +96,7 @@ roadmap item below has exactly one owner. Tracking issues: #37 (Keenan) and
 | F6 | Study templates and scheduled sprints | M |
 | F8 | App picker with student and gamer suggestions (Roadmap 2.2) (done, #58) | M |
 | F9 | Blocklist profiles (Roadmap 3.8) | M |
-| F16 | History and weekly view (Roadmap 3.1, 3.6) | M |
+| F16 | History and weekly view (Roadmap 3.1, 3.6) (done, #217) | M |
 | F18 | Three-step first run (Roadmap 2.1) (done, #68) | M |
 | F19 | Native notifications and tray (Roadmap 2.5, 2.7) (done, #95) | S |
 | F23 | Privacy promise: in-app "Your data" and the claims test (Roadmap 4.5); Miles writes the website section | S |
@@ -275,7 +275,7 @@ A summary of the research, to explain the choices below.
 
 ### F4 — Start a sprint from anywhere in one action · **Launch+** · S · Roadmap 2.7, 3.9
 
-- [ ] Done
+- [x] Done (#214)
 
 **Assigned:** Keenan (seventycookies6-design), built with Claude Code
 
@@ -540,7 +540,17 @@ The recommendation is (b) plus the honest message (F26), unless early users say 
 
 ### F16 — History and a weekly view · **Launch+** · M · Roadmap 3.1, 3.6
 
-- [ ] Done
+- [x] Done (#217): this week Monday–Sunday in local time (hours focused,
+      sprints completed, distractions caught, most-blocked app), a 30-day
+      heatmap of focus minutes in five steps with a legend, and every sprint
+      newest first with its length, shield, outcome, intention and journal line
+      — which is F17's read-back. The rules are pure in `Models/HistoryStats.cs`
+      and nothing new is stored. The most-blocked app is the per-entry count on
+      the blocklist, and the card says so: a sprint records how many
+      distractions it caught, never which app. The journal export stays on
+      Settings, reached from here with a Secondary button. An empty MILESTONES
+      card holds the place for F14 (#133). The tier 3 test was written but not
+      run; UI runs are scheduled separately.
 
 **Assigned:** Keenan (seventycookies6-design), built with Claude Code
 
@@ -558,9 +568,12 @@ The recommendation is (b) plus the honest message (F26), unless early users say 
 
 ### F17 — Read back and export the journal · **Launch+** · S · Roadmap 3.5
 
-- [x] Done — shipped in #116
+- [x] Done — the export shipped in #116; the read-back it promised shipped with
+      History in #217, where every sprint's intention and journal line is listed
+      newest first. The export card stays on Settings, with a Secondary button
+      to it from History.
 
-**Assigned:** Miles (milessmart6-pixel), built with Codex and Cursor
+**Assigned:** Miles (milessmart6-pixel), built with Codex and Cursor; the read-back by Keenan with F16
 
 **Borrowed from:** Serene's daily goal record and RescueTime's summaries. Mainly this fixes a gap: the journal can be written but never read.
 

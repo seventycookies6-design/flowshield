@@ -1993,6 +1993,280 @@ class TestMomentumTrendView:
         assert "TrendVisible = points.Any(p => p.Score > 0);" in vm,             "the chart hides until there is momentum, not merely until there is a sprint"
 
 
+# ===================================== History and the weekly view (F16 / 3.1, 3.6)
+
+class TestHistoryStats:
+    """
+    Python mirror of Models/HistoryStats.cs.
+
+    History is a projection of AppSettings.Sessions, not a second record, so
+    every rule it applies — where a week starts, which day a sprint counts on,
+    how a heatmap cell picks its step — is pinned here against the source.
+    """
+
+    DESKTOP = Path(SERVER_DIR).parent / "DesktopApp"
+    MODEL = DESKTOP / "Models" / "HistoryStats.cs"
+
+    HEATMAP_DAYS = 30
+    STEPS = 5
+
+    # --------------------------------------------------------- the rules again
+
+    @staticmethod
+    def _week_start(day):
+        """Monday of that week. The C# uses DayOfWeek, where Sunday is 0."""
+        back = 6 if day.weekday() == 6 else day.weekday()
+        return day - timedelta(days=back)
+
+    @classmethod
+    def _week_end(cls, day):
+        return cls._week_start(day) + timedelta(days=6)
+
+    @classmethod
+    def _for_week(cls, sessions, now):
+        """sessions are (local day, actual minutes, completed, blocks)."""
+        start, end = cls._week_start(now), cls._week_end(now)
+        inside = [s for s in sessions if start <= s[0] <= end]
+        return {
+            "start": start,
+            "end": end,
+            "minutes": round(sum(s[1] for s in inside), 1),
+            "completed": sum(1 for s in inside if s[2]),
+            "blocks": sum(s[3] for s in inside),
+        }
+
+    @classmethod
+    def _step(cls, minutes, peak):
+        import math
+        if minutes <= 0:
+            return 0
+        if peak <= 0:
+            return 1
+        share = math.ceil(minutes / peak * (cls.STEPS - 1))
+        return min(max(share, 1), cls.STEPS - 1)
+
+    @classmethod
+    def _heatmap(cls, sessions, today, days=None):
+        days = days or cls.HEATMAP_DAYS
+        start = today - timedelta(days=days - 1)
+        by_day = {}
+        for day, minutes, _completed, _blocks in sessions:
+            if start <= day <= today:
+                by_day[day] = by_day.get(day, 0) + minutes
+        by_day = {day: round(m) for day, m in by_day.items()}
+        peak = max(by_day.values()) if by_day else 0
+        return [
+            (start + timedelta(days=i),
+             by_day.get(start + timedelta(days=i), 0),
+             cls._step(by_day.get(start + timedelta(days=i), 0), peak))
+            for i in range(days)
+        ]
+
+    # ------------------------------------------------------- week boundaries
+
+    def test_the_week_runs_monday_to_sunday(self):
+        # 21 September 2026 is a Monday.
+        monday = date(2026, 9, 21)
+        assert monday.weekday() == 0
+        assert self._week_start(monday) == monday
+        assert self._week_end(monday) == date(2026, 9, 27)
+
+    def test_every_day_of_one_week_agrees_on_its_monday(self):
+        monday = date(2026, 9, 21)
+        for offset in range(7):
+            day = monday + timedelta(days=offset)
+            assert self._week_start(day) == monday, f"{day} fell outside its own week"
+            assert self._week_end(day) == monday + timedelta(days=6)
+
+    def test_sunday_belongs_to_the_week_that_just_ended(self):
+        """
+        The one boundary that is easy to get wrong: .NET numbers Sunday 0, so a
+        naive DayOfWeek - 1 would send Sunday back to the *next* Monday and
+        silently move a Sunday evening's sprints into next week's total.
+        """
+        sunday = date(2026, 9, 27)
+        assert sunday.weekday() == 6
+        assert self._week_start(sunday) == date(2026, 9, 21)
+        assert self._week_end(sunday) == sunday
+
+        source = self.MODEL.read_text(encoding="utf-8")
+        assert "DayOfWeek.Sunday ? 6" in source, \
+            "Sunday needs the full six days back, not DayOfWeek - 1"
+
+    def test_monday_starts_a_new_week_rather_than_extending_the_old_one(self):
+        assert self._week_start(date(2026, 9, 28)) == date(2026, 9, 28)
+        assert self._week_start(date(2026, 9, 27)) == date(2026, 9, 21)
+
+    def test_the_week_is_monday_first_whatever_the_regional_format_says(self):
+        source = self.MODEL.read_text(encoding="utf-8")
+        assert "CurrentCulture" not in source and "FirstDayOfWeek" not in source, \
+            "a culture-dependent week would move last week's hours when the format changes"
+
+    # ------------------------------------------------------- the week's figures
+
+    def test_the_week_counts_only_its_own_sprints(self):
+        now = date(2026, 9, 23)          # Wednesday
+        week = self._for_week([
+            (date(2026, 9, 20), 60.0, True, 4),     # the Sunday before: last week
+            (date(2026, 9, 21), 25.0, True, 1),
+            (date(2026, 9, 23), 12.0, False, 2),
+            (date(2026, 9, 28), 45.0, True, 9),     # next Monday
+        ], now)
+        assert week["minutes"] == 37.0
+        assert week["completed"] == 1
+        assert week["blocks"] == 3
+
+    def test_minutes_count_whatever_the_outcome_but_completed_does_not(self):
+        """
+        A sprint ended after 12 of its 25 minutes really was 12 minutes of
+        focus, and Today's card already sums every sprint's minutes for one day
+        — the week must agree with it. "Sprints completed" is the finished ones.
+        """
+        now = date(2026, 9, 23)
+        week = self._for_week([
+            (date(2026, 9, 21), 25.0, True, 0),
+            (date(2026, 9, 22), 12.0, False, 0),
+        ], now)
+        assert week["minutes"] == 37.0
+        assert week["completed"] == 1
+
+    def test_an_empty_week_is_zero_rather_than_missing(self):
+        week = self._for_week([], date(2026, 9, 23))
+        assert (week["minutes"], week["completed"], week["blocks"]) == (0, 0, 0)
+        assert week["start"] == date(2026, 9, 21)
+
+    def test_a_sprint_counts_on_the_local_day_it_started(self):
+        """A sprint begun at 11:30pm belongs to that evening, not to tomorrow."""
+        source = self.MODEL.read_text(encoding="utf-8")
+        body = source.split("DayOf(FocusSession session) =>", 1)[1].split(";", 1)[0]
+        assert "StartedUtc.ToLocalTime().Date" in body
+        assert "EndedUtc" not in body, "the day a sprint ended is not the day it counts on"
+
+    # ------------------------------------------------------ heatmap bucketing
+
+    def test_no_focus_at_all_is_its_own_step(self):
+        """One minute must look different from none; step 0 means nothing."""
+        assert self._step(0, 120) == 0
+        assert self._step(1, 120) == 1
+
+    def test_the_busiest_day_takes_the_darkest_step(self):
+        assert self._step(120, 120) == self.STEPS - 1 == 4
+
+    def test_the_four_used_steps_split_the_range_evenly(self):
+        peak = 100
+        assert self._step(1, peak) == 1
+        assert self._step(25, peak) == 1
+        assert self._step(26, peak) == 2
+        assert self._step(50, peak) == 2
+        assert self._step(51, peak) == 3
+        assert self._step(75, peak) == 3
+        assert self._step(76, peak) == 4
+        assert self._step(100, peak) == 4
+
+    def test_the_scale_follows_the_window_not_a_fixed_minute_count(self):
+        """
+        25-minute sprints and three-hour days must both read; scaling against a
+        fixed target would flatten one of them into a single block.
+        """
+        assert self._step(25, 25) == 4, "a light week still shows its best day dark"
+        assert self._step(25, 200) == 1, "a heavy week puts the same 25 minutes low"
+
+    def test_a_day_that_is_the_only_one_with_any_focus_is_still_readable(self):
+        assert self._step(5, 5) == 4
+
+    def test_a_peak_of_zero_never_divides_by_it(self):
+        assert self._step(0, 0) == 0
+        assert self._step(3, 0) == 1
+
+    def test_the_grid_is_always_the_full_window(self):
+        cells = self._heatmap([], date(2026, 9, 23))
+        assert len(cells) == self.HEATMAP_DAYS
+        assert {step for _day, _m, step in cells} == {0}
+        assert cells[0][0] == date(2026, 9, 23) - timedelta(days=29)
+        assert cells[-1][0] == date(2026, 9, 23)
+
+    def test_days_outside_the_window_are_left_out_of_the_scale(self):
+        """An old marathon day must not flatten the last 30 days against it."""
+        today = date(2026, 9, 23)
+        cells = self._heatmap([
+            (date(2026, 1, 1), 600.0, True, 0),
+            (date(2026, 9, 22), 30.0, True, 0),
+        ], today)
+        by_day = {day: (minutes, step) for day, minutes, step in cells}
+        assert by_day[date(2026, 9, 22)] == (30, 4), \
+            "the busiest day inside the window is the top of the scale"
+
+    def test_several_sprints_on_one_day_add_up_in_one_cell(self):
+        today = date(2026, 9, 23)
+        cells = self._heatmap([
+            (today, 25.0, True, 0),
+            (today, 25.0, True, 0),
+        ], today)
+        assert cells[-1][1] == 50
+
+    def test_the_heatmap_has_five_steps_and_thirty_days(self):
+        source = self.MODEL.read_text(encoding="utf-8")
+        assert f"HeatmapDays = {self.HEATMAP_DAYS}" in source
+        assert f"Steps = {self.STEPS}" in source, \
+            'DESIGN_SYSTEM.md §7: "five steps from surface-2 to primary"'
+
+    # ------------------------------------------------- the most-blocked app
+
+    @staticmethod
+    def _most_blocked(apps):
+        """apps are (display name, block count)."""
+        ranked = sorted(
+            (a for a in apps if a[1] > 0),
+            key=lambda a: (-a[1], a[0].lower()))
+        return ranked[0][0] if ranked else ""
+
+    def test_the_app_blocked_most_often_wins(self):
+        assert self._most_blocked([("Discord", 3), ("Steam", 9), ("Slack", 1)]) == "Steam"
+
+    def test_a_tie_breaks_on_the_name_so_the_card_stays_still(self):
+        """
+        Two apps on the same count must not swap places between one draw and the
+        next, which is what list order would do.
+        """
+        assert self._most_blocked([("Steam", 4), ("Discord", 4)]) == "Discord"
+        assert self._most_blocked([("Discord", 4), ("Steam", 4)]) == "Discord"
+
+    def test_a_tie_ignores_case(self):
+        assert self._most_blocked([("brave", 2), ("Ableton", 2)]) == "Ableton"
+
+    def test_apps_that_have_never_been_blocked_are_not_named(self):
+        assert self._most_blocked([("Discord", 0), ("Steam", 0)]) == ""
+        assert self._most_blocked([]) == ""
+
+    def test_the_tie_break_is_the_one_in_the_source(self):
+        source = self.MODEL.read_text(encoding="utf-8")
+        assert "OrderByDescending(a => a.BlockCount)" in source
+        assert "ThenBy(a => a.DisplayName, StringComparer.OrdinalIgnoreCase)" in source
+
+    # ------------------------------------------------------------ the shape
+
+    def test_the_aggregation_is_pure(self):
+        """
+        No clock, no file system and no view: the page's rules have to be
+        testable on their own, and the same numbers have to come out twice.
+        """
+        source = self.MODEL.read_text(encoding="utf-8")
+        for forbidden in ("DateTime.Now", "DateTime.UtcNow", "File.", "SettingsService",
+                          "HttpClient", "using System.Windows"):
+            assert forbidden not in source, \
+                f"HistoryStats must stay pure; it mentions {forbidden}"
+
+    def test_history_adds_nothing_to_what_is_stored(self):
+        """
+        Same reasoning as the momentum trend: a stored weekly roll-up would
+        start the day this shipped and could disagree with the sessions it
+        claims to summarise.
+        """
+        settings = (self.DESKTOP / "Models" / "AppSettings.cs").read_text(encoding="utf-8")
+        for forbidden in ("WeeklyStats", "HistoryCache", "FocusMinutesByDay"):
+            assert forbidden not in settings
+
+
 # ============================== graceful close at Firm (F7 / roadmap 1.8)
 
 class TestGracefulClose:
@@ -2378,3 +2652,136 @@ class TestYourDataSettingsCard:
         method = vm.split("private async Task DeleteEverythingAsync()")[1].split("\n    }")[0]
         assert "ConfirmDeleteDialog" in method and "ShowDialog()" in method
         assert "RestartToFirstRun()" in method
+
+
+# ======================================= tray and keyboard start a sprint (F4)
+
+class TestSpaceShortcutSource:
+    """
+    Space on Today must start or end a sprint like the buttons do, but never
+    while a text box (the intention field, the sealed phrase, the custom
+    length) has focus — otherwise typing a space anywhere also toggled the
+    sprint underneath the user.
+    """
+
+    TODAY_VM = Path(SERVER_DIR).parent / "DesktopApp" / "ViewModels" / "TodayViewModel.cs"
+    MAIN_XAML = Path(SERVER_DIR).parent / "DesktopApp" / "MainWindow.xaml"
+
+    def source(self) -> str:
+        return self.TODAY_VM.read_text(encoding="utf-8")
+
+    def test_space_is_ignored_with_focus_in_a_text_box(self):
+        source = self.source()
+        guard = source.split("private bool CanUseSpaceShortcut()")[1].split("\n\n")[0]
+        assert "Keyboard.FocusedElement is not TextBox" in guard, \
+            "the Space shortcut must refuse while a text box has focus"
+
+    def test_space_only_fires_on_today(self):
+        source = self.source()
+        guard = source.split("private bool CanUseSpaceShortcut()")[1].split("\n\n")[0]
+        assert "AppPage.Today" in guard
+
+    def test_space_reuses_the_same_toggle_as_the_buttons(self):
+        source = self.source()
+        assert "ToggleOrEndCommand = new RelayCommand(TogglePrimary, CanUseSpaceShortcut)" in source
+        # TogglePrimary is exactly what StartSprintButton/StopSprintButton drive
+        # (RequestEnd while running, StartSprint otherwise) — not a shortcut
+        # around either.
+        toggle = source.split("public void TogglePrimary()")[1].split("\n    }")[0]
+        assert "RequestEnd()" in toggle and "StartSprint()" in toggle
+
+    def test_the_window_binds_space_and_shift_shields_not_a_global_hook(self):
+        xaml = self.MAIN_XAML.read_text(encoding="utf-8")
+        assert '<KeyBinding Key="Space" Command="{Binding Today.ToggleOrEndCommand}"/>' in xaml
+        for n in (1, 2, 3):
+            assert f'Modifiers="Shift" Key="D{n}"' in xaml
+        # Ctrl+1..5 is reserved for page navigation (issue #37, one slot per
+        # nav-rail tab since F16 added History); Shift must never collide with it.
+        for n in (1, 2, 3, 4, 5):
+            assert f'Modifiers="Ctrl" Key="D{n}"' in xaml
+        assert "RegisterWindowsHookEx" not in xaml
+        assert "SetWindowsHookEx" not in (Path(SERVER_DIR).parent / "DesktopApp" / "MainWindow.xaml.cs").read_text(
+            encoding="utf-8"), "keyboard shortcuts must be WPF KeyBindings, not a global hook"
+
+
+class TestGlobalHotkeySource:
+    """The optional Ctrl+Alt+F hotkey (F4): off by default, per-user, no admin rights."""
+
+    SETTINGS = Path(SERVER_DIR).parent / "DesktopApp" / "Models" / "AppSettings.cs"
+    WINDOW = Path(SERVER_DIR).parent / "DesktopApp" / "MainWindow.xaml.cs"
+    SETTINGS_VM = Path(SERVER_DIR).parent / "DesktopApp" / "ViewModels" / "SettingsViewModel.cs"
+    SETTINGS_XAML = Path(SERVER_DIR).parent / "DesktopApp" / "Views" / "SettingsView.xaml"
+
+    def test_the_setting_defaults_to_off(self):
+        source = self.SETTINGS.read_text(encoding="utf-8")
+        field = source.split("public bool GlobalHotkeyEnabled")[1].split("\n")[0]
+        assert "= true" not in field, "the global hotkey must be off until the user turns it on"
+
+    def test_registration_uses_registerhotkey_not_admin_rights(self):
+        window = self.WINDOW.read_text(encoding="utf-8")
+        assert 'DllImport("user32.dll"' in window
+        assert "RegisterHotKey(" in window
+        assert "UnregisterHotKey(" in window
+        assert "runas" not in window.lower()
+
+    def test_a_taken_combination_turns_the_setting_back_off(self):
+        window = self.WINDOW.read_text(encoding="utf-8")
+        setup = window.split("private void SetUpGlobalHotkey()")[1].split("\n    private ")[0]
+        assert "if (RegisterHotKey(" in setup
+        failure = setup.split("else")[1]
+        assert "GlobalHotkeyEnabled = false" in failure
+        assert "vm.Toast(" in failure, "a taken hotkey must tell the user, not fail silently"
+
+    def test_the_hotkey_is_unregistered_on_close(self):
+        window = self.WINDOW.read_text(encoding="utf-8")
+        closing = window.split("protected override void OnClosing")[1]
+        assert "UnregisterHotKey(" in closing
+
+    def test_the_setting_persists_through_the_normal_settings_pipeline(self):
+        vm = self.SETTINGS_VM.read_text(encoding="utf-8")
+        assert "public bool GlobalHotkeyEnabled" in vm
+        assert "_main.SaveSettings();" in vm.split("public bool GlobalHotkeyEnabled")[1].split("}\n    }")[0]
+
+        xaml = self.SETTINGS_XAML.read_text(encoding="utf-8")
+        assert 'AutomationProperties.AutomationId="GlobalHotkeyToggle"' in xaml
+        assert "{Binding GlobalHotkeyEnabled}" in xaml
+
+
+class TestTrayMenuSource:
+    """
+    The tray menu (F4): start with last settings, start via the window, and —
+    while running — the time left plus an End sprint that goes through the F2
+    flow rather than ending the sprint directly.
+    """
+
+    WINDOW = Path(SERVER_DIR).parent / "DesktopApp" / "MainWindow.xaml.cs"
+
+    def source(self) -> str:
+        return self.WINDOW.read_text(encoding="utf-8")
+
+    def test_the_menu_is_rebuilt_before_it_opens(self):
+        source = self.source()
+        assert "menu.Opening += (_, _) => BuildTrayMenu(menu);" in source
+
+    def test_idle_offers_last_settings_and_start(self):
+        source = self.source()
+        build = source.split("private void BuildTrayMenu(")[1].split("\n    private ")[0]
+        assert '"Start sprint (last settings)"' in build
+        assert "Vm?.Today.StartCommand.Execute(null)" in build
+        assert '"Start…"' in build
+
+    def test_running_shows_time_left_and_end_sprint(self):
+        source = self.source()
+        build = source.split("private void BuildTrayMenu(")[1].split("\n    private ")[0]
+        assert "RemainingText" in build
+        assert "Enabled = false" in build, "the time-left row must not be clickable"
+        assert '"End sprint"' in build
+        assert "EndSprintFromTray()" in build
+
+    def test_end_sprint_from_tray_goes_through_the_f2_flow(self):
+        source = self.source()
+        end = source.split("private void EndSprintFromTray()")[1].split("\n    }")[0]
+        assert "BringToFront()" in end
+        assert "vm.Today.StopCommand.Execute(null)" in end, \
+            "the tray must trigger the same StopCommand as the Today button, not end the sprint directly"
+        assert "EndSprint(" not in end

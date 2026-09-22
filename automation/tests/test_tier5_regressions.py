@@ -3637,7 +3637,7 @@ class TestNavigationUsesIconsNotUnicodeGlyphs:
     ICONS = Path(DESKTOP_DIR) / "Styles" / "Icons.xaml"
     VIEWS = ("MainWindow.xaml", "Views/BlockedAppsView.xaml",
              "Views/SleepBlockingView.xaml", "Views/TodayView.xaml",
-             "Views/SettingsView.xaml")
+             "Views/SettingsView.xaml", "Views/HistoryView.xaml")
     # The glyphs this replaced, plus the other symbol ranges a future one would
     # most likely come from. U+2192 (a typographic arrow between two fields) is
     # text, not an icon, and is deliberately allowed.
@@ -5332,3 +5332,466 @@ class TestResumingDoesNotCreditTimeFlowShieldWasClosed:
         )
         vm = self.VM.read_text(encoding="utf-8")
         assert "WatchedStretchCap = HeartbeatInterval * 2" in vm
+
+
+# ================================= History is wired up and stays read-only (F16)
+
+class TestHistoryPage:
+    """
+    F16 adds a fifth page, and three things about it are easy to break without
+    noticing by eye.
+
+    The nav entry: a page with a view model and no way to reach it is invisible
+    (the tab is one Button among five, and #191's compact rail hides its label
+    at narrow widths, so the rail's code must know about the new label).
+
+    The AutomationIds: an id on a Border, Grid or ItemsControl is never
+    surfaced to UI Automation, so a test asking for it passes whether the
+    content was drawn or not (#134) — which is how the whole page could quietly
+    stop rendering with every tier 3 test still green.
+
+    And what it reads: the page is a projection of the sprints already on disk.
+    If it ever starts writing settings, or reads the licence, the device list or
+    anything that leaves the machine, the local-first promise and the privacy
+    policy both stop being true.
+    """
+
+    DESKTOP = Path(DESKTOP_DIR)
+    XAML = DESKTOP / "Views" / "HistoryView.xaml"
+    VM = DESKTOP / "ViewModels" / "HistoryViewModel.cs"
+    MAIN_XAML = DESKTOP / "MainWindow.xaml"
+    MAIN_VM = DESKTOP / "ViewModels" / "MainViewModel.cs"
+    MAIN_CODE = DESKTOP / "MainWindow.xaml.cs"
+    MODEL = DESKTOP / "Models" / "HistoryStats.cs"
+
+    def _read(self, path: Path) -> str:
+        return path.read_text(encoding="utf-8-sig")
+
+    # ------------------------------------------------------------ the nav entry
+
+    def test_the_nav_rail_has_a_history_tab(self):
+        xaml = self._read(self.MAIN_XAML)
+        assert 'AutomationProperties.AutomationId="Tab_History"' in xaml
+        assert 'CommandParameter="History"' in xaml
+        assert 'AutomationProperties.Name="History"' in xaml, \
+            "the compact rail shows the name as a tooltip, so it has to exist"
+        assert "{StaticResource IconHistory}" in xaml, \
+            "the tab needs a Lucide geometry, like the other four"
+
+    def test_the_tab_follows_the_same_pattern_as_the_other_four(self):
+        xaml = self._read(self.MAIN_XAML)
+        tabs = xaml.split('<StackPanel x:Name="NavTabs"', 1)[1].split("<Grid/>", 1)[0]
+        ids = re.findall(r'AutomationProperties.AutomationId="(Tab_\w+)"', tabs)
+        assert ids == ["Tab_Today", "Tab_History", "Tab_BlockedApps",
+                       "Tab_SleepBlocking", "Tab_Settings"], \
+            f"the rail's tabs are {ids}"
+        for tab in tabs.split("<Button")[1:]:
+            assert 'Style="{StaticResource NavButton}"' in tab, \
+                "every tab uses NavButton, which is the 44px row (#191)"
+            assert 'Tag="{Binding Is' in tab, "the active state binds through Tag"
+
+    def test_the_compact_rail_hides_the_history_label_too(self):
+        """
+        Every other label is collapsed by name below 1000px. A label left out
+        of that list stays visible in a 72px rail and overflows it.
+        """
+        code = self.MAIN_CODE.read_text(encoding="utf-8")
+        labels = set(re.findall(r'(Nav\w+Label)\.Visibility = narrow', code))
+        xaml = self._read(self.MAIN_XAML)
+        declared = set(re.findall(r'<TextBlock x:Name="(Nav\w+Label)"', xaml))
+        assert declared == labels, \
+            f"these labels are never collapsed in the compact rail: {sorted(declared - labels)}"
+
+    def test_navigation_reaches_the_page_and_refreshes_it(self):
+        vm = self.MAIN_VM.read_text(encoding="utf-8")
+        assert "AppPage.History" in vm
+        assert "public bool IsHistoryPage" in vm
+        assert "Raise(nameof(IsHistoryPage));" in vm, \
+            "without this the page never becomes visible"
+        assert "case AppPage.History: History.Refresh(); break;" in vm, \
+            "sprints happen on another page, so History must refresh on entry"
+
+        window = self._read(self.MAIN_XAML)
+        assert "<views:HistoryView DataContext=\"{Binding History}\"" in window
+        assert "DataContext.IsHistoryPage" in window
+
+    # --------------------------------------------------- ids on real controls
+
+    def test_every_automation_id_sits_on_a_control(self):
+        xaml = self._read(self.XAML)
+        for tag in ("<Grid", "<StackPanel", "<Border", "<ItemsControl",
+                    "<UniformGrid", "<ScrollViewer", "<inf:AdaptiveColumns"):
+            for element in xaml.split(tag)[1:]:
+                head = element.split(">", 1)[0]
+                assert "AutomationProperties.AutomationId" not in head, \
+                    f"an AutomationId is on a {tag[1:]}, where nothing can find it"
+
+    def test_the_page_offers_the_handles_a_test_needs(self):
+        xaml = self._read(self.XAML)
+        for automation_id in (
+            "WeekFocusHours", "WeekRangeText", "WeekSprintsValue",
+            "WeekDistractionsValue", "MostBlockedApp", "MostBlockedNote",
+            "FocusHeatmap", "HeatmapLegend", "HeatmapRange", "HeatmapPeak",
+            "MilestonesPlaceholder", "HistoryExportButton",
+            "HistoryRowHeading", "HistoryRowOutcome", "HistoryRowJournal",
+            "HistoryEmptyText",
+        ):
+            assert f'AutomationProperties.AutomationId="{automation_id}"' in xaml, \
+                f"{automation_id} is missing from History"
+
+    def test_the_heatmap_cells_are_focusable_controls_that_say_their_value(self):
+        """
+        DESIGN_SYSTEM.md §7: a heatmap never relies on colour alone, and
+        hovering or focusing a cell shows the value. A Border does neither — it
+        takes no focus and UI Automation does not surface it.
+        """
+        theme = self._read(self.DESKTOP / "Styles" / "Theme.xaml")
+        style = theme[theme.index('x:Key="HeatCellItem"'):]
+        style = style[:style.index("</Style>")]
+        assert 'TargetType="ListBoxItem"' in style, "a cell has to be a real control"
+        assert 'Property="AutomationProperties.Name" Value="{Binding Name}"' in style
+        assert 'Property="ToolTip" Value="{Binding Name}"' in style
+        assert 'Property="IsKeyboardFocused" Value="True"' in style, \
+            "a focused cell has to show that it is focused"
+
+        vm = self.VM.read_text(encoding="utf-8")
+        assert "focus minutes" in vm, "a cell's name states its own value"
+
+    def test_the_heatmap_has_a_legend_and_five_steps_from_surface_2_to_primary(self):
+        xaml = self._read(self.XAML)
+        assert 'AutomationProperties.AutomationId="HeatmapLegendLow"' in xaml
+        assert 'AutomationProperties.AutomationId="HeatmapLegendHigh"' in xaml
+
+        theme = self._read(self.DESKTOP / "Styles" / "Theme.xaml")
+        assert '<inf:HeatStepToBrushConverter x:Key="HeatStep" Steps="5"/>' in theme
+
+        converter = (self.DESKTOP / "Infrastructure" / "Converters.cs").read_text(encoding="utf-8")
+        body = converter.split("class HeatStepToBrushConverter", 1)[1]
+        assert '"Surface2Color"' in body and '"PrimaryColor"' in body, \
+            "the ramp is mixed from the generated tokens, not hand-picked colours"
+        hard_coded = re.findall(r'#[0-9A-Fa-f]{6}', body)
+        assert not hard_coded, f"a colour is hard-coded in the converter: {hard_coded}"
+
+    # ------------------------------------------------- what the page reads
+
+    def test_history_reads_the_sprints_and_never_writes(self):
+        """
+        Read-only by construction. A page that saved settings could lose a
+        running sprint's record just by being looked at, and the weekly figures
+        would stop being a projection of what is stored.
+        """
+        vm = self.VM.read_text(encoding="utf-8")
+        for forbidden in ("SaveSettings", "SettingsService.Save", "S.Sessions.Add",
+                          "S.Sessions.Remove", "S.Sessions.Clear", "HttpClient",
+                          "File.", "Process.Start"):
+            assert forbidden not in vm, f"History must only read; it calls {forbidden}"
+
+    def test_the_figures_come_from_sessions_alone(self):
+        """
+        Everything counted on this page is derived from AppSettings.Sessions
+        through HistoryStats. The one exception is named out loud: the
+        most-blocked app is the per-entry count FlowShield already keeps on the
+        blocklist, because a sprint records how many distractions it caught and
+        never which app they were — and the card says so rather than implying
+        the count is this week's.
+        """
+        model = self.MODEL.read_text(encoding="utf-8")
+        week = model.split("public static Week ForWeek", 1)[1].split("\n    }", 1)[0]
+        heatmap = model.split("public static IReadOnlyList<Cell> Heatmap", 1)[1] \
+                       .split("\n    }", 1)[0]
+        for name, block in (("ForWeek", week), ("Heatmap", heatmap)):
+            assert "sessions" in block, f"{name} should read the sessions it is handed"
+            for forbidden in ("BlockedApps", "MomentumScore", "CurrentStreak",
+                              "LicenseKey", "DeviceCount", "BlocksToday"):
+                assert forbidden not in block, \
+                    f"{name} reads {forbidden}; the week's figures come from Sessions"
+
+        vm = self.VM.read_text(encoding="utf-8")
+        touched = set(re.findall(r'\bS\.(\w+)', vm))
+        assert touched <= {"Sessions", "BlockedApps"}, \
+            f"History reads more of the settings than it should: {sorted(touched)}"
+        assert "MostBlockedNoteText" in vm, \
+            "the most-blocked card must state that its count is not this week's"
+
+    def test_the_page_stays_local(self):
+        """Nothing new leaves the PC, which is why F16 needs no privacy change."""
+        for path in (self.VM, self.MODEL):
+            text = path.read_text(encoding="utf-8")
+            for forbidden in ("http://", "https://", "Upload", "PostAsync", "WebClient"):
+                assert forbidden not in text, f"{path.name} mentions {forbidden}"
+
+        # The view's only URLs are the two XAML namespace declarations.
+        urls = re.findall(r'https?://\S+', self._read(self.XAML))
+        assert all("schemas.microsoft.com" in url for url in urls), \
+            f"History links out to {urls}"
+
+    # --------------------------------------------------------- design and voice
+
+    def test_the_page_uses_the_type_roles_and_the_radius_resources(self):
+        xaml = self._read(self.XAML)
+        for style in ("Eyebrow", "Stat", "Caption", "Body"):
+            assert f'Style="{{StaticResource {style}}}"' in xaml, f"§3's {style} role is unused"
+        assert 'Style="{StaticResource Card}"' in xaml
+        assert not re.search(r'CornerRadius="\d', xaml), \
+            "§4: radii come from the named resources, never a literal"
+
+        # The heatmap's own squares are shaped in Theme.xaml, so check there too.
+        theme = self._read(self.DESKTOP / "Styles" / "Theme.xaml")
+        for key in ("HeatCellItem", "HeatLegendItem"):
+            style = theme[theme.index(f'x:Key="{key}"'):]
+            style = style[:style.index("</Style>")]
+            assert 'CornerRadius="{StaticResource RadiusChip}"' in style, \
+                f"{key} should use §4's chip radius"
+        assert 'Typography.NumeralAlignment="Tabular"' in xaml, "§3: stats use tabular figures"
+        assert "<inf:AdaptiveColumns" in xaml, \
+            "the week's cards flow into columns rather than a fixed row (#191)"
+
+    def test_the_outcome_wording_is_the_one_the_export_already_uses(self):
+        """
+        §9: "ended early", never "failed" or "gave up" — and one spelling, so
+        the page and the exported file cannot drift apart.
+        """
+        vm = self.VM.read_text(encoding="utf-8")
+        assert "JournalExport.Outcome(session)" in vm
+        assert "JournalExport.ShieldName(session.Shield)" in vm
+
+        # Only the strings the customer reads: no comments (which quote §9's
+        # banned words in order to forbid them) and no code around them.
+        lines = [line for line in vm.splitlines()
+                 if not line.lstrip().startswith(("//", "///", "*"))]
+        copy = " ".join(re.findall(r'"([^"\n]{4,})"', "\n".join(lines))).lower()
+        # An interpolated {session.PlannedMinutes} is code, not words on screen.
+        copy = re.sub(r"\{[^}]*\}", " ", copy)
+        for forbidden in ("failed", "gave up", "broke your streak", "session",
+                          "pomodoro", "blacklist", "!"):
+            assert forbidden not in copy, f"§9 forbids {forbidden!r} in product copy"
+        assert "sprint" in copy, "§9: sprints, not sessions"
+
+    def test_a_poor_week_is_never_drawn_in_red(self):
+        """§7 and §9: never `danger` for a momentum or focus drop."""
+        xaml = self._read(self.XAML)
+        for token in ("Rose", "Red", "Danger"):
+            assert f"StaticResource {token}" not in xaml, \
+                f"History colours something with {token}"
+
+    def test_the_shield_glyph_is_the_shared_resource(self):
+        xaml = self._read(self.XAML)
+        assert "{StaticResource ShieldGlyph}" in xaml, \
+            "§6: one glyph resource, not a per-page copy"
+
+    def test_a_place_is_held_for_the_milestones(self):
+        """F14's milestones (#133) are listed here; the slot exists already so
+        adding them does not mean rearranging the page."""
+        xaml = self._read(self.XAML)
+        assert 'AutomationProperties.AutomationId="MilestonesPlaceholder"' in xaml
+        assert "MILESTONES" in xaml
+
+    def test_the_journal_export_stays_reachable_with_its_ids_intact(self):
+        """
+        F17's export card is still on Settings, with every AutomationId it
+        shipped; History is a second way to it.
+        """
+        settings = self._read(self.DESKTOP / "Views" / "SettingsView.xaml")
+        for automation_id in ("ExportFromDate", "ExportToDate", "ExportCsvRadio",
+                              "ExportMarkdownRadio", "ExportJournalButton",
+                              "ExportRangeText", "ExportStatusText"):
+            assert f'AutomationProperties.AutomationId="{automation_id}"' in settings, \
+                f"{automation_id} disappeared from the export card"
+
+        xaml = self._read(self.XAML)
+        button = xaml.split('AutomationProperties.AutomationId="HistoryExportButton"', 1)[0]
+        button = button[button.rindex("<Button"):]
+        assert 'Style="{StaticResource BtnGhost}"' in button, \
+            "§7: the export is Secondary here, not the page's primary action"
+
+        vm = self.VM.read_text(encoding="utf-8")
+        assert "AppPage.Settings" in vm, "the button has to go somewhere"
+
+    def test_the_sprint_list_reads_the_journal_back(self):
+        """F17 promised the journal could be read again; F16 is where it is."""
+        xaml = self._read(self.XAML)
+        assert 'AutomationProperties.AutomationId="HistoryRowJournal"' in xaml
+        assert 'AutomationProperties.AutomationId="HistoryRowIntention"' in xaml
+        vm = self.VM.read_text(encoding="utf-8")
+        assert "OrderByDescending(s => s.StartedUtc)" in vm, "newest first"
+
+
+# ==================================== tray and keyboard reuse the F2 flow (F4)
+
+class TestTrayAndKeyboardNeverBypassTheEndFlow:
+    """
+    F4 added a second and third way to end a sprint — the tray menu and the
+    Space key — on top of the StopSprintButton. All three must resolve to the
+    exact same RequestEnd() policy: a shortcut that ended a Firm or Sealed
+    sprint immediately would silently undo F2's escape-hatch rules (#47).
+    """
+
+    WINDOW = Path(DESKTOP_DIR) / "MainWindow.xaml.cs"
+    TODAY_VM = Path(DESKTOP_DIR) / "ViewModels" / "TodayViewModel.cs"
+    MAIN_XAML = Path(DESKTOP_DIR) / "MainWindow.xaml"
+    TODAY_XAML = Path(DESKTOP_DIR) / "Views" / "TodayView.xaml"
+
+    def test_tray_end_sprint_and_space_drive_the_same_stopcommand_as_the_button(self):
+        today_xaml = self.TODAY_XAML.read_text(encoding="utf-8")
+        assert 'Command="{Binding StopCommand}"' in today_xaml, \
+            "StopSprintButton must still bind StopCommand — this test assumes that binding"
+
+        window = self.WINDOW.read_text(encoding="utf-8")
+        assert "vm.Today.StopCommand.Execute(null)" in window, \
+            "the tray's End sprint must invoke StopCommand, the same RelayCommand as the button"
+
+        today_vm = self.TODAY_VM.read_text(encoding="utf-8")
+        # Space's command wraps TogglePrimary, which itself calls RequestEnd()
+        # while running — not a separate, weaker end path.
+        assert "ToggleOrEndCommand = new RelayCommand(TogglePrimary" in today_vm
+        assert "StopCommand = new RelayCommand(() => RequestEnd()" in today_vm
+
+    def test_no_new_entry_point_calls_endsprint_or_cancelsprint_directly(self):
+        """
+        RequestEnd() is the only door into EndSprint/CancelSprint — MainWindow
+        and the Space/tray wiring must go through it, mirroring the existing
+        rule for the old tray Quit and window-close paths (see
+        TestNoOneClickEscape.test_tray_quit_and_window_close_use_the_end_flow).
+        """
+        window = self.WINDOW.read_text(encoding="utf-8")
+        for method_name in ("BuildTrayMenu", "EndSprintFromTray", "WndProc"):
+            body = window.split(f"private void {method_name}(", 1)
+            if len(body) == 1:
+                body = window.split(f"private IntPtr {method_name}(", 1)
+            block = body[1].split("\n    }")[0]
+            assert "EndSprint(" not in block, f"{method_name} must not end a sprint directly"
+            assert "CancelSprint(" not in block, f"{method_name} must not cancel a sprint directly"
+
+    def test_the_global_hotkey_only_ever_starts_not_ends(self):
+        """The hotkey's one job is F4's 'start the last sprint' — it must never reach End."""
+        window = self.WINDOW.read_text(encoding="utf-8")
+        wnd_proc = window.split("private IntPtr WndProc(")[1].split("\n    }")[0]
+        assert "StartCommand.Execute(null)" in wnd_proc
+        assert "StopCommand" not in wnd_proc
+        assert "RequestEnd" not in wnd_proc
+
+    def test_page_ctrl_shortcuts_and_shield_shift_shortcuts_stay_disjoint(self):
+        """
+        Issue #37's settlement: Ctrl+1..5 is reserved for pages, Shift+1/2/3
+        for shields. Sharing a digit (Ctrl+1 vs Shift+1) is fine — they are
+        different combinations — but the same (modifier, key) pair must never
+        be bound twice, and nothing may claim Ctrl+1..5 for a shield.
+        """
+        xaml = self.MAIN_XAML.read_text(encoding="utf-8")
+        bindings = re.findall(r'<KeyBinding\s+(?:Modifiers="(\w+)"\s+)?Key="(\w+)"', xaml)
+        combos = [(mods or "", key) for mods, key in bindings]
+        assert len(combos) == len(set(combos)), f"duplicate KeyBinding combination(s) in {combos}"
+
+        shield_lines = [line for line in xaml.splitlines() if "SelectShield" in line]
+        assert shield_lines and all('Modifiers="Shift"' in line for line in shield_lines), \
+            "every shield shortcut must use Shift, keeping Ctrl+1..5 free for page navigation"
+
+    def test_ctrl_number_shortcuts_match_the_nav_rails_tab_order(self):
+        """
+        F16 added History as the rail's second tab (Today, History, Blocked
+        Apps, Sleep Blocking, Settings), which used the fifth Ctrl+N slot F4
+        left free. Ctrl+N must walk the tabs in the order they are drawn, or
+        the shortcut a user memorises from looking at the rail stops matching
+        what pressing it actually does.
+        """
+        xaml = self.MAIN_XAML.read_text(encoding="utf-8")
+        tabs = xaml.split('<StackPanel x:Name="NavTabs"', 1)[1].split("<Grid/>", 1)[0]
+        rail_order = re.findall(r'CommandParameter="(\w+)"', tabs)
+        assert rail_order == ["Today", "History", "BlockedApps", "SleepBlocking", "Settings"], \
+            f"the rail's own tab order is {rail_order}; update the expectation or the rail"
+
+        ctrl_bindings = re.findall(
+            r'<KeyBinding Modifiers="Ctrl" Key="D(\d)" Command="\{Binding NavigateCommand\}" '
+            r'CommandParameter="(\w+)"/>', xaml)
+        ctrl_order = [page for _, page in sorted(ctrl_bindings, key=lambda pair: int(pair[0]))]
+        assert ctrl_order == rail_order, (
+            f"Ctrl+1..{len(ctrl_order)} goes to {ctrl_order}, which does not match the rail's "
+            f"own order {rail_order}"
+        )
+
+
+# ============================ Space cannot reach through the first-run wizard
+
+class TestSpaceRefusedUnderFirstRun:
+    """
+    PR #214 review: the first-run wizard (F18) covers Today the same way the
+    terms gate does, but nothing stopped Space — or a StartSprint() call from
+    the tray or automation — from starting a sprint underneath it. The gate
+    belongs in the view model, not only in the wizard's covering panel
+    (CLAUDE.md's "a gate must refuse in the view model, not only by covering
+    the screen").
+    """
+
+    TODAY_VM = Path(DESKTOP_DIR) / "ViewModels" / "TodayViewModel.cs"
+
+    def source(self) -> str:
+        return self.TODAY_VM.read_text(encoding="utf-8")
+
+    def test_the_space_shortcut_checks_first_run_is_not_showing(self):
+        source = self.source()
+        guard = source.split("private bool CanUseSpaceShortcut()")[1].split("\n\n")[0]
+        assert "_main.FirstRun.IsVisible" in guard, \
+            "Space must refuse while the first-run wizard is up, the same as the terms gate"
+
+    def test_shift_shield_shortcuts_check_first_run_is_not_showing(self):
+        source = self.source()
+        guard = source.split("private bool CanChangeShield()")[1].split("\n\n")[0]
+        assert "_main.FirstRun.IsVisible" in guard
+
+    def test_startsprint_itself_refuses_under_the_wizard(self):
+        """
+        The view-model gate, not only the guard on the keyboard command:
+        StartSprint() is also what the tray's "Start sprint (last settings)"
+        and the global hotkey call directly, and neither goes through
+        CanUseSpaceShortcut.
+        """
+        source = self.source()
+        start = source.split("private void StartSprint()")[1].split("\n    private ")[0]
+        assert "_main.FirstRun.IsVisible" in start, \
+            "StartSprint must refuse while the first-run wizard hasn't finished, like the terms gate above it"
+        # Must be checked, not just referenced in a comment.
+        gate = re.search(r'if\s*\(\s*_main\.FirstRun\.IsVisible\s*\)', start)
+        assert gate, "expected an explicit `if (_main.FirstRun.IsVisible)` guard in StartSprint"
+
+
+# ==================================== the global hotkey hook never stacks up
+
+class TestGlobalHotkeyHookIsNeverStacked:
+    """
+    PR #214 review: SetUpGlobalHotkey() re-runs every time the Settings toggle
+    changes, and used to call HwndSource.AddHook without ever removing the
+    previous one — so toggling the setting off and on stacked a WndProc hook
+    per toggle, each one calling StartCommand again on the same key press.
+    """
+
+    WINDOW = Path(DESKTOP_DIR) / "MainWindow.xaml.cs"
+
+    def source(self) -> str:
+        return self.WINDOW.read_text(encoding="utf-8")
+
+    def test_a_single_hook_field_is_tracked(self):
+        source = self.source()
+        assert re.search(r'private\s+HwndSource\?\s+_hotkeySource;', source), \
+            "expected a tracked HwndSource field so the hook can be removed later"
+
+    def test_setup_removes_the_previous_hook_before_adding_a_new_one(self):
+        source = self.source()
+        setup = source.split("private void SetUpGlobalHotkey()")[1].split("\n    private ")[0]
+        remove_index = setup.find("_hotkeySource.RemoveHook(WndProc)")
+        add_index = setup.find(".AddHook(WndProc)")
+        assert remove_index != -1, "SetUpGlobalHotkey must remove any hook it previously added"
+        assert add_index != -1, "SetUpGlobalHotkey must (re)add the hook when the hotkey is enabled"
+        assert remove_index < add_index, \
+            "the old hook must be removed before a new one is added, or hooks stack on every toggle"
+        # And the removal must not be conditional on _hotkeyRegistered alone —
+        # it needs its own null check so a re-run after a failed RegisterHotKey
+        # still tears down a hook left over from a previous success.
+        assert "if (_hotkeySource is not null)" in setup
+
+    def test_closing_removes_the_hook_alongside_unregistering(self):
+        source = self.source()
+        closing = source.split("protected override void OnClosing")[1]
+        unregister_index = closing.find("UnregisterHotKey(")
+        remove_hook_index = closing.find("_hotkeySource.RemoveHook(WndProc)")
+        assert unregister_index != -1
+        assert remove_hook_index != -1, "OnClosing must remove the WndProc hook, not just unregister the hotkey"

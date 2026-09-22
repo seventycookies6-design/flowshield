@@ -38,6 +38,7 @@ WINDOW_TITLE_RE = rf"^{APP_WINDOW_TITLE}( .*)?$"
 
 TAB_IDS = {
     "today": "Tab_Today",
+    "history": "Tab_History",
     "blocked apps": "Tab_BlockedApps",
     "blockedapps": "Tab_BlockedApps",
     "sleep blocking": "Tab_SleepBlocking",

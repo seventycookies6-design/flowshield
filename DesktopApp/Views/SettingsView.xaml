@@ -127,6 +127,18 @@
                                        Style="{StaticResource Caption}" Margin="0,4,0,0"/>
                         </StackPanel>
                     </CheckBox>
+
+                    <Border Height="1" Background="{StaticResource Edge}" Margin="0,16,0,16"/>
+
+                    <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding GlobalHotkeyEnabled}"
+                              AutomationProperties.AutomationId="GlobalHotkeyToggle"
+                              AutomationProperties.Name="Start the last sprint from anywhere">
+                        <StackPanel>
+                            <TextBlock Text="Start the last sprint from anywhere" Style="{StaticResource Label}"/>
+                            <TextBlock Text="Off by default. Press Ctrl+Alt+F from any app to start your last sprint, even while FlowShield is in the tray. Turns itself off if another app already uses that combination."
+                                       Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                        </StackPanel>
+                    </CheckBox>
                 </StackPanel>
             </Border>
 

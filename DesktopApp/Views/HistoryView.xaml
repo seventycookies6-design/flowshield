@@ -1,0 +1,227 @@
+<UserControl x:Class="FlowShield.Views.HistoryView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:inf="clr-namespace:FlowShield.Infrastructure">
+    <!-- ================================================== History (F16, 3.1/3.6)
+         Full width like Today (DESIGN_SYSTEM.md §4), in three bands: this
+         week's figures, the 30-day focus heatmap, then every sprint with its
+         intention and journal line (which is F17's read-back).
+
+         No AutomationId sits on a Border, Grid, StackPanel or ItemsControl
+         here: a layout panel is not surfaced to UI Automation, so an id on one
+         can never be resolved and a test asking for it would pass whether the
+         content was drawn or not (#134). The ids are all on TextBlocks and
+         Buttons. -->
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Margin="0,0,8,0">
+
+            <!-- ================================================= this week -->
+            <!-- The four figures flow into as many columns as fit (#191), so a
+                 narrow window stacks them instead of squeezing four stats into
+                 a row that cannot hold them. -->
+            <inf:AdaptiveColumns MinColumnWidth="220" MaxColumns="4" Spacing="16">
+
+                <Border Style="{StaticResource Card}" Padding="24">
+                    <StackPanel>
+                        <TextBlock Text="FOCUSED THIS WEEK" Style="{StaticResource Eyebrow}"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                            <TextBlock Text="{Binding WeekFocusText}" Style="{StaticResource Stat}"
+                                       Typography.NumeralAlignment="Tabular"
+                                       AutomationProperties.AutomationId="WeekFocusHours"
+                                       AutomationProperties.Name="Hours focused this week"/>
+                            <TextBlock Text="hours" Style="{StaticResource Caption}"
+                                       VerticalAlignment="Bottom" Margin="8,0,0,8"/>
+                        </StackPanel>
+                        <TextBlock Text="{Binding WeekRangeText}" Style="{StaticResource Caption}"
+                                   Margin="0,4,0,0"
+                                   Typography.NumeralAlignment="Tabular"
+                                   AutomationProperties.AutomationId="WeekRangeText"/>
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource Card}" Padding="24">
+                    <StackPanel>
+                        <TextBlock Text="SPRINTS COMPLETED" Style="{StaticResource Eyebrow}"/>
+                        <TextBlock Text="{Binding WeekSprintsText}" Style="{StaticResource Stat}"
+                                   Margin="0,8,0,0"
+                                   Typography.NumeralAlignment="Tabular"
+                                   AutomationProperties.AutomationId="WeekSprintsValue"
+                                   AutomationProperties.Name="Sprints completed this week"/>
+                        <TextBlock Text="Sprints you finished. Ones you ended early still count their minutes."
+                                   Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource Card}" Padding="24">
+                    <StackPanel>
+                        <TextBlock Text="DISTRACTIONS CAUGHT" Style="{StaticResource Eyebrow}"/>
+                        <TextBlock Text="{Binding WeekDistractionsText}" Style="{StaticResource Stat}"
+                                   Margin="0,8,0,0"
+                                   Typography.NumeralAlignment="Tabular"
+                                   AutomationProperties.AutomationId="WeekDistractionsValue"
+                                   AutomationProperties.Name="Distractions caught this week"/>
+                        <TextBlock Text="Times the shield stepped in during a sprint."
+                                   Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource Card}" Padding="24">
+                    <StackPanel>
+                        <TextBlock Text="MOST-BLOCKED APP" Style="{StaticResource Eyebrow}"/>
+                        <TextBlock Text="{Binding MostBlockedText}" Style="{StaticResource H1}"
+                                   Margin="0,8,0,0" TextWrapping="Wrap"
+                                   Visibility="{Binding MostBlockedText, Converter={StaticResource NonEmptyVis}}"
+                                   AutomationProperties.AutomationId="MostBlockedApp"
+                                   AutomationProperties.Name="Most-blocked app"/>
+                        <TextBlock Text="{Binding MostBlockedNoteText}" Style="{StaticResource Caption}"
+                                   TextWrapping="Wrap" Margin="0,8,0,0"
+                                   AutomationProperties.AutomationId="MostBlockedNote"/>
+                    </StackPanel>
+                </Border>
+            </inf:AdaptiveColumns>
+
+            <!-- ============================================== focus heatmap -->
+            <!-- DESIGN_SYSTEM.md §7 "Charts": five steps from surface-2 to
+                 primary, a visible legend, and never colour alone — each cell
+                 carries its own day and minutes as its accessible name, which
+                 is also its tooltip. -->
+            <Border Style="{StaticResource Card}" Padding="24" Margin="0,16,0,0">
+                <StackPanel>
+                    <TextBlock Text="FOCUS MINUTES, LAST 30 DAYS" Style="{StaticResource Eyebrow}"/>
+
+                    <ListBox ItemsSource="{Binding Heatmap}" Margin="0,16,0,0"
+                             HorizontalAlignment="Left"
+                             Background="Transparent" BorderThickness="0"
+                             ItemContainerStyle="{StaticResource HeatCellItem}"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                             ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                             AutomationProperties.AutomationId="FocusHeatmap"
+                             AutomationProperties.Name="{Binding HeatmapDescription}">
+                        <ListBox.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <!-- Seven across: one week per row, so a column
+                                     is always the same weekday. -->
+                                <UniformGrid Columns="7"/>
+                            </ItemsPanelTemplate>
+                        </ListBox.ItemsPanel>
+                    </ListBox>
+
+                    <!-- legend -->
+                    <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                        <TextBlock Text="Less" Style="{StaticResource Caption}"
+                                   VerticalAlignment="Center" Margin="0,0,8,0"
+                                   AutomationProperties.AutomationId="HeatmapLegendLow"/>
+                        <ListBox ItemsSource="{Binding LegendSteps}" VerticalAlignment="Center"
+                                 Background="Transparent" BorderThickness="0"
+                                 IsHitTestVisible="False" Focusable="False"
+                                 ItemContainerStyle="{StaticResource HeatLegendItem}"
+                                 AutomationProperties.AutomationId="HeatmapLegend"
+                                 AutomationProperties.Name="Five steps, from no focus to the busiest day">
+                            <ListBox.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Orientation="Horizontal"/>
+                                </ItemsPanelTemplate>
+                            </ListBox.ItemsPanel>
+                        </ListBox>
+                        <TextBlock Text="More" Style="{StaticResource Caption}"
+                                   VerticalAlignment="Center" Margin="4,0,0,0"
+                                   AutomationProperties.AutomationId="HeatmapLegendHigh"/>
+                    </StackPanel>
+
+                    <Grid Margin="0,12,0,0">
+                        <TextBlock Text="{Binding HeatmapRangeText}" Style="{StaticResource Caption}"
+                                   HorizontalAlignment="Left"
+                                   Typography.NumeralAlignment="Tabular"
+                                   AutomationProperties.Name="{Binding HeatmapDescription}"
+                                   AutomationProperties.AutomationId="HeatmapRange"/>
+                        <TextBlock Text="{Binding HeatmapPeakText}" Style="{StaticResource Caption}"
+                                   HorizontalAlignment="Right"
+                                   Typography.NumeralAlignment="Tabular"
+                                   AutomationProperties.AutomationId="HeatmapPeak"/>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- ================================================ milestones -->
+            <!-- Empty for now on purpose. F14's quiet milestones (#133) are
+                 listed here; the place is held so the page does not have to be
+                 rearranged to add them. -->
+            <Border Style="{StaticResource Card}" Padding="24" Margin="0,16,0,0">
+                <StackPanel>
+                    <TextBlock Text="MILESTONES" Style="{StaticResource Eyebrow}"/>
+                    <TextBlock Text="{Binding MilestonesPlaceholderText}" Style="{StaticResource Body}"
+                               TextWrapping="Wrap" Margin="0,8,0,0"
+                               AutomationProperties.AutomationId="MilestonesPlaceholder"/>
+                </StackPanel>
+            </Border>
+
+            <!-- =============================================== every sprint -->
+            <Border Style="{StaticResource Card}" Padding="24" Margin="0,16,0,0">
+                <StackPanel>
+                    <Grid Margin="0,0,0,8">
+                        <TextBlock Text="EVERY SPRINT" Style="{StaticResource Eyebrow}"
+                                   VerticalAlignment="Center"/>
+                        <!-- Secondary, per §7: the export itself is a Settings
+                             card, and this is the way to it from here (F17). -->
+                        <Button Style="{StaticResource BtnGhost}" Content="Export your journal"
+                                HorizontalAlignment="Right"
+                                Command="{Binding ExportJournalCommand}"
+                                AutomationProperties.AutomationId="HistoryExportButton"
+                                AutomationProperties.Name="Export your journal"/>
+                    </Grid>
+
+                    <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,8"
+                               Text="Newest first. Everything here is stored on this PC only."/>
+
+                    <TextBlock Style="{StaticResource Body}" TextWrapping="Wrap" Margin="0,8,0,0"
+                               Visibility="{Binding HasNoRows, Converter={StaticResource BoolVis}}"
+                               AutomationProperties.AutomationId="HistoryEmptyText"
+                               Text="No sprints yet. Start one on Today and it will show up here, with whatever you write down afterwards."/>
+
+                    <ItemsControl ItemsSource="{Binding Rows}"
+                                  Visibility="{Binding HasRows, Converter={StaticResource BoolVis}}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Style="{StaticResource RowCard}" Padding="16" Margin="0,0,0,8">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <Image Grid.Column="0" Width="20" Height="20" Stretch="Uniform"
+                                               VerticalAlignment="Top" Margin="0,2,16,0"
+                                               Source="{Binding Shield, Converter={StaticResource ShieldGlyph}}"/>
+
+                                        <StackPanel Grid.Column="1">
+                                            <TextBlock Foreground="{StaticResource Ink}" FontWeight="SemiBold"
+                                                       FontSize="13" TextWrapping="Wrap"
+                                                       Typography.NumeralAlignment="Tabular"
+                                                       AutomationProperties.Name="{Binding AccessibleName}"
+                                                       AutomationProperties.AutomationId="HistoryRowHeading">
+                                                <Run Text="{Binding WhenText, Mode=OneWay}"/><Run Text=" · "/><Run
+                                                    Text="{Binding LengthText, Mode=OneWay}"/><Run Text=" · "/><Run
+                                                    Text="{Binding ShieldText, Mode=OneWay}"/>
+                                            </TextBlock>
+                                            <TextBlock Text="{Binding OutcomeText}" Style="{StaticResource Caption}"
+                                                       Margin="0,2,0,0"
+                                                       AutomationProperties.AutomationId="HistoryRowOutcome"/>
+                                            <TextBlock Text="{Binding IntentionText}" Style="{StaticResource Caption}"
+                                                       TextWrapping="Wrap" Margin="0,6,0,0"
+                                                       Visibility="{Binding IntentionText, Converter={StaticResource NonEmptyVis}}"
+                                                       AutomationProperties.AutomationId="HistoryRowIntention"/>
+                                            <TextBlock Text="{Binding JournalText}" Style="{StaticResource Body}"
+                                                       TextWrapping="Wrap" Margin="0,6,0,0"
+                                                       Visibility="{Binding JournalText, Converter={StaticResource NonEmptyVis}}"
+                                                       AutomationProperties.AutomationId="HistoryRowJournal"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

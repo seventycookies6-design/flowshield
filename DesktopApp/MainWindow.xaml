@@ -19,6 +19,25 @@
         <TaskbarItemInfo/>
     </Window.TaskbarItemInfo>
 
+    <!-- F4: Space starts/ends the sprint on Today (guarded against text-box focus in
+         TodayViewModel.CanUseSpaceShortcut); Shift+1/2/3 pick a shield; Ctrl+1..5 move
+         between pages, one per nav-rail tab in the order they appear (Today, History,
+         Blocked Apps, Sleep Blocking, Settings) — Ctrl+1..5 is reserved for page
+         navigation (issue #37), and F16 used the fifth slot for History. All of these
+         are WPF KeyBindings to the same commands the buttons use, never a shortcut
+         around them. -->
+    <Window.InputBindings>
+        <KeyBinding Key="Space" Command="{Binding Today.ToggleOrEndCommand}"/>
+        <KeyBinding Modifiers="Shift" Key="D1" Command="{Binding Today.SelectShieldSoftCommand}"/>
+        <KeyBinding Modifiers="Shift" Key="D2" Command="{Binding Today.SelectShieldFirmCommand}"/>
+        <KeyBinding Modifiers="Shift" Key="D3" Command="{Binding Today.SelectShieldSealedCommand}"/>
+        <KeyBinding Modifiers="Ctrl" Key="D1" Command="{Binding NavigateCommand}" CommandParameter="Today"/>
+        <KeyBinding Modifiers="Ctrl" Key="D2" Command="{Binding NavigateCommand}" CommandParameter="History"/>
+        <KeyBinding Modifiers="Ctrl" Key="D3" Command="{Binding NavigateCommand}" CommandParameter="BlockedApps"/>
+        <KeyBinding Modifiers="Ctrl" Key="D4" Command="{Binding NavigateCommand}" CommandParameter="SleepBlocking"/>
+        <KeyBinding Modifiers="Ctrl" Key="D5" Command="{Binding NavigateCommand}" CommandParameter="Settings"/>
+    </Window.InputBindings>
+
 
     <Grid x:Name="RootGrid" SizeChanged="OnSizeChanged">
         <Grid.ColumnDefinitions>
@@ -86,6 +105,17 @@
                     </Button>
 
                     <Button Style="{StaticResource NavButton}"
+                            Command="{Binding NavigateCommand}" CommandParameter="History"
+                            Tag="{Binding IsHistoryPage}"
+                            AutomationProperties.AutomationId="Tab_History"
+                            AutomationProperties.Name="History">
+                        <StackPanel Orientation="Horizontal">
+                            <Path Style="{StaticResource Icon}" Data="{StaticResource IconHistory}"/>
+                            <TextBlock x:Name="NavHistoryLabel" Text="History" Margin="12,0,0,0" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+
+                    <Button Style="{StaticResource NavButton}"
                             Command="{Binding NavigateCommand}" CommandParameter="BlockedApps"
                             Tag="{Binding IsBlockedAppsPage}"
                             AutomationProperties.AutomationId="Tab_BlockedApps"
@@ -141,6 +171,11 @@
                                  Visibility="{Binding DataContext.IsTodayPage,
                                               RelativeSource={RelativeSource AncestorType=Window},
                                               Converter={StaticResource BoolVis}}"/>
+
+                <views:HistoryView DataContext="{Binding History}"
+                                   Visibility="{Binding DataContext.IsHistoryPage,
+                                                RelativeSource={RelativeSource AncestorType=Window},
+                                                Converter={StaticResource BoolVis}}"/>
 
                 <views:BlockedAppsView DataContext="{Binding BlockedApps}"
                                        Visibility="{Binding DataContext.IsBlockedAppsPage,

@@ -63,6 +63,8 @@
     <inf:NonEmptyToVisibilityConverter x:Key="NonEmptyVis"/>
     <inf:ShieldLevelToGlyphConverter x:Key="ShieldGlyph"/>
     <inf:ResourceKeyToBrushConverter x:Key="ResourceKeyToBrush"/>
+    <!-- History's heatmap (F16): five steps mixed from surface-2 to primary. -->
+    <inf:HeatStepToBrushConverter x:Key="HeatStep" Steps="5"/>
 
     <!-- ========================================================= typography -->
 
@@ -688,6 +690,58 @@
             <Setter.Value>
                 <ControlTemplate TargetType="ListBoxItem">
                     <ContentPresenter/>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ========================================= heatmap cell (History, F16)
+         DESIGN_SYSTEM.md §7 asks that a heatmap never rely on colour alone and
+         that "hovering or focusing a cell shows the value". A Border or a
+         Rectangle can do neither: it takes no focus, and UI Automation does not
+         surface it, so a screen reader would be handed 30 coloured shapes with
+         nothing to say about them. A ListBoxItem is a real control — it takes
+         keyboard focus, it carries the day and its minutes as its accessible
+         name, and it shows the same line as a tooltip on hover. -->
+    <Style x:Key="HeatCellItem" TargetType="ListBoxItem" BasedOn="{StaticResource PlainItem}">
+        <Setter Property="AutomationProperties.Name" Value="{Binding Name}"/>
+        <Setter Property="ToolTip" Value="{Binding Name}"/>
+        <Setter Property="Focusable" Value="True"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ListBoxItem">
+                    <Border x:Name="Cell" Width="28" Height="28" Margin="0,0,4,4"
+                            CornerRadius="{StaticResource RadiusChip}"
+                            BorderThickness="1"
+                            BorderBrush="{StaticResource Edge}"
+                            Background="{Binding Step, Converter={StaticResource HeatStep}}"/>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="Cell" Property="BorderBrush"
+                                    Value="{StaticResource FocusRing}"/>
+                            <Setter TargetName="Cell" Property="BorderThickness" Value="2"/>
+                        </Trigger>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Cell" Property="BorderBrush"
+                                    Value="{StaticResource EdgeBright}"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- The legend's five swatches. Not focusable and not named: the legend is
+         decoration beside the "Less"/"More" captions, which say what it means. -->
+    <Style x:Key="HeatLegendItem" TargetType="ListBoxItem" BasedOn="{StaticResource PlainItem}">
+        <Setter Property="Focusable" Value="False"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ListBoxItem">
+                    <Border Width="14" Height="14" Margin="0,0,4,0"
+                            CornerRadius="{StaticResource RadiusChip}"
+                            BorderThickness="1" BorderBrush="{StaticResource Edge}"
+                            Background="{Binding Converter={StaticResource HeatStep}}"/>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>

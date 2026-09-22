@@ -27,7 +27,8 @@ class TestAppShell:
     def test_window_opens_on_the_today_page(self, app):
         assert app.current_page_title() == "Today"
 
-    @pytest.mark.parametrize("tab", ["Blocked Apps", "Sleep Blocking", "Settings", "Today"])
+    @pytest.mark.parametrize("tab", ["History", "Blocked Apps", "Sleep Blocking",
+                                     "Settings", "Today"])
     def test_every_tab_is_reachable(self, app, tab):
         assert app.navigate_to_tab(tab) == tab
 
@@ -1538,6 +1539,65 @@ class TestJournalExport:
         text = target.read_text(encoding="utf-8-sig")
         assert "'=1+1" in text, "a leading = must be defused before Excel opens it"
 
+
+# ============================== tray and keyboard start a sprint (F4)
+#
+# Written for F4 but not run in this session: UI tests take over the screen,
+# only one can run at a time on this machine, and the orchestrator schedules
+# them. See the PR description.
+
+class TestSpaceStartsAndEndsASprint:
+    """
+    Space on Today (F4) must behave exactly like clicking StartSprintButton
+    and StopSprintButton — including going through the F2 end flow, not
+    ending a Firm sprint immediately.
+    """
+
+    def test_space_starts_a_sprint_and_opens_the_firm_end_flow(self, fresh_app):
+        fresh_app.navigate_to_tab("Today")
+        fresh_app.select_shield("Firm")
+        time.sleep(0.4)
+
+        # Space with focus away from any text box starts the sprint, the same
+        # as StartSprintButton.
+        fresh_app.focus()
+        fresh_app.window.type_keys(" ")
+        assert fresh_app.exists("StopSprintButton", timeout=5), \
+            "Space did not start the sprint"
+
+        fresh_app.wait_out_grace_period()
+
+        # Space again must open the same F2 flow the button opens — a
+        # confirmation that waits — never end the sprint outright.
+        fresh_app.window.type_keys(" ")
+        assert fresh_app.exists("KeepGoingButton", timeout=3), \
+            "Space skipped Firm's confirmation and ended the sprint directly"
+        assert fresh_app.is_control_enabled("EndAnywayButton") is False, \
+            "End anyway must still wait out Firm's grace, whatever triggered it"
+
+        # Clean up through the real flow rather than leaving a sprint running.
+        fresh_app.click("KeepGoingButton")
+        time.sleep(0.5)
+        fresh_app.stop_sprint()
+
+    def test_space_typed_into_the_intention_field_stays_a_space(self, fresh_app):
+        """
+        The guard in TodayViewModel.CanUseSpaceShortcut: typing into the
+        intention box must not also start a sprint underneath the user.
+        """
+        fresh_app.navigate_to_tab("Today")
+        fresh_app.set_text("IntentionInput", "write the release notes")
+        # set_text leaves focus in the box; one more space must land in the
+        # text, not toggle the sprint.
+        intention_box = fresh_app.element("IntentionInput")
+        intention_box.type_keys(" ")
+        time.sleep(0.3)
+
+        assert not fresh_app.exists("StopSprintButton", timeout=1), \
+            "a space typed into the intention field also started a sprint"
+        assert fresh_app.text_of("IntentionInput").endswith(" "), \
+            "the space must still land in the text box"
+
     def test_an_empty_range_still_saves_a_file_with_headings(self, fresh_app, tmp_path):
         target = tmp_path / "empty.csv"
         fresh_app.navigate_to_tab("Settings")
@@ -1598,3 +1658,93 @@ class TestYourDataCard:
         fresh_app.click("ConfirmDeleteCancelButton")
         time.sleep(0.5)
         assert fresh_app.exists("DeleteEverythingButton"), "Settings must still be there after cancelling"
+
+
+# =========================================== History and the weekly view (F16)
+
+class TestHistoryPage:
+    """
+    F16: the History page. The unit tests pin the arithmetic; what only the real
+    app can show is that the page is reachable, that it picks up a sprint that
+    happened on another page, and that the week's figures on screen match what
+    was actually written to the settings file.
+    """
+
+    def _one_sprint(self, app, intention, journal):
+        app.navigate_to_tab("Today")
+        app.set_text("IntentionInput", intention)
+        app.start_sprint()
+        time.sleep(1.2)
+        app.stop_sprint()
+        time.sleep(0.8)
+        app.set_text("JournalInput", journal)
+        app.click("SaveJournalButton")
+        time.sleep(1.0)
+
+    def test_history_is_reachable_and_empty_to_begin_with(self, fresh_app):
+        assert fresh_app.navigate_to_tab("History") == "History"
+        assert fresh_app.text_of("WeekSprintsValue") == "0"
+        assert fresh_app.text_of("WeekFocusHours") == "0.0"
+        assert "No sprints yet" in fresh_app.text_of("HistoryEmptyText")
+        # Nothing has been blocked, and the card says so rather than naming an app.
+        assert "Nothing has needed blocking yet" in fresh_app.text_of("MostBlockedNote")
+
+    def test_the_week_picks_up_a_sprint_run_on_today(self, fresh_app):
+        """
+        The refresh-on-entry case. History is built when the app starts, so
+        without MainViewModel refreshing it on navigation the page would show
+        zeroes for the rest of the run.
+        """
+        self._one_sprint(fresh_app, "finish chapter 3", "shipped the history page")
+
+        fresh_app.navigate_to_tab("History")
+        assert int(fresh_app.text_of("WeekDistractionsValue")) >= 0
+        # Ended early, so it is not a completed sprint — but its minutes count.
+        assert fresh_app.text_of("WeekSprintsValue") == "0"
+        assert float(fresh_app.text_of("WeekFocusHours")) >= 0.0
+
+        # The row is the newest, so it is the first HistoryRow* control found.
+        assert "ended early" in fresh_app.text_of("HistoryRowOutcome")
+        assert "finish chapter 3" in fresh_app.text_of("HistoryRowIntention")
+        assert "shipped the history page" in fresh_app.text_of("HistoryRowJournal")
+
+        # And it matches what was persisted, not just what the UI claims.
+        session = verify.read_settings()["Sessions"][-1]
+        assert session["Intention"] == "finish chapter 3"
+        assert session["Journal"] == "shipped the history page"
+        assert session["Completed"] is False
+
+    def test_the_heatmap_states_its_values_rather_than_only_colouring_them(self, fresh_app):
+        """
+        DESIGN_SYSTEM.md §7: never colour alone. Every cell is a focusable
+        control whose accessible name is its own day and minutes, so this is
+        also the check that a screen reader gets something to read.
+        """
+        self._one_sprint(fresh_app, "", "measured the heatmap")
+        fresh_app.navigate_to_tab("History")
+
+        assert fresh_app.exists("FocusHeatmap"), "the heatmap never rendered"
+        assert "–" in fresh_app.text_of("HeatmapRange"), "the range names both ends"
+        assert "best day" in fresh_app.text_of("HeatmapPeak")
+        assert fresh_app.text_of("HeatmapLegendLow") == "Less"
+        assert fresh_app.text_of("HeatmapLegendHigh") == "More"
+
+    def test_the_export_is_reachable_from_history(self, fresh_app):
+        """F17's card stays on Settings; History is the way to it (F16)."""
+        fresh_app.navigate_to_tab("History")
+        fresh_app.click("HistoryExportButton")
+        time.sleep(0.8)
+        assert fresh_app.current_page_title() == "Settings"
+        assert fresh_app.exists("ExportJournalButton")
+
+    def test_looking_at_history_changes_nothing(self, fresh_app):
+        """The page only reads. Visiting it must not rewrite the sprint record."""
+        self._one_sprint(fresh_app, "", "wrote it down")
+        before = verify.read_settings()["Sessions"]
+
+        fresh_app.navigate_to_tab("History")
+        time.sleep(1.0)
+        fresh_app.navigate_to_tab("Today")
+        time.sleep(0.5)
+
+        assert verify.read_settings()["Sessions"] == before

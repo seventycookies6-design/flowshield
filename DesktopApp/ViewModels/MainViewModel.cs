@@ -7,7 +7,7 @@ using FlowShield.Services;
 
 namespace FlowShield.ViewModels;
 
-public enum AppPage { Today, BlockedApps, SleepBlocking, Settings }
+public enum AppPage { Today, History, BlockedApps, SleepBlocking, Settings }
 
 public class MainViewModel : ViewModelBase
 {
@@ -30,6 +30,7 @@ public class MainViewModel : ViewModelBase
         Blocker.Blocked += OnBlocked;
 
         Today = new TodayViewModel(this);
+        History = new HistoryViewModel(this);
         BlockedApps = new BlockedAppsViewModel(this);
         SleepBlocking = new SleepBlockingViewModel(this);
         SettingsPage = new SettingsViewModel(this, licenseService);
@@ -67,6 +68,7 @@ public class MainViewModel : ViewModelBase
     public AppBlockerService Blocker { get; }
 
     public TodayViewModel Today { get; }
+    public HistoryViewModel History { get; }
     public BlockedAppsViewModel BlockedApps { get; }
     public SleepBlockingViewModel SleepBlocking { get; }
     public SettingsViewModel SettingsPage { get; }
@@ -209,6 +211,7 @@ public class MainViewModel : ViewModelBase
             if (!Set(ref _currentPage, value)) return;
 
             Raise(nameof(IsTodayPage));
+            Raise(nameof(IsHistoryPage));
             Raise(nameof(IsBlockedAppsPage));
             Raise(nameof(IsSleepBlockingPage));
             Raise(nameof(IsSettingsPage));
@@ -219,6 +222,9 @@ public class MainViewModel : ViewModelBase
             switch (value)
             {
                 case AppPage.Today: Today.RefreshStats(); break;
+                // Sprints happen on another page, so History would otherwise
+                // show whatever was true when the app started (F16).
+                case AppPage.History: History.Refresh(); break;
                 case AppPage.BlockedApps: BlockedApps.RefreshStatus(); break;
                 case AppPage.SleepBlocking: SleepBlocking.RefreshStatus(); break;
                 case AppPage.Settings:
@@ -233,6 +239,7 @@ public class MainViewModel : ViewModelBase
     }
 
     public bool IsTodayPage => CurrentPage == AppPage.Today;
+    public bool IsHistoryPage => CurrentPage == AppPage.History;
     public bool IsBlockedAppsPage => CurrentPage == AppPage.BlockedApps;
     public bool IsSleepBlockingPage => CurrentPage == AppPage.SleepBlocking;
     public bool IsSettingsPage => CurrentPage == AppPage.Settings;
@@ -240,6 +247,7 @@ public class MainViewModel : ViewModelBase
     public string CurrentPageTitle => CurrentPage switch
     {
         AppPage.Today => "Today",
+        AppPage.History => "History",
         AppPage.BlockedApps => "Blocked Apps",
         AppPage.SleepBlocking => "Sleep Blocking",
         _ => "Settings",
@@ -248,6 +256,7 @@ public class MainViewModel : ViewModelBase
     public string CurrentPageSubtitle => CurrentPage switch
     {
         AppPage.Today => "Start a sprint and let the shield hold the line.",
+        AppPage.History => "Your week, and every sprint you have run.",
         AppPage.BlockedApps => "What the shield closes while you're working.",
         AppPage.SleepBlocking => "A nightly window where the shield raises itself.",
         _ => "License, startup and enforcement preferences.",
