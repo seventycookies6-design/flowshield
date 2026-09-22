@@ -772,6 +772,7 @@ public class TodayViewModel : ViewModelBase
             PlannedMinutes = SelectedMinutes,
             Shield = SelectedShield,
             LastSeenUtc = now,
+            WatchedMinutes = 0,
             MomentumAtStart = S.MomentumScore,
             Intention = intention,
         };
@@ -807,6 +808,13 @@ public class TodayViewModel : ViewModelBase
 
     /// <summary>How often a running sprint re-saves that FlowShield is still watching it.</summary>
     public static readonly TimeSpan HeartbeatInterval = TimeSpan.FromSeconds(30);
+
+    /// <summary>
+    /// The most one heartbeat may add to a sprint's watched time. A
+    /// DispatcherTimer does not tick while the machine is suspended, so a gap
+    /// far longer than the interval is time nothing was enforced for.
+    /// </summary>
+    public static readonly TimeSpan WatchedStretchCap = HeartbeatInterval * 2;
 
     private DateTime _lastHeartbeatUtc;
 
@@ -860,6 +868,8 @@ public class TodayViewModel : ViewModelBase
                 Raise(nameof(ShieldDescription));
                 Raise(nameof(ShieldBestFor));
 
+                // LastSeenUtc moves up, but the gap it spans is deliberately
+                // not added to WatchedMinutes: FlowShield was closed for it.
                 saved.LastSeenUtc = now;
                 _main.SaveSettings();
 
@@ -882,9 +892,11 @@ public class TodayViewModel : ViewModelBase
                     Completed = completed,
                     Interrupted = !completed,
                 };
+                // Added first, for the same reason as in EndSprint: the goal
+                // rules count S.Sessions.
+                S.Sessions.Add(session);
                 if (completed) ApplyMomentum(completed: true, session);
 
-                S.Sessions.Add(session);
                 S.ActiveSprint = null;
                 _main.SaveSettings();
                 RefreshStats();
@@ -924,7 +936,10 @@ public class TodayViewModel : ViewModelBase
         if (S.ActiveSprint is not null && now - _lastHeartbeatUtc >= HeartbeatInterval)
         {
             _lastHeartbeatUtc = now;
-            S.ActiveSprint.LastSeenUtc = now;
+            // Adds the stretch just watched as well as moving LastSeenUtc, so
+            // F3's "running for at least half of it" measures time FlowShield
+            // was actually up rather than the span between two timestamps.
+            S.ActiveSprint.NoteStillWatching(now, WatchedStretchCap);
             _main.SaveSettings();
         }
 
@@ -963,9 +978,14 @@ public class TodayViewModel : ViewModelBase
 
         _main.Blocker.StopEnforcing();
 
+        // Recorded before the momentum and goal rules are asked about it. They
+        // read S.Sessions, so a sprint added afterwards was invisible to them:
+        // "Daily goal met" fired on the next sprint instead of this one, and on
+        // the day's last sprint never fired at all.
+        S.Sessions.Add(_current);
+
         ApplyMomentum(completed, _current);
 
-        S.Sessions.Add(_current);
         S.ActiveSprint = null;
         _main.SaveSettings();
 

@@ -150,8 +150,40 @@ public class RunningSprint
     /// <summary>Last time FlowShield confirmed it was still running this sprint.</summary>
     public DateTime LastSeenUtc { get; set; }
 
+    /// <summary>
+    /// Minutes FlowShield has actually been running this sprint, accumulated
+    /// across restarts.
+    ///
+    /// Kept as a running total rather than inferred from
+    /// <see cref="LastSeenUtc"/> minus <see cref="StartedUtc"/>, because
+    /// resuming refreshes LastSeenUtc — so that subtraction counted every
+    /// minute FlowShield was *closed* before the resume as watched, and
+    /// reopening the app for a second near the end turned any abandoned sprint
+    /// into a completed one.
+    ///
+    /// Null in settings files written before this existed; <see cref="Decide"/>
+    /// falls back to the old estimate for those.
+    /// </summary>
+    public double? WatchedMinutes { get; set; }
+
     [JsonIgnore]
     public DateTime EndsUtc => StartedUtc.AddMinutes(PlannedMinutes);
+
+    /// <summary>
+    /// Records another stretch of FlowShield watching this sprint, and moves
+    /// <see cref="LastSeenUtc"/> up to <paramref name="nowUtc"/>.
+    ///
+    /// The stretch is capped: if the heartbeat did not fire for an hour the
+    /// machine was suspended, not watching, and the uncapped gap would credit
+    /// the sprint with time nothing was enforced for.
+    /// </summary>
+    public void NoteStillWatching(DateTime nowUtc, TimeSpan cap)
+    {
+        var stretch = nowUtc - LastSeenUtc;
+        if (stretch > TimeSpan.Zero)
+            WatchedMinutes = (WatchedMinutes ?? 0) + Min(stretch, cap).TotalMinutes;
+        LastSeenUtc = nowUtc;
+    }
 
     /// <summary>What to do with this sprint when FlowShield starts again.</summary>
     public SprintResume Decide(DateTime nowUtc)
@@ -162,7 +194,7 @@ public class RunningSprint
         // The time ran out while FlowShield was closed. It counts as finished
         // only if FlowShield was watching for at least half of it; otherwise
         // nothing was actually enforced, so it's recorded as interrupted.
-        var watched = (Min(LastSeenUtc, EndsUtc) - StartedUtc).TotalMinutes;
+        var watched = WatchedMinutes ?? (Min(LastSeenUtc, EndsUtc) - StartedUtc).TotalMinutes;
         return watched >= PlannedMinutes * CompletedIfWatchedFraction
             ? SprintResume.RecordCompleted
             : SprintResume.RecordInterrupted;
@@ -172,6 +204,8 @@ public class RunningSprint
     public const double CompletedIfWatchedFraction = 0.5;
 
     private static DateTime Min(DateTime a, DateTime b) => a < b ? a : b;
+
+    private static TimeSpan Min(TimeSpan a, TimeSpan b) => a < b ? a : b;
 }
 
 public enum SprintResume
