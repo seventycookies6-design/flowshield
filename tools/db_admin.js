@@ -5,9 +5,10 @@
  * Small maintenance utility for the licence database.
  *
  *   node tools/db_admin.js list [n]        newest rows
- *   node tools/db_admin.js show <key>      one row as JSON
- *   node tools/db_admin.js pick-active     newest active row as JSON
- *   node tools/db_admin.js forget <key>    delete a row (cache only)
+ *   node tools/db_admin.js show <key>       one row as JSON
+ *   node tools/db_admin.js by-email <email> newest row for that address as JSON
+ *   node tools/db_admin.js pick-active      newest active row as JSON
+ *   node tools/db_admin.js forget <key>     delete a row (cache only)
  *   node tools/db_admin.js count
  *
  * `forget` is safe: the database is a cache of Stripe, and the server rebuilds
@@ -47,6 +48,21 @@ switch (command) {
 
   case 'show':
     console.log(JSON.stringify(raw.prepare('SELECT * FROM licenses WHERE license_key = ?').get(argument) || null));
+    break;
+
+  case 'by-email':
+    // Recovery by email alone (no key presented) is free to mint a fresh
+    // license_key rather than reuse a forgotten one (server.js's /validate:
+    // a presented key is preserved, an email alone is not a promise about
+    // which key comes back) — so a test proving Stripe recovery worked has
+    // to look the rebuilt row up by email, not by the key it wiped.
+    console.log(
+      JSON.stringify(
+        raw
+          .prepare('SELECT * FROM licenses WHERE email = ? ORDER BY updated_at DESC LIMIT 1')
+          .get(argument) || null,
+      ),
+    );
     break;
 
   case 'pick-active':

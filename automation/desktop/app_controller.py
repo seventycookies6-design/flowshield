@@ -799,15 +799,43 @@ class DesktopController:
         return True
 
     def blocked_app_names(self) -> list[str]:
-        """Item names from the blocked-apps ListBox."""
+        """
+        Item names from the blocked-apps ListBox, scrolled through in full.
+
+        A ListBox virtualizes by default: UI Automation only sees the item
+        containers currently realized in the viewport, so a list longer than
+        what fits on screen at once reads back short — five adds landed as
+        three names read, with the app never having dropped the other two.
+        Scroll through collecting names until a couple of rounds add nothing
+        new, rather than reading the viewport once.
+        """
         try:
             listbox = self.element("BlockedAppsList")
-            names = []
-            for item in listbox.children():
-                text = " ".join(t for t in item.texts() if t)
-                if text.strip():
-                    names.append(text.strip())
-            return names
+            seen: dict[str, None] = {}
+            stable_rounds = 0
+            for _ in range(40):
+                before = len(seen)
+                for item in listbox.children():
+                    text = " ".join(t for t in item.texts() if t)
+                    if text.strip():
+                        seen[text.strip()] = None
+                if len(seen) == before:
+                    stable_rounds += 1
+                    if stable_rounds >= 2:
+                        break
+                else:
+                    stable_rounds = 0
+                try:
+                    listbox.scroll("down", "line", 3)
+                except Exception:
+                    try:
+                        import pywinauto.mouse as mouse
+                        rect = listbox.rectangle()
+                        mouse.scroll(coords=(rect.mid_point().x, rect.mid_point().y), wheel_dist=-3)
+                    except Exception:
+                        break
+                time.sleep(0.15)
+            return list(seen.keys())
         except Exception as exc:
             self._say(f"could not read blocked apps list: {exc}")
             return []

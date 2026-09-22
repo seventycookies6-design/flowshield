@@ -1,6 +1,6 @@
 # FlowShield — build & test report
 
-_Generated 2026-09-22 01:59_
+_Generated 2026-09-22 06:22_
 
 ---
 
@@ -14,9 +14,9 @@ The twist is **escalating shield levels** plus **momentum instead of streaks**:
 
 | Level | Name | Behaviour |
 | --- | --- | --- |
-| Shield I | Soft | A brief notice inside FlowShield; the blocked app keeps running. |
-| Shield II | Firm | Blocked apps are closed on sight; the blocklist stays editable. |
-| Shield III | Sealed | Closed on sight **and** the blocklist locks for the rest of the sprint. |
+| Shield I | Soft | A full-screen notice on its own screen; the blocked app keeps running. |
+| Shield II | Firm | Blocked apps are warned, then closed; the blocklist stays editable. |
+| Shield III | Sealed | Warned, then closed, **and** the blocklist locks for the rest of the sprint. |
 
 Momentum compounds on completed sprints and *decays* (×0.85 − 2, floored at zero)
 on abandoned ones rather than resetting — one bad afternoon should not erase a
@@ -46,22 +46,17 @@ month. Every sprint ends with a one-line "what moved?" journal entry.
 
 ## 2. Stripe configuration
 
-**Status: not configured.** Payment-path steps were skipped, not faked.
+**Status: configured (TEST mode).**
 
-Missing: `secret_key`, `price_id`
+| Credential | Value |
+| --- | --- |
+| Publishable key | `pk_test_51U8••••••••••••••••••` _(redacted)_ |
+| Secret key | `sk_test_51••••••••••••••••••` _(redacted)_ |
+| Price ID | `price_1UFQmZCcqk10eo83f6jDDOzp` |
+| Webhook secret | `whsec_7u••••••••••••••••••` _(redacted)_ |
 
-Creating the Stripe account is the one step left to a human — registering a
-financial-services account under a generated identity breaks Stripe's terms,
-and the secret key never needs to pass through an assistant to be used.
-`STRIPE_SETUP.md` has the exact click-path; it takes about five minutes.
-
-Once `.stripe_keys.json` is populated, re-run:
-
-```
-python automation/e2e_runner.py
-```
-
-and every skipped step above becomes a real test-mode purchase.
+Secret values are redacted here by design — this file is meant to be shareable.
+The real values live only in `.stripe_keys.json`, which is git-ignored.
 
 
 ---
@@ -77,40 +72,47 @@ _No E2E report found. Run `python automation/e2e_runner.py` first._
 
 | Tier | Passed | Failed | Skipped |
 | --- | --: | --: | --: |
-| Tier 1 — unit | 380 | 0 | 0 |
-| Tier 2 — server integration | 20 | 0 | 12 |
-| Tier 3 — end-to-end UI | 82 | 13 | 2 |
-| Tier 4 — adversarial | 40 | 0 | 2 |
-| Tier 5 — regressions | 369 | 1 | 6 |
-| Tier 6 — email delivery | 10 | 0 | 3 |
-| Tier 7 — device limit | 6 | 0 | 11 |
-| **Total** | **907** | **14** | **36** |
+| Tier 1 — unit | 476 | 0 | 0 |
+| Tier 2 — server integration | 36 | 0 | 2 |
+| Tier 3 — end-to-end UI | 106 | 9 | 1 |
+| Tier 4 — adversarial | 42 | 0 | 0 |
+| Tier 5 — regressions | 507 | 2 | 0 |
+| Tier 6 — email delivery | 11 | 2 | 0 |
+| Tier 7 — device limit | 24 | 0 | 0 |
+| **Total** | **1202** | **13** | **3** |
 
-Duration: 6135.1s · 957 tests collected
+Duration: 8514.0s · 1218 tests collected
 
 **Failing tests**
 
-- `tests/test_tier3_e2e.py::TestAppShell::test_settings_cannot_be_read_without_dpapi`
-- `tests/test_tier3_e2e.py::TestSprintIntention::test_a_long_intention_is_capped_and_stays_on_one_line`
-- `tests/test_tier3_e2e.py::TestSprintIntention::test_cancelling_a_sprint_clears_the_intention_input`
-- `tests/test_tier3_e2e.py::TestShieldWording::test_today_shows_the_promise_and_scenario_for_each_shield`
-- `tests/test_tier3_e2e.py::TestTrialExpiringDuringASprint::test_the_lock_waits_for_the_sprint_and_its_summary`
-- `tests/test_tier3_e2e.py::TestEndingASprint::test_cancelling_in_the_grace_period_leaves_no_record`
-- `tests/test_tier3_e2e.py::TestEndingASprint::test_firm_needs_a_confirmation_that_waits`
-- `tests/test_tier3_e2e.py::TestEndingASprint::test_sealed_needs_the_countdown_and_the_phrase`
-- `tests/test_tier3_e2e.py::TestFirstRun::test_completing_it_saves_every_choice_and_starts_the_sprint`
-- `tests/test_tier3_e2e.py::TestSpaceStartsAndEndsASprint::test_space_starts_a_sprint_and_opens_the_firm_end_flow`
-- `tests/test_tier3_e2e.py::TestSpaceStartsAndEndsASprint::test_space_typed_into_the_intention_field_stays_a_space`
-- `tests/test_tier3_e2e.py::TestHistoryPage::test_history_is_reachable_and_empty_to_begin_with`
-- `tests/test_tier3_e2e.py::TestHistoryPage::test_the_week_picks_up_a_sprint_run_on_today`
+- `tests/test_tier3_e2e.py::TestBlockedApps::test_there_is_no_blocked_app_limit`
+- `tests/test_tier3_e2e.py::TestBlocklistProfiles::test_the_last_profile_cannot_be_deleted`
+- `tests/test_tier3_e2e.py::TestBlocklistProfiles::test_sealed_locks_the_profile_switcher`
+- `tests/test_tier3_e2e.py::TestSoftShowsTheNotice::test_a_blocked_app_in_front_gets_a_notice_that_closes_nothing`
+- `tests/test_tier3_e2e.py::TestSoftShowsTheNotice::test_allow_five_minutes_keeps_it_quiet`
+- `tests/test_tier3_e2e.py::TestPurchaseToActivation::test_full_flow`
+- `tests/test_tier3_e2e.py::TestBreaksAndCycles::test_nothing_is_blocked_during_the_break`
+- `tests/test_tier3_e2e.py::TestBreaksAndCycles::test_a_two_sprint_cycle_runs_itself`
+- `tests/test_tier3_e2e.py::TestBreaksAndCycles::test_a_break_never_moves_momentum_or_the_goal`
 - `tests/test_tier5_regressions.py::TestStartWithWindowsBehaviour::test_tray_launch_has_an_icon_but_no_visible_window`
+- `tests/test_tier5_regressions.py::TestSurvivesDataLoss::test_a_wiped_row_is_rebuilt_from_stripe`
+- `tests/test_tier6_email.py::TestDelivery::test_a_licence_is_emailed_once_and_only_once`
+- `tests/test_tier6_email.py::TestDelivery::test_resend_is_explicitly_allowed_to_send_again`
 
 
 ---
 
 ## 5. Screenshots
 
-_No screenshots captured yet. Run `python automation/e2e_runner.py`._
+Captured locally in `screenshots/pytest-20260922-061824` — 3 images, not committed to the repository.
+
+| Step | File |
+| --- | --- |
+| 01 loaded | `stripe-01-loaded.png` |
+| 02 filled | `stripe-02-filled.png` |
+| 03 success | `stripe-03-success.png` |
+
+Regenerate them any time with `python automation/e2e_runner.py`, or `python automation/smoke_ui.py` for a quick four-tab sweep.
 
 
 ---
@@ -150,9 +152,6 @@ existing binary. `python automation/smoke_ui.py` captures all four tabs in one p
 
 ## 7. Known limitations
 
-- **The payment path was not executed in this run** because Stripe has no
-  credentials configured. Those steps are reported as *skipped*, never as
-  passed. Everything else below ran for real.
 - **The Stripe account is not created by the automation.** Registering a
   financial-services account under a disposable identity violates Stripe's
   terms, and the registration flow is gated by SMS and bot detection. This is a

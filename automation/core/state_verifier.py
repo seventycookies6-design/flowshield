@@ -237,7 +237,10 @@ def verify_ui_pro_status(desktop_ctrl, expected_pro: bool = True) -> Verificatio
         return VerificationResult(False, f"could not read the UI: {exc}")
 
     shows_pro = "licence active" in status.lower()
-    badge_pro = badge.strip().upper() == "PRO"
+    # MainViewModel.TierBadge reads "PURCHASED" once IsPro is true (see also
+    # test_tier3_e2e.py's test_a_licence_unlocks_the_locked_app, which already
+    # asserts exactly that) — "PRO" was never the shipped word.
+    badge_pro = badge.strip().upper() == "PURCHASED"
 
     if shows_pro != expected_pro:
         return VerificationResult(
