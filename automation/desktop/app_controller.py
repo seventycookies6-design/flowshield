@@ -979,8 +979,26 @@ class DesktopController:
         except Exception:                                  # noqa: BLE001
             control.invoke()
 
-    def wait_out_grace_period(self, timeout: float = 15.0) -> None:
-        deadline = time.time() + timeout
+    # How long wait_out_grace_period will wait, derived from the grace period
+    # rather than written out beside it. A hardcoded 15.0 here would have been
+    # exactly SHORT_GRACE_SECONDS, so a call made near the start of a sprint
+    # could hit its own deadline before the button ever flipped and return as
+    # if the grace were over — quietly, to 24 call sites. The margin has to
+    # cover a label read landing just before the boundary (one to two seconds)
+    # plus the poll interval; tier 5 fails if it is ever <= the grace.
+    GRACE_WAIT_MARGIN_SECONDS = 5.0
+    GRACE_WAIT_TIMEOUT = SHORT_GRACE_SECONDS + GRACE_WAIT_MARGIN_SECONDS
+
+    def wait_out_grace_period(self, timeout: float | None = None) -> None:
+        """
+        Block until the end button stops offering a free cancel.
+
+        Returning on the deadline rather than on the flip is not an error here —
+        several callers use this simply to be past the grace — but it must not
+        be able to happen *before* the grace could plausibly have ended, or the
+        test that follows acts on a sprint that is still cancellable.
+        """
+        deadline = time.time() + (self.GRACE_WAIT_TIMEOUT if timeout is None else timeout)
         while time.time() < deadline and "cancel" in self.end_button_label().lower():
             time.sleep(0.4)
 

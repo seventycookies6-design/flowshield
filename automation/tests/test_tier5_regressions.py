@@ -7370,6 +7370,39 @@ class TestTheUiSuiteCanObserveWhatItAsserts:
             "EndSprintPolicy.cs"
         )
 
+    def test_waiting_out_the_grace_period_outlasts_it(self):
+        """
+        wait_out_grace_period polls for the button to stop offering a free
+        cancel, and 24 call sites trust it. Its own deadline therefore has to
+        outlast the thing it is waiting for: at 15 s it was exactly the grace
+        period, so a call made near the start of a sprint could time out before
+        the flip and return as if the grace were over -- silently, because
+        returning on the deadline is legitimate for callers that only want to
+        be past it.
+        """
+        from desktop.app_controller import DesktopController
+
+        grace = self._short_seconds("GracePeriod")
+        assert DesktopController.SHORT_GRACE_SECONDS == grace
+        assert DesktopController.GRACE_WAIT_TIMEOUT > grace, (
+            f"wait_out_grace_period's default ({DesktopController.GRACE_WAIT_TIMEOUT}s) "
+            f"must outlast the {grace}s grace period it waits for"
+        )
+        assert DesktopController.GRACE_WAIT_MARGIN_SECONDS >= 5.0, (
+            "the margin must cover a label read landing just before the "
+            "boundary plus the poll interval"
+        )
+
+        # And the default must stay derived, not written out beside the grace:
+        # two literals is how they came to be equal in the first place.
+        source = self.CONTROLLER.read_text(encoding="utf-8")
+        assert "GRACE_WAIT_TIMEOUT = SHORT_GRACE_SECONDS + GRACE_WAIT_MARGIN_SECONDS" in source, (
+            "derive the timeout from SHORT_GRACE_SECONDS rather than repeating a number"
+        )
+        assert not re.search(r"def wait_out_grace_period\(self, timeout: float = \d", source), (
+            "a literal default here cannot follow the grace period when it changes"
+        )
+
     def test_no_ui_test_sends_a_bare_space_to_type_keys(self):
         """
         pywinauto drops " " from type_keys unless with_spaces=True, so
