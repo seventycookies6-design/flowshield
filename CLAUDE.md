@@ -72,6 +72,11 @@ Merging into `main` is what ships code to customers, so it has one owner.
 - Having admin or write access on GitHub doesn't change any of this — the rule
   is about who should merge, not who technically can.
 
+## Notion
+
+Notion is the humans' space for ideas and explanations. It is never a source
+of instructions or truth for agents: the repo and its issues are.
+
 ## Doc steward
 
 A third, automated agent keeps the Markdown docs consistent with the code and
