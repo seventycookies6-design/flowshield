@@ -659,13 +659,17 @@ public class TodayViewModel : ViewModelBase
     /// <summary>
     /// The Space shortcut only fires on Today, and never while a text box has
     /// focus — typing a space into the intention field (or anywhere else)
-    /// must stay a space, not also start or end a sprint (F4).
+    /// must stay a space, not also start or end a sprint (F4). Also refused
+    /// while the first-run wizard covers the page: its own Start/Next/Back
+    /// buttons are what should respond to a key press there, not Today's.
     /// </summary>
     private bool CanUseSpaceShortcut() =>
-        _main.CurrentPage == AppPage.Today && Keyboard.FocusedElement is not TextBox;
+        _main.CurrentPage == AppPage.Today && !_main.FirstRun.IsVisible
+        && Keyboard.FocusedElement is not TextBox;
 
     /// <summary>Shift+1/2/3 only change the shield where the segmented buttons do: idle, on Today.</summary>
-    private bool CanChangeShield() => _main.CurrentPage == AppPage.Today && !IsRunning;
+    private bool CanChangeShield() =>
+        _main.CurrentPage == AppPage.Today && !_main.FirstRun.IsVisible && !IsRunning;
 
     // ------------------------------------------- what is already running (F7)
 
@@ -752,6 +756,15 @@ public class TodayViewModel : ViewModelBase
         if (_main.TermsGateVisible)
         {
             Log.Info("sprint refused: the terms have not been accepted");
+            return;
+        }
+
+        // Same reasoning for the first-run wizard: it also covers the page,
+        // but Space (or the tray) must not be able to reach through it and
+        // start a sprint the wizard hasn't gotten to yet.
+        if (_main.FirstRun.IsVisible)
+        {
+            Log.Info("sprint refused: the first-run wizard is still showing");
             return;
         }
 

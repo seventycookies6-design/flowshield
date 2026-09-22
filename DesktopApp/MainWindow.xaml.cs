@@ -41,6 +41,7 @@ public partial class MainWindow : Window
     private const uint MOD_NOREPEAT = 0x4000;
     private const uint VK_F = 0x46;
     private bool _hotkeyRegistered;
+    private HwndSource? _hotkeySource;
 
     public MainWindow()
     {
@@ -107,6 +108,10 @@ public partial class MainWindow : Window
     /// the setting is on. Re-run whenever that setting changes, so turning it
     /// on or off in Settings takes effect immediately, and on window close to
     /// unregister. No admin rights: RegisterHotKey is a per-user API.
+    ///
+    /// Always removes any hook it previously added before adding a new one —
+    /// re-running this on every settings toggle without that would stack a
+    /// WndProc hook per toggle, each one firing StartCommand again.
     /// </summary>
     private void SetUpGlobalHotkey()
     {
@@ -118,13 +123,19 @@ public partial class MainWindow : Window
             UnregisterHotKey(hwnd, GlobalHotkeyId);
             _hotkeyRegistered = false;
         }
+        if (_hotkeySource is not null)
+        {
+            _hotkeySource.RemoveHook(WndProc);
+            _hotkeySource = null;
+        }
 
         if (Vm?.Settings.GlobalHotkeyEnabled != true) return;
 
         if (RegisterHotKey(hwnd, GlobalHotkeyId, MOD_CONTROL | MOD_ALT | MOD_NOREPEAT, VK_F))
         {
             _hotkeyRegistered = true;
-            HwndSource.FromHwnd(hwnd)?.AddHook(WndProc);
+            _hotkeySource = HwndSource.FromHwnd(hwnd);
+            _hotkeySource?.AddHook(WndProc);
             Log.Info("global hotkey registered: Ctrl+Alt+F starts the last sprint");
         }
         else
@@ -551,6 +562,11 @@ public partial class MainWindow : Window
             {
                 UnregisterHotKey(new WindowInteropHelper(this).Handle, GlobalHotkeyId);
                 _hotkeyRegistered = false;
+            }
+            if (_hotkeySource is not null)
+            {
+                _hotkeySource.RemoveHook(WndProc);
+                _hotkeySource = null;
             }
             if (_tray is not null)
             {

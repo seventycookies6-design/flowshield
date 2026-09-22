@@ -5685,3 +5685,90 @@ class TestTrayAndKeyboardNeverBypassTheEndFlow:
         shield_lines = [line for line in xaml.splitlines() if "SelectShield" in line]
         assert shield_lines and all('Modifiers="Shift"' in line for line in shield_lines), \
             "every shield shortcut must use Shift, keeping Ctrl+1..5 free for page navigation"
+
+
+# ============================ Space cannot reach through the first-run wizard
+
+class TestSpaceRefusedUnderFirstRun:
+    """
+    PR #214 review: the first-run wizard (F18) covers Today the same way the
+    terms gate does, but nothing stopped Space — or a StartSprint() call from
+    the tray or automation — from starting a sprint underneath it. The gate
+    belongs in the view model, not only in the wizard's covering panel
+    (CLAUDE.md's "a gate must refuse in the view model, not only by covering
+    the screen").
+    """
+
+    TODAY_VM = Path(DESKTOP_DIR) / "ViewModels" / "TodayViewModel.cs"
+
+    def source(self) -> str:
+        return self.TODAY_VM.read_text(encoding="utf-8")
+
+    def test_the_space_shortcut_checks_first_run_is_not_showing(self):
+        source = self.source()
+        guard = source.split("private bool CanUseSpaceShortcut()")[1].split("\n\n")[0]
+        assert "_main.FirstRun.IsVisible" in guard, \
+            "Space must refuse while the first-run wizard is up, the same as the terms gate"
+
+    def test_shift_shield_shortcuts_check_first_run_is_not_showing(self):
+        source = self.source()
+        guard = source.split("private bool CanChangeShield()")[1].split("\n\n")[0]
+        assert "_main.FirstRun.IsVisible" in guard
+
+    def test_startsprint_itself_refuses_under_the_wizard(self):
+        """
+        The view-model gate, not only the guard on the keyboard command:
+        StartSprint() is also what the tray's "Start sprint (last settings)"
+        and the global hotkey call directly, and neither goes through
+        CanUseSpaceShortcut.
+        """
+        source = self.source()
+        start = source.split("private void StartSprint()")[1].split("\n    private ")[0]
+        assert "_main.FirstRun.IsVisible" in start, \
+            "StartSprint must refuse while the first-run wizard hasn't finished, like the terms gate above it"
+        # Must be checked, not just referenced in a comment.
+        gate = re.search(r'if\s*\(\s*_main\.FirstRun\.IsVisible\s*\)', start)
+        assert gate, "expected an explicit `if (_main.FirstRun.IsVisible)` guard in StartSprint"
+
+
+# ==================================== the global hotkey hook never stacks up
+
+class TestGlobalHotkeyHookIsNeverStacked:
+    """
+    PR #214 review: SetUpGlobalHotkey() re-runs every time the Settings toggle
+    changes, and used to call HwndSource.AddHook without ever removing the
+    previous one — so toggling the setting off and on stacked a WndProc hook
+    per toggle, each one calling StartCommand again on the same key press.
+    """
+
+    WINDOW = Path(DESKTOP_DIR) / "MainWindow.xaml.cs"
+
+    def source(self) -> str:
+        return self.WINDOW.read_text(encoding="utf-8")
+
+    def test_a_single_hook_field_is_tracked(self):
+        source = self.source()
+        assert re.search(r'private\s+HwndSource\?\s+_hotkeySource;', source), \
+            "expected a tracked HwndSource field so the hook can be removed later"
+
+    def test_setup_removes_the_previous_hook_before_adding_a_new_one(self):
+        source = self.source()
+        setup = source.split("private void SetUpGlobalHotkey()")[1].split("\n    private ")[0]
+        remove_index = setup.find("_hotkeySource.RemoveHook(WndProc)")
+        add_index = setup.find(".AddHook(WndProc)")
+        assert remove_index != -1, "SetUpGlobalHotkey must remove any hook it previously added"
+        assert add_index != -1, "SetUpGlobalHotkey must (re)add the hook when the hotkey is enabled"
+        assert remove_index < add_index, \
+            "the old hook must be removed before a new one is added, or hooks stack on every toggle"
+        # And the removal must not be conditional on _hotkeyRegistered alone —
+        # it needs its own null check so a re-run after a failed RegisterHotKey
+        # still tears down a hook left over from a previous success.
+        assert "if (_hotkeySource is not null)" in setup
+
+    def test_closing_removes_the_hook_alongside_unregistering(self):
+        source = self.source()
+        closing = source.split("protected override void OnClosing")[1]
+        unregister_index = closing.find("UnregisterHotKey(")
+        remove_hook_index = closing.find("_hotkeySource.RemoveHook(WndProc)")
+        assert unregister_index != -1
+        assert remove_hook_index != -1, "OnClosing must remove the WndProc hook, not just unregister the hotkey"
