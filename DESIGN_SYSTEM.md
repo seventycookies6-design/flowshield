@@ -246,7 +246,7 @@ site it's a class in `styles.css`. Names match across the two.
 
 - **Ring:** 12 px stroke on a `track` circle, with the progress arc in `primary` and a round cap. Diameter: 222px, matching the app-today sketches' proportions at the app's default 1280-wide layout; scales down gracefully to the 800×540 minimum via the existing `today-small` layout path.
 - **Centre:** the `timer` number, a `caption` state line ("Shield II engaged"), and the shield glyph.
-- **Progress:** updates once a second with no easing. When reduced motion is on, the arc still updates, but no pulse or glow is ever added.
+- **Progress:** the ring shows the time left, so it starts full and drains as the sprint or break runs. The arc glides linearly between the once-a-second ticks; the digits in the centre never ease. When reduced motion is on, the arc steps once a second instead, and no pulse or glow is ever added.
 
 ### Sprint summary card (checklist F12)
 

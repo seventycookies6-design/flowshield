@@ -4191,3 +4191,34 @@ class TestPickerSkipsThingsThatArentApps:
             assert f'"{word}"' in picker, word
         catalog = (root / "Services" / "AppCatalog.cs").read_text(encoding="utf-8")
         assert "AppPicker.IsNotAnApp(name, process)" in catalog
+
+
+class TestTimerRingDrains:
+    """The sprint and break rings count down, so they drain from full rather
+    than fill, and glide between the once-a-second ticks unless Windows'
+    animation effects are off (DESIGN_SYSTEM.md §7)."""
+
+    ROOT = Path(SERVER_DIR).parent / "DesktopApp" / "Views"
+
+    def xaml(self):
+        return (self.ROOT / "TodayView.xaml").read_text(encoding="utf-8")
+
+    def code(self):
+        return (self.ROOT / "TodayView.xaml.cs").read_text(encoding="utf-8")
+
+    def test_both_rings_draw_the_time_left(self):
+        xaml = self.xaml()
+        assert xaml.count("Path=RingRemaining, ElementName=Root, Converter={StaticResource ProgressDash}") == 2
+        assert "Binding Progress, Converter={StaticResource ProgressDash}" not in xaml
+
+    def test_the_ring_value_is_the_fraction_left(self):
+        assert "1 - progress" in self.code()
+
+    def test_it_glides_only_when_animation_effects_are_on(self):
+        code = self.code()
+        assert "Motion.AnimationsEnabled" in code
+        assert "new DoubleAnimation" in code and "TimeSpan.FromSeconds(1)" in code
+
+    def test_an_empty_ring_paints_no_dot(self):
+        xaml = self.xaml()
+        assert xaml.count("Path=RingRemaining, ElementName=Root, Converter={StaticResource PositiveVis}") == 2

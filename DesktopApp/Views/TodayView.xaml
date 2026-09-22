@@ -2,6 +2,7 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:models="clr-namespace:FlowShield.Models"
+             x:Name="Root"
              SizeChanged="OnSizeChanged">
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
         <Grid Margin="0,0,8,0">
@@ -20,33 +21,38 @@
                 <StackPanel>
 
                     <!-- ring: 222px diameter, 12px stroke, round cap (UI-SPEC.md
-                         A4, §1.7.2 doc amendment). The centre never eases —
-                         RemainingText and the arc's dash array both update
-                         once a second straight off the binding, per §7. -->
+                         A4, §1.7.2 doc amendment). It shows the time left, so
+                         it drains from full; RingRemaining (code-behind) glides
+                         between the once-a-second ticks unless Windows'
+                         animation effects are off (§7). The digits never ease. -->
                     <Grid Width="222" Height="222" HorizontalAlignment="Center" Margin="0,8,0,0">
                         <Ellipse Width="222" Height="222" Stroke="{DynamicResource Track}" StrokeThickness="12"/>
-                        <Ellipse Width="222" Height="222" Stroke="{DynamicResource Primary}" StrokeThickness="12"
-                                 StrokeDashCap="Round"
-                                 StrokeDashArray="{Binding Progress, Converter={StaticResource ProgressDash}}"
-                                 Visibility="{Binding SprintRingVisible, Converter={StaticResource BoolVis}}"
-                                 RenderTransformOrigin="0.5,0.5">
-                            <Ellipse.RenderTransform>
-                                <RotateTransform Angle="-90"/>
-                            </Ellipse.RenderTransform>
-                        </Ellipse>
+                        <Grid Visibility="{Binding SprintRingVisible, Converter={StaticResource BoolVis}}">
+                            <Ellipse Width="222" Height="222" Stroke="{DynamicResource Primary}" StrokeThickness="12"
+                                     StrokeDashCap="Round"
+                                     StrokeDashArray="{Binding Path=RingRemaining, ElementName=Root, Converter={StaticResource ProgressDash}}"
+                                     Visibility="{Binding Path=RingRemaining, ElementName=Root, Converter={StaticResource PositiveVis}}"
+                                     RenderTransformOrigin="0.5,0.5">
+                                <Ellipse.RenderTransform>
+                                    <RotateTransform Angle="-90"/>
+                                </Ellipse.RenderTransform>
+                            </Ellipse>
+                        </Grid>
 
                         <!-- The break arc is the same ring in text-muted (§7).
                              §2: teal means state, selection or progress through a
                              sprint — a break is visibly not a sprint (F5). -->
-                        <Ellipse Width="222" Height="222" Stroke="{DynamicResource InkDim}" StrokeThickness="12"
-                                 StrokeDashCap="Round"
-                                 StrokeDashArray="{Binding Progress, Converter={StaticResource ProgressDash}}"
-                                 Visibility="{Binding BreakRingVisible, Converter={StaticResource BoolVis}}"
-                                 RenderTransformOrigin="0.5,0.5">
-                            <Ellipse.RenderTransform>
-                                <RotateTransform Angle="-90"/>
-                            </Ellipse.RenderTransform>
-                        </Ellipse>
+                        <Grid Visibility="{Binding BreakRingVisible, Converter={StaticResource BoolVis}}">
+                            <Ellipse Width="222" Height="222" Stroke="{DynamicResource InkDim}" StrokeThickness="12"
+                                     StrokeDashCap="Round"
+                                     StrokeDashArray="{Binding Path=RingRemaining, ElementName=Root, Converter={StaticResource ProgressDash}}"
+                                     Visibility="{Binding Path=RingRemaining, ElementName=Root, Converter={StaticResource PositiveVis}}"
+                                     RenderTransformOrigin="0.5,0.5">
+                                <Ellipse.RenderTransform>
+                                    <RotateTransform Angle="-90"/>
+                                </Ellipse.RenderTransform>
+                            </Ellipse>
+                        </Grid>
 
                         <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
                             <!-- The ring's inner diameter is 198 (222 less two 12 px strokes).
