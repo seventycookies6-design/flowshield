@@ -130,14 +130,14 @@ roadmap item below has exactly one owner. Tracking issues: #37 (Keenan) and
 | F24 | One-time price as the headline, on the site | S |
 | F26 | Honest limits and the FAQ (Roadmap 6.2) | S |
 | F27 | Real screenshots and a screen recording (Roadmap 6.1) | S |
-| Design §2 | Contrast fixes in the app and site | S |
-| Design §2 | Remove legacy colour aliases and hard-coded colours | S |
-| Design §3 | Embed Inter (one family, app and site); tabular numbers | S |
-| Design §4 | Normalise spacing and corner radii | S |
-| Design §5 | Outline icon set replacing the Unicode glyphs | M |
-| Design §6 | Shield glyphs everywhere | M |
-| Design §7 | Quiet and destructive button variants | S |
-| Design §8–9 | Reduced motion, and the copy pass | S |
+| Design §2 | Contrast fixes in the app and site (done, #180, #178) | S |
+| Design §2 | Remove legacy colour aliases and hard-coded colours (done, #130, #180) | S |
+| Design §3 | Embed Inter (one family, app and site); tabular numbers (done, #171, #172) | S |
+| Design §4 | Normalise spacing and corner radii (done, #182) | S |
+| Design §5 | Outline icon set replacing the Unicode glyphs (done, #151) | M |
+| Design §6 | Shield glyphs everywhere (done, #176, #178) | M |
+| Design §7 | Quiet and destructive button variants (done, #180, #178) | S |
+| Design §8–9 | Reduced motion (done, #176), and the copy pass — not done: the app and site still mix "licence" and "license" | S |
 | Roadmap 1.2 | Start with Windows in the tray (#13, pull request #14, done) | M |
 | Roadmap 1.6 | A real app icon | S |
 | Roadmap 1.13 | Fit small screens | S |

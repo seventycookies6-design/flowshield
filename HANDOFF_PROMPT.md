@@ -48,7 +48,7 @@ timer, and apps on your blocklist are dealt with until it ends.
 | Licence server | `Server/`, Node 24 + Express + SQLite | Live at https://flowshield-license-server.onrender.com (Render free plan, Docker, `render.yaml`). Sleeps when idle; first request takes ~50 s. |
 | Website | `Website/`, static | Live at https://seventycookies6-design.github.io/flowshield/ from the `gh-pages` branch. Redesigned in #27 (teal theme, light/dark toggle, Soft/Firm/Sealed explained through a student's day). Checkout goes through the licence server. |
 | Payments | Stripe | **Test mode only.** Account named FlowShield. |
-| Tests | `automation/`, pytest + pywinauto + Playwright, tiers 1–7 | 247 tests. See Phase 2 for the current baselines. |
+| Tests | `automation/`, pytest + pywinauto + Playwright, tiers 1–7 | 720+ tests as of 21 September 2026 (`automation/tests -m "not ui and not stripe"` alone: 720 passed, 16 skipped). See Phase 2 for the current baselines. |
 | Tools | `tools/` | `setup_stripe_store.js`, `publish_site.ps1`, `build_release.ps1`, `db_admin.js`, `fix_mojibake.py`, and `doc_steward/` (keeps the docs consistent with the code; see "Doc steward" in `CLAUDE.md`) |
 | Roadmap | `CUSTOMER_EXPERIENCE_PROMPT.md`, issues #1–#6; `LAUNCH_FEATURE_CHECKLIST.md` and `DESIGN_SYSTEM.md` | A customer's-eye audit (31 problems) and six phases of fixes, plus a launch feature checklist and design system from competitor research (#35). The work is split evenly: Keenan with Claude Code (#37) and Miles with Codex and Cursor (#38); see "Who builds what" in the checklist. 1.1 (site claims) is done and live; 1.2 (Start with Windows in the tray) is done. The file's Progress table is the current status. |
 
@@ -189,17 +189,23 @@ Then run the tests in this order and report the counts, with the reason for
 every skip:
 
 1. `python -m pytest automation/tests -m "not ui and not stripe" -q` — fast,
-   needs nothing external. **Baseline: 181 passed, 11 skipped.**
+   needs nothing external. **Baseline (21 September 2026, with
+   `Server/node_modules` installed via `npm ci`): 720 passed, 16 skipped.**
+   The older "181 passed, 11 skipped" figure below is stale — the design
+   system adoption and adaptive layout work (#171–#191) added several hundred
+   tests since 14 September.
 2. `python -m pytest automation/tests -m "not ui" -q` — adds the Stripe tiers if
    the keys are present.
 3. `python -m pytest automation/tests -q` — the UI tiers drive the real desktop
    app. **Warn the person first: it takes over the mouse, keyboard and screen**
-   for about six minutes, and closes any running FlowShield. Baselines: the last
-   full run without Stripe keys was **164 passed, 32 skipped** (every skip was
+   for about six minutes, and closes any running FlowShield. Old baselines
+   (14 September 2026, now well behind the current count): the last full run
+   without Stripe keys was **164 passed, 32 skipped** (every skip was
    Stripe), before 51 more non-UI tests were added (settings backup, site
    claims, doc wording, the doc steward and the #21 security fix) — they pass
    in the fast run, so expect 215 passed. With keys, the last full run was 195 passed, 1 skipped,
-   on the old computer.
+   on the old computer. Re-baseline both after the next full UI run — with the
+   fast-only count now at 720, these are no longer representative.
 
 If something fails here but passed before, look for a machine difference first:
 a stale `PATH`, a missing SDK, DPI or scaling, a screen resolution that clips
@@ -274,12 +280,22 @@ go-ahead.
 ### Still open: the product
 
 1. **The roadmap.** `CUSTOMER_EXPERIENCE_PROMPT.md` (see its Progress table)
-   and issues #1–#6, split between the owner (#37) and milessmart6-pixel (#38). The site no longer
-   advertises unbuilt features (item 1.1, live since 13 September 2026), but the
-   rest of Phase 1 still matters most: Sealed can be ended with one click,
-   the journal can't be read back,
-   and the
-   thank-you page's "Activate in FlowShield" button does nothing.
+   and issues #1–#6, split between the owner (#37) and milessmart6-pixel (#38).
+   The site no longer advertises unbuilt features (item 1.1, live since
+   13 September 2026), and the three gaps once listed here have since shipped:
+   F2's escape hatch now gets harder by shield level (#47), the journal can be
+   read back (F17, #116), and roadmap 1.4 registers `flowshield://` so the
+   thank-you page's "Activate in FlowShield" button works (#51). What's
+   genuinely still open, per #37/#38 (reviewed 21 September 2026, though F20
+   and F23 have since shipped — #213 and #211): on the owner's side, F4
+   (start a sprint from the tray or keyboard), F16 (history and a weekly
+   view — the most unblocking item left; F14's milestones and F17's
+   read-back both wait on it), F5/F6 (breaks and study templates), F9
+   (blocklist profiles), and the server roadmap (5.2 → 5.4 → 5.1 → 5.7 →
+   4.1); on Miles's side, F7's remaining Soft overlay (#143), F21 (light
+   theme, keyboard and accessibility), F22 (Settings, blocked on
+   F5/F6/F9), and the #144 capture refresh once the design-system work
+   lands.
 2. **Stripe business name** (owner; found in a test purchase on 13 September
    2026). Checkout and the billing portal show "Focus Unlock sandbox". The
    sandbox and its parent account are both named FlowShield (the parent was
