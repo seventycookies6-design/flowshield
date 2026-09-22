@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using FlowShield.Models;
 
 namespace FlowShield.Services;
@@ -31,6 +32,16 @@ public record BlockEvent(
     /// undo #138.
     /// </summary>
     bool CountsAsDistraction = true);
+
+/// <summary>
+/// What is in front right now, while the Soft shield is up (F7, roadmap 1.7).
+///
+/// <see cref="DisplayName"/> is the blocked app's name when the foreground
+/// window belongs to one, and null when it belongs to anything else — which is
+/// how the Soft notice knows to come down again. FlowShield's own windows are
+/// never reported at all, so the notice never reacts to itself.
+/// </summary>
+public record ForegroundSighting(string? DisplayName, IntPtr Window, DateTime AtUtc);
 
 /// <summary>
 /// Background watcher that enforces the blocklist while a sprint is running or
@@ -103,6 +114,13 @@ public class AppBlockerService : IDisposable
         new(StringComparer.OrdinalIgnoreCase);
 
     public event EventHandler<BlockEvent>? Blocked;
+
+    /// <summary>
+    /// Raised each sweep while the Soft shield is up, saying whether a blocked
+    /// app is the foreground window (F7, roadmap 1.7). Never raised at Firm,
+    /// Sealed or with hard kill on: those close the app instead.
+    /// </summary>
+    public event EventHandler<ForegroundSighting>? SoftForeground;
 
     /// <summary>True while a sprint is running or the sleep window is open.</summary>
     public bool IsEnforcing { get; private set; }
@@ -318,6 +336,12 @@ public class AppBlockerService : IDisposable
             var graceful = GracefulClose.IsGraceful(shield, hardKill);
             var now = DateTime.UtcNow;
 
+            // Soft's only intervention is the notice, so it is the only shield
+            // that looks at what is in front. Firm and Sealed close the app;
+            // asking them to also put a full-screen panel over it would be
+            // covering a window that is about to disappear.
+            if (!terminate) ReportForeground(targets);
+
             foreach (var (key, entry) in running)
             {
                 var app = entry.App;
@@ -399,6 +423,54 @@ public class AppBlockerService : IDisposable
                 foreach (var process in entry.Processes)
                     process.Dispose();
         }
+    }
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetForegroundWindow();
+
+    [DllImport("user32.dll")]
+    private static extern uint GetWindowThreadProcessId(IntPtr window, out uint processId);
+
+    /// <summary>
+    /// Says whether the foreground window belongs to a blocked app (F7,
+    /// roadmap 1.7).
+    ///
+    /// Deliberately the timid version of this: two user-level calls that read
+    /// which window has focus and which process owns it. No hooks, no injection
+    /// into another process, nothing that needs a driver or admin rights — the
+    /// same restraint as the rest of the blocker. It reads; it never acts.
+    /// </summary>
+    private void ReportForeground(Dictionary<string, BlockedApp> targets)
+    {
+        if (SoftForeground is null) return;
+
+        var window = GetForegroundWindow();
+        if (window == IntPtr.Zero) return;
+
+        if (GetWindowThreadProcessId(window, out var pid) == 0 || pid == 0) return;
+
+        // FlowShield's own windows — including the notice itself — are not a
+        // sighting and not an absence of one. Reporting them would make the
+        // notice close itself the moment it took focus.
+        if (pid == (uint)Environment.ProcessId) return;
+
+        string name;
+        try
+        {
+            using var process = Process.GetProcessById((int)pid);
+            name = process.ProcessName;
+        }
+        catch
+        {
+            // The window's process went away between the two calls.
+            return;
+        }
+
+        var blocked = !CriticalProcesses.Contains(name) && targets.TryGetValue(name, out var app)
+            ? app.DisplayName
+            : null;
+
+        SoftForeground.Invoke(this, new ForegroundSighting(blocked, window, DateTime.UtcNow));
     }
 
     private void KillAll(List<Process> processes, ShieldLevel shield)

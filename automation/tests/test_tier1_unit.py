@@ -9,6 +9,7 @@ process) and Python re-implementations where the rule is shared.
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 from datetime import date, timedelta
 from datetime import date
@@ -2583,6 +2584,190 @@ class TestPreSprintRunningApps:
         assert "_runningAppsAnswered = false;" in source, (
             "the latch has to reset, or the next sprint is never checked"
         )
+
+# ==================== when the Soft notice appears (F7 / roadmap 1.7)
+
+class SoftOverlayPolicy:
+    """
+    Python mirror of Models/SoftOverlayPolicy.cs.
+
+    Times are plain seconds here; the C# version takes UTC instants. Only the
+    two rules matter: once per sighting, and a per-app quiet window.
+    """
+
+    ALLOW_WINDOW = 5 * 60
+    BACK_TO_WORK_QUIET = 5
+
+    def __init__(self):
+        self.quiet_until: dict[str, float] = {}
+        self.sighting: str | None = None
+        self.showing = False
+
+    def should_show(self, app: str, now: float) -> bool:
+        is_new = self.sighting is None or self.sighting.lower() != app.lower()
+        self.sighting = app
+        if not is_new:
+            return False
+        if self.is_quiet(app, now):
+            return False
+        self.showing = True
+        return True
+
+    def left_the_foreground(self) -> bool:
+        self.sighting = None
+        was_showing = self.showing
+        self.showing = False
+        return was_showing
+
+    def allow_five_minutes(self, app: str, now: float) -> None:
+        self._quieten(app, now, self.ALLOW_WINDOW)
+
+    def back_to_work(self, app: str, now: float) -> None:
+        self._quieten(app, now, self.BACK_TO_WORK_QUIET)
+
+    def _quieten(self, app: str, now: float, window: float) -> None:
+        self.quiet_until[app.lower()] = now + window
+        self.sighting = None
+        self.showing = False
+
+    def is_quiet(self, app: str, now: float) -> bool:
+        return now < self.quiet_until.get(app.lower(), float("-inf"))
+
+    def reset(self) -> None:
+        self.quiet_until.clear()
+        self.sighting = None
+        self.showing = False
+
+
+class TestSoftOverlayPolicy:
+    """
+    Roadmap 1.7: at Soft, a blocked app coming to the front gets a full-screen
+    notice — once, not on every sweep of the blocker, and not at all for five
+    minutes after "Allow 5 minutes".
+    """
+
+    DESKTOP = Path(SERVER_DIR).parent / "DesktopApp"
+    MODEL = DESKTOP / "Models" / "SoftOverlayPolicy.cs"
+    BACK_TO_WORK_QUIET_SECONDS = 5
+
+    def test_a_blocked_app_coming_to_the_front_is_shown_once(self):
+        """
+        The blocker sweeps every two seconds. Showing the notice on every sweep
+        while Discord is still in front would be a flashing box, not a nudge.
+        """
+        policy = SoftOverlayPolicy()
+        assert policy.should_show("Discord", 0)
+        for tick in range(1, 20):
+            assert not policy.should_show("Discord", tick * 2), (
+                "the notice must appear once per sighting, not once per sweep"
+            )
+
+    def test_going_away_and_coming_back_is_a_new_sighting(self):
+        policy = SoftOverlayPolicy()
+        assert policy.should_show("Discord", 0)
+        assert policy.left_the_foreground() is True, "a notice was up and must come down"
+        assert policy.should_show("Discord", 60)
+
+    def test_nothing_to_take_down_when_no_notice_was_up(self):
+        policy = SoftOverlayPolicy()
+        assert policy.left_the_foreground() is False
+
+    def test_another_blocked_app_gets_its_own_notice(self):
+        policy = SoftOverlayPolicy()
+        assert policy.should_show("Discord", 0)
+        assert policy.should_show("Steam", 2)
+        assert not policy.should_show("Steam", 4)
+
+    def test_allow_five_minutes_is_five_minutes_for_that_app_only(self):
+        policy = SoftOverlayPolicy()
+        assert policy.should_show("Discord", 0)
+        policy.allow_five_minutes("Discord", 0)
+
+        # Returning inside the window says nothing.
+        assert not policy.should_show("Discord", 1)
+        assert policy.left_the_foreground() is False
+        assert not policy.should_show("Discord", 299)
+
+        # Another blocked app is not covered by Discord's allowance.
+        assert policy.should_show("Steam", 10)
+
+        policy.left_the_foreground()
+        assert policy.should_show("Discord", 301), (
+            "five minutes is five minutes, not the rest of the sprint"
+        )
+
+    def test_back_to_work_goes_quiet_just_long_enough_to_get_out_of_the_way(self):
+        """
+        Bringing FlowShield forward takes a moment. Without the quiet window the
+        notice reappears in the gap, over the window it just asked for.
+        """
+        policy = SoftOverlayPolicy()
+        assert policy.should_show("Discord", 0)
+        policy.back_to_work("Discord", 0)
+        assert not policy.should_show("Discord", 1)
+        policy.left_the_foreground()
+        assert policy.should_show("Discord", 30), (
+            "going back to the distraction later must nudge again"
+        )
+
+    def test_a_quiet_window_expiring_does_not_interrupt_what_you_are_doing(self):
+        """
+        The notice appears when you go to the blocked app, not while you are in
+        it. Someone who asked for five minutes and is still in Discord at minute
+        six gets nothing until they leave and come back — a panel appearing over
+        a window they are typing in would be the worst moment for it.
+        """
+        policy = SoftOverlayPolicy()
+        policy.should_show("Discord", 0)
+        policy.allow_five_minutes("Discord", 0)
+        for tick in range(1, 400, 2):
+            assert not policy.should_show("Discord", tick)
+
+    def test_app_names_are_matched_without_case(self):
+        policy = SoftOverlayPolicy()
+        policy.allow_five_minutes("Discord", 0)
+        assert not policy.should_show("discord", 10)
+
+    def test_an_allowance_does_not_outlive_its_sprint(self):
+        policy = SoftOverlayPolicy()
+        policy.allow_five_minutes("Discord", 0)
+        policy.reset()
+        assert policy.should_show("Discord", 10), (
+            "a new sprint starts with no allowances carried over"
+        )
+
+    def test_the_windows_in_the_model_match_this_mirror(self):
+        source = self.MODEL.read_text(encoding="utf-8")
+        assert "TimeSpan.FromMinutes(5)" in source, "Allow 5 minutes has to be five minutes"
+        assert f"TimeSpan.FromSeconds({self.BACK_TO_WORK_QUIET_SECONDS})" in source
+
+    def test_the_policy_decides_nothing_about_closing_anything(self):
+        """Soft notes distractions. A policy that could close one is the wrong shape."""
+        source = self.MODEL.read_text(encoding="utf-8")
+        for forbidden in ("Kill(", "CloseMainWindow(", "Process"):
+            assert forbidden not in source, f"the Soft notice policy must not mention {forbidden}"
+
+    def test_the_sentence_names_the_app_and_when_the_blocklist_holds_until(self):
+        """DESIGN_SYSTEM.md §7's own example: "Discord is on your blocklist until 5:45 PM"."""
+        source = self.MODEL.read_text(encoding="utf-8")
+        sentence = source.split("public static string Sentence", 1)[1]
+        sentence = sentence.split("=>", 1)[1].split(";", 1)[0]
+        assert "{displayName} is on your blocklist until" in sentence
+
+    def test_the_time_left_is_specific(self):
+        source = self.MODEL.read_text(encoding="utf-8")
+        body = source.split("public static string TimeLeft", 1)[1].split("\n    }", 1)[0]
+        assert "1 minute left in this sprint" in body
+        assert "minutes left in this sprint" in body
+
+    def test_the_copy_keeps_to_the_house_voice(self):
+        """DESIGN_SYSTEM.md §9: no exclamation marks, no emoji, no scolding."""
+        source = self.MODEL.read_text(encoding="utf-8")
+        quoted = re.findall(r'"([^"]*)"', source)
+        for text in quoted:
+            assert "!" not in text, f"exclamation mark in product copy: {text!r}"
+            assert text.isascii(), f"non-ascii (emoji?) in product copy: {text!r}"
+
 
 # ============================ issue hygiene check (#158)
 

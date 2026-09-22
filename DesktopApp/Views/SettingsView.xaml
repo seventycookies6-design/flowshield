@@ -117,6 +117,20 @@
 
                     <Border Height="1" Background="{StaticResource Edge}" Margin="0,16,0,16"/>
 
+                    <!-- F7 / roadmap 1.7: Soft closes nothing, so the notice is
+                         the whole intervention. On by default. -->
+                    <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding ShowSoftOverlayEnabled}"
+                              AutomationProperties.AutomationId="SoftOverlayToggle"
+                              AutomationProperties.Name="Show a full-screen notice at Soft">
+                        <StackPanel>
+                            <TextBlock Text="Show a full-screen notice at Soft" Style="{StaticResource Label}"/>
+                            <TextBlock Text="When a blocked app comes to the front during a Soft sprint, FlowShield says so over it. Nothing is closed."
+                                       Style="{StaticResource Caption}" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </CheckBox>
+
+                    <Border Height="1" Background="{StaticResource Edge}" Margin="0,16,0,16"/>
+
                     <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding HardKillModeEnabled}"
                               IsEnabled="{Binding HasAccess}"
                               AutomationProperties.AutomationId="HardKillModeToggle"

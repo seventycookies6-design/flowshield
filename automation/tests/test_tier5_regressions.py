@@ -5896,3 +5896,173 @@ class TestSettingsSaveRaceRegression:
             "nothing after this point ever reads the object another thread " \
             "might still be mutating"
         assert "JsonSerializer.Serialize(settings, JsonOpts)" not in save
+
+
+# ==================== the Soft notice stays a notice (F7 / roadmap 1.7, #143)
+
+class TestSoftOverlayNeverCloses:
+    """
+    Soft's promise, on its own shield chip, is that it notes distractions and
+    nudges. 1.7 gives that nudge a real screen — a topmost full-screen window
+    over the blocked app — and the danger of a new surface with two buttons on
+    it is that one of them quietly starts closing things.
+
+    Everything here is read from the source, because the alternative is a UI
+    test that can only prove the button exists, not what it does.
+    """
+
+    BLOCKER = Path(DESKTOP_DIR) / "Services" / "AppBlockerService.cs"
+    POLICY = Path(DESKTOP_DIR) / "Models" / "SoftOverlayPolicy.cs"
+    OVERLAY_XAML = Path(DESKTOP_DIR) / "Views" / "SoftOverlayWindow.xaml"
+    OVERLAY_CS = Path(DESKTOP_DIR) / "Views" / "SoftOverlayWindow.xaml.cs"
+    MAIN_VM = Path(DESKTOP_DIR) / "ViewModels" / "MainViewModel.cs"
+    MAIN_WINDOW = Path(DESKTOP_DIR) / "MainWindow.xaml.cs"
+    SETTINGS = Path(DESKTOP_DIR) / "Models" / "AppSettings.cs"
+    SETTINGS_VIEW = Path(DESKTOP_DIR) / "Views" / "SettingsView.xaml"
+
+    def test_the_overlay_never_closes_or_kills_anything(self):
+        for path in (self.OVERLAY_XAML, self.OVERLAY_CS, self.POLICY):
+            source = path.read_text(encoding="utf-8")
+            code = "\n".join(line for line in source.splitlines()
+                             if not line.strip().startswith(("///", "//", "<!--", "*")))
+            for forbidden in ("CloseMainWindow", ".Kill("):
+                assert forbidden not in code, (
+                    f"{path.name} can close the blocked app; Soft must not"
+                )
+
+    def test_the_soft_branch_of_the_sweep_still_closes_nothing(self):
+        """The regression this guards: a foreground check that grew teeth."""
+        source = self.BLOCKER.read_text(encoding="utf-8")
+        soft = source.split("if (!terminate)", 1)[1].split("continue;", 1)[0]
+        for forbidden in ("CloseMainWindow", "Kill(", "_closingAt["):
+            assert forbidden not in soft, f"the Soft branch must not {forbidden}"
+
+    def test_the_notice_is_only_looked_for_while_soft_is_the_shield(self):
+        """
+        Firm and Sealed close the blocked app. Putting a full-screen panel over
+        a window that is about to disappear is noise, and it would also cover
+        the seconds someone has to save.
+        """
+        source = self.BLOCKER.read_text(encoding="utf-8")
+        assert "if (!terminate) ReportForeground(targets);" in source, (
+            "the foreground check must sit behind the same !terminate gate that "
+            "separates Soft from Firm, Sealed and hard kill"
+        )
+
+    def test_the_foreground_check_stays_timid(self):
+        """
+        CLAUDE.md: no hooks into other processes, no admin rights. Reading which
+        window has focus and which process owns it is user-level and enough.
+        """
+        source = self.BLOCKER.read_text(encoding="utf-8")
+        body = source.split("private void ReportForeground", 1)[1].split("\n    }", 1)[0]
+        assert "GetForegroundWindow()" in body
+        assert "GetWindowThreadProcessId(" in body
+        for forbidden in ("SetWindowsHookEx", "WriteProcessMemory", "CreateRemoteThread",
+                          "SetForegroundWindow", "OpenProcess"):
+            assert forbidden not in source, f"the blocker must never call {forbidden}"
+
+    def test_flowshields_own_windows_are_never_the_distraction(self):
+        """
+        Without this the notice takes focus, sees itself in the foreground, and
+        closes itself — a box that flickers once and is gone.
+        """
+        source = self.BLOCKER.read_text(encoding="utf-8")
+        body = source.split("private void ReportForeground", 1)[1].split("\n    }", 1)[0]
+        assert "pid == (uint)Environment.ProcessId" in body
+
+    def test_the_notice_never_opens_over_another_panel(self):
+        source = self.MAIN_VM.read_text(encoding="utf-8")
+        gate = source.split("public bool ModalPanelVisible =>", 1)[1].split(";", 1)[0]
+        for panel in ("TermsGateVisible", "IsLocked", "FirstRun.IsVisible",
+                      "ActivationPromptVisible", "Today.EndPanelVisible",
+                      "Today.JournalPromptVisible", "Today.RunningAppsPanelVisible"):
+            assert panel in gate, f"{panel} must keep the Soft notice away"
+
+        handler = source.split("private void OnSoftForeground", 1)[1].split("\n    }", 1)[0]
+        assert "if (ModalPanelVisible) return;" in handler
+        assert "if (!Settings.ShowSoftOverlayEnabled) return;" in handler
+
+    def test_back_to_work_brings_flowshield_forward_and_leaves_the_app_alone(self):
+        source = self.MAIN_WINDOW.read_text(encoding="utf-8")
+        block = source.split("overlay.BackToWork +=", 1)[1].split("};", 1)[0]
+        assert "BringToFront()" in block
+        assert "SoftOverlayBackToWork" in block
+        for forbidden in ("Kill", "CloseMainWindow"):
+            assert forbidden not in block
+
+    def test_escape_is_back_to_work(self):
+        xaml = self.OVERLAY_XAML.read_text(encoding="utf-8")
+        assert 'IsCancel="True"' in xaml
+        code = self.OVERLAY_CS.read_text(encoding="utf-8")
+        assert "Key.Escape" in code, (
+            "this window is shown, not dialogued, so Escape is handled here too"
+        )
+
+    def test_the_window_is_topmost_full_screen_and_chromeless(self):
+        xaml = self.OVERLAY_XAML.read_text(encoding="utf-8")
+        for attribute in ('WindowStyle="None"', 'Topmost="True"',
+                          'ShowInTaskbar="False"',
+                          'Background="{StaticResource Scrim}"'):
+            assert attribute in xaml, f"the Soft notice is missing {attribute}"
+        code = self.OVERLAY_CS.read_text(encoding="utf-8")
+        assert "Screen.FromHandle(_anchor)" in code, (
+            "it opens on the monitor the blocked app is on, not always the primary"
+        )
+
+    def test_it_fades_in_and_is_instant_under_reduced_motion(self):
+        """DESIGN_SYSTEM.md §8: one shared duration provider, zero when animations are off."""
+        xaml = self.OVERLAY_XAML.read_text(encoding="utf-8")
+        assert "{x:Static inf:Motion.Selection}" in xaml
+        assert "EasingMode=\"EaseOut\"" in xaml
+        assert "ScaleTransform" not in xaml and "RotateTransform" not in xaml, (
+            "nothing bounces, spins or shakes"
+        )
+
+    def test_nothing_on_it_is_alarming(self):
+        """§7: no red, no alarm icons. Strength never escalates through colour."""
+        xaml = self.OVERLAY_XAML.read_text(encoding="utf-8")
+        for forbidden in ("Rose", "Amber", "Red", "IconWarning", "IconAlert"):
+            assert forbidden not in xaml, f"the Soft notice must not use {forbidden}"
+        assert "ShieldGlyphSoft" in xaml, "§7 asks for the shield glyph"
+
+    def test_its_controls_carry_automation_ids_on_real_controls(self):
+        xaml = self.OVERLAY_XAML.read_text(encoding="utf-8")
+        for automation_id in ("SoftOverlayText", "SoftOverlayTimeLeft",
+                              "SoftOverlayBackToWorkButton", "SoftOverlayAllowButton"):
+            assert f'AutomationProperties.AutomationId="{automation_id}"' in xaml
+
+        # #134: an id on a layout panel is never surfaced, so it can never be found.
+        for tag in re.finditer(r'<(\w+)\b((?:(?!/?>).)*?)/?>', xaml, re.S):
+            element, attrs = tag.group(1), tag.group(2)
+            if element in ("Grid", "StackPanel", "Border", "DockPanel", "Image") \
+                    and 'AutomationId="' in attrs:
+                raise AssertionError(
+                    f"<{element}> has an AutomationId -- never surfaced to UI Automation")
+
+    def test_the_setting_exists_and_is_on_by_default(self):
+        settings = self.SETTINGS.read_text(encoding="utf-8")
+        assert "public bool ShowSoftOverlayEnabled { get; set; } = true;" in settings, (
+            "Soft's only visible intervention has to be on unless it is turned off"
+        )
+        view = self.SETTINGS_VIEW.read_text(encoding="utf-8")
+        assert 'AutomationProperties.AutomationId="SoftOverlayToggle"' in view
+        assert "Show a full-screen notice at Soft" in view
+
+    def test_an_allowance_does_not_outlive_the_sprint(self):
+        source = self.MAIN_VM.read_text(encoding="utf-8")
+        block = source.split("public void OnSprintStateChanged()", 1)[1].split("\n    }", 1)[0]
+        assert "_softOverlay.Reset();" in block
+        assert "SoftOverlayDismissRequested" in block, (
+            "a notice must never outlive the shield that raised it"
+        )
+
+    def test_allowing_five_minutes_does_not_undo_the_distraction_count(self):
+        """#140 counts one distraction per app per sighting; the notice changes nothing."""
+        source = self.MAIN_VM.read_text(encoding="utf-8")
+        block = source.split("public void SoftOverlayAllowFiveMinutes", 1)[1].split("\n    }", 1)[0]
+        for forbidden in ("BlockCount", "RecordBlock", "BlocksToday"):
+            assert forbidden not in block, (
+                "the sighting was counted when it happened; the notice must not "
+                "add to or subtract from it"
+            )

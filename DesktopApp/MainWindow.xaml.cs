@@ -265,6 +265,8 @@ public partial class MainWindow : Window
             oldVm.Today.EndAbandoned -= OnEndAbandoned;
             oldVm.NotificationRequested -= OnNotificationRequested;
             oldVm.SettingsPage.PropertyChanged -= OnSettingsPageChanged;
+            oldVm.SoftOverlayRequested -= OnSoftOverlayRequested;
+            oldVm.SoftOverlayDismissRequested -= OnSoftOverlayDismissRequested;
         }
 
         if (e.NewValue is MainViewModel newVm)
@@ -273,6 +275,8 @@ public partial class MainWindow : Window
             newVm.Today.EndAbandoned += OnEndAbandoned;
             newVm.NotificationRequested += OnNotificationRequested;
             newVm.SettingsPage.PropertyChanged += OnSettingsPageChanged;
+            newVm.SoftOverlayRequested += OnSoftOverlayRequested;
+            newVm.SoftOverlayDismissRequested += OnSoftOverlayDismissRequested;
         }
 
         UpdateTrayIcon();
@@ -323,6 +327,70 @@ public partial class MainWindow : Window
             case NotificationAction.OpenSettingsLicense:
                 Vm.CurrentPage = AppPage.Settings;
                 break;
+        }
+    }
+
+    // -------------------------------------------- the Soft notice (F7, roadmap 1.7)
+
+    /// <summary>The Soft notice, while one is on screen. At most one at a time.</summary>
+    private Views.SoftOverlayWindow? _softOverlay;
+
+    /// <summary>
+    /// Puts the Soft notice over the blocked app, on that app's monitor.
+    ///
+    /// Neither button closes the blocked app: "Back to work" brings FlowShield
+    /// forward, and "Allow 5 minutes" simply goes quiet. Soft closing something
+    /// would break the promise on its own shield chip.
+    /// </summary>
+    private void OnSoftOverlayRequested(object? sender, MainViewModel.SoftOverlayRequest request)
+    {
+        try
+        {
+            CloseSoftOverlay();
+
+            var overlay = new Views.SoftOverlayWindow();
+            overlay.Configure(request.Sentence, request.TimeLeft, request.Window);
+            overlay.BackToWork += (_, _) =>
+            {
+                CloseSoftOverlay();
+                Vm?.SoftOverlayBackToWork(request.DisplayName);
+                // Forward, not "the blocked app closed": the distraction is left
+                // exactly where it was.
+                BringToFront();
+            };
+            overlay.AllowFiveMinutes += (_, _) =>
+            {
+                CloseSoftOverlay();
+                Vm?.SoftOverlayAllowFiveMinutes(request.DisplayName);
+            };
+            overlay.Closed += (_, _) =>
+            {
+                if (ReferenceEquals(_softOverlay, overlay)) _softOverlay = null;
+            };
+
+            _softOverlay = overlay;
+            overlay.Show();
+        }
+        catch (Exception ex)
+        {
+            Log.Error("could not show the soft notice", ex);
+        }
+    }
+
+    private void OnSoftOverlayDismissRequested(object? sender, EventArgs e) => CloseSoftOverlay();
+
+    private void CloseSoftOverlay()
+    {
+        var overlay = _softOverlay;
+        _softOverlay = null;
+        if (overlay is null) return;
+        try
+        {
+            overlay.Close();
+        }
+        catch (Exception ex)
+        {
+            Log.Warn($"could not close the soft notice: {ex.Message}");
         }
     }
 
@@ -551,11 +619,14 @@ public partial class MainWindow : Window
 
         try
         {
+            CloseSoftOverlay();
             if (Vm is { } currentVm)
             {
                 currentVm.Today.PropertyChanged -= OnTodayChanged;
                 currentVm.Today.EndAbandoned -= OnEndAbandoned;
                 currentVm.SettingsPage.PropertyChanged -= OnSettingsPageChanged;
+                currentVm.SoftOverlayRequested -= OnSoftOverlayRequested;
+                currentVm.SoftOverlayDismissRequested -= OnSoftOverlayDismissRequested;
             }
             Vm?.SaveSettings();
             if (_hotkeyRegistered)
