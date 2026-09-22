@@ -16,7 +16,7 @@ from pathlib import Path
 import pytest
 import requests
 
-from config import SERVER_DIR, load_stripe_keys
+from config import SERVER_DIR, WEBSITE_DIR, load_stripe_keys
 
 NODE = r"C:\Program Files\nodejs\node.exe"
 NODE_EXE = NODE if Path(NODE).exists() else "node"
@@ -385,3 +385,50 @@ class TestResendLicense:
         assert response.status_code == 200
         body = response.json()
         assert body["ok"] is True
+
+
+# ======================================================= lost-key site form
+
+class TestLostKeySiteForm:
+    """
+    Roadmap 5.4 "Lost your key?": a self-service form on the site, separate
+    from the success page's post-purchase "Email me this key". Reuses
+    /resend-license rather than a new route, since that endpoint already
+    satisfies every requirement (rate limited, generic response, never
+    returns the key).
+    """
+
+    def test_support_page_has_the_recovery_form(self):
+        support = (Path(WEBSITE_DIR) / "support.html").read_text(encoding="utf-8")
+        assert 'id="lost-key-form"' in support
+        assert 'id="lost-key-email"' in support
+        assert 'type="email"' in support
+        assert "checkout.js" in support, \
+            "the form's handler must live in checkout.js, not inline in the HTML"
+
+    def test_support_page_never_echoes_a_license_key(self):
+        # A recovery form is the wrong place to *show* a key: it should only
+        # ever be sent to the inbox that bought it. Guard against the id used
+        # on success.html's key display leaking onto this page.
+        support = (Path(WEBSITE_DIR) / "support.html").read_text(encoding="utf-8")
+        assert 'id="license-value"' not in support
+
+    def test_the_form_handler_posts_only_the_email(self):
+        js = (Path(WEBSITE_DIR) / "checkout.js").read_text(encoding="utf-8")
+        handler = js.split("lost-key-form")[1].split("addEventListener")[1]
+        handler = handler.split("\n    var nav")[0]
+        assert "/resend-license" in handler
+        assert "licenseKey" not in handler, \
+            "the lost-key form must never receive or render a license key"
+
+    def test_the_response_message_is_shown_verbatim_not_reworded_per_outcome(self):
+        """
+        /resend-license already answers identically whether or not the
+        address is a customer; the client must not layer its own "found" vs
+        "not found" wording on top; that would leak exactly what the generic
+        response is designed to hide.
+        """
+        js = (Path(WEBSITE_DIR) / "checkout.js").read_text(encoding="utf-8")
+        handler = js.split("lost-key-form")[1].split("addEventListener")[1]
+        handler = handler.split("\n    var nav")[0]
+        assert "payload.message" in handler

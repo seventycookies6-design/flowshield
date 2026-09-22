@@ -68,6 +68,20 @@
   are on the <a href="index.html#pricing">pricing section</a> of the home page,
   and the refund policy is in the <a href="legal.html#refunds">refund policy</a>.</p>
 
+  <h2>Lost your key?</h2>
+  <p>Enter the email address you used at checkout and, if it bought FlowShield,
+  the licence key is re-sent to that address. The key itself is never shown on
+  this page &mdash; it only ever goes to the inbox it was bought with.</p>
+  <form id="lost-key-form" novalidate>
+    <div class="form-row">
+      <label class="form-label" for="lost-key-email">Checkout email</label>
+      <input class="text-input" type="email" id="lost-key-email" name="email"
+             placeholder="you@example.com" autocomplete="email" required>
+    </div>
+    <button class="btn btn-primary" type="submit" id="lost-key-submit">Send my key</button>
+    <p class="form-note" id="lost-key-note" role="status" aria-live="polite"></p>
+  </form>
+
   <h2>More</h2>
   <ul>
     <li><a href="legal.html">Terms, privacy &amp; refunds</a></li>
@@ -90,5 +104,10 @@
   </div>
 </footer>
 
+<!-- ?v= is a cache buster: bump it whenever these change, otherwise browsers
+     keep serving the previous build from disk cache.
+     config.js must load first — checkout.js reads its values at start-up. -->
+<script src="config.js?v=4"></script>
+<script src="checkout.js?v=6"></script>
 </body>
 </html>
