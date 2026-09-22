@@ -92,15 +92,33 @@ public partial class App : Application
         // automation suite can start a sprint on an active trial and watch it
         // cross the boundary mid-sprint (F20: the lock must wait for the sprint
         // to finish, never interrupt it).
+        //
+        // Same invariant as --expire-trial above: it can only move the trial's
+        // start earlier (taking access away sooner), never later — an unbounded
+        // seconds value must never grant, restart or extend a trial.
         var expireInArg = args.FirstOrDefault(a =>
             a.StartsWith("--expire-trial-in=", StringComparison.OrdinalIgnoreCase));
         if (expireInArg is not null
-            && int.TryParse(expireInArg["--expire-trial-in=".Length..], out var expireInSeconds))
+            && int.TryParse(expireInArg["--expire-trial-in=".Length..], out var expireInSeconds)
+            && ViewModel.Settings.TrialStartedUtc is { } currentTrialStart)
         {
-            ViewModel.Settings.TrialStartedUtc = DateTime.UtcNow
+            var candidateStart = DateTime.UtcNow
                 .AddDays(-Models.AppSettings.TrialDays)
                 .AddSeconds(expireInSeconds);
-            Log.Info($"free trial set to expire in {expireInSeconds}s by --expire-trial-in flag");
+
+            // Only ever pulls the start earlier. A large --expire-trial-in
+            // value (or one bigger than TrialDays in seconds) would otherwise
+            // compute a start in the future, handing out a fresh trial.
+            if (candidateStart < currentTrialStart)
+            {
+                ViewModel.Settings.TrialStartedUtc = candidateStart;
+                Log.Info($"free trial set to expire in {expireInSeconds}s by --expire-trial-in flag");
+            }
+            else
+            {
+                Log.Warn($"--expire-trial-in={expireInSeconds} ignored: it would move the trial "
+                          + "start later, not earlier");
+            }
         }
 
         // The first-run welcome (F18), decided after --expire-trial so a locked

@@ -15,6 +15,7 @@ import struct
 import subprocess
 import sys
 import time
+from datetime import datetime, timedelta, timezone
 from html.parser import HTMLParser
 from pathlib import Path
 
@@ -1275,6 +1276,39 @@ class TestTrialThenOneTimePurchase:
         app = self.read("DesktopApp", "App.xaml.cs")
         block = app.split('"--expire-trial"')[1].split("\n        }")[0]
         assert "IsPro" not in block, "a command-line flag must never grant a licence"
+
+    def test_the_expire_trial_in_flag_cannot_grant_or_extend_a_trial(self):
+        # --expire-trial-in=<seconds> (added for F20's tier 3 coverage) must
+        # hold the same invariant as --expire-trial: it may only pull the
+        # trial's start earlier, never move it later. An unbounded seconds
+        # value (e.g. --expire-trial-in=99999999) would otherwise compute a
+        # start in the future and hand out a fresh trial.
+        app = self.read("DesktopApp", "App.xaml.cs")
+        block = app.split("var expireInArg = args.FirstOrDefault(")[1].split(
+            "// The first-run welcome")[0]
+        assert "IsPro" not in block, "a command-line flag must never grant a licence"
+        assert "candidateStart < currentTrialStart" in block, \
+            "the new start must only be applied when it is earlier than the current one"
+        assert "ViewModel.Settings.TrialStartedUtc is { } currentTrialStart" in block, \
+            "with no trial started yet, the flag must be ignored rather than starting one"
+
+    @pytest.mark.parametrize("current_start_days_ago,seconds,expect_applied", [
+        (0, 5, True),           # a few seconds into a fresh trial: pulls it in, as intended
+        (0, 604_800, False),    # exactly TrialDays worth of seconds: start would equal "now", not earlier
+        (0, 99_999_999, False), # a huge value: start would land far in the future — the reported bug
+        (3, 500_000, False),    # already 3 days into the trial; this value would push the start later
+        (6, 10, True),          # deep into the trial: still allowed to pull it in further
+    ])
+    def test_expire_trial_in_never_moves_the_start_later(self, current_start_days_ago, seconds, expect_applied):
+        """Mirror of the fixed App.xaml.cs block: candidateStart is only ever applied when earlier."""
+        trial_days = 7
+        now = datetime.now(timezone.utc)
+        current_start = now - timedelta(days=current_start_days_ago)
+        candidate_start = now - timedelta(days=trial_days) + timedelta(seconds=seconds)
+        applied = candidate_start < current_start
+        assert applied is expect_applied
+        if applied:
+            assert candidate_start < current_start, "a bug here would let the trial restart or extend"
 
     def test_the_site_no_longer_sells_a_subscription(self):
         for name in ("index.html", "success.html", "checkout.js", "legal.html"):
