@@ -1,11 +1,16 @@
 <UserControl x:Class="FlowShield.Views.SettingsView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:inf="clr-namespace:FlowShield.Infrastructure">
     <ScrollViewer VerticalScrollBarVisibility="Auto">
-        <StackPanel MaxWidth="720" HorizontalAlignment="Stretch" Margin="0,0,8,0">
+        <!-- DESIGN_SYSTEM.md §4: the cards flow into two columns when the
+             window is wide enough (three on a very wide one) and stack when it
+             isn't, full width like Today and Blocked Apps (#189). This was one
+             720px column, centred. -->
+        <inf:AdaptiveColumns Margin="0,0,8,0" MinColumnWidth="400" MaxColumns="3" Spacing="16">
 
             <!-- ================================================== licence -->
-            <Border Style="{StaticResource Card}" Padding="24" Margin="0,0,0,16">
+            <Border Style="{StaticResource Card}" Padding="24">
                 <StackPanel>
                     <Grid Margin="0,0,0,16">
                         <StackPanel>
@@ -84,7 +89,7 @@
             </Border>
 
             <!-- =============================================== preferences -->
-            <Border Style="{StaticResource Card}" Padding="24" Margin="0,0,0,16">
+            <Border Style="{StaticResource Card}" Padding="24">
                 <StackPanel>
                     <TextBlock Text="PREFERENCES" Style="{StaticResource Eyebrow}" Margin="0,0,0,16"/>
 
@@ -126,7 +131,7 @@
             </Border>
 
             <!-- ================================================ daily goal -->
-            <Border Style="{StaticResource Card}" Padding="24" Margin="0,0,0,16">
+            <Border Style="{StaticResource Card}" Padding="24">
                 <StackPanel>
                     <TextBlock Text="DAILY GOAL" Style="{StaticResource Eyebrow}" Margin="0,0,0,8"/>
                     <TextBlock Text="With a goal set, a day counts towards your streak only once you reach it."
@@ -177,7 +182,7 @@
             </Border>
 
             <!-- ============================================ journal export -->
-            <Border Style="{StaticResource Card}" Padding="24" Margin="0,0,0,16">
+            <Border Style="{StaticResource Card}" Padding="24">
                 <StackPanel>
                     <TextBlock Text="EXPORT YOUR JOURNAL" Style="{StaticResource Eyebrow}" Margin="0,0,0,8"/>
                     <TextBlock Text="Save your sprints and journal lines as a file you keep. It is written only where you choose — nothing is uploaded."
@@ -227,7 +232,7 @@
             </Border>
 
             <!-- ============================================== notifications -->
-            <Border Style="{StaticResource Card}" Padding="24" Margin="0,0,0,16">
+            <Border Style="{StaticResource Card}" Padding="24">
                 <StackPanel>
                     <TextBlock Text="NOTIFICATIONS" Style="{StaticResource Eyebrow}" Margin="0,0,0,8"/>
                     <TextBlock Text="FlowShield notifies from the tray, and never about buying while a sprint is running."
@@ -299,7 +304,7 @@
             </Border>
 
             <!-- =================================================== advanced -->
-            <Border Style="{StaticResource Card}" Padding="24" Margin="0,0,0,12">
+            <Border Style="{StaticResource Card}" Padding="24">
                 <StackPanel>
                     <TextBlock Text="ADVANCED" Style="{StaticResource Eyebrow}" Margin="0,0,0,16"/>
 
@@ -349,7 +354,7 @@
             </Border>
 
             <!-- ==================================================== updates -->
-            <Border Style="{StaticResource Card}" Padding="24" Margin="0,0,0,12">
+            <Border Style="{StaticResource Card}" Padding="24">
                 <StackPanel>
                     <TextBlock Text="UPDATES" Style="{StaticResource Eyebrow}" Margin="0,0,0,12"/>
 
@@ -372,6 +377,6 @@
                     </StackPanel>
                 </StackPanel>
             </Border>
-        </StackPanel>
+        </inf:AdaptiveColumns>
     </ScrollViewer>
 </UserControl>

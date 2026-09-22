@@ -4431,3 +4431,95 @@ class TestFontAndSiteIconNoticesShip:
                 assert 'rel="license" href="icons-LICENSE.txt"' in html, (
                     f"{page.name} draws Lucide icons but does not link their licence"
                 )
+
+
+# ======================================== #189: the app adapts to its window
+
+class TestAppAdaptsToItsWindow:
+    """
+    #189. Miles saw clipped nav icons, and two pages (Sleep Blocking,
+    Settings) that sat in a narrow centred column instead of using the window.
+    A render-kit sweep of main at six sizes, 1920x1040 down to the 800x540
+    minimum, found the rest: fixed side columns on Today and Blocked Apps,
+    breakpoints read from the window instead of the view, a picker that cut
+    app names short at every size, and Blocked Apps clipping its Remove
+    buttons below about 780px. DESIGN_SYSTEM.md §4 now records the rules;
+    these tests hold them.
+    """
+
+    THEME = Path(DESKTOP_DIR) / "Styles" / "Theme.xaml"
+    VIEWS = Path(DESKTOP_DIR) / "Views"
+
+    def _read(self, path: Path) -> str:
+        return path.read_text(encoding="utf-8-sig")
+
+    def _style(self, key: str, path: Path | None = None) -> str:
+        xaml = self._read(path or self.THEME)
+        start = xaml.index(f'x:Key="{key}"')
+        return xaml[start:xaml.index("</Style>", start)]
+
+    def test_nav_rows_leave_room_for_their_icons(self):
+        """BtnBase fixes Height=40; NavButton added Padding 16,12, leaving a
+        16px box for a 20px icon, which clipped it at the top and bottom."""
+        nav = self._style("NavButton")
+        height = float(re.search(r'Property="Height" Value="([\d.]+)"', nav).group(1))
+        padding = re.search(r'Property="Padding" Value="([\d.,]+)"', nav).group(1).split(",")
+        vertical = float(padding[1]) if len(padding) >= 2 else float(padding[0])
+        icons = Path(DESKTOP_DIR) / "Styles" / "Icons.xaml"
+        icon = float(re.search(r'Property="Height" Value="([\d.]+)"', self._style("Icon", icons)).group(1))
+        assert height - 2 * vertical >= icon, (
+            f"a nav row {height}px tall with {vertical}px vertical padding has "
+            f"{height - 2 * vertical}px for a {icon}px icon")
+
+    def test_settings_like_pages_fill_the_window(self):
+        for view in ("SleepBlockingView.xaml", "SettingsView.xaml"):
+            xaml = self._read(self.VIEWS / view)
+            assert "<inf:AdaptiveColumns" in xaml, f"{view} should flow its cards into columns"
+            for cap in ('MaxWidth="700"', 'MaxWidth="720"'):
+                assert cap not in xaml, f"{view} is back in a fixed {cap} column"
+
+    def test_side_panes_are_proportional_not_fixed(self):
+        today = self._read(self.VIEWS / "TodayView.xaml")
+        assert re.search(r'x:Name="StatsColumn" Width="[\d.]+\*" MinWidth="\d+" MaxWidth="\d+"', today)
+        blocked = self._read(self.VIEWS / "BlockedAppsView.xaml")
+        assert re.search(r'x:Name="PickerColumn" Width="[\d.]+\*" MinWidth="\d+" MaxWidth="\d+"', blocked)
+        for code in ("TodayView.xaml.cs", "BlockedAppsView.xaml.cs"):
+            source = (self.VIEWS / code).read_text(encoding="utf-8")
+            assert "new GridLength(320)" not in source and "new GridLength(300)" not in source, (
+                f"{code} restores a fixed side column")
+
+    def test_breakpoints_read_the_space_the_view_has(self):
+        """Keyed on the window, a view couldn't respond to its own width."""
+        window_xaml = self._read(Path(DESKTOP_DIR) / "MainWindow.xaml")
+        assert '<Grid x:Name="RootGrid" SizeChanged="OnSizeChanged">' in window_xaml
+        assert 'SizeChanged="OnSizeChanged"\n' not in window_xaml.split("<Grid", 1)[0], (
+            "the rail breakpoint belongs on the root grid, not the window")
+        for code in ("TodayView.xaml.cs", "BlockedAppsView.xaml.cs"):
+            source = (self.VIEWS / code).read_text(encoding="utf-8")
+            assert "e.NewSize.Width" in source, f"{code} should read its own new width"
+            assert "Window.GetWindow" not in source, f"{code} still reads the window's width"
+
+    def test_blocked_apps_stacks_and_scrolls_when_narrow(self):
+        """Side by side below ~780px, the list clipped its Remove buttons; split
+        into fixed halves, a short window showed no rows at all."""
+        blocked = self._read(self.VIEWS / "BlockedAppsView.xaml")
+        assert '<ScrollViewer x:Name="PageScroll"' in blocked
+        source = (self.VIEWS / "BlockedAppsView.xaml.cs").read_text(encoding="utf-8")
+        assert "StackPickerBelow" in source
+        assert "ScrollBarVisibility.Auto" in source and "ScrollBarVisibility.Disabled" in source
+
+    def test_the_adaptive_panel_counts_columns_by_width(self):
+        """The panel's column count: as many as keep each at MinColumnWidth,
+        between one and MaxColumns, and one for an unusable width."""
+        source = (Path(DESKTOP_DIR) / "Infrastructure" / "AdaptiveColumns.cs").read_text(encoding="utf-8")
+        assert "Math.Floor((width + spacing) / (minColumnWidth + spacing))" in source
+        assert "Math.Clamp(fit, 1, Math.Max(1, maxColumns))" in source
+        assert "double.IsInfinity(width)" in source, "an infinite width must fall back to one column"
+
+    def test_today_stat_values_share_their_labels_line_height(self):
+        """The numbers used the default style while their labels used Body, so
+        they sat higher than the labels beside them."""
+        today = self._read(self.VIEWS / "TodayView.xaml")
+        for binding in ("SessionsToday", "FocusMinutesToday", "BlocksToday"):
+            tag = re.search(r'<TextBlock Text="\{Binding ' + binding + r'\}"[^>]*>', today, re.S).group(0)
+            assert 'Style="{StaticResource Body}"' in tag, f"{binding} should use the Body style"
