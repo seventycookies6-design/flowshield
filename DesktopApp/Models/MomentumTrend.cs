@@ -61,11 +61,21 @@ public static class MomentumTrend
         return points;
     }
 
-    /// <summary>The score after one sprint, by the same rules the app applies live.</summary>
+    /// <summary>
+    /// The score after one sprint, by the same rules the app applies live.
+    ///
+    /// An interrupted sprint leaves it alone. TodayViewModel.ApplyMomentum is
+    /// only ever called for a completed sprint or a deliberate early end, so
+    /// branching on Completed alone charged the ended-early decay to a sprint
+    /// FlowShield was simply not running for — and the replayed line then sat
+    /// below the momentum number printed next to it.
+    /// </summary>
     private static double After(double score, FocusSession session) =>
-        session.Completed
-            ? Math.Round(score + 10 * Math.Clamp(session.PlannedMinutes / 25.0, 0.5, 3.0), 1)
-            : EndSprintPolicy.MomentumAfterEndingEarly(score, session.Shield);
+        session.Interrupted
+            ? score
+            : session.Completed
+                ? Math.Round(score + 10 * Math.Clamp(session.PlannedMinutes / 25.0, 0.5, 3.0), 1)
+                : EndSprintPolicy.MomentumAfterEndingEarly(score, session.Shield);
 
     /// <summary>The highest point of the trend, never zero, so the chart has a scale.</summary>
     public static double Ceiling(IReadOnlyList<Point> points)
