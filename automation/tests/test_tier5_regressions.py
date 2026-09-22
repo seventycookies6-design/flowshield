@@ -3258,6 +3258,41 @@ class TestIssueHygieneStaysAdvisory:
                 f"the check knows the label {label!r}, but PLANNING.md does not list it"
             )
 
+class TestThirdPartyNoticesShip:
+    """
+    The Lucide icons are ISC and the runtime, ProtectedData and Velopack are
+    MIT; all of them require their notice to travel with the binary
+    (LEGAL_CHECKLIST 8.2). A notice file that exists in the repo but is not
+    copied to the output ships nothing.
+    """
+
+    NOTICES = Path(DESKTOP_DIR) / "THIRD-PARTY-NOTICES.txt"
+    CSPROJ = Path(DESKTOP_DIR) / "FlowShield.csproj"
+
+    def test_the_file_is_copied_next_to_the_exe(self):
+        csproj = self.CSPROJ.read_text(encoding="utf-8")
+        assert 'Include="THIRD-PARTY-NOTICES.txt"' in csproj
+        assert "CopyToOutputDirectory" in csproj.split(
+            'Include="THIRD-PARTY-NOTICES.txt"', 1)[1].split("/>", 1)[0], (
+            "the notice is in the project but never reaches the output folder"
+        )
+
+    def test_it_names_every_component_the_app_actually_ships(self):
+        notices = self.NOTICES.read_text(encoding="utf-8")
+        csproj = self.CSPROJ.read_text(encoding="utf-8")
+        for package in re.findall(r'PackageReference Include="([^"]+)"', csproj):
+            assert package in notices, f"{package} ships with the app but is not in the notices"
+        assert "Lucide" in notices and "ISC" in notices, (
+            "the icon geometries are Lucide's and their ISC notice must ship"
+        )
+
+    def test_the_icons_licence_and_the_notices_agree(self):
+        icons = (Path(DESKTOP_DIR) / "Assets" / "Icons" / "LICENSE").read_text(encoding="utf-8")
+        notices = self.NOTICES.read_text(encoding="utf-8")
+        for line in ("Copyright (c) for portions of Lucide are held by Cole Bemis",
+                     "Permission to use, copy, modify, and/or distribute this software"):
+            assert line in icons and line in notices
+
 class TestTheSiteStaysOfflineForTheBeta:
     """
     The site is offline for the internal beta (#165): GitHub Pages' terms
@@ -4368,3 +4403,31 @@ class TestBlockedAppsRowSwitchNotClipped:
             "of these back to the next lower §4 scale step."
         )
 
+
+class TestFontAndSiteIconNoticesShip:
+    """
+    Inter (OFL) is embedded in the app and Lucide (ISC) is drawn inline on the
+    site. Both licences ask for their notice to travel with the copy. A file in
+    the repo that never reaches the output, or a page with the icons and no
+    notice beside it, distributes the work without the licence.
+    """
+
+    def test_the_font_licence_is_copied_next_to_the_app(self):
+        csproj = (Path(DESKTOP_DIR) / "FlowShield.csproj").read_text(encoding="utf-8")
+        entry = csproj.split('Include="Assets\\Fonts\\OFL.txt"', 1)
+        assert len(entry) == 2, "Inter's OFL.txt is no longer in the project"
+        assert "CopyToOutputDirectory" in entry[1].split("/>", 1)[0], (
+            "OFL.txt is in the project but never reaches the output folder"
+        )
+        notices = (Path(DESKTOP_DIR) / "THIRD-PARTY-NOTICES.txt").read_text(encoding="utf-8")
+        assert "Inter" in notices and "Open Font License" in notices
+
+    def test_every_page_with_lucide_icons_links_the_notice(self):
+        site = Path(WEBSITE_DIR)
+        assert (site / "icons-LICENSE.txt").is_file(), "the site serves Lucide icons with no notice"
+        for page in sorted(site.glob("*.html")):
+            html = page.read_text(encoding="utf-8")
+            if 'stroke="currentColor"' in html:
+                assert 'rel="license" href="icons-LICENSE.txt"' in html, (
+                    f"{page.name} draws Lucide icons but does not link their licence"
+                )

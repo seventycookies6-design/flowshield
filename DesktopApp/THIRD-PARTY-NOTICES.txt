@@ -1,0 +1,78 @@
+FlowShield — third-party notices
+================================
+
+FlowShield includes or links the components below. Each is used under its own
+licence, and each licence is reproduced or identified here as those licences
+require. Licence names and metadata were read from the shipped packages, not
+from memory.
+
+This file ships beside FlowShield.exe. If you are reading it after an update,
+it describes the version of FlowShield it was installed with.
+
+--------------------------------------------------------------------------
+.NET runtime and libraries — Microsoft Corporation — MIT
+    https://github.com/dotnet/runtime
+    Bundled: this build is self-contained, so the .NET runtime is included.
+
+System.Security.Cryptography.ProtectedData — Microsoft Corporation — MIT
+    https://dot.net/
+
+Velopack — Velopack contributors — MIT
+    https://github.com/velopack/velopack
+    Provides the installer and the in-app update channel.
+
+--------------------------------------------------------------------------
+MIT License (applies to each of the MIT-licensed components above)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+--------------------------------------------------------------------------
+Lucide icons — https://lucide.dev — ISC
+
+The icon outlines drawn in FlowShield's navigation and lists are Lucide's own
+path geometries. Lucide is a fork of Feather (MIT, Copyright (c) 2013-2022
+Cole Bemis); the notice below covers both.
+
+ISC License
+
+Copyright (c) for portions of Lucide are held by Cole Bemis 2013-2022 as part
+of Feather (MIT). All other copyright (c) for Lucide are held by Lucide
+Contributors 2022.
+
+Permission to use, copy, modify, and/or distribute this software for any
+purpose with or without fee is hereby granted, provided that the above
+copyright notice and this permission notice appear in all copies.
+
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
+REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
+INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+PERFORMANCE OF THIS SOFTWARE.
+
+--------------------------------------------------------------------------
+Inter and Inter Display — The Inter Project Authors — SIL Open Font License 1.1
+    https://github.com/rsms/inter
+
+Copyright (c) 2016 The Inter Project Authors (https://github.com/rsms/inter)
+
+The fonts are embedded in FlowShield and are not sold on their own. The full
+licence text ships beside this file at Assets\Fonts\OFL.txt, as the Open Font
+License asks.

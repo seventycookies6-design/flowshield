@@ -43,7 +43,7 @@ timer, and apps on your blocklist are dealt with until it ends.
 
 | Part | Where | State |
 | --- | --- | --- |
-| Desktop app | `DesktopApp/`, .NET 8 WPF, MVVM | **v1.0.7** on GitHub Releases (15 September 2026). Velopack installer (per-user, no admin, self-contained — no .NET needed), in-app update check. Settings DPAPI-encrypted in `%APPDATA%\FlowShield`; the app installs to `%LOCALAPPDATA%\FlowShield`. |
+| Desktop app | `DesktopApp/`, .NET 8 WPF, MVVM | **v1.0.8** on GitHub Releases (21 September 2026). Velopack installer (per-user, no admin, self-contained — no .NET needed), in-app update check. Settings DPAPI-encrypted in `%APPDATA%\FlowShield`; the app installs to `%LOCALAPPDATA%\FlowShield`. |
 | Licence server | `Server/`, Node 24 + Express + SQLite | Live at https://flowshield-license-server.onrender.com (Render free plan, Docker, `render.yaml`). Sleeps when idle; first request takes ~50 s. |
 | Website | `Website/`, static | Live at https://seventycookies6-design.github.io/flowshield/ from the `gh-pages` branch. Redesigned in #27 (teal theme, light/dark toggle, Soft/Firm/Sealed explained through a student's day). Checkout goes through the licence server. |
 | Payments | Stripe | **Test mode only.** Account named FlowShield. |
@@ -210,7 +210,7 @@ Also check the live services:
 - `https://flowshield-license-server.onrender.com/health` returns `ok` (the first
   request after idle can take ~50 seconds).
 - The site returns HTTP 200.
-- `gh release view --repo seventycookies6-design/flowshield` shows v1.0.7.
+- `gh release view --repo seventycookies6-design/flowshield` shows v1.0.8.
 
 ## Phase 3: Remote Control
 
@@ -276,7 +276,7 @@ go-ahead.
    and issues #1–#6, split between the owner (#37) and milessmart6-pixel (#38). The site no longer
    advertises unbuilt features (item 1.1, live since 13 September 2026), but the
    rest of Phase 1 still matters most: Sealed can be ended with one click,
-   blocked apps are killed with no warning, the journal can't be read back,
+   the journal can't be read back,
    and the
    thank-you page's "Activate in FlowShield" button does nothing.
 2. **Stripe business name** (owner; found in a test purchase on 13 September

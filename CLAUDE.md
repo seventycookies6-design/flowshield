@@ -250,6 +250,15 @@ Each of these cost real time once. Don't rediscover them.
   question for a flat two seconds — which spends the whole three-second
   `--short-timers` cancel grace before a test can act (#146). Race the
   outcomes and return on the first one seen.
+- **Merging a stack of squash-merged PRs:** each upper PR still carries the
+  lower one's original commits, so it conflicts with the squashed copy on
+  `main`. Keeping *both* sides of a test-file conflict is only right for pure
+  appends; where a later PR rewrote or deleted an earlier one's test, it
+  revives the old version (B5's "three feature cards" came back as six).
+  Resolve to the upper branch's side, then compare the test *names* against
+  `main` and the branch before pushing. And a scripted merge loop must check
+  that CI **passed**, not just that the PR is mergeable — branch protection
+  caught the one that didn't.
 - **A "move" that touches a line appearing twice:** check the diff for which
   copy went. A RefreshStats move deleted the wrong identical line and silently
   changed two behaviours (#129).

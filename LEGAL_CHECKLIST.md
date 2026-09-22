@@ -174,9 +174,9 @@ mundane, high-probability risk — higher than most of the exotic ones.
 | # | Item | Status |
 | --- | --- | --- |
 | 8.1 | The name "FlowShield" cleared against existing trademarks | **GAP / OWNER** — never searched. Do a USPTO search (free) before spending on branding; a lawyer's clearance search is a few hundred dollars. Renaming after launch costs far more |
-| 8.2 | Third-party open-source notices shipped with the app | **GAP** — no `THIRD-PARTY-NOTICES.txt` anywhere. The app ships Velopack, `System.Security.Cryptography.ProtectedData` and a self-contained .NET runtime; the server ships express, better-sqlite3, stripe, nodemailer, cors. MIT and Apache both require the copyright line and licence text to travel with the binary |
+| 8.2 | Third-party open-source notices shipped with the app | **Partly** — `DesktopApp/THIRD-PARTY-NOTICES.txt` ships beside the exe from 1.0.8 and covers the .NET runtime, `System.Security.Cryptography.ProtectedData`, Velopack (MIT), the Lucide icons (ISC, a Feather fork) and the embedded Inter font (SIL Open Font License). Tier 5 fails if it stops shipping or misses a package the app references. **Still to do:** the same for the server (express, better-sqlite3, stripe, nodemailer, cors) |
 | 8.3 | Fonts licensed for web use | **OK** — the site self-hosts Inter (`Website/fonts/InterVariable.woff2`) under the SIL Open Font License; the licence text ships alongside it at `Website/fonts/OFL.txt`. No third-party font host (Google Fonts, previously Syne and Source Sans 3) is used or contacted anymore (#147/B1) |
-| 8.4 | Icons and images are ours or licensed | **OK** — the shield mark and tray icons were drawn for this project; no stock assets |
+| 8.4 | Icons and images are ours or licensed | **OK** — the shield mark, shield glyphs and tray icons were drawn for this project; the app's navigation and list icons and the site's inline icons are Lucide (ISC). The notice ships with the app in `THIRD-PARTY-NOTICES.txt`, and on the site as `icons-LICENSE.txt`, linked with `rel="license"` from every page that uses them (#151, B3). Tier 5 checks both. No stock assets |
 | 8.5 | Competitor names used fairly | **OK** — the app's blocklist names apps (Steam, Discord) descriptively, which is nominative fair use, and the site names none |
 | 8.6 | No competitor's code or copy was reused | **OK** |
 

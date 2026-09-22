@@ -34,6 +34,10 @@
     <EmbeddedResource Include="Data\app_suggestions.json" LogicalName="FlowShield.app_suggestions.json" />
     <Resource Include="Assets\FlowShield.ico" />
     <Resource Include="Assets\FlowShield.Running.ico" />
+    <!-- Ships beside the exe: the Lucide icons are ISC and the runtime and
+         Velopack are MIT, and all three require their notice to travel with
+         the binary (LEGAL_CHECKLIST 8.2). -->
+    <Content Include="THIRD-PARTY-NOTICES.txt" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>
@@ -49,7 +53,10 @@
          stat numbers (UI-SPEC.md A4): one static weight, SemiBold, since
          nothing in the scale needs any other Display weight. -->
     <Resource Include="Assets\Fonts\InterDisplay-SemiBold.ttf" />
-    <None Include="Assets\Fonts\OFL.txt" />
+    <!-- Copied to the output, not just kept in the repo: the OFL asks for
+         its text to travel with the font, and embedded resources carry the
+         font but not the licence. THIRD-PARTY-NOTICES.txt points at it. -->
+    <Content Include="Assets\Fonts\OFL.txt" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>
