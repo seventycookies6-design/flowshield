@@ -38,7 +38,7 @@
                         <!-- The break arc is the same ring in text-muted (§7).
                              §2: teal means state, selection or progress through a
                              sprint — a break is visibly not a sprint (F5). -->
-                        <Ellipse Width="222" Height="222" Stroke="{StaticResource InkDim}" StrokeThickness="12"
+                        <Ellipse Width="222" Height="222" Stroke="{DynamicResource InkDim}" StrokeThickness="12"
                                  StrokeDashCap="Round"
                                  StrokeDashArray="{Binding Progress, Converter={StaticResource ProgressDash}}"
                                  Visibility="{Binding BreakRingVisible, Converter={StaticResource BoolVis}}"

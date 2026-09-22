@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    F21 (#237): the offscreen theme probe.
+
+    It loads the app's *real* App.xaml and asks ThemeService to switch themes,
+    then prints the colours it can actually resolve. No window is created and
+    nothing is shown, so it is safe to run while a UI suite owns the screen —
+    which is the point: tier 3 is the only other place that could prove the
+    light theme reaches the pixels, and it cannot be run on demand.
+
+    It exists because every other F21 test reads source text, and source text
+    cannot tell a working swap from a no-op. The first version of ThemeService
+    looked correct and did nothing: it matched the merged dictionary by Uri
+    equality against an absolute pack URI, while App.xaml merges a relative
+    one, so it never found the dictionary it meant to replace.
+  -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <EnableDefaultItems>false</EnableDefaultItems>
+    <!-- Never packaged or released; it is a test tool. -->
+    <IsPublishable>false</IsPublishable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Program.cs"/>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\DesktopApp\FlowShield.csproj"/>
+  </ItemGroup>
+
+</Project>

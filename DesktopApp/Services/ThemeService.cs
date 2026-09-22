@@ -39,6 +39,9 @@ public static class ThemeService
     private const string PersonalizeKey =
         @"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize";
 
+    // Absolute pack URIs to *load* a dictionary: the assembly-qualified form is
+    // the one that resolves whether the app was launched as an .exe or hosted
+    // from its DLL (the same reason Theme.xaml's font uses it).
     private static readonly Uri DarkTokens =
         new("pack://application:,,,/FlowShield;component/Styles/Tokens.xaml");
 
@@ -47,6 +50,18 @@ public static class ThemeService
 
     private static readonly Uri ShieldGlyphs =
         new("pack://application:,,,/FlowShield;component/Styles/ShieldGlyphs.xaml");
+
+    // ...but never to *find* one. ResourceDictionary.Source hands back exactly
+    // the Uri that was set on it, and App.xaml sets relative ones
+    // ("Styles/Tokens.xaml"), which never compare equal to the absolute form
+    // above. Matching on equality silently found nothing, so the swap logged
+    // "theme not switched" and returned, and the whole feature was a no-op
+    // (#237 review). Compare on the file name instead, which is true of both
+    // spellings — the relative one App.xaml starts with, and the absolute one
+    // a swapped-in dictionary carries afterwards.
+    private static bool Names(Uri? source, string fileName) =>
+        source is not null
+        && source.OriginalString.EndsWith(fileName, StringComparison.OrdinalIgnoreCase);
 
     private static bool _listening;
 
@@ -134,9 +149,11 @@ public static class ThemeService
         {
             merged[merged.IndexOf(tokens)] = new ResourceDictionary { Source = light ? LightTokens : DarkTokens };
 
-            var glyphs = merged.FirstOrDefault(d => d.Source == ShieldGlyphs);
+            var glyphs = merged.FirstOrDefault(d => Names(d.Source, "ShieldGlyphs.xaml"));
             if (glyphs is not null)
                 merged[merged.IndexOf(glyphs)] = new ResourceDictionary { Source = ShieldGlyphs };
+            else
+                Log.Warn("shield glyphs not reloaded: ShieldGlyphs.xaml is not merged in App.Resources");
         }
         catch (Exception ex)
         {
@@ -157,7 +174,7 @@ public static class ThemeService
     private static bool _applied;
 
     private static bool IsTokens(Uri? source) =>
-        source is not null && (source == DarkTokens || source == LightTokens);
+        Names(source, "Tokens.xaml") || Names(source, "Tokens.Light.xaml");
 
     /// <summary>
     /// Re-evaluates every bound property whose binding runs a converter, on

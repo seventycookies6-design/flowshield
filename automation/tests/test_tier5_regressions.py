@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import shutil
 import struct
 import subprocess
 import sys
@@ -6700,7 +6701,9 @@ class TestTheRingSaysWhichClockIsRunning:
         xaml = self.XAML.read_text(encoding="utf-8")
         assert 'Visibility="{Binding SprintRingVisible' in xaml
         assert 'Visibility="{Binding BreakRingVisible' in xaml
-        assert 'Stroke="{StaticResource InkDim}" StrokeThickness="12"' in xaml, \
+        # DynamicResource since F21: a colour reference has to re-resolve when
+        # the light theme swaps the tokens dictionary under it.
+        assert 'Stroke="{DynamicResource InkDim}" StrokeThickness="12"' in xaml, \
             "the break arc is text-muted, not primary"
 
     def test_the_view_model_keeps_them_exclusive(self):
@@ -7157,3 +7160,127 @@ class TestAccessibleNamesF21:
         # A handful are deliberately shared between a page and the lock screen.
         allowed = {"LicenseKeyInput"}
         assert not (set(duplicates) - allowed), f"duplicate AutomationIds: {duplicates}"
+
+
+#: Where the offscreen theme probe lives, and where it is run from.
+THEME_PROBE = Path(DESKTOP_DIR).parent / "automation" / "probe" / "ThemeProbe"
+
+
+@pytest.fixture(scope="module")
+def theme_probe():
+    """
+    Runs `automation/probe/ThemeProbe` once and hands back its report.
+
+    Module-scoped: it builds and runs the real app's resources, which costs a
+    few seconds, and every assertion below reads the same three snapshots.
+    """
+    dotnet = shutil.which("dotnet")
+    if dotnet is None:
+        pytest.skip("no .NET SDK on this machine")
+
+    result = subprocess.run(
+        [dotnet, "run", "--project", str(THEME_PROBE), "-c", "Release", "-v", "q", "--nologo"],
+        cwd=str(Path(DESKTOP_DIR).parent), capture_output=True, text=True, timeout=600)
+
+    assert result.returncode == 0, (
+        "the theme probe did not run:\n" + result.stdout[-2000:] + result.stderr[-2000:])
+
+    # The build writes to stdout too; the report is the last JSON line.
+    lines = [line for line in result.stdout.splitlines() if line.startswith("{")]
+    assert lines, "the probe printed no report:\n" + result.stdout[-2000:]
+    return json.loads(lines[-1])
+
+
+class TestTheThemeActuallySwitchesF21:
+    """
+    The one F21 test that is not source text.
+
+    Every other test in this file reads the XAML and the C# and checks that the
+    right words are in the right places. All of them passed against a
+    ThemeService that did nothing at all: it looked for the merged dictionary
+    with
+
+        merged.FirstOrDefault(d => d.Source == DarkTokens)
+
+    where DarkTokens is an absolute pack URI, while App.xaml merges the
+    dictionary with a *relative* Source ("Styles/Tokens.xaml").
+    ResourceDictionary.Source hands back exactly the Uri that was set on it, so
+    the two never compared equal, the lookup found nothing, the swap logged
+    "theme not switched" and returned, and Settings -> Appearance moved a radio
+    button and changed no pixels. Source tests cannot see that, and neither can
+    a probe that merges the dictionaries itself with pack URIs -- it builds the
+    equality the app does not have.
+
+    So this runs the real App.xaml. `automation/probe/ThemeProbe` creates the
+    app's own Application subclass, calls InitializeComponent() to merge exactly
+    what App.xaml merges in exactly the way it spells it, asks ThemeService to
+    switch, and prints what each resource resolves to. No window is created and
+    nothing is shown, so it is safe to run beside a UI suite.
+
+    Proven to fail first: restoring the Uri-equality line above makes
+    test_switching_to_light_changes_every_colour fail with Bg still #FF121110.
+    """
+
+    PROBE = THEME_PROBE
+
+    #: A few tokens whose two themes are far apart, with their values from
+    #: design/tokens.json. If these are right, the dictionary really was swapped.
+    EXPECTED_DARK = {"Bg": "#FF121110", "Ink": "#FFF2F0EB", "Primary": "#FF3AA892"}
+    EXPECTED_LIGHT = {"Bg": "#FFE6E4DF", "Ink": "#FF1A1917", "Primary": "#FF0C6B5C"}
+
+    @pytest.fixture()
+    def probe(self, theme_probe):
+        return theme_probe
+
+    def test_the_app_starts_dark(self, probe):
+        assert probe["start"]["isLight"] is False
+        for key, value in self.EXPECTED_DARK.items():
+            assert probe["start"][key] == value, f"{key} is wrong before any switch"
+
+    def test_switching_to_light_changes_every_colour(self, probe):
+        """The check the whole feature rests on: the resources really change."""
+        assert probe["light"]["isLight"] is True, \
+            "ThemeService reported no switch -- it did not find the dictionary to replace"
+        for key, value in self.EXPECTED_LIGHT.items():
+            assert probe["light"][key] == value, (
+                f"{key} is still {probe['light'][key]} after Apply(Light) -- the merged "
+                f"Tokens dictionary was not swapped")
+
+        changed = sum(1 for key, value in probe["start"].items()
+                      if key != "isLight" and probe["light"][key] != value)
+        assert changed >= 14, (
+            f"only {changed} resources changed; the light theme redefines all of them")
+
+    def test_switching_back_to_dark_restores_every_colour(self, probe):
+        for key, value in probe["start"].items():
+            assert probe["dark"][key] == value, \
+                f"{key} did not come back to its dark value"
+
+    def test_the_shield_glyphs_are_recoloured_too(self, probe):
+        """
+        The case a DynamicResource cannot serve: these brushes are inside
+        DrawingImages, which are Freezables, so the dictionary is reloaded. If
+        the reload is skipped the glyphs keep the dark theme's colours -- and a
+        text-muted glyph on a light surface is close to invisible.
+        """
+        assert probe["start"]["glyphSoft"] == "#FFB0ADA5"
+        assert probe["light"]["glyphSoft"] == "#FF5C5954", \
+            "the Soft glyph kept its dark colour; ShieldGlyphs.xaml was not reloaded"
+        assert probe["light"]["glyphFirm"] == "#FF0C6B5C"
+        assert probe["dark"]["glyphSoft"] == "#FFB0ADA5"
+
+    def test_the_heatmap_ramp_follows_the_theme(self, probe):
+        """Mixed in code from surface-2 and primary, so it has to re-read them."""
+        assert probe["start"]["heatTop"] == "#FF3AA892"
+        assert probe["light"]["heatTop"] == "#FF0C6B5C", \
+            "the heatmap's top step is still the dark theme's primary"
+
+    def test_the_probe_shows_no_window(self):
+        """
+        It must stay safe to run while a UI suite owns the screen, so it may
+        never create or show a window.
+        """
+        source = (self.PROBE / "Program.cs").read_text(encoding="utf-8")
+        for forbidden in ("new Window", ".Show()", ".ShowDialog()", "app.Run("):
+            assert forbidden not in source, \
+                f"the theme probe must not {forbidden} -- it runs beside the UI suite"

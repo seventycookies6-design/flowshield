@@ -344,7 +344,7 @@
                                    VerticalAlignment="Center" Margin="12,0,0,0"/>
                     </StackPanel>
                     <TextBlock Text="{Binding BreakMinutesError}" Style="{StaticResource Caption}"
-                               Foreground="{StaticResource Amber}" Margin="0,8,0,0"
+                               Foreground="{DynamicResource Amber}" Margin="0,8,0,0"
                                Visibility="{Binding ShortBreakErrorVisible, Converter={StaticResource BoolVis}}"
                                AutomationProperties.AutomationId="ShortBreakMinutesError"/>
 
@@ -358,7 +358,7 @@
                                    VerticalAlignment="Center" Margin="12,0,0,0"/>
                     </StackPanel>
                     <TextBlock Text="{Binding BreakMinutesError}" Style="{StaticResource Caption}"
-                               Foreground="{StaticResource Amber}" Margin="0,8,0,0"
+                               Foreground="{DynamicResource Amber}" Margin="0,8,0,0"
                                Visibility="{Binding LongBreakErrorVisible, Converter={StaticResource BoolVis}}"
                                AutomationProperties.AutomationId="LongBreakMinutesError"/>
                     <TextBlock Text="{Binding LongBreakExplanation}" Style="{StaticResource Caption}"
