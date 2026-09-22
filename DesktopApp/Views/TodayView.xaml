@@ -266,6 +266,36 @@
                                AutomationProperties.AutomationId="SoftHardKillHint"
                                Text="Hard kill mode is on (Settings), so Soft closes blocked apps instead of nudging."/>
 
+                    <!-- which blocklist this sprint uses (F9). One caption line,
+                         with the switcher only when there is more than one
+                         profile to switch to — the timer is what matters while
+                         a sprint runs (§1), so this says its name and stops. -->
+                    <TextBlock Text="{Binding ProfileCaption}" Style="{StaticResource Caption}"
+                               Margin="0,16,0,0" TextWrapping="Wrap"
+                               AutomationProperties.AutomationId="TodayProfileCaption"/>
+                    <ItemsControl ItemsSource="{Binding Profiles}" Margin="0,8,0,0"
+                                  IsEnabled="{Binding CanSwitchProfile}"
+                                  Visibility="{Binding ProfileSwitcherVisible, Converter={StaticResource BoolVis}}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <RadioButton Style="{StaticResource Segment}" GroupName="TodayBlocklistProfile"
+                                             Margin="0,0,8,8"
+                                             Content="{Binding Name}"
+                                             IsChecked="{Binding IsActive, Mode=OneWay}"
+                                             Command="{Binding DataContext.SelectProfileCommand,
+                                                       RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                             CommandParameter="{Binding}"
+                                             AutomationProperties.AutomationId="{Binding Name, StringFormat=TodayProfile_{0}}"
+                                             AutomationProperties.Name="{Binding Name, StringFormat=Use the {0} blocklist}"/>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
                     <!-- intention (F13) -->
                     <TextBlock Text="INTENTION" Style="{StaticResource Eyebrow}" Margin="0,24,0,8"/>
                     <TextBox Style="{StaticResource Field}" MaxLength="80"

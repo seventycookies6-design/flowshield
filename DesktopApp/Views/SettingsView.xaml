@@ -85,6 +85,99 @@
                                    Visibility="{Binding IsBusy, Converter={StaticResource BoolVis}}"
                                    AutomationProperties.AutomationId="LicenseBusyText"/>
                     </StackPanel>
+
+                    <!-- ============================== your devices (Roadmap 5.7) -->
+                    <!-- Fetched only when this expands (the first time) or Refresh is
+                         pressed — never polled. Only shown once there is a licence to
+                         list seats for. -->
+                    <StackPanel Visibility="{Binding IsPro, Converter={StaticResource BoolVis}}">
+                        <Border Height="1" Background="{StaticResource Edge}" Margin="0,16,0,16"/>
+
+                        <Grid>
+                            <Button Style="{StaticResource BtnQuiet}" Content="Your devices"
+                                    Command="{Binding ToggleDevicesCommand}" Padding="0" HorizontalAlignment="Left"
+                                    AutomationProperties.AutomationId="DevicesToggleButton"
+                                    AutomationProperties.Name="Your devices"/>
+
+                            <Button Style="{StaticResource BtnQuiet}" Content="Refresh"
+                                    Command="{Binding RefreshDevicesCommand}" Padding="0" HorizontalAlignment="Right"
+                                    Visibility="{Binding IsDevicesExpanded, Converter={StaticResource BoolVis}}"
+                                    AutomationProperties.AutomationId="DevicesRefreshButton"/>
+                        </Grid>
+
+                        <StackPanel Visibility="{Binding IsDevicesExpanded, Converter={StaticResource BoolVis}}"
+                                    Margin="0,12,0,0">
+                            <TextBlock Text="Loading…" Style="{StaticResource Caption}"
+                                       Visibility="{Binding IsLoadingDevices, Converter={StaticResource BoolVis}}"
+                                       AutomationProperties.AutomationId="DevicesLoadingText"/>
+
+                            <TextBlock Text="{Binding DevicesStatusText}" Style="{StaticResource Caption}"
+                                       Foreground="{StaticResource Rose}"
+                                       Visibility="{Binding DevicesStatusText, Converter={StaticResource NonEmptyVis}}"
+                                       AutomationProperties.AutomationId="DevicesStatusText"/>
+
+                            <ItemsControl ItemsSource="{Binding Devices}"
+                                          AutomationProperties.AutomationId="DevicesList">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Style="{StaticResource RowCard}" Margin="0,0,0,8">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+
+                                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding Name}" Style="{StaticResource Label}"
+                                                               AutomationProperties.AutomationId="{Binding DeviceToken, StringFormat=DeviceName_{0}}"/>
+                                                    <TextBlock Text="{Binding LastSeenText}" Style="{StaticResource Caption}"
+                                                               Margin="0,4,0,0"/>
+                                                </StackPanel>
+
+                                                <!-- Two-step: Release swaps to an explicit confirm/cancel
+                                                     pair (DESIGN_SYSTEM.md §7 — quiet, low-emphasis, but a
+                                                     seat release still gets a confirmation) rather than
+                                                     acting on the first click. -->
+                                                <StackPanel Grid.Column="1" Orientation="Horizontal"
+                                                            VerticalAlignment="Center"
+                                                            Visibility="{Binding CanRelease, Converter={StaticResource BoolVis}}">
+                                                    <StackPanel Orientation="Horizontal"
+                                                                Visibility="{Binding IsConfirmingRelease,
+                                                                            Converter={StaticResource InvBoolVis}}">
+                                                        <Button Style="{StaticResource BtnQuiet}" Content="Release"
+                                                                Padding="12,0"
+                                                                Command="{Binding DataContext.RequestReleaseCommand,
+                                                                          RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                                CommandParameter="{Binding}"
+                                                                AutomationProperties.AutomationId="{Binding DeviceToken, StringFormat=ReleaseDevice_{0}}"
+                                                                AutomationProperties.Name="{Binding Name, StringFormat=Release {0}}"/>
+                                                    </StackPanel>
+
+                                                    <StackPanel Orientation="Horizontal"
+                                                                Visibility="{Binding IsConfirmingRelease, Converter={StaticResource BoolVis}}">
+                                                        <TextBlock Text="Release this device?" Style="{StaticResource Caption}"
+                                                                   VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                        <Button Style="{StaticResource BtnDanger}" Content="Yes, release"
+                                                                Padding="12,0" IsEnabled="{Binding IsReleasing, Converter={StaticResource InvBool}}"
+                                                                Command="{Binding DataContext.ConfirmReleaseCommand,
+                                                                          RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                                CommandParameter="{Binding}"
+                                                                AutomationProperties.AutomationId="{Binding DeviceToken, StringFormat=ConfirmReleaseDevice_{0}}"/>
+                                                        <Button Style="{StaticResource BtnQuiet}" Content="Cancel"
+                                                                Padding="12,0" Margin="4,0,0,0"
+                                                                Command="{Binding DataContext.CancelReleaseCommand,
+                                                                          RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                                CommandParameter="{Binding}"
+                                                                AutomationProperties.AutomationId="{Binding DeviceToken, StringFormat=CancelReleaseDevice_{0}}"/>
+                                                    </StackPanel>
+                                                </StackPanel>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </StackPanel>
                 </StackPanel>
             </Border>
 

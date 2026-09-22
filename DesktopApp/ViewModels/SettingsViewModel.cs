@@ -1,3 +1,5 @@
+using System.Collections.ObjectModel;
+using System.Linq;
 using System.Net.Http.Json;
 using System.Runtime.CompilerServices;
 using FlowShield.Infrastructure;
@@ -37,6 +39,12 @@ public class SettingsViewModel : ViewModelBase
         // RestartForUpdate above.
         DeleteEverythingCommand = new AsyncRelayCommand(DeleteEverythingAsync, () => !IsBusy && !_main.IsSprintRunning);
 
+        ToggleDevicesCommand = new AsyncRelayCommand(ToggleDevicesAsync);
+        RefreshDevicesCommand = new AsyncRelayCommand(() => LoadDevicesAsync(force: true));
+        RequestReleaseCommand = new RelayCommand(p => { if (p is DeviceRowViewModel d) d.IsConfirmingRelease = true; });
+        CancelReleaseCommand = new RelayCommand(p => { if (p is DeviceRowViewModel d) d.IsConfirmingRelease = false; });
+        ConfirmReleaseCommand = new AsyncRelayCommand(p => ReleaseDeviceAsync(p as DeviceRowViewModel));
+
         RefreshLicenseStatus();
     }
 
@@ -46,6 +54,11 @@ public class SettingsViewModel : ViewModelBase
     public RelayCommand OpenLogCommand { get; }
     public AsyncRelayCommand CheckForUpdatesCommand { get; }
     public RelayCommand RestartForUpdateCommand { get; }
+    public AsyncRelayCommand ToggleDevicesCommand { get; }
+    public AsyncRelayCommand RefreshDevicesCommand { get; }
+    public RelayCommand RequestReleaseCommand { get; }
+    public RelayCommand CancelReleaseCommand { get; }
+    public AsyncRelayCommand ConfirmReleaseCommand { get; }
 
     // ---------------------------------------------------------------- updates
 
@@ -152,12 +165,19 @@ public class SettingsViewModel : ViewModelBase
     private async Task ActivateAsync()
     {
         IsBusy = true;
-        LicenseStatusText = "Checking your license…";
+        // The licence server may be a sleeping Render free instance — the
+        // first request after idle can take up to a minute. Roadmap 5.2:
+        // start with the honest "contacting" copy; ValidateAsync's progress
+        // callback swaps it for the "waking up" message once the wait has
+        // gone on long enough to say so (LicenseWaitCopy.MessageFor).
+        LicenseStatusText = LicenseWaitCopy.MessageFor(0);
         LicenseDetailText = "";
+
+        var progress = new Progress<string>(message => LicenseStatusText = message);
 
         try
         {
-            var result = await _license.ValidateAsync(LicenseKeyInput, LicenseEmailInput, _main.Settings);
+            var result = await _license.ValidateAsync(LicenseKeyInput, LicenseEmailInput, _main.Settings, progress);
 
             if (result.IsPro)
             {
@@ -166,6 +186,23 @@ public class SettingsViewModel : ViewModelBase
                 _main.OnTierChanged();
                 RefreshLicenseStatus();
                 _main.Toast("FlowShield activated. Thanks for buying it.");
+            }
+            else if (LicenseWaitCopy.IsTransportFailure(result.Definitive))
+            {
+                // A timeout or dropped connection is not a verdict on the key —
+                // never word it like a rejection (Roadmap 5.2).
+                LicenseStatusText = "Couldn't reach the licence server";
+                LicenseDetailText = result.Message;
+            }
+            else if (result.Status == "device_limit_reached")
+            {
+                // Roadmap 5.7: show the cap right where it blocked the user,
+                // with the list to act on inline, instead of just an error.
+                LicenseStatusText = "❌ Not activated";
+                var limit = _main.Settings.DeviceLimit > 0 ? _main.Settings.DeviceLimit : 3;
+                LicenseDetailText = $"This licence is on {limit} PCs. Release one to activate here.";
+                await LoadDevicesAsync(force: true);
+                IsDevicesExpanded = true;
             }
             else
             {
@@ -238,6 +275,97 @@ public class SettingsViewModel : ViewModelBase
     }
 
     public bool HasDeviceInfo => !string.IsNullOrEmpty(DeviceText);
+
+    // -------------------------------------------- devices (Roadmap 5.7)
+
+    public ObservableCollection<DeviceRowViewModel> Devices { get; } = new();
+
+    private bool _isDevicesExpanded;
+    /// <summary>Card state, not a toggle for the list — collapsing does not
+    /// clear what was already loaded, so re-expanding is instant.</summary>
+    public bool IsDevicesExpanded { get => _isDevicesExpanded; private set => Set(ref _isDevicesExpanded, value); }
+
+    private bool _isLoadingDevices;
+    public bool IsLoadingDevices { get => _isLoadingDevices; private set => Set(ref _isLoadingDevices, value); }
+
+    private string _devicesStatusText = "";
+    public string DevicesStatusText { get => _devicesStatusText; private set => Set(ref _devicesStatusText, value); }
+
+    private bool _devicesLoadedOnce;
+
+    /// <summary>
+    /// Roadmap 5.7: the list is fetched only when the card is expanded (the
+    /// first time) or the Refresh button is pressed — never on a timer or in
+    /// the background. Collapsing and re-expanding does not re-fetch.
+    /// </summary>
+    private async Task ToggleDevicesAsync()
+    {
+        IsDevicesExpanded = !IsDevicesExpanded;
+        if (IsDevicesExpanded && !_devicesLoadedOnce)
+        {
+            await LoadDevicesAsync(force: false);
+        }
+    }
+
+    private async Task LoadDevicesAsync(bool force)
+    {
+        if (!force && _devicesLoadedOnce) return;
+
+        IsLoadingDevices = true;
+        DevicesStatusText = "";
+        try
+        {
+            var result = await _license.ListDevicesAsync(_main.Settings);
+            _devicesLoadedOnce = true;
+
+            Devices.Clear();
+            if (!result.Ok)
+            {
+                DevicesStatusText = result.Error ?? "Couldn't load your devices.";
+                return;
+            }
+
+            foreach (var device in result.Devices)
+                Devices.Add(new DeviceRowViewModel(device));
+
+            // The card already shows count/limit while things are fine
+            // (DeviceText above); keep it in step with what was just fetched.
+            // Routed through LicenseService.SaveDeviceCounts (its
+            // MutateAndSave) rather than written directly here — #202.
+            _license.SaveDeviceCounts(_main.Settings, result.DeviceCount, result.DeviceLimit);
+            RefreshLicenseStatus();
+        }
+        finally
+        {
+            IsLoadingDevices = false;
+        }
+    }
+
+    private async Task ReleaseDeviceAsync(DeviceRowViewModel? device)
+    {
+        if (device is null || !device.CanRelease) return;
+
+        device.IsReleasing = true;
+        try
+        {
+            var ok = await _license.ReleaseDeviceAsync(_main.Settings, device.DeviceToken);
+            if (ok)
+            {
+                Devices.Remove(device);
+                _main.Toast($"Released {device.Name}. That seat is free for another machine.");
+                await LoadDevicesAsync(force: true);
+            }
+            else
+            {
+                device.IsConfirmingRelease = false;
+                DevicesStatusText = "Couldn't release that device. Try again.";
+            }
+        }
+        finally
+        {
+            device.IsReleasing = false;
+        }
+    }
 
     // ----------------------------------------------------------- preferences
 

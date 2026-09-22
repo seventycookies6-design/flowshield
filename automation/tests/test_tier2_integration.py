@@ -291,6 +291,63 @@ class TestPortal:
         assert response.json()["error"] == "no_customer"
 
 
+# ============================ devices (Roadmap 5.7 — manage your devices)
+#
+# The behaviour that needs an actual seated licence (listing, capping,
+# releasing by token) lives in tier 7, using its `licence` fixture — a real
+# subscription is the only way to get a row to attach devices to. These are
+# the parts of the /devices route that don't need one: basic request
+# validation, and that the new releaseToken field doesn't crash anything.
+
+class TestDevicesRouteValidation:
+    def test_missing_license_key_is_a_400(self, server):
+        response = requests.post(f"{server}/devices", json={}, timeout=20)
+        assert response.status_code == 400
+        assert response.json()["error"] == "missing_license_key"
+
+    def test_unknown_license_is_a_404(self, server):
+        response = requests.post(
+            f"{server}/devices", json={"licenseKey": new_key()}, timeout=20)
+        assert response.status_code == 404
+        assert response.json()["error"] == "not_found"
+
+    def test_release_with_a_release_token_but_no_known_licence_is_still_a_404(self, server):
+        """The new releaseToken field must be read without blowing up the
+        route before it even gets to looking anything up."""
+        response = requests.post(f"{server}/devices", json={
+            "licenseKey": new_key(),
+            "action": "release",
+            "releaseToken": "0123456789abcdef",
+        }, timeout=20)
+        assert response.status_code == 404
+
+    def test_malformed_key_is_handled_like_any_other_unknown_key(self, server):
+        response = requests.post(
+            f"{server}/devices", json={"licenseKey": "not-a-real-key"}, timeout=20)
+        assert response.status_code == 404
+
+
+class TestDeviceTokenIsWiredIntoTheRoute:
+    def test_devices_route_imports_the_shared_helper(self):
+        """
+        Pins that server.js uses the extracted, unit-tested devicetoken.js
+        module rather than reimplementing its own hashing inline (which tier
+        1's TestDeviceToken would then not actually be covering).
+        """
+        source = (Path(SERVER_DIR) / "server.js").read_text(encoding="utf-8")
+        assert "require('./devicetoken')" in source
+        assert "deviceToken(" in source
+
+    def test_the_list_response_carries_a_token_not_just_a_name(self):
+        source = (Path(SERVER_DIR) / "server.js").read_text(encoding="utf-8")
+        devices_route = source.split("app.post('/devices'")[1].split("app.post(")[0]
+        mapping = devices_route.split("const devices = db.listDevices")[1].split(");")[0]
+        assert "deviceToken:" in mapping, (
+            "each row in the /devices response needs a release token so the "
+            "client can target a device other than its own without the raw id"
+        )
+
+
 # ========================================================== checkout (live)
 
 class TestCreateCheckout:

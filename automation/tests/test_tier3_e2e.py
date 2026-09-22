@@ -133,6 +133,149 @@ class TestBlockedApps:
         assert "explorer" not in names, "explorer.exe must never be blockable"
 
 
+# ==================================================== blocklist profiles (F9)
+
+class TestBlocklistProfiles:
+    """
+    A profile is a named blocklist, and a sprint enforces the active one only —
+    the checklist's Done-when for F9: switch profile, start a sprint, check that
+    only that profile's app is blocked.
+    """
+
+    OTHER_TARGET = "flowshield-test-target-two"
+
+    def test_the_default_profile_holds_todays_list(self, fresh_app):
+        fresh_app.navigate_to_tab("Blocked Apps")
+        fresh_app.add_blocked_app(TEST_BLOCK_APP)
+        time.sleep(0.8)
+
+        settings = verify.read_settings()
+        profiles = settings["Profiles"]
+        assert len(profiles) == 1 and profiles[0]["Name"] == "Default", profiles
+        names = [a["ProcessName"] for a in profiles[0]["Apps"]]
+        assert TEST_BLOCK_APP in names, names
+        assert settings["ActiveProfileId"] == profiles[0]["Id"]
+
+    def test_a_new_profile_starts_from_the_list_on_screen(self, fresh_app):
+        fresh_app.navigate_to_tab("Blocked Apps")
+        fresh_app.add_blocked_app(TEST_BLOCK_APP)
+        time.sleep(0.8)
+
+        fresh_app.new_profile("School")
+        time.sleep(0.8)
+
+        names = fresh_app.blocked_app_names()
+        assert any(TEST_BLOCK_APP.lower() in n.lower() for n in names), names
+
+        settings = verify.read_settings()
+        assert [p["Name"] for p in settings["Profiles"]] == ["Default", "School"]
+
+    def test_the_list_edits_the_selected_profile_only(self, fresh_app):
+        fresh_app.navigate_to_tab("Blocked Apps")
+        fresh_app.add_blocked_app(TEST_BLOCK_APP)
+        time.sleep(0.8)
+        fresh_app.new_profile("School")
+        time.sleep(0.8)
+
+        # Swap School's target for a different one.
+        fresh_app.remove_blocked_app(TEST_BLOCK_APP)
+        fresh_app.add_blocked_app(self.OTHER_TARGET)
+        time.sleep(0.8)
+
+        settings = verify.read_settings()
+        by_name = {p["Name"]: [a["ProcessName"] for a in p["Apps"]] for p in settings["Profiles"]}
+        assert by_name["Default"] == [TEST_BLOCK_APP], by_name
+        assert by_name["School"] == [self.OTHER_TARGET], by_name
+
+    def test_the_last_profile_cannot_be_deleted(self, fresh_app):
+        fresh_app.navigate_to_tab("Blocked Apps")
+        fresh_app.delete_profile()
+        time.sleep(0.8)
+
+        settings = verify.read_settings()
+        assert len(settings["Profiles"]) == 1, "the only profile must survive Delete"
+
+    def test_today_names_the_profile_the_next_sprint_will_use(self, fresh_app):
+        fresh_app.navigate_to_tab("Blocked Apps")
+        fresh_app.new_profile("School")
+        time.sleep(0.8)
+
+        fresh_app.navigate_to_tab("Today")
+        assert "School" in fresh_app.today_profile_caption()
+
+    def _decoy(self, tmp_path, name: str) -> subprocess.Popen:
+        """A harmless stand-in process under a given name, as TestPreSprintWarning does."""
+        import shutil
+
+        exe = tmp_path / f"{name}.exe"
+        shutil.copy2(Path(os.environ["WINDIR"]) / "System32" / "PING.EXE", exe)
+        return subprocess.Popen(
+            [str(exe), "-n", "300", "127.0.0.1"],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+
+    def test_a_firm_sprint_blocks_only_the_active_profiles_app(self, fresh_app, tmp_path):
+        """
+        The Done-when. Default blocks one target, School blocks another; with
+        School active, a Firm sprint closes School's target and leaves
+        Default's running.
+        """
+        fresh_app.navigate_to_tab("Blocked Apps")
+        fresh_app.add_blocked_app(TEST_BLOCK_APP)
+        time.sleep(0.6)
+        fresh_app.new_profile("School")
+        time.sleep(0.6)
+        fresh_app.remove_blocked_app(TEST_BLOCK_APP)
+        fresh_app.add_blocked_app(self.OTHER_TARGET)
+        time.sleep(0.6)
+
+        # Two harmless stand-ins, one per profile.
+        default_target = self._decoy(tmp_path, TEST_BLOCK_APP)
+        school_target = self._decoy(tmp_path, self.OTHER_TARGET)
+        try:
+            fresh_app.navigate_to_tab("Today")
+            assert "School" in fresh_app.today_profile_caption()
+            fresh_app.select_shield("Firm")
+            fresh_app.start_sprint()
+
+            # Wait for the outcome, not for a duration (#146): School's target
+            # going away is the signal.
+            deadline = time.time() + 30
+            while time.time() < deadline and school_target.poll() is None:
+                time.sleep(0.5)
+
+            assert school_target.poll() is not None, \
+                "the active profile's app was left running"
+            assert default_target.poll() is None, \
+                "an app on another profile was closed; only the active profile is enforced"
+        finally:
+            for process in (default_target, school_target):
+                if process.poll() is None:
+                    process.kill()
+            fresh_app.stop_sprint()
+
+    def test_sealed_locks_the_profile_switcher(self, fresh_app):
+        fresh_app.navigate_to_tab("Blocked Apps")
+        fresh_app.new_profile("School")
+        time.sleep(0.6)
+
+        fresh_app.navigate_to_tab("Today")
+        fresh_app.select_shield("Sealed")
+        fresh_app.start_sprint()
+        fresh_app.wait_out_grace_period()
+
+        before = verify.read_settings()["ActiveProfileId"]
+        fresh_app.navigate_to_tab("Blocked Apps")
+        # Invoked, not merely looked at: a disabled control can still be
+        # invoked by automation, so the refusal has to hold anyway (#134).
+        fresh_app.select_profile("Default")
+        time.sleep(0.8)
+
+        assert verify.read_settings()["ActiveProfileId"] == before, \
+            "Sealed must keep the active profile until the sprint ends"
+        fresh_app.stop_sprint()
+
+
 # ============================================================== sprint flow
 
 class TestPreSprintWarning:

@@ -254,6 +254,7 @@ public class TodayViewModel : ViewModelBase
             Raise(nameof(SoftHardKillHintVisible));
             Raise(nameof(EndButtonVisible));
             Raise(nameof(EndButtonLabel));
+            Raise(nameof(CanSwitchProfile));
         }
     }
 
@@ -674,6 +675,42 @@ public class TodayViewModel : ViewModelBase
         _main.CurrentPage == AppPage.Today && !_main.FirstRun.IsVisible
         && Keyboard.FocusedElement is not TextBox;
 
+    // -------------------------------------------- the blocklist in use (F9)
+
+    /// <summary>
+    /// Which blocklist the next sprint will enforce, as one caption line —
+    /// "Blocking: School".
+    ///
+    /// One line and no numbers: while a sprint runs, the only thing on this page
+    /// that matters is the timer (§1), so the profile says its name and stays out
+    /// of the way.
+    /// </summary>
+    public string ProfileCaption => _main.BlockedApps.ProfileCaption;
+
+    /// <summary>The switcher's chips, shared with the Blocked Apps page.</summary>
+    public System.Collections.ObjectModel.ObservableCollection<BlocklistProfile> Profiles =>
+        _main.BlockedApps.Profiles;
+
+    /// <summary>
+    /// Changing the profile before starting. The same command the Blocked Apps
+    /// switcher uses, so Sealed's lock is one rule in one place.
+    /// </summary>
+    public RelayCommand SelectProfileCommand => _main.BlockedApps.SelectProfileCommand;
+
+    /// <summary>More than one profile is worth a switcher; one is just a caption.</summary>
+    public bool ProfileSwitcherVisible => Profiles.Count > 1;
+
+    /// <summary>Idle only: a running sprint keeps the blocklist it started with.</summary>
+    public bool CanSwitchProfile => !IsRunning && _main.BlockedApps.CanSwitchProfile;
+
+    /// <summary>Called when the profile is renamed, switched, added or deleted.</summary>
+    public void RefreshProfileCaption()
+    {
+        Raise(nameof(ProfileCaption));
+        Raise(nameof(ProfileSwitcherVisible));
+        Raise(nameof(CanSwitchProfile));
+    }
+
     /// <summary>Shift+1/2/3 only change the shield where the segmented buttons do: idle, on Today.</summary>
     private bool CanChangeShield() =>
         _main.CurrentPage == AppPage.Today && !_main.FirstRun.IsVisible && !IsRunning;
@@ -827,11 +864,16 @@ public class TodayViewModel : ViewModelBase
             WatchedMinutes = 0,
             MomentumAtStart = S.MomentumScore,
             Intention = intention,
+
+            // The blocklist this sprint enforces, written down rather than
+            // inferred later (F9). F6's templates will set it before starting.
+            ActiveProfileId = S.ActiveProfile.Id,
         };
         _main.SaveSettings();
 
         BeginRunning($"Shield {Roman(SelectedShield)} engaged");
-        Log.Info($"sprint started: {SelectedMinutes}m at shield {SelectedShield}");
+        Log.Info($"sprint started: {SelectedMinutes}m at shield {SelectedShield}, "
+                 + $"blocklist \"{S.ActiveProfile.Name}\"");
 
         _main.Notify(NotificationKind.SprintStarted, "Sprint started",
             $"{SelectedShield} shield on for {SelectedMinutes} minutes.");
@@ -919,6 +961,16 @@ public class TodayViewModel : ViewModelBase
                 Raise(nameof(SelectedShield));
                 Raise(nameof(ShieldDescription));
                 Raise(nameof(ShieldBestFor));
+
+                // A sprint resumes on the blocklist it started with (F9).
+                // Otherwise a Sealed sprint could come back enforcing a profile
+                // swapped in while FlowShield was closed, which is the lock
+                // undone by a restart.
+                if (S.SetActiveProfile(saved.ActiveProfileId))
+                {
+                    _main.BlockedApps.ReloadActiveProfile();
+                    Log.Info($"resumed sprint restored its blocklist: \"{S.ActiveProfile.Name}\"");
+                }
 
                 // LastSeenUtc moves up, but the gap it spans is deliberately
                 // not added to WatchedMinutes: FlowShield was closed for it.

@@ -1128,6 +1128,121 @@ class TestEndSprintPolicy:
         assert phrase_matches(typed) is ok
 
 
+# ================= Roadmap 5.2 — honest waiting while the licence server wakes
+
+def wait_message_for(elapsed_seconds: float) -> str:
+    """Mirror of LicenseWaitCopy.MessageFor."""
+    waking_up_after = 8.0
+    if elapsed_seconds < waking_up_after:
+        return "Contacting the licence server…"
+    return "The server is waking up. This can take up to a minute."
+
+
+def timeout_for_attempt(attempt: int) -> float:
+    """Mirror of LicenseWaitCopy.TimeoutForAttempt."""
+    first, retry = 35.0, 15.0
+    return first if attempt <= 1 else retry
+
+
+class TestLicenseWaitCopy:
+    """
+    Pure helper (DesktopApp/Services/LicenseWaitCopy.cs) behind the honest
+    waiting UI: the copy ladder shown while activation retries, and the
+    backoff schedule the retries follow. No network, no app — this class
+    mirrors its logic and cross-checks the constants against the source.
+    """
+
+    SOURCE = Path(SERVER_DIR).parent / "DesktopApp" / "Services" / "LicenseWaitCopy.cs"
+
+    @pytest.mark.parametrize("elapsed,expected", [
+        (0.0, "Contacting the licence server…"),
+        (7.9, "Contacting the licence server…"),
+        (8.0, "The server is waking up. This can take up to a minute."),
+        (60.0, "The server is waking up. This can take up to a minute."),
+    ])
+    def test_message_ladder(self, elapsed, expected):
+        assert wait_message_for(elapsed) == expected
+
+    def test_message_never_says_invalid_for_a_wait(self):
+        for elapsed in (0.0, 3.0, 8.0, 30.0, 74.0):
+            message = wait_message_for(elapsed)
+            assert "invalid" not in message.lower()
+            assert "not activated" not in message.lower()
+
+    @pytest.mark.parametrize("attempt,expected", [(1, 35.0), (2, 15.0), (3, 15.0)])
+    def test_timeout_schedule(self, attempt, expected):
+        assert timeout_for_attempt(attempt) == expected
+
+    def test_total_budget_is_around_75_seconds(self):
+        source = self.SOURCE.read_text(encoding="utf-8")
+        assert "35.0" in source and "15.0" in source
+
+        # first attempt + two retries, each with a short delay first
+        total = timeout_for_attempt(1) + 2.0 + timeout_for_attempt(2) + 5.0 + timeout_for_attempt(3)
+        assert 60.0 <= total <= 75.0, (
+            f"retry budget is {total}s; roadmap 5.2 asks for backoff up to "
+            "~75s total"
+        )
+
+    def test_retry_delays_match_the_source(self):
+        source = self.SOURCE.read_text(encoding="utf-8")
+        delays = source.split("RetryDelaysSeconds = new[] {")[1].split("}")[0]
+        assert "2.0" in delays and "5.0" in delays
+
+
+# ========================= Roadmap 5.7 — see and manage your devices (token)
+
+class TestDeviceToken:
+    """
+    Server/devicetoken.js: the opaque, per-(licence, device) token the
+    /devices list hands back instead of the raw hashed device id, so
+    Settings' "Your devices" list can target one *other* device for release
+    without the server ever disclosing another machine's real identifier.
+
+    Pure crypto, no database and no HTTP — split into its own module
+    specifically so it is testable without starting the server (server.js
+    calls app.listen() unconditionally at require time).
+    """
+
+    def _token(self, license_key: str, device_id: str) -> str:
+        out = node_eval(
+            "const {deviceToken}=require('./devicetoken');"
+            f"console.log(JSON.stringify({{t:deviceToken({license_key!r},{device_id!r})}}))"
+        )
+        return out["t"]
+
+    def test_deterministic_for_the_same_pair(self):
+        a = self._token("FS-AAAA-BBBB-CCCC-DDDD", "device-1")
+        b = self._token("FS-AAAA-BBBB-CCCC-DDDD", "device-1")
+        assert a == b
+
+    def test_distinct_for_different_devices(self):
+        a = self._token("FS-AAAA-BBBB-CCCC-DDDD", "device-1")
+        b = self._token("FS-AAAA-BBBB-CCCC-DDDD", "device-2")
+        assert a != b
+
+    def test_distinct_for_different_licences(self):
+        """The same physical device on two licences must not share a token —
+        that would let one customer's list fingerprint another's device."""
+        a = self._token("FS-AAAA-BBBB-CCCC-DDDD", "device-1")
+        b = self._token("FS-EEEE-FFFF-GGGG-HHHH", "device-1")
+        assert a != b
+
+    def test_never_equal_to_the_raw_device_id(self):
+        device_id = "a" * 32
+        token = self._token("FS-AAAA-BBBB-CCCC-DDDD", device_id)
+        assert token != device_id
+        assert device_id not in token
+
+    def test_is_not_reversible_to_the_device_id(self):
+        """Sanity check: it's a hash digest, not the id itself or a trivial
+        transform of it (e.g. a prefix or suffix)."""
+        device_id = "b" * 32
+        token = self._token("FS-AAAA-BBBB-CCCC-DDDD", device_id)
+        assert not device_id.startswith(token)
+        assert not token.startswith(device_id[:16])
+
+
 # ============================================= sprint summary card (F12)
 
 def summary_title(completed: bool, start_momentum: float, end_momentum: float) -> str:
@@ -3215,3 +3330,102 @@ class TestTrayMenuSource:
         assert "vm.Today.StopCommand.Execute(null)" in end, \
             "the tray must trigger the same StopCommand as the Today button, not end the sprint directly"
         assert "EndSprint(" not in end
+
+
+# ================================================ blocklist profiles (F9)
+
+class TestBlocklistProfileRules:
+    """
+    The three rules a blocklist profile lives by (F9, roadmap 3.8): the one
+    list that existed before becomes the Default profile, there is always at
+    least one profile, and an active id naming nothing still resolves to a
+    list the shield can enforce.
+
+    Unit-by-source, like the settings-model tests above: it reads the C# rather
+    than running it.
+    """
+
+    SETTINGS = Path(SERVER_DIR).parent / "DesktopApp" / "Models" / "AppSettings.cs"
+    PROFILE = Path(SERVER_DIR).parent / "DesktopApp" / "Models" / "BlocklistProfile.cs"
+    MAIN_VM = Path(SERVER_DIR).parent / "DesktopApp" / "ViewModels" / "MainViewModel.cs"
+
+    def source(self) -> str:
+        return self.SETTINGS.read_text(encoding="utf-8")
+
+    def method(self, signature: str) -> str:
+        return self.source().split(signature)[1].split("\n    }")[0]
+
+    # ------------------------------------------------------------- migration
+
+    def test_the_old_single_blocklist_becomes_the_default_profile(self):
+        ensure = self.method("public bool EnsureProfiles()")
+        assert "Profiles.Count == 0" in ensure
+        assert "DefaultProfileName" in ensure
+        assert "_legacyBlockedApps" in ensure, \
+            "the list from a settings file written before profiles must carry over"
+        assert "changed = true" in ensure
+
+    def test_the_legacy_list_is_what_the_old_property_name_still_writes_into(self):
+        source = self.source()
+        blocked = source.split("public List<BlockedApp> BlockedApps")[1].split("\n    }")[0]
+        assert "set => _legacyBlockedApps = value;" in blocked
+        assert "get => ActiveProfile.Apps;" in blocked
+
+    def test_migration_runs_once_at_startup_before_anything_reads_the_list(self):
+        main = self.MAIN_VM.read_text(encoding="utf-8")
+        ctor = main.split("public MainViewModel(")[1].split("\n    public SettingsService")[0]
+        assert "Settings.EnsureProfiles()" in ctor
+        assert ctor.index("Settings.EnsureProfiles()") < ctor.index("new AppBlockerService("), \
+            "profiles must exist before the blocker takes its first snapshot"
+
+    # -------------------------------------------- never delete the last one
+
+    def test_the_last_profile_cannot_be_deleted(self):
+        remove = self.method("public bool RemoveProfile(string? id)")
+        assert "if (Profiles.Count <= 1) return false;" in remove, \
+            "there is always at least one blocklist"
+
+    def test_deleting_the_active_profile_moves_the_active_id(self):
+        remove = self.method("public bool RemoveProfile(string? id)")
+        assert "ActiveProfileId = Profiles[0].Id" in remove
+
+    def test_the_view_model_hides_delete_on_the_only_profile(self):
+        vm = (Path(SERVER_DIR).parent / "DesktopApp" / "ViewModels"
+              / "BlockedAppsViewModel.cs").read_text(encoding="utf-8")
+        assert "public bool CanDeleteProfile => CanEditProfiles && Profiles.Count > 1;" in vm
+
+    # ----------------------------------------------- resolving the active id
+
+    def test_a_missing_active_id_falls_back_rather_than_throwing(self):
+        active = self.source().split("public BlocklistProfile ActiveProfile")[1].split("\n    }")[0]
+        assert "FindProfile(ActiveProfileId)" in active
+        assert "if (Profiles.Count > 0) return Profiles[0];" in active, \
+            "an id naming a deleted profile must still resolve to a list"
+        assert "Profiles.Add(seeded)" in active, \
+            "with no profiles at all, one is seeded rather than returning null"
+
+    def test_an_empty_id_never_matches_a_profile(self):
+        find = self.source().split(
+            "public BlocklistProfile? FindProfile(string? id) =>")[1].split(";")[0]
+        assert "string.IsNullOrEmpty(id)" in find
+        assert "? null" in find
+
+    def test_ensureprofiles_settles_a_dangling_active_id(self):
+        ensure = self.method("public bool EnsureProfiles()")
+        assert "if (FindProfile(ActiveProfileId) is null)" in ensure
+        assert "ActiveProfileId = Profiles[0].Id;" in ensure
+
+    # ------------------------------------------------------ keeping it simple
+
+    def test_a_profile_is_a_name_and_a_list_and_nothing_more(self):
+        profile = self.PROFILE.read_text(encoding="utf-8")
+        for rule in ("Schedule", "TimeWindow", "DaysOfWeek", "ShieldLevel"):
+            assert rule not in profile, \
+                f"a profile carries no {rule}: per-profile rules are the complexity F9 refuses"
+
+    def test_the_suggested_profiles_are_offered_not_created(self):
+        source = self.source()
+        assert '"School", "Gaming break", "Everything"' in source
+        ensure = self.method("public bool EnsureProfiles()")
+        assert "SuggestedProfileNames" not in ensure, \
+            "the suggestions are names to pick from, not profiles the app makes"

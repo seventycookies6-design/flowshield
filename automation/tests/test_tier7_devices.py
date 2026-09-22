@@ -214,6 +214,131 @@ class TestAppSide:
         assert "catch" in body, "a network failure must not block local deactivation"
 
 
+# ======================== Roadmap 5.7 — see and manage your devices (token)
+
+@pytest.mark.stripe
+class TestReleaseByToken:
+    """
+    Settings' "Your devices" list (Roadmap 5.7) releases an *other* device by
+    the opaque deviceToken its row carried, never by a raw device id — the
+    list response never contains one (see TestLimitDoesNotLockOut's
+    test_listing_does_not_expose_raw_device_ids above). These exercise that
+    exact path end to end against the live server.
+    """
+
+    def test_each_row_carries_a_release_token(self, server, licence):
+        activate(server, licence, device(), "Desktop")
+
+        body = requests.post(f"{server}/devices",
+                             json={"licenseKey": licence}, timeout=30).json()
+
+        assert len(body["devices"]) == 1
+        token = body["devices"][0].get("deviceToken")
+        assert token, "each device row needs a deviceToken to be releasable"
+        assert len(token) >= 8
+
+    def test_the_token_is_stable_across_listings(self, server, licence):
+        activate(server, licence, device(), "Desktop")
+
+        first = requests.post(f"{server}/devices",
+                              json={"licenseKey": licence}, timeout=30).json()
+        second = requests.post(f"{server}/devices",
+                               json={"licenseKey": licence}, timeout=30).json()
+
+        assert first["devices"][0]["deviceToken"] == second["devices"][0]["deviceToken"]
+
+    def test_releasing_by_token_frees_the_seat(self, server, licence):
+        used = [device() for _ in range(LIMIT)]
+        for index, d in enumerate(used):
+            activate(server, licence, d, f"PC {index + 1}")
+
+        assert activate(server, licence, device())["isPro"] is False, \
+            "the cap should be full before we release anything"
+
+        listing = requests.post(f"{server}/devices",
+                                json={"licenseKey": licence}, timeout=30).json()
+        target = next(d for d in listing["devices"] if d["name"] == "PC 1")
+
+        released = requests.post(f"{server}/devices", json={
+            "licenseKey": licence,
+            "action": "release",
+            "releaseToken": target["deviceToken"],
+        }, timeout=30).json()
+        assert released["deviceCount"] == LIMIT - 1
+
+        body = activate(server, licence, device(), "Replacement laptop")
+        assert body["isPro"] is True, "releasing by token did not free the seat"
+
+    def test_releasing_by_token_does_not_touch_other_devices(self, server, licence):
+        activate(server, licence, device(), "Keep me")
+        activate(server, licence, device(), "Release me")
+
+        listing = requests.post(f"{server}/devices",
+                                json={"licenseKey": licence}, timeout=30).json()
+        target = next(d for d in listing["devices"] if d["name"] == "Release me")
+
+        requests.post(f"{server}/devices", json={
+            "licenseKey": licence,
+            "action": "release",
+            "releaseToken": target["deviceToken"],
+        }, timeout=30)
+
+        after = requests.post(f"{server}/devices",
+                              json={"licenseKey": licence}, timeout=30).json()
+        assert {d["name"] for d in after["devices"]} == {"Keep me"}
+
+    def test_an_unrecognised_token_releases_nothing(self, server, licence):
+        activate(server, licence, device(), "Desktop")
+
+        response = requests.post(f"{server}/devices", json={
+            "licenseKey": licence,
+            "action": "release",
+            "releaseToken": "0" * 16,
+        }, timeout=30)
+        assert response.status_code == 400
+
+        after = requests.post(f"{server}/devices",
+                              json={"licenseKey": licence}, timeout=30).json()
+        assert after["deviceCount"] == 1, "an unrecognised token must not remove a device"
+
+    def test_self_release_by_device_id_still_works_alongside_tokens(self, server, licence):
+        """LicenseService.DeactivateAsync still sends its own raw device id —
+        that path must keep working now that release also accepts a token."""
+        mine = device()
+        activate(server, licence, mine, "My PC")
+
+        released = requests.post(f"{server}/devices", json={
+            "licenseKey": licence,
+            "action": "release",
+            "deviceId": mine,
+        }, timeout=30).json()
+        assert released["deviceCount"] == 0
+
+
+@pytest.mark.stripe
+class TestActivationDuringCapShowsTheList:
+    """
+    Roadmap 5.7: hitting the cap during activation should not be a dead end —
+    the app fetches the device list right there so the customer can release a
+    seat without hunting for it. This pins the server-side half: the refusal
+    still carries deviceCount/deviceLimit so the app can show
+    "This licence is on N PCs" and immediately list them via /devices.
+    """
+
+    def test_the_refusal_has_what_the_app_needs_to_show_the_list_inline(self, server, licence):
+        for index in range(LIMIT):
+            activate(server, licence, device(), f"PC {index + 1}")
+
+        refusal = activate(server, licence, device(), "One too many")
+        assert refusal["reason"] == "device_limit_reached"
+        assert refusal["deviceCount"] == LIMIT
+        assert refusal["deviceLimit"] == LIMIT
+
+        listing = requests.post(f"{server}/devices",
+                                json={"licenseKey": licence}, timeout=30).json()
+        assert len(listing["devices"]) == LIMIT
+
+
 @pytest.mark.stripe
 class TestSeatReleaseSurvivesDataLoss:
     """

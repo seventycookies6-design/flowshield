@@ -1,7 +1,9 @@
+using System.Diagnostics;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text.Json.Serialization;
 using FlowShield.Models;
+using System.Linq;
 
 namespace FlowShield.Services;
 
@@ -41,8 +43,6 @@ public class LicenseService
     /// licence is invalid", which is the worst possible way to be wrong.
     /// </summary>
     private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(35);
-
-    private const int TimeoutRetries = 2;
 
     public LicenseService(SettingsService settings, HttpClient? http = null)
     {
@@ -109,8 +109,14 @@ public class LicenseService
     /// Validates against the server and, on success, writes the Pro flag into
     /// settings. A network failure never downgrades an already-Pro install —
     /// the user paid, and a flaky connection is not grounds for revocation.
+    ///
+    /// <paramref name="progress"/>, if given, is reported with the copy ladder
+    /// message (<see cref="LicenseWaitCopy.MessageFor"/>) each time a wait
+    /// begins, so a caller such as <c>SettingsViewModel</c> can show honest,
+    /// time-aware status while a sleeping licence server wakes up.
     /// </summary>
-    public async Task<LicenseResult> ValidateAsync(string licenseKey, string email, AppSettings settings)
+    public async Task<LicenseResult> ValidateAsync(
+        string licenseKey, string email, AppSettings settings, IProgress<string>? progress = null)
     {
         var key = (licenseKey ?? "").Trim();
         var mail = (email ?? "").Trim();
@@ -124,32 +130,76 @@ public class LicenseService
         {
             Log.Info($"validating license against {url}");
 
-            // Retry only on timeout, and only a couple of times: a sleeping
-            // free-tier host wakes on the first request and answers the next.
-            // Other failures are not retried — repeating a rejected licence
-            // check just makes the user wait longer for the same answer.
+            // Retry on timeouts, dropped connections and 5xx responses — all
+            // transport trouble, most likely a sleeping free-tier host waking
+            // up — using LicenseWaitCopy's schedule: a generous first attempt
+            // (long enough for a genuine cold start), shorter follow-ups (the
+            // host should be awake by then), with short delays between so we
+            // don't hammer a host that is still booting. A rejected key is not
+            // retried; repeating that just makes the user wait longer for the
+            // same answer.
+            var stopwatch = Stopwatch.StartNew();
             HttpResponseMessage? response = null;
-            for (var attempt = 1; ; attempt++)
+            Exception? transportError = null;
+
+            for (var attempt = 1; attempt <= LicenseWaitCopy.TotalAttempts; attempt++)
             {
+                progress?.Report(LicenseWaitCopy.MessageFor(stopwatch.Elapsed.TotalSeconds));
+
+                using var cts = new CancellationTokenSource(
+                    TimeSpan.FromSeconds(LicenseWaitCopy.TimeoutForAttempt(attempt)));
                 try
                 {
-                    response = await _http.PostAsJsonAsync(url, new
+                    var attemptResponse = await _http.PostAsJsonAsync(url, new
                     {
                         licenseKey = key,
                         email = mail,
                         deviceId = DeviceIdentity.Id,
                         deviceName = DeviceIdentity.Name,
-                    });
-                    break;
+                    }, cts.Token);
+
+                    if ((int)attemptResponse.StatusCode >= 500)
+                    {
+                        transportError = new HttpRequestException(
+                            $"license server returned HTTP {(int)attemptResponse.StatusCode}");
+                        Log.Warn($"license request got a server error (attempt {attempt}): "
+                                 + $"HTTP {(int)attemptResponse.StatusCode}; the server may be waking up");
+                        attemptResponse.Dispose();
+                    }
+                    else
+                    {
+                        response = attemptResponse;
+                        break;
+                    }
                 }
-                catch (TaskCanceledException) when (attempt <= TimeoutRetries)
+                catch (Exception ex) when (ex is TaskCanceledException or OperationCanceledException or HttpRequestException)
                 {
-                    Log.Warn($"license request timed out (attempt {attempt}); the server may be waking up");
+                    transportError = ex;
+                    Log.Warn($"license request failed (attempt {attempt}): {ex.Message}; "
+                             + "the server may be waking up");
+                }
+
+                if (attempt < LicenseWaitCopy.TotalAttempts)
+                {
+                    var delay = LicenseWaitCopy.RetryDelaysSeconds[attempt - 1];
+                    await Task.Delay(TimeSpan.FromSeconds(delay));
                 }
             }
 
+            if (response is null)
+            {
+                // Transport failure across every attempt. This is never a
+                // verdict on the key — see LicenseResult.Failure — so it must
+                // never be worded like a rejected key.
+                Log.Error("license server unreachable after retries",
+                    transportError ?? new Exception("unknown transport failure"));
+                return LicenseResult.Failure(
+                    $"Couldn't reach the license server at {settings.LicenseServerUrl}. " +
+                    "It may still be waking up — check it's running, then try again.");
+            }
+
             using var _ = response;
-            var body = await response!.Content.ReadFromJsonAsync<ValidateResponse>();
+            var body = await response.Content.ReadFromJsonAsync<ValidateResponse>();
             if (body is null)
                 return LicenseResult.Failure("The license server returned an unreadable response.");
 
@@ -295,5 +345,115 @@ public class LicenseService
             s.DeviceLimit = 0;
         });
         Log.Info("license deactivated locally");
+    }
+
+    /// <summary>
+    /// Updates the cached device count/limit shown on the licence card
+    /// (DeviceText) after a fresh <see cref="ListDevicesAsync"/> or
+    /// <see cref="ReleaseDeviceAsync"/> call, through the same
+    /// <see cref="MutateAndSave"/> path every other settings mutation uses
+    /// (#202) rather than writing the fields directly from the view model.
+    /// </summary>
+    public void SaveDeviceCounts(AppSettings settings, int deviceCount, int deviceLimit) =>
+        MutateAndSave(settings, s =>
+        {
+            s.DeviceCount = deviceCount;
+            s.DeviceLimit = deviceLimit;
+        });
+
+    private sealed class DeviceRow
+    {
+        [JsonPropertyName("name")] public string? Name { get; set; }
+        [JsonPropertyName("lastSeen")] public long? LastSeen { get; set; }
+        [JsonPropertyName("isCurrent")] public bool IsCurrent { get; set; }
+        [JsonPropertyName("deviceToken")] public string? DeviceToken { get; set; }
+    }
+
+    private sealed class DevicesResponse
+    {
+        [JsonPropertyName("ok")] public bool Ok { get; set; }
+        [JsonPropertyName("deviceCount")] public int DeviceCount { get; set; }
+        [JsonPropertyName("deviceLimit")] public int DeviceLimit { get; set; }
+        [JsonPropertyName("devices")] public List<DeviceRow>? Devices { get; set; }
+        [JsonPropertyName("message")] public string? Message { get; set; }
+    }
+
+    /// <summary>
+    /// Roadmap 5.7 — the licence's "Your devices" list. Fetched on demand
+    /// only (the Settings card calls this when it's expanded, or on its
+    /// Refresh button) — never polled.
+    /// </summary>
+    public async Task<DeviceListResult> ListDevicesAsync(AppSettings settings)
+    {
+        var key = settings.LicenseKey;
+        if (string.IsNullOrWhiteSpace(key))
+            return new DeviceListResult(false, Array.Empty<DeviceInfo>(), 0, 0,
+                "No licence key to look up.");
+
+        var url = settings.LicenseServerUrl.TrimEnd('/') + "/devices";
+        try
+        {
+            using var response = await _http.PostAsJsonAsync(url, new
+            {
+                licenseKey = key,
+                deviceId = DeviceIdentity.Id,
+            });
+            var body = await response.Content.ReadFromJsonAsync<DevicesResponse>();
+            if (body is null || !body.Ok)
+            {
+                return new DeviceListResult(false, Array.Empty<DeviceInfo>(), 0, 0,
+                    body?.Message ?? "Couldn't load your devices.");
+            }
+
+            var devices = (body.Devices ?? new List<DeviceRow>())
+                .Select(d => new DeviceInfo(
+                    string.IsNullOrWhiteSpace(d.Name) ? "Unnamed device" : d.Name!,
+                    d.DeviceToken ?? "",
+                    d.IsCurrent,
+                    d.LastSeen is { } seconds
+                        ? DateTimeOffset.FromUnixTimeSeconds(seconds).UtcDateTime
+                        : null))
+                .ToList();
+
+            return new DeviceListResult(true, devices, body.DeviceCount, body.DeviceLimit);
+        }
+        catch (Exception ex)
+        {
+            Log.Warn($"could not list devices: {ex.Message}");
+            return new DeviceListResult(false, Array.Empty<DeviceInfo>(), 0, 0,
+                "Couldn't reach the licence server.");
+        }
+    }
+
+    /// <summary>
+    /// Releases one *other* device's seat by the opaque token its row in
+    /// <see cref="ListDevicesAsync"/> carried — never by a raw device id,
+    /// which the server does not hand back (Roadmap 5.7). Releasing this
+    /// machine's own seat instead goes through <see cref="DeactivateAsync"/>,
+    /// which already knows its own id.
+    /// </summary>
+    public async Task<bool> ReleaseDeviceAsync(AppSettings settings, string deviceToken)
+    {
+        var key = settings.LicenseKey;
+        if (string.IsNullOrWhiteSpace(key) || string.IsNullOrWhiteSpace(deviceToken))
+            return false;
+
+        var url = settings.LicenseServerUrl.TrimEnd('/') + "/devices";
+        try
+        {
+            using var response = await _http.PostAsJsonAsync(url, new
+            {
+                licenseKey = key,
+                action = "release",
+                releaseToken = deviceToken,
+            });
+            Log.Info($"device release by token: HTTP {(int)response.StatusCode}");
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            Log.Warn($"could not release device: {ex.Message}");
+            return false;
+        }
     }
 }

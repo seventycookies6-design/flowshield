@@ -178,6 +178,19 @@ class TestPrivacyClaimsMatchTheCode:
             'AutomationId="DeleteEverythingButton"')[0][-400:], \
             "Delete everything must use the destructive button style (DESIGN_SYSTEM.md §7)"
 
+    def test_legal_html_can_see_and_remove_devices_is_backed_by_code(self):
+        """
+        legal.html already promised "you can see and remove your own
+        devices" before Roadmap 5.7 built that feature — rule #5 ("never
+        claim a feature the shipped build doesn't have") means that promise
+        had to become true in this PR, not just stay written down.
+        """
+        assert "see and remove your own devices" in self.LEGAL.lower()
+        assert 'AutomationId="DevicesList"' in self.SETTINGS_VIEW
+        assert 'Binding DataContext.ConfirmReleaseCommand' in self.SETTINGS_VIEW
+        assert "ListDevicesAsync" in self.LICENSE_SERVICE
+        assert "ReleaseDeviceAsync" in self.LICENSE_SERVICE
+
     def _what_leaves_text(self) -> str:
         """Just the WhatLeavesText control's own Text attribute, not the whole
         Settings page — "email" also appears in the unrelated LicenseEmailInput
@@ -219,8 +232,15 @@ class TestPrivacyClaimsMatchTheCode:
         pass. Add a field to the payload without updating the copy anywhere
         this checks, and this is what catches it.
         """
-        call = self.LICENSE_SERVICE.split("_http.PostAsJsonAsync(url, new")[1].split("});")[0]
-        sent_fields = set(re.findall(r"(\w+)\s*=", call))
+        # Matched up to the anonymous object's own closing brace (it has no
+        # nested braces), not a fixed "});" suffix — Roadmap 5.2 added a
+        # per-attempt CancellationToken argument after the object literal,
+        # so the call no longer ends in "});".
+        match = re.search(
+            r"_http\.PostAsJsonAsync\(url, new\s*\{(.*?)\}",
+            self.LICENSE_SERVICE, re.DOTALL)
+        assert match, "could not find the /validate PostAsJsonAsync call in LicenseService.cs"
+        sent_fields = set(re.findall(r"(\w+)\s*=", match.group(1)))
         assert sent_fields == {"licenseKey", "email", "deviceId", "deviceName"}, (
             "the licence check's field list changed in LicenseService.cs; update the "
             "phrase map in this test and the privacy copy on the site, in the app "
@@ -942,6 +962,108 @@ class TestLicenseRevocation:
         failure = source.split("public static LicenseResult Failure")[1].split(";")[0]
         assert "Definitive: false" in failure, \
             "transport failures must be marked non-definitive"
+
+
+# ============ Roadmap 5.2 — honest waiting while the licence server wakes
+
+class TestHonestWaitingNeverClaimsInvalidKey:
+    """
+    A timeout while the Render free instance wakes up must never be worded
+    like a rejected key. Before this fix, the UI's headline was always
+    "❌ Not activated" regardless of whether the server rejected the key
+    or was simply unreachable, and the retry loop gave up after one short,
+    undelayed retry with no distinction between "the key is wrong" and
+    "the host hasn't woken up yet".
+    """
+
+    def test_activate_view_model_treats_transport_failure_differently(self):
+        source = (Path(DESKTOP_DIR) / "ViewModels" / "SettingsViewModel.cs").read_text(
+            encoding="utf-8")
+        activate = source.split("private async Task ActivateAsync")[1].split(
+            "\n    private async Task DeactivateAsync")[0]
+
+        assert "IsTransportFailure" in activate, (
+            "ActivateAsync must branch on whether the failure was a transport "
+            "problem before choosing its headline"
+        )
+        assert "Couldn't reach the licence server" in activate, (
+            "a timeout/connection failure needs its own honest headline, "
+            "distinct from a rejected key"
+        )
+        # The rejection headline must stay reachable, but only from the
+        # non-transport branch.
+        not_activated_index = activate.index('"❌ Not activated"')
+        transport_index = activate.index("IsTransportFailure")
+        assert transport_index < not_activated_index, (
+            "the transport-failure branch must be checked before falling "
+            "through to the generic rejection headline"
+        )
+
+    def test_license_service_never_maps_a_timeout_to_a_rejection_reason(self):
+        source = (Path(DESKTOP_DIR) / "Services" / "LicenseService.cs").read_text(
+            encoding="utf-8")
+        validate = source.split("public async Task<LicenseResult> ValidateAsync")[1].split(
+            "\n    /// <summary>Silent re-check")[0]
+
+        # Every path that gives up on the transport (response stays null)
+        # must return through LicenseResult.Failure, never construct a
+        # definitive rejection.
+        unreachable_branch = validate.split("if (response is null)")[1].split(
+            "using var _ = response;")[0]
+        assert "LicenseResult.Failure" in unreachable_branch
+        assert "Definitive: true" not in unreachable_branch
+
+    def test_retry_schedule_is_the_shared_pure_helper(self):
+        """Tier 1 unit-tests LicenseWaitCopy directly; this pins that the
+        retry loop actually uses it rather than duplicating its own numbers."""
+        source = (Path(DESKTOP_DIR) / "Services" / "LicenseService.cs").read_text(
+            encoding="utf-8")
+        validate = source.split("public async Task<LicenseResult> ValidateAsync")[1].split(
+            "\n    /// <summary>Silent re-check")[0]
+
+        assert "LicenseWaitCopy.TotalAttempts" in validate
+        assert "LicenseWaitCopy.TimeoutForAttempt" in validate
+        assert "LicenseWaitCopy.RetryDelaysSeconds" in validate
+        assert "LicenseWaitCopy.MessageFor" in validate
+
+
+class TestActivateButtonStaysDisabledWhileBusy:
+    """
+    AsyncRelayCommand.CanExecute returns false while its task is in flight, so
+    binding the button to it is what keeps it disabled during the (now much
+    longer, retrying) activation wait. If a future change swapped
+    ActivateCommand for a plain RelayCommand, or the button stopped binding to
+    it, the disabled-while-busy guarantee would silently disappear.
+    """
+
+    def test_activate_command_is_the_reentrancy_safe_async_command(self):
+        vm = (Path(DESKTOP_DIR) / "ViewModels" / "SettingsViewModel.cs").read_text(
+            encoding="utf-8")
+        assert "AsyncRelayCommand ActivateCommand" in vm, (
+            "ActivateCommand must stay an AsyncRelayCommand, whose CanExecute "
+            "is false for the whole duration of ActivateAsync"
+        )
+
+    def test_async_relay_command_disables_itself_while_running(self):
+        mvvm = (Path(DESKTOP_DIR) / "Infrastructure" / "Mvvm.cs").read_text(
+            encoding="utf-8")
+        can_execute = mvvm.split("public bool CanExecute(object? parameter) => !_running")
+        assert len(can_execute) == 2, (
+            "AsyncRelayCommand.CanExecute must gate on !_running so a "
+            "long-running Activate click can't be double-fired"
+        )
+
+    def test_activate_button_binds_to_the_async_command(self):
+        xaml = (Path(DESKTOP_DIR) / "Views" / "SettingsView.xaml").read_text(
+            encoding="utf-8")
+        button = xaml.split('AutomationId="ActivateProButton"')[0][-400:]
+        assert 'Command="{Binding ActivateCommand}"' in button
+
+    def test_busy_state_is_visible_on_the_licence_card(self):
+        xaml = (Path(DESKTOP_DIR) / "Views" / "SettingsView.xaml").read_text(
+            encoding="utf-8")
+        assert 'AutomationId="LicenseBusyText"' in xaml
+        assert 'Visibility="{Binding IsBusy, Converter={StaticResource BoolVis}}"' in xaml
 
 
 # ============ user data must not live inside the install directory
@@ -1905,7 +2027,11 @@ class TestEveryProcessOfAnAppIsBlocked:
     def test_old_single_process_entries_are_upgraded_on_load(self):
         vm = self.read("ViewModels", "BlockedAppsViewModel.cs")
         ctor = vm.split("public BlockedAppsViewModel(MainViewModel main)")[1].split("\n    }")[0]
-        assert "UpgradeToFullSuggestions(main.Settings.BlockedApps)" in ctor
+        # Since F9 the top-up runs over every profile's list, not just the one
+        # that happens to be active — a profile you switch to must not leak
+        # through steamwebhelper either.
+        assert "foreach (var profile in main.Settings.Profiles)" in ctor
+        assert "UpgradeToFullSuggestions(profile.Apps)" in ctor
         assert ctor.index("UpgradeToFullSuggestions") < ctor.index("Apps = new ObservableCollection")
 
     def test_older_settings_files_still_load(self):
@@ -3686,6 +3812,135 @@ class TestNavigationUsesIconsNotUnicodeGlyphs:
         assert notice.exists(), "Lucide is ISC-licensed; keep its notice with the icons"
         text = notice.read_text(encoding="utf-8")
         assert "ISC License" in text and "Lucide" in text
+
+
+# ===================== Roadmap 5.7 — see and manage your devices (UI)
+
+class TestDevicesListIsFetchedOnDemandOnly:
+    """
+    The device list must be fetched only when the card is expanded (the
+    first time) or Refresh is pressed — never on a timer, never in the
+    background. A regression here (e.g. a DispatcherTimer wired to
+    LoadDevicesAsync, or a fetch in the constructor) would hit the licence
+    server on every Settings open and on every tick, for no reason.
+    """
+
+    SETTINGS_VM = (Path(DESKTOP_DIR) / "ViewModels" / "SettingsViewModel.cs").read_text(
+        encoding="utf-8")
+
+    def test_no_timer_touches_the_device_loader(self):
+        assert "DispatcherTimer" not in self.SETTINGS_VM, (
+            "devices must never be polled; fetch only on expand or Refresh"
+        )
+
+    def test_the_constructor_does_not_call_the_loader_directly(self):
+        """
+        LoadDevicesAsync legitimately appears in the constructor as a command
+        lambda (`() => LoadDevicesAsync(...)`, wired to RefreshDevicesCommand)
+        — that's fine, it only runs when the button is clicked. What must not
+        appear is an *immediate* call, i.e. `await LoadDevicesAsync` or
+        `ListDevicesAsync` reached directly rather than through a command.
+        """
+        ctor = self.SETTINGS_VM.split("public SettingsViewModel(")[1].split(
+            "\n    public AsyncRelayCommand ActivateCommand")[0]
+        assert "await LoadDevicesAsync" not in ctor
+        assert "await ListDevicesAsync" not in ctor
+        assert "await _license.ListDevicesAsync" not in ctor
+
+    def test_toggle_only_fetches_the_first_time_it_expands(self):
+        toggle = self.SETTINGS_VM.split("private async Task ToggleDevicesAsync")[1].split(
+            "\n    private async Task LoadDevicesAsync")[0]
+        assert "_devicesLoadedOnce" in toggle, (
+            "collapsing and re-expanding must not re-fetch; only the first "
+            "expand (or an explicit Refresh) should hit the server"
+        )
+
+    def test_refresh_always_forces_a_fetch(self):
+        assert "RefreshDevicesCommand = new AsyncRelayCommand(() => LoadDevicesAsync(force: true))" \
+               in self.SETTINGS_VM
+
+
+class TestDeviceReleaseNeedsConfirmation:
+    """
+    Release is a quiet button (DESIGN_SYSTEM.md §7), but it still removes a
+    device's seat, so a single click must not do it. There has to be an
+    explicit confirm/cancel step between the two, and the confirm control
+    must be visually distinct (BtnDanger) from the initial Release click.
+    """
+
+    SETTINGS_VIEW = (Path(DESKTOP_DIR) / "Views" / "SettingsView.xaml").read_text(
+        encoding="utf-8")
+    SETTINGS_VM = (Path(DESKTOP_DIR) / "ViewModels" / "SettingsViewModel.cs").read_text(
+        encoding="utf-8")
+
+    def test_release_does_not_call_the_server_directly(self):
+        """Clicking Release only requests confirmation; it must not itself
+        call ReleaseDeviceAsync."""
+        vm = self.SETTINGS_VM
+        request = vm.split("RequestReleaseCommand = new RelayCommand(")[1].split(");")[0]
+        assert "ReleaseDeviceAsync" not in request
+        assert "IsConfirmingRelease = true" in request
+
+    def test_a_second_explicit_step_is_required_to_actually_release(self):
+        vm = self.SETTINGS_VM
+        confirm = vm.split("ConfirmReleaseCommand = new AsyncRelayCommand(")[1].split(");")[0]
+        assert "ReleaseDeviceAsync" in confirm
+
+    def test_cancel_is_available_and_does_not_release(self):
+        vm = self.SETTINGS_VM
+        cancel = vm.split("CancelReleaseCommand = new RelayCommand(")[1].split(");")[0]
+        assert "ReleaseDeviceAsync" not in cancel
+        assert "IsConfirmingRelease = false" in cancel
+
+    def test_the_confirm_button_uses_the_destructive_style(self):
+        xaml = self.SETTINGS_VIEW
+        confirm_button = xaml.split('Command="{Binding DataContext.ConfirmReleaseCommand')[0][-400:]
+        assert 'Style="{StaticResource BtnDanger}"' in confirm_button
+
+    def test_the_initial_release_button_uses_the_quiet_style(self):
+        xaml = self.SETTINGS_VIEW
+        release_button = xaml.split('Command="{Binding DataContext.RequestReleaseCommand')[0][-400:]
+        assert 'Style="{StaticResource BtnQuiet}"' in release_button
+
+    def test_a_device_can_never_release_its_own_seat_from_this_list(self):
+        """CanRelease is false for the current device — that's Deactivate,
+        not a row in this list."""
+        vm = (Path(DESKTOP_DIR) / "ViewModels" / "DeviceRowViewModel.cs").read_text(
+            encoding="utf-8")
+        assert "CanRelease => !IsCurrent" in vm
+
+
+class TestDeviceCapShowsTheListInline:
+    """
+    Hitting the 3-device cap during Activate must not be a dead end — the
+    app shows the message right there and loads the list so the customer can
+    release a seat without hunting for a separate control (Roadmap 5.7).
+    """
+
+    SETTINGS_VM = (Path(DESKTOP_DIR) / "ViewModels" / "SettingsViewModel.cs").read_text(
+        encoding="utf-8")
+
+    def test_activate_recognises_the_cap_reason(self):
+        activate = self.SETTINGS_VM.split("private async Task ActivateAsync")[1].split(
+            "\n    private async Task DeactivateAsync")[0]
+        assert 'result.Status == "device_limit_reached"' in activate
+
+    def test_the_cap_message_names_the_limit_and_the_fix(self):
+        activate = self.SETTINGS_VM.split("private async Task ActivateAsync")[1].split(
+            "\n    private async Task DeactivateAsync")[0]
+        cap_branch = activate.split('result.Status == "device_limit_reached"')[1].split(
+            "else")[0]
+        assert "PCs" in cap_branch
+        assert "Release one to activate here" in cap_branch
+
+    def test_hitting_the_cap_loads_and_expands_the_device_list(self):
+        activate = self.SETTINGS_VM.split("private async Task ActivateAsync")[1].split(
+            "\n    private async Task DeactivateAsync")[0]
+        cap_branch = activate.split('result.Status == "device_limit_reached"')[1].split(
+            "else")[0]
+        assert "LoadDevicesAsync" in cap_branch
+        assert "IsDevicesExpanded = true" in cap_branch
+
 
 # ============================ issue hygiene check (#158)
 
@@ -5508,7 +5763,10 @@ class TestHistoryPage:
 
         vm = self.VM.read_text(encoding="utf-8")
         touched = set(re.findall(r'\bS\.(\w+)', vm))
-        assert touched <= {"Sessions", "BlockedApps"}, \
+        # Profiles joined the list with F9: the most-blocked count is summed
+        # across every profile, so the card's answer does not change when the
+        # active blocklist does.
+        assert touched <= {"Sessions", "BlockedApps", "Profiles"}, \
             f"History reads more of the settings than it should: {sorted(touched)}"
         assert "MostBlockedNoteText" in vm, \
             "the most-blocked card must state that its count is not this week's"
@@ -6112,3 +6370,138 @@ class TestSoftOverlayNeverCloses:
                 "the sighting was counted when it happened; the notice must not "
                 "add to or subtract from it"
             )
+
+
+# ================================== blocklist profiles must not break anything
+
+class TestBlocklistProfilesKeepTheirPromises:
+    """
+    F9 turned the one blocklist into a list of named ones. Four things had to
+    survive that: a settings file written before profiles existed, Sealed's
+    lock (now over the switcher as well as the list), enforcement reading one
+    profile and not the union of all of them, and every `AutomationId` the
+    suite already drives.
+    """
+
+    APP_SETTINGS = (DESKTOP_DIR / "Models" / "AppSettings.cs").read_text(encoding="utf-8")
+    BLOCKER = (DESKTOP_DIR / "Services" / "AppBlockerService.cs").read_text(encoding="utf-8")
+    BLOCKED_VM = (DESKTOP_DIR / "ViewModels" / "BlockedAppsViewModel.cs").read_text(encoding="utf-8")
+    TODAY_VM = (DESKTOP_DIR / "ViewModels" / "TodayViewModel.cs").read_text(encoding="utf-8")
+    BLOCKED_XAML = (DESKTOP_DIR / "Views" / "BlockedAppsView.xaml").read_text(encoding="utf-8")
+    TODAY_XAML = (DESKTOP_DIR / "Views" / "TodayView.xaml").read_text(encoding="utf-8")
+
+    # ------------------------------------------ an old settings file still loads
+
+    def test_the_old_settings_shape_still_has_a_home(self):
+        """
+        `BlockedApps` is the only blocklist a pre-F9 settings file has. It must
+        still be a serialized property (not [JsonIgnore], not renamed), or every
+        existing customer opens FlowShield to an empty blocklist.
+        """
+        blocked = self.APP_SETTINGS.split("public List<BlockedApp> BlockedApps")[1].split("\n    }")[0]
+        assert "set => _legacyBlockedApps = value;" in blocked
+        declaration = self.APP_SETTINGS.split("public List<BlockedApp> BlockedApps")[0]
+        assert not declaration.rstrip().endswith("[JsonIgnore]"), \
+            "BlockedApps must stay serializable, or an old settings file has nowhere to land"
+
+    def test_the_old_name_still_answers_with_the_list_in_use(self):
+        """
+        Everything written before F9 — the first run, the privacy export, the
+        UI tests reading settings["BlockedApps"] — asks for BlockedApps and must
+        get the profile actually being enforced.
+        """
+        blocked = self.APP_SETTINGS.split("public List<BlockedApp> BlockedApps")[1].split("\n    }")[0]
+        assert "get => ActiveProfile.Apps;" in blocked
+
+    def test_a_settings_file_with_no_profiles_is_migrated_not_emptied(self):
+        ensure = self.APP_SETTINGS.split("public bool EnsureProfiles()")[1].split("\n    }")[0]
+        assert "_legacyBlockedApps ?? new List<BlockedApp>()" in ensure, \
+            "the pre-F9 list becomes the Default profile; it is never dropped"
+
+    # ------------------------------------------------ Sealed locks the switcher
+
+    def test_sealed_refuses_a_profile_switch_in_the_view_model(self):
+        """
+        Not by disabling the chips alone: UI Automation can still invoke a
+        disabled or covered control (#134), so the refusal has to be in the
+        view model, the same as the list's own Sealed guard.
+        """
+        switch = self.BLOCKED_VM.split("private void SelectProfile(BlocklistProfile? profile)")[1].split(
+            "\n    }")[0]
+        assert "if (IsSealed)" in switch
+        assert "SetActiveProfile" in switch
+        assert switch.index("if (IsSealed)") < switch.index("SetActiveProfile"), \
+            "the Sealed check must come before the switch, not after it"
+
+    def test_the_switcher_is_also_disabled_while_sealed(self):
+        assert "public bool CanSwitchProfile => !IsSealed;" in self.BLOCKED_VM
+        assert 'IsEnabled="{Binding CanSwitchProfile}"' in self.BLOCKED_XAML
+        assert 'IsEnabled="{Binding CanSwitchProfile}"' in self.TODAY_XAML
+
+    def test_renaming_duplicating_and_deleting_are_sealed_too(self):
+        """A Sealed sprint's blocklist cannot be renamed out from under it either."""
+        guard = self.BLOCKED_VM.split("private bool GuardProfileEdit()")[1].split("\n    }")[0]
+        assert "if (IsSealed)" in guard
+        for command in ("RenameProfileCommand", "DuplicateProfileCommand", "DeleteProfileCommand"):
+            line = self.BLOCKED_VM.split(f"{command} = new RelayCommand(")[1].split(";")[0]
+            assert "CanEditProfiles" in line or "CanDeleteProfile" in line, \
+                f"{command} must be refused while Sealed"
+        assert "public bool CanEditProfiles => !IsSealed" in self.BLOCKED_VM
+        assert "public bool CanDeleteProfile => CanEditProfiles" in self.BLOCKED_VM
+
+    def test_a_resumed_sprint_comes_back_on_the_profile_it_started_with(self):
+        """Otherwise a restart is a way round Sealed's lock (F3 + F9)."""
+        assert "ActiveProfileId = S.ActiveProfile.Id," in self.TODAY_VM, \
+            "the running sprint record must name the profile it is enforcing"
+        resume = self.TODAY_VM.split("case SprintResume.Resume:")[1].split("break;")[0]
+        assert "SetActiveProfile(saved.ActiveProfileId)" in resume
+
+    # -------------------------------------- enforcement uses one profile only
+
+    def test_the_blocker_enforces_the_active_profile_and_nothing_else(self):
+        assert "_targets = settings.ActiveProfile.Apps.ToList();" in self.BLOCKER
+        assert "foreach (var app in settings.ActiveProfile.Apps)" in self.BLOCKER
+        assert "settings.Profiles" not in self.BLOCKER, \
+            "the shield must never walk every profile — only the active one is enforced"
+
+    def test_adds_and_removes_land_on_the_selected_profile_only(self):
+        assert "ActiveApps.Add(app);" in self.BLOCKED_VM
+        assert "ActiveApps.RemoveAll(a =>" in self.BLOCKED_VM
+        assert "_main.Settings.BlockedApps.Add(" not in self.BLOCKED_VM
+
+    def test_today_says_which_blocklist_the_next_sprint_uses(self):
+        assert 'AutomationProperties.AutomationId="TodayProfileCaption"' in self.TODAY_XAML
+        assert '$"Blocking: {ActiveProfile.Name}"' in self.BLOCKED_VM
+
+    # ------------------------------------------------ the existing ids survive
+
+    @pytest.mark.parametrize("auto_id", [
+        "NewAppNameInput", "AddAppButton", "BlockedAppsList", "BlockedAppsStatusText",
+        "BlockedAppsEmptyText", "AppSearchInput", "AppSearchNotice", "AppPickerList",
+        "RefreshProcessesButton",
+    ])
+    def test_every_blocked_apps_id_the_suite_drives_is_still_there(self, auto_id):
+        assert f'AutomationProperties.AutomationId="{auto_id}"' in self.BLOCKED_XAML
+
+    def test_the_per_row_ids_keep_their_shape(self):
+        assert "StringFormat=RemoveApp_{0}" in self.BLOCKED_XAML
+        assert "StringFormat=AppEnabledSwitch_{0}" in self.BLOCKED_XAML
+
+    @pytest.mark.parametrize("auto_id", [
+        "ProfileNameInput", "RenameProfileButton", "NewProfileButton",
+        "DuplicateProfileButton", "DeleteProfileButton",
+        "ConfirmDeleteProfileButton", "CancelDeleteProfileButton",
+    ])
+    def test_the_new_profile_controls_are_all_addressable(self, auto_id):
+        assert f'AutomationProperties.AutomationId="{auto_id}"' in self.BLOCKED_XAML
+
+    def test_the_new_ids_sit_on_controls_not_layout_panels(self):
+        """#134: an id on a Border or a StackPanel is never surfaced."""
+        for marker, control in (
+            ('AutomationId="ProfileNameInput"', "TextBox"),
+            ('AutomationId="NewProfileButton"', "Button"),
+            ('AutomationId="DeleteProfileButton"', "Button"),
+        ):
+            before = self.BLOCKED_XAML.split(marker)[0]
+            opening = before.rstrip().rsplit("<", 1)[-1].split()[0]
+            assert opening == control, f"{marker} sits on <{opening}>, not <{control}>"

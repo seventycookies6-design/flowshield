@@ -84,6 +84,21 @@ public class BlockedApp : INotifyPropertyChanged
 
     [JsonIgnore]
     public string DisplayName => string.IsNullOrWhiteSpace(Name) ? ProcessName : Name;
+
+    /// <summary>
+    /// A separate entry with the same target, used when a blocklist profile is
+    /// duplicated (F9). The counts start again: they describe what happened on
+    /// the profile they were counted on.
+    /// </summary>
+    public BlockedApp Copy() => new()
+    {
+        Name = Name,
+        ProcessName = ProcessName,
+        ExtraProcessNames = new List<string>(ExtraProcessNames),
+        IconPath = IconPath,
+        IsEnabled = IsEnabled,
+        AddedUtc = AddedUtc,
+    };
 }
 
 /// <summary>A completed or abandoned focus sprint.</summary>
@@ -146,6 +161,16 @@ public class RunningSprint
 
     /// <summary>The sprint's intention, kept so a resumed sprint can still show it (F13).</summary>
     public string Intention { get; set; } = "";
+
+    /// <summary>
+    /// The blocklist profile this sprint is enforcing (F9). Empty in settings
+    /// files written before profiles existed, and empty is safe: resolution
+    /// falls back to the stored active profile.
+    ///
+    /// Recorded per sprint so the templates F6 will add can pick a profile
+    /// without changing what a running sprint is enforcing.
+    /// </summary>
+    public string ActiveProfileId { get; set; } = "";
 
     /// <summary>Last time FlowShield confirmed it was still running this sprint.</summary>
     public DateTime LastSeenUtc { get; set; }
@@ -223,7 +248,213 @@ public enum SprintResume
 public class AppSettings
 {
     // ---- blocking -------------------------------------------------------
-    public List<BlockedApp> BlockedApps { get; set; } = new();
+
+    private List<BlockedApp>? _legacyBlockedApps;
+
+    /// <summary>
+    /// The active profile's blocklist (F9).
+    ///
+    /// Kept under its old name, and still written to the settings file, for two
+    /// reasons: a file this build writes still loads in an older one, and a file
+    /// written before profiles existed has somewhere to land — the setter keeps
+    /// that list aside and <see cref="EnsureProfiles"/> makes it the Default
+    /// profile.
+    /// </summary>
+    public List<BlockedApp> BlockedApps
+    {
+        get => ActiveProfile.Apps;
+        set => _legacyBlockedApps = value;
+    }
+
+    /// <summary>Every blocklist profile (F9). There is always at least one.</summary>
+    public List<BlocklistProfile> Profiles { get; set; } = new();
+
+    /// <summary>
+    /// The profile enforcement and the Blocked Apps page use. Resolved through
+    /// <see cref="ActiveProfile"/>, which tolerates an id that no longer exists.
+    /// </summary>
+    public string ActiveProfileId { get; set; } = "";
+
+    /// <summary>The name the first profile is given when one is migrated or seeded.</summary>
+    public const string DefaultProfileName = "Default";
+
+    /// <summary>
+    /// Profiles worth having, offered on the Blocked Apps page. Offered only:
+    /// nothing creates them, so a customer who wants one list keeps one list.
+    /// </summary>
+    public static readonly string[] SuggestedProfileNames = { "School", "Gaming break", "Everything" };
+
+    /// <summary>The longest a profile name may be, so a switcher chip stays a chip.</summary>
+    public const int MaxProfileNameLength = 40;
+
+    /// <summary>
+    /// The profile a sprint would enforce right now.
+    ///
+    /// Forgiving on purpose. <see cref="ActiveProfileId"/> can name a profile
+    /// that has since been deleted (by this build, or by another one sharing the
+    /// settings file), and the blocker's timer thread reads this — so it falls
+    /// back to the first profile, and seeds one if there are somehow none, rather
+    /// than throwing where nothing can catch it.
+    /// </summary>
+    [JsonIgnore]
+    public BlocklistProfile ActiveProfile
+    {
+        get
+        {
+            var named = FindProfile(ActiveProfileId);
+            if (named is not null) return named;
+            if (Profiles.Count > 0) return Profiles[0];
+
+            var seeded = new BlocklistProfile
+            {
+                Name = DefaultProfileName,
+                Apps = _legacyBlockedApps ?? new List<BlockedApp>(),
+            };
+            Profiles.Add(seeded);
+            ActiveProfileId = seeded.Id;
+            return seeded;
+        }
+    }
+
+    /// <summary>The profile with this id, or null. An empty id never matches.</summary>
+    public BlocklistProfile? FindProfile(string? id) =>
+        string.IsNullOrEmpty(id)
+            ? null
+            : Profiles.FirstOrDefault(p => string.Equals(p.Id, id, StringComparison.Ordinal));
+
+    /// <summary>
+    /// Brings a settings file up to date with profiles, and repairs a broken
+    /// one. Returns true if anything changed, so the caller knows to save.
+    ///
+    /// Run once at startup: the blocklist that used to be the only one becomes
+    /// the Default profile, keeping its apps, their counts and their switches.
+    /// </summary>
+    public bool EnsureProfiles()
+    {
+        var changed = false;
+
+        if (Profiles.Count == 0)
+        {
+            Profiles.Add(new BlocklistProfile
+            {
+                Name = DefaultProfileName,
+                Apps = _legacyBlockedApps ?? new List<BlockedApp>(),
+            });
+            changed = true;
+        }
+
+        foreach (var profile in Profiles)
+        {
+            if (!string.IsNullOrEmpty(profile.Id)) continue;
+            profile.Id = BlocklistProfile.NewId();
+            changed = true;
+        }
+
+        // An active id pointing at nothing would otherwise be resolved on every
+        // read; settle it once instead, so what is stored says what is used.
+        if (FindProfile(ActiveProfileId) is null)
+        {
+            ActiveProfileId = Profiles[0].Id;
+            changed = true;
+        }
+
+        return changed;
+    }
+
+    /// <summary>Adds a profile, optionally starting from a copy of another list.</summary>
+    public BlocklistProfile AddProfile(string? name, IEnumerable<BlockedApp>? startFrom = null)
+    {
+        var profile = new BlocklistProfile
+        {
+            Name = UniqueProfileName(CleanProfileName(name)),
+            Apps = startFrom?.Select(a => a.Copy()).ToList() ?? new List<BlockedApp>(),
+        };
+        Profiles.Add(profile);
+        return profile;
+    }
+
+    /// <summary>Copies a profile, apps and all. Null if the id is unknown.</summary>
+    public BlocklistProfile? DuplicateProfile(string? id)
+    {
+        var source = FindProfile(id);
+        if (source is null) return null;
+
+        var copy = source.Copy(UniqueProfileName($"{source.Name} copy"));
+        Profiles.Add(copy);
+        return copy;
+    }
+
+    /// <summary>Renames a profile. False if the id is unknown.</summary>
+    public bool RenameProfile(string? id, string? name)
+    {
+        var profile = FindProfile(id);
+        if (profile is null) return false;
+
+        var wanted = CleanProfileName(name);
+        if (wanted == profile.Name) return false;
+
+        profile.Name = UniqueProfileName(wanted, except: profile);
+        return true;
+    }
+
+    /// <summary>
+    /// Deletes a profile.
+    ///
+    /// Never the last one: there is always at least one blocklist, because the
+    /// app with none has nowhere to put what it blocks and nothing to show on
+    /// Today. Deleting the active profile moves the active id to what is left.
+    /// </summary>
+    public bool RemoveProfile(string? id)
+    {
+        if (Profiles.Count <= 1) return false;
+
+        var profile = FindProfile(id);
+        if (profile is null) return false;
+
+        var wasActive = string.Equals(profile.Id, ActiveProfileId, StringComparison.Ordinal);
+        Profiles.Remove(profile);
+        if (wasActive) ActiveProfileId = Profiles[0].Id;
+        return true;
+    }
+
+    /// <summary>Switches the active profile. False if the id is unknown or already active.</summary>
+    public bool SetActiveProfile(string? id)
+    {
+        var profile = FindProfile(id);
+        if (profile is null) return false;
+        if (string.Equals(ActiveProfileId, profile.Id, StringComparison.Ordinal)) return false;
+
+        ActiveProfileId = profile.Id;
+        return true;
+    }
+
+    /// <summary>Trimmed, length-capped, never empty.</summary>
+    public static string CleanProfileName(string? name)
+    {
+        var trimmed = (name ?? "").Trim();
+        if (trimmed.Length == 0) return DefaultProfileName;
+        return trimmed.Length <= MaxProfileNameLength
+            ? trimmed
+            : trimmed[..MaxProfileNameLength].TrimEnd();
+    }
+
+    /// <summary>
+    /// The wanted name, or that name with a number after it. Two profiles called
+    /// "School" would be indistinguishable on the switcher.
+    /// </summary>
+    public string UniqueProfileName(string wanted, BlocklistProfile? except = null)
+    {
+        bool Taken(string name) => Profiles.Any(p =>
+            !ReferenceEquals(p, except) && string.Equals(p.Name, name, StringComparison.CurrentCultureIgnoreCase));
+
+        if (!Taken(wanted)) return wanted;
+        for (var n = 2; n < 100; n++)
+        {
+            var candidate = $"{wanted} {n}";
+            if (!Taken(candidate)) return candidate;
+        }
+        return wanted;
+    }
 
     public bool IsSleepBlockEnabled { get; set; }
     public TimeSpan SleepBlockStartTime { get; set; } = new(22, 0, 0);
