@@ -151,6 +151,7 @@ class TestPrivacyClaimsMatchTheCode:
     LICENSE_SERVICE = (Path(DESKTOP_DIR) / "Services" / "LicenseService.cs").read_text(encoding="utf-8")
     SETTINGS_SERVICE = (Path(DESKTOP_DIR) / "Services" / "SettingsService.cs").read_text(encoding="utf-8")
     DATA_PRIVACY = (Path(DESKTOP_DIR) / "Services" / "DataPrivacyService.cs").read_text(encoding="utf-8")
+    SETTINGS_VM = (Path(DESKTOP_DIR) / "ViewModels" / "SettingsViewModel.cs").read_text(encoding="utf-8")
 
     def test_site_has_a_privacy_section_before_the_faq(self):
         assert '<section id="privacy">' in self.SITE
@@ -163,16 +164,9 @@ class TestPrivacyClaimsMatchTheCode:
         assert "ProtectedData.Protect" in self.SETTINGS_SERVICE, \
             "the site claims DPAPI encryption, but settings are no longer protected with it"
 
-        # What leaves the PC, and only that.
-        assert "licence key, a salted device identifier, and your device name" in self.SITE
-        assert 'licenseKey = key' in self.LICENSE_SERVICE
-        assert 'deviceId = DeviceIdentity.Id' in self.LICENSE_SERVICE
-        assert 'deviceName = DeviceIdentity.Name' in self.LICENSE_SERVICE
-
     def test_app_card_claims_are_backed_by_code(self):
         assert 'AutomationId="WhatLeavesText"' in self.SETTINGS_VIEW
         assert "encrypted with Windows DPAPI" in self.SETTINGS_VIEW
-        assert "licence key, a salted device identifier, and your device name" in self.SETTINGS_VIEW
 
         # Export and delete controls exist and are wired to real commands.
         assert 'AutomationId="ExportDataButton"' in self.SETTINGS_VIEW
@@ -182,6 +176,46 @@ class TestPrivacyClaimsMatchTheCode:
         assert 'Style="{StaticResource BtnDanger}"' in self.SETTINGS_VIEW.split(
             'AutomationId="DeleteEverythingButton"')[0][-400:], \
             "Delete everything must use the destructive button style (DESIGN_SYSTEM.md §7)"
+
+    def test_the_field_list_is_derived_from_the_code_and_disclosed_everywhere(self):
+        """
+        Reads the actual fields the client sends in POST /validate straight out
+        of LicenseService.cs, then requires a phrase for every one of them —
+        the mapping below has to be kept in step or this test itself fails —
+        and checks each phrase appears on the site, in the app card and in the
+        privacy policy. Add a field there without updating the copy anywhere
+        this checks, and this is what catches it (the email-address gap: it
+        was sent on every check but only the app card's "what leaves" line
+        omitted it).
+        """
+        call = self.LICENSE_SERVICE.split("_http.PostAsJsonAsync(url, new")[1].split("});")[0]
+        sent_fields = set(re.findall(r"(\w+)\s*=", call))
+        assert sent_fields == {"licenseKey", "email", "deviceId", "deviceName"}, (
+            "the licence check's field list changed in LicenseService.cs; update the "
+            "phrase map in this test and the privacy copy on the site, in the app "
+            "card and in legal.html in the same PR"
+        )
+
+        phrase_for_field = {
+            "licenseKey": "licence key",
+            "email": "email",
+            "deviceId": "device identifier",
+            "deviceName": "device name",
+        }
+        assert set(phrase_for_field) == sent_fields, \
+            "every field the client sends needs a disclosed phrase mapped here"
+
+        surfaces = {
+            "the site's #privacy section": self.SITE.lower(),
+            "the app's Your data card (WhatLeavesText)": self.SETTINGS_VIEW.lower(),
+            "legal.html's privacy policy": self.LEGAL.lower(),
+        }
+        for surface_name, text in surfaces.items():
+            for field, phrase in phrase_for_field.items():
+                assert phrase in text, (
+                    f"{surface_name} does not mention {phrase!r}, but the client sends "
+                    f"{field!r} on every licence check"
+                )
 
     def test_export_never_includes_the_licence_key(self):
         export_method = self.DATA_PRIVACY.split("public static void Export(")[1].split(
@@ -202,6 +236,31 @@ class TestPrivacyClaimsMatchTheCode:
         assert "email address" in policy
         assert "dpapi" in policy
         assert "none of it is uploaded" in policy or "is stored locally" in policy
+
+    def test_delete_everything_cannot_escape_a_running_sprint(self):
+        """
+        A sealed sprint locks the blocklist so it can't be escaped; relaunching
+        the app to delete everything would drop the shield entirely, same as
+        the update-restart path this mirrors. Checked in three places: the
+        command's CanExecute, an inline refusal inside the handler (in case a
+        covered or automation-invoked control bypasses CanExecute, per
+        CLAUDE.md's "covered controls" gotcha), and a visible reason in the UI.
+        """
+        can_execute = self.SETTINGS_VM.split("DeleteEverythingCommand = new AsyncRelayCommand(")[1].split(";")[0]
+        assert "_main.IsSprintRunning" in can_execute, \
+            "DeleteEverythingCommand must refuse to run while a sprint is active"
+
+        handler = self.SETTINGS_VM.split("private async Task DeleteEverythingAsync()")[1].split("\n    }")[0]
+        assert "if (_main.IsSprintRunning)" in handler, \
+            "the handler must also refuse inline, not rely on CanExecute alone"
+        guard = handler.split("if (_main.IsSprintRunning)")[1].split("ConfirmDeleteDialog")[0]
+        assert "return;" in guard, "the inline guard must actually stop execution"
+        assert "ConfirmDeleteDialog" in handler, "the confirm dialog must still be shown otherwise"
+
+        assert 'AutomationId="DeleteEverythingBlockedText"' in self.SETTINGS_VIEW
+        caption = self.SETTINGS_VIEW.split('AutomationId="DeleteEverythingBlockedText"')[0][-800:]
+        assert "IsSprintRunning" in caption, \
+            "the caption must be bound to sprint state, not a static warning"
 
 
 # ====================== the app uses one branded icon system everywhere

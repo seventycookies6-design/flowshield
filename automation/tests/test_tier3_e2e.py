@@ -1495,6 +1495,7 @@ class TestJournalExport:
         text = target.read_text(encoding="utf-8-sig")
         lines = [line for line in text.splitlines() if line.strip()]
         assert len(lines) == 1, "an empty range writes the header and nothing else"
+        assert "headings only" in fresh_app.text_of("ExportStatusText")
 
 
 # ============================================================ your data (F23)
@@ -1544,4 +1545,3 @@ class TestYourDataCard:
         fresh_app.click("ConfirmDeleteCancelButton")
         time.sleep(0.5)
         assert fresh_app.exists("DeleteEverythingButton"), "Settings must still be there after cancelling"
-        assert "headings only" in fresh_app.text_of("ExportStatusText")

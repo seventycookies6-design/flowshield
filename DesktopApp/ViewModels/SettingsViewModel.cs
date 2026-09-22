@@ -32,7 +32,10 @@ public class SettingsViewModel : ViewModelBase
         SkipTodayCommand = new RelayCommand(ToggleSkipToday, () => CanSkipToday || SkippedToday);
         ExportJournalCommand = new RelayCommand(ExportJournal);
         ExportDataCommand = new RelayCommand(ExportData);
-        DeleteEverythingCommand = new AsyncRelayCommand(DeleteEverythingAsync, () => !IsBusy);
+        // A sealed sprint locks the blocklist precisely so it can't be escaped;
+        // relaunching the app would drop the shield entirely, same guard as
+        // RestartForUpdate above.
+        DeleteEverythingCommand = new AsyncRelayCommand(DeleteEverythingAsync, () => !IsBusy && !_main.IsSprintRunning);
 
         RefreshLicenseStatus();
     }
@@ -675,6 +678,17 @@ public class SettingsViewModel : ViewModelBase
 
     private async Task DeleteEverythingAsync()
     {
+        // The command's CanExecute already covers this; refused again here so
+        // a covered or otherwise-invoked control can't relaunch the app out
+        // from under a running (possibly Sealed) sprint. Same rule as
+        // RestartForUpdate above.
+        if (_main.IsSprintRunning)
+        {
+            DataStatusText = "Finish your sprint first — deleting everything restarts the app, which would end it.";
+            _main.Toast("Delete everything once your sprint has ended.");
+            return;
+        }
+
         var dialog = new Views.ConfirmDeleteDialog();
         if (dialog.ShowDialog() != true) return;
 
