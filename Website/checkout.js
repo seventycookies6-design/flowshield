@@ -415,6 +415,68 @@
       });
     }
 
+    // Roadmap 5.4 "lost your key?" — a standalone recovery form (support.html),
+    // separate from the success page's "Email me this key" above: this one has
+    // no checkout session to anchor to, just an email address the visitor
+    // types in. Same endpoint, same safety property: the response never says
+    // whether that address bought FlowShield, and the key itself never
+    // appears here — it only ever goes to the inbox it was bought with.
+    var lostKeyForm = document.getElementById('lost-key-form');
+    if (lostKeyForm) {
+      lostKeyForm.addEventListener('submit', async function (e) {
+        e.preventDefault();
+        var note = document.getElementById('lost-key-note');
+        var submitBtn = document.getElementById('lost-key-submit');
+        var emailInput = document.getElementById('lost-key-email');
+        var email = (emailInput && emailInput.value || '').trim();
+
+        if (!email) {
+          if (note) note.textContent = 'Enter the email address you used at checkout.';
+          return;
+        }
+        if (!HAS_SERVER) {
+          if (note) note.textContent = 'Key recovery is not available on this build.';
+          return;
+        }
+
+        if (submitBtn) {
+          submitBtn.disabled = true;
+          submitBtn.textContent = 'Sending…';
+        }
+        if (note) note.textContent = '';
+
+        try {
+          var res = await fetch(SERVER + '/resend-license', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: email }),
+          });
+          var payload = null;
+          try { payload = await res.json(); } catch (e) { /* non-JSON */ }
+          // Same message on every outcome except a hard client error (missing
+          // email) or the server being unreachable: differing wording for
+          // "found" vs "not found" would turn this into an oracle for who has
+          // bought FlowShield, which /resend-license is deliberately built to
+          // avoid on the server side too.
+          if (res.ok && payload && payload.message) {
+            if (note) note.textContent = payload.message;
+            if (emailInput) emailInput.value = '';
+          } else if (res.status === 400) {
+            if (note) note.textContent = 'Enter a valid email address.';
+          } else {
+            if (note) note.textContent = 'If that address bought FlowShield, the licence key is on its way.';
+          }
+        } catch (err) {
+          if (note) note.textContent = 'Could not reach the license server. Please try again.';
+        }
+
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Send my key';
+        }
+      });
+    }
+
     var nav = document.querySelector('header.nav');
     if (nav) {
       var onScroll = function () {

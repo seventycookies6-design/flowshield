@@ -259,3 +259,43 @@ class TestResendEndpoint:
         after = _emails(outbox)
         assert len(after) == before, "an email was sent for an address with no subscription"
         assert not any(m["to"] == address for m in after)
+
+
+# =================================================== lost-key site form path
+
+class TestLostKeySiteFormPath:
+    """
+    Exercises the exact request shape the support.html "Lost your key?" form
+    sends (Website/checkout.js): just an email, no sessionId, no license key
+    anywhere in the request or response. Roadmap 5.4.
+    """
+
+    def test_a_bare_email_request_never_returns_a_key(self, capture_server):
+        response = requests.post(f"{capture_server['base']}/resend-license",
+                                 json={"email": f"nobody-{uuid.uuid4().hex[:8]}@example.com"},
+                                 timeout=60)
+        assert response.status_code == 200
+        body = response.json()
+        assert "licenseKey" not in body and "license_key" not in body
+
+    def test_a_bare_email_request_delivers_to_a_real_customer(self, capture_server, needs_stripe):
+        # /validate deliberately strips licenseKey and email from an
+        # email-only lookup (server.js, "an email alone still answers 'is
+        # this Pro?' ... but must never be a way to obtain someone's key") —
+        # so the known test subscription's address is used directly rather
+        # than round-tripped through /validate.
+        email = "deployed-e2e@example.com"
+        base, outbox = capture_server["base"], capture_server["outbox"]
+        check = requests.post(f"{base}/validate", json={"email": email}, timeout=60).json()
+        if not check.get("isPro"):
+            pytest.skip("no active subscription available to deliver for")
+
+        before = len(_emails(outbox))
+        response = requests.post(f"{base}/resend-license", json={"email": email}, timeout=60)
+        assert response.status_code == 200
+        assert "licenseKey" not in response.json()
+        time.sleep(1.5)
+
+        after = _emails(outbox)
+        assert len(after) == before + 1
+        assert after[-1]["to"] == email
