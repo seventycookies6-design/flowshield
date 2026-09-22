@@ -605,6 +605,36 @@ class TestPaymentLinkPurchase:
             f"session produced two keys: {first.get('licenseKey')} / {second.get('licenseKey')}"
 
 
+# ==================================== checkout works under Managed Payments
+
+class TestCheckoutManagedPayments:
+    """
+    Stripe rejects `custom_text` outright once Managed Payments is enabled
+    (on by default for newer accounts — see the tax-code comment in
+    tools/setup_stripe_store.js for the same default hitting another field):
+    every /create-checkout call returned a 500 for every buyer, "custom_text
+    cannot be used with Managed Payments". Managed Payments is kept on rather
+    than disabled per-request, matching that script's choice, so custom_text
+    must simply never be sent — not merely toggled off with
+    managed_payments[enabled]=false.
+
+    Unit-by-source and stripe-key-free on purpose: this is exactly the class
+    of bug CI cannot catch (CI has no keys) but that breaks every real
+    checkout, so the regression test must not depend on keys either.
+    """
+
+    def test_create_checkout_never_sends_custom_text(self):
+        source = (Path(SERVER_DIR) / "server.js").read_text(encoding="utf-8")
+        create_checkout = source.split("app.post('/create-checkout'")[1].split("\napp.post(")[0]
+        assert "custom_text:" not in create_checkout, (
+            "custom_text cannot be used once Managed Payments is enabled; "
+            "Stripe rejects the whole checkout session with a 500 for every buyer"
+        )
+        assert "consent_collection" in create_checkout, (
+            "the terms-of-service consent checkbox must still be requested"
+        )
+
+
 # ============================== blocklist is not enumerated across threads
 
 class TestBlocklistThreadSafety:
