@@ -3997,3 +3997,85 @@ class TestTokenContrast:
         assert theme["ok"] == "#276A3E"
         assert theme["warn"] == "#7A5413"
         assert theme["danger"] == "#A3334A"
+
+
+class TestSettingsIsGrouped:
+    """F22: Settings is six labelled groups in a fixed order, and moving
+    cards into them lost no control."""
+
+    XAML = Path(SERVER_DIR).parent / "DesktopApp" / "Views" / "SettingsView.xaml"
+    GROUPS = ["Licence", "Focus", "App", "Notifications", "Data", "About"]
+    # every id the suite relies on; must survive the move
+    KEPT_IDS = ["LicenseKeyInput", "ActivateProButton", "DevicesList",
+                "StartWithWindowsToggle", "MinimizeToTrayToggle", "SoftOverlayToggle",
+                "HardKillModeToggle", "GlobalHotkeyToggle", "ThemeSystemRadio",
+                "GoalOffRadio", "ShortBreakMinutesInput", "ExportJournalButton",
+                "NotificationsToggle", "NotifyTrialEndingToggle", "ExportDataButton",
+                "DeleteEverythingButton", "VersionText", "CheckForUpdatesButton",
+                "OpenLogButton", "ShowFirstRunButton"]
+
+    def test_groups_exist_in_order(self):
+        xaml = self.XAML.read_text(encoding="utf-8")
+        positions = [xaml.find(f'AutomationProperties.AutomationId="SettingsGroup_{g}"')
+                     for g in self.GROUPS]
+        assert all(p >= 0 for p in positions), positions
+        assert positions == sorted(positions), "groups out of order"
+
+    def test_every_existing_id_survives(self):
+        xaml = self.XAML.read_text(encoding="utf-8")
+        for aid in self.KEPT_IDS:
+            assert xaml.count(f'AutomationProperties.AutomationId="{aid}"') == 1, aid
+
+    def test_shield_toggles_live_in_focus(self):
+        xaml = self.XAML.read_text(encoding="utf-8")
+        focus = xaml.index('SettingsGroup_Focus"')
+        app = xaml.index('SettingsGroup_App"')
+        for aid in ("SoftOverlayToggle", "HardKillModeToggle"):
+            assert focus < xaml.index(f'"{aid}"') < app, f"{aid} belongs in Focus"
+
+    def test_cards_sit_in_the_bound_groups(self):
+        """Binding Groups table: App = Preferences, Appearance.
+        About = Updates, then Advanced."""
+        xaml = self.XAML.read_text(encoding="utf-8")
+        app = xaml.index('SettingsGroup_App"')
+        notifications = xaml.index('SettingsGroup_Notifications"')
+        about = xaml.index('SettingsGroup_About"')
+
+        assert app < xaml.index('"ThemeSystemRadio"') < notifications, \
+            "Appearance (ThemeSystemRadio) belongs in App"
+
+        for aid in ("OpenLogButton", "ShowFirstRunButton"):
+            assert xaml.index(f'"{aid}"') > about, \
+                f"Advanced ({aid}) belongs in About, after Updates"
+
+    def test_rail_has_a_link_per_group(self):
+        xaml = self.XAML.read_text(encoding="utf-8")
+        for g in self.GROUPS:
+            assert f'AutomationProperties.AutomationId="SettingsNav_{g}"' in xaml
+            assert f'Tag="{g}"' in xaml
+
+    def test_rail_jump_focuses_the_header(self):
+        cs = (self.XAML.parent / "SettingsView.xaml.cs").read_text(encoding="utf-8")
+        assert "BringIntoView" in cs and ".Focus()" in cs
+        assert "ScrollChanged" in cs, "rail must follow scrolling"
+
+    def test_rail_links_activate_with_enter(self):
+        """WPF RadioButtons don't reliably fire Click on Enter, only Space --
+        the code-behind must handle Key.Enter itself so every rail link
+        activates with either key (constraints.md keyboard requirement)."""
+        cs = (self.XAML.parent / "SettingsView.xaml.cs").read_text(encoding="utf-8")
+        assert "Key.Enter" in cs
+
+    def test_rail_collapses_on_narrow_windows(self):
+        cs = (self.XAML.parent / "SettingsView.xaml.cs").read_text(encoding="utf-8")
+        assert "RailBreakpoint = 900" in cs
+        assert "SizeChanged" in cs
+
+    def test_settings_scroll_and_rail_get_rowspan(self):
+        """CRITICAL: at wide widths, Rail and SettingsScroll both sit in the
+        Auto row (row 0) with no RowSpan, so SettingsScroll gets unlimited
+        height and Settings can't scroll at 900px or wider. The code-behind
+        must call Grid.SetRowSpan for both, in both layouts."""
+        cs = (self.XAML.parent / "SettingsView.xaml.cs").read_text(encoding="utf-8")
+        assert "Grid.SetRowSpan(SettingsScroll" in cs
+        assert "Grid.SetRowSpan(Rail" in cs

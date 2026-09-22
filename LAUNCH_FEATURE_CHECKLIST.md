@@ -126,7 +126,7 @@ roadmap item below has exactly one owner. Tracking issues: #37 (Keenan) and
 | F17 | Read back and export the journal (Roadmap 3.5) | S |
 | F20 | A trial that never nags (done, #213) | S |
 | F21 | Light theme, keyboard use and accessibility (Roadmap 4.6) (done, #237) | M |
-| F22 | Clear, calm Settings (Roadmap 4.2) | S |
+| F22 | Clear, calm Settings (Roadmap 4.2) (done, #253) | S |
 | F24 | One-time price as the headline, on the site | S |
 | F26 | Honest limits and the FAQ (Roadmap 6.2) | S |
 | F27 | Real screenshots and a screen recording (Roadmap 6.1) | S |
@@ -668,7 +668,7 @@ policy and the settings fields) already lived on Keenan's side.
 
 ### F22 — Clear, calm Settings · **Launch+** · S · Roadmap 4.2
 
-- [ ] Done
+- [x] Done (#253)
 
 **Assigned:** Miles (milessmart6-pixel), built with Codex and Cursor
 

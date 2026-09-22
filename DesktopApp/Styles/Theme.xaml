@@ -185,6 +185,14 @@
         <Setter Property="LineHeight" Value="14"/>
     </Style>
 
+    <!-- F22: header for each of Settings' six labelled groups. Focusable so
+         Task 2's section rail's JumpTo can scroll to the group's offset and
+         focus this header. -->
+    <Style x:Key="SettingsGroupHeader" TargetType="TextBlock" BasedOn="{StaticResource H2}">
+        <Setter Property="Margin" Value="0,32,0,12"/>
+        <Setter Property="Focusable" Value="True"/>
+    </Style>
+
     <!-- timer: the sprint countdown. Tabular by default so the digits never
          jiggle. §3's WPF column suggests CharacterSpacing="-20" here too;
          see the Eyebrow comment above for why that isn't available on this
@@ -416,6 +424,55 @@
                             <Setter TargetName="bar" Property="Opacity" Value="1"/>
                             <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
                             <Setter Property="FontWeight" Value="SemiBold"/>
+                        </DataTrigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- =================================================== settings rail -->
+
+    <!-- F22: the Settings section rail. Same hover/focus tokens as NavButton
+         above (Surface2 hover, InkDim -> Ink text) but a left bar rather than
+         the main nav's, and driven by IsChecked (it's a RadioButton) rather
+         than a Tag DataTrigger, since the rail tracks scroll position, not a
+         command binding. NavButton uses Primary for its bar/selected accent
+         since this app has no "Accent" token — this style follows suit. -->
+    <Style x:Key="SettingsNavLink" TargetType="RadioButton">
+        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusVisual}"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Foreground" Value="{DynamicResource InkDim}"/>
+        <Setter Property="FontFamily" Value="{StaticResource FontStack}"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="Padding" Value="12,8"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="RadioButton">
+                    <Border x:Name="bd" Background="Transparent" Padding="{TemplateBinding Padding}"
+                            BorderThickness="3,0,0,0" BorderBrush="Transparent">
+                        <ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="bd" Property="Background" Value="{DynamicResource Surface2}"/>
+                            <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
+                        </Trigger>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource Primary}"/>
+                            <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
+                            <Setter Property="FontWeight" Value="SemiBold"/>
+                        </Trigger>
+                        <!-- F22: on narrow windows the rail's WrapPanel switches to
+                             Orientation="Horizontal" (chip row) — the selected
+                             indicator becomes a 2px bottom bar instead of the 3px
+                             left bar, so it still reads as an underline in a row
+                             rather than a stray left tick. Bold weight plus the bar
+                             carries the selected state; colour is never the only
+                             signal. -->
+                        <DataTrigger Binding="{Binding Orientation, RelativeSource={RelativeSource
+                                     FindAncestor, AncestorType=WrapPanel}}" Value="Horizontal">
+                            <Setter TargetName="bd" Property="BorderThickness" Value="0,0,0,2"/>
                         </DataTrigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>

@@ -569,6 +569,26 @@ class DesktopController:
         except Exception:
             return False
 
+    def is_on_screen(self, auto_id: str) -> bool:
+        """
+        Whether a control's rectangle actually overlaps the main window.
+
+        Unlike _is_contained (which the click loop uses to decide which way to
+        scroll and requires the whole rectangle inside), this only needs an
+        intersection — the F22 rail jump lands a group's header at the top of
+        the viewport, not necessarily fully clear of the window's edges.
+        """
+        try:
+            control = self.element(auto_id)
+            if control.is_offscreen():
+                return False
+            rect = control.rectangle()
+            window = self.window.rectangle()
+            return (rect.left < window.right and rect.right > window.left
+                    and rect.top < window.bottom and rect.bottom > window.top)
+        except Exception:
+            return False
+
     def text_of(self, auto_id: str, timeout: float | None = None) -> str:
         """
         Read a control's text.
