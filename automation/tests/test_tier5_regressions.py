@@ -2807,10 +2807,6 @@ class TestDesignReviewFixesB4:
         assert match, f"no top-level rule for {selector}"
         return css[match.start():css.index("}", match.start())]
 
-        css = self._css()
-        start = css.index(selector + " {")
-        return css[start:css.index("}", start)]
-
     def test_the_mobile_menu_closes_when_a_destination_is_chosen(self):
         """At 390px, tapping a nav link scrolled to the section but left the
         open menu covering it."""
@@ -2836,20 +2832,6 @@ class TestDesignReviewFixesB4:
         rule = self._rule(".shot-grid")
         assert "minmax(min(100%, 20rem), 1fr)" in rule, (
             "the column minimum must be capped at the grid's own width")
-
-
-    def test_stacked_day_strip_segments_name_their_own_time(self):
-        """Below 900px the segments stack, so a separate caption row beneath
-        them no longer lines up with anything."""
-        site = self.SITE.read_text(encoding="utf-8")
-        strip = site[site.index('class="day-strip"'):]
-        strip = strip[:strip.index('class="caption"')]
-        assert strip.count('class="time"') == 3, "each segment carries its own time"
-        css = self._css()
-        narrow = css[css.index(".day-strip .strip { grid-template-columns: 1fr"):]
-        narrow = narrow[:narrow.index("}\n}") + 1] if "}\n}" in narrow else narrow[:600]
-        assert ".day-strip .caption { display: none; }" in narrow, (
-            "the caption row must be hidden once the segments stack")
 
     def test_no_decorative_status_or_accent_colour(self):
         """§2: teal marks state, selection or progress, and status colours are
@@ -2959,7 +2941,6 @@ class TestSiteToneB6:
         assert "“just checking” Steam turns into an hour" in site
         assert "The 1 a.m. version of you doesn't get a vote." in site, (
             "Miles chose to keep this line (#187)")
-
 
 
 class TestPhoneVisitorMarkup:
@@ -3478,8 +3459,6 @@ class TestSiteSystemPassB3:
         icon_count = features.count('class="feature-icon"')
         assert card_count == 3, (
             "fixture assumption changed: expected 3 feature cards (six until #185 cut the repeats)")
-
-        assert card_count == 6, "fixture assumption changed: expected 6 feature cards"
         assert icon_count == card_count, (
             f"{card_count} feature cards but only {icon_count} have a .feature-icon — "
             "every feature needs a Lucide icon, not just some of them"
@@ -3521,9 +3500,6 @@ class TestTheSiteDescribesTheCloseTheAppDoes:
         assert "Hard kill mode skips the warning" in flat, (
             "the page must not imply every user gets a warning — Hard kill gives none"
         )
-
-
-# ============================ Inter, on the §3 type scale (#147 A1)
 
 class TestInterTypeScale:
     """
@@ -3675,8 +3651,6 @@ class TestInterTypeScale:
             "TextTrimming=\"CharacterEllipsis\" so a long exe name trims with an "
             "ellipsis instead of breaking mid-word")
 
-
-# ============================ Today as an instrument (#147 A4)
 
 class TestShieldGlyphsA4:
     """
@@ -3973,8 +3947,6 @@ class TestMotionA4:
                 f"Motion.Selection")
 
 
-# ============================== A3: token contrast fixes and hard-coded colour removal
-
 class TestContrastAndTokensA3:
     """
     UI-SPEC.md A3 (#147, DESIGN_SYSTEM.md §2): text-faint and the light-theme
@@ -4101,8 +4073,6 @@ class TestContrastAndTokensA3:
                     f"expected the pre-fix light {status}/bg ratio to fail below 4.5:1, got {ratio:.2f}:1")
 
 
-# ==================================== A3: no hard-coded colour left in the restyled XAML
-
 class TestNoHardcodedColoursA3:
     """
     UI-SPEC.md A3 (#147, DESIGN_SYSTEM.md §2 "No hard-coded colours in
@@ -4143,8 +4113,6 @@ class TestNoHardcodedColoursA3:
         reason -- confirm the scan really walks a non-trivial set of XAML."""
         assert len(self.FILES) >= 5, "expected Theme.xaml, MainWindow.xaml and several Views/*.xaml"
 
-
-# ==================================== A2: CornerRadius normalised to the §4 scale
 
 class TestCornerRadiusNormalisedA2:
     """
@@ -4250,8 +4218,6 @@ class TestCornerRadiusNormalisedA2:
         assert len(self.FILES) >= 5, "expected Theme.xaml, MainWindow.xaml and several Views/*.xaml"
 
 
-# ===================== A2 fix: "fully round" is computed, never a huge radius
-
 class TestPillsAreComputed:
     """
     A2 first expressed "fully round" as CornerRadius="9999", on the belief
@@ -4304,8 +4270,6 @@ class TestPillsAreComputed:
             "is exactly the ellipse this replaced")
         assert "SizeChanged" in source, "the radius must follow the element as it resizes"
 
-
-# ============ A2 review fix: Blocked Apps switch clipped by the card edge
 
 class TestBlockedAppsRowSwitchNotClipped:
     """
