@@ -1905,7 +1905,11 @@ class TestEveryProcessOfAnAppIsBlocked:
     def test_old_single_process_entries_are_upgraded_on_load(self):
         vm = self.read("ViewModels", "BlockedAppsViewModel.cs")
         ctor = vm.split("public BlockedAppsViewModel(MainViewModel main)")[1].split("\n    }")[0]
-        assert "UpgradeToFullSuggestions(main.Settings.BlockedApps)" in ctor
+        # Since F9 the top-up runs over every profile's list, not just the one
+        # that happens to be active — a profile you switch to must not leak
+        # through steamwebhelper either.
+        assert "foreach (var profile in main.Settings.Profiles)" in ctor
+        assert "UpgradeToFullSuggestions(profile.Apps)" in ctor
         assert ctor.index("UpgradeToFullSuggestions") < ctor.index("Apps = new ObservableCollection")
 
     def test_older_settings_files_still_load(self):
@@ -5508,7 +5512,10 @@ class TestHistoryPage:
 
         vm = self.VM.read_text(encoding="utf-8")
         touched = set(re.findall(r'\bS\.(\w+)', vm))
-        assert touched <= {"Sessions", "BlockedApps"}, \
+        # Profiles joined the list with F9: the most-blocked count is summed
+        # across every profile, so the card's answer does not change when the
+        # active blocklist does.
+        assert touched <= {"Sessions", "BlockedApps", "Profiles"}, \
             f"History reads more of the settings than it should: {sorted(touched)}"
         assert "MostBlockedNoteText" in vm, \
             "the most-blocked card must state that its count is not this week's"
@@ -6112,3 +6119,138 @@ class TestSoftOverlayNeverCloses:
                 "the sighting was counted when it happened; the notice must not "
                 "add to or subtract from it"
             )
+
+
+# ================================== blocklist profiles must not break anything
+
+class TestBlocklistProfilesKeepTheirPromises:
+    """
+    F9 turned the one blocklist into a list of named ones. Four things had to
+    survive that: a settings file written before profiles existed, Sealed's
+    lock (now over the switcher as well as the list), enforcement reading one
+    profile and not the union of all of them, and every `AutomationId` the
+    suite already drives.
+    """
+
+    APP_SETTINGS = (DESKTOP_DIR / "Models" / "AppSettings.cs").read_text(encoding="utf-8")
+    BLOCKER = (DESKTOP_DIR / "Services" / "AppBlockerService.cs").read_text(encoding="utf-8")
+    BLOCKED_VM = (DESKTOP_DIR / "ViewModels" / "BlockedAppsViewModel.cs").read_text(encoding="utf-8")
+    TODAY_VM = (DESKTOP_DIR / "ViewModels" / "TodayViewModel.cs").read_text(encoding="utf-8")
+    BLOCKED_XAML = (DESKTOP_DIR / "Views" / "BlockedAppsView.xaml").read_text(encoding="utf-8")
+    TODAY_XAML = (DESKTOP_DIR / "Views" / "TodayView.xaml").read_text(encoding="utf-8")
+
+    # ------------------------------------------ an old settings file still loads
+
+    def test_the_old_settings_shape_still_has_a_home(self):
+        """
+        `BlockedApps` is the only blocklist a pre-F9 settings file has. It must
+        still be a serialized property (not [JsonIgnore], not renamed), or every
+        existing customer opens FlowShield to an empty blocklist.
+        """
+        blocked = self.APP_SETTINGS.split("public List<BlockedApp> BlockedApps")[1].split("\n    }")[0]
+        assert "set => _legacyBlockedApps = value;" in blocked
+        declaration = self.APP_SETTINGS.split("public List<BlockedApp> BlockedApps")[0]
+        assert not declaration.rstrip().endswith("[JsonIgnore]"), \
+            "BlockedApps must stay serializable, or an old settings file has nowhere to land"
+
+    def test_the_old_name_still_answers_with_the_list_in_use(self):
+        """
+        Everything written before F9 — the first run, the privacy export, the
+        UI tests reading settings["BlockedApps"] — asks for BlockedApps and must
+        get the profile actually being enforced.
+        """
+        blocked = self.APP_SETTINGS.split("public List<BlockedApp> BlockedApps")[1].split("\n    }")[0]
+        assert "get => ActiveProfile.Apps;" in blocked
+
+    def test_a_settings_file_with_no_profiles_is_migrated_not_emptied(self):
+        ensure = self.APP_SETTINGS.split("public bool EnsureProfiles()")[1].split("\n    }")[0]
+        assert "_legacyBlockedApps ?? new List<BlockedApp>()" in ensure, \
+            "the pre-F9 list becomes the Default profile; it is never dropped"
+
+    # ------------------------------------------------ Sealed locks the switcher
+
+    def test_sealed_refuses_a_profile_switch_in_the_view_model(self):
+        """
+        Not by disabling the chips alone: UI Automation can still invoke a
+        disabled or covered control (#134), so the refusal has to be in the
+        view model, the same as the list's own Sealed guard.
+        """
+        switch = self.BLOCKED_VM.split("private void SelectProfile(BlocklistProfile? profile)")[1].split(
+            "\n    }")[0]
+        assert "if (IsSealed)" in switch
+        assert "SetActiveProfile" in switch
+        assert switch.index("if (IsSealed)") < switch.index("SetActiveProfile"), \
+            "the Sealed check must come before the switch, not after it"
+
+    def test_the_switcher_is_also_disabled_while_sealed(self):
+        assert "public bool CanSwitchProfile => !IsSealed;" in self.BLOCKED_VM
+        assert 'IsEnabled="{Binding CanSwitchProfile}"' in self.BLOCKED_XAML
+        assert 'IsEnabled="{Binding CanSwitchProfile}"' in self.TODAY_XAML
+
+    def test_renaming_duplicating_and_deleting_are_sealed_too(self):
+        """A Sealed sprint's blocklist cannot be renamed out from under it either."""
+        guard = self.BLOCKED_VM.split("private bool GuardProfileEdit()")[1].split("\n    }")[0]
+        assert "if (IsSealed)" in guard
+        for command in ("RenameProfileCommand", "DuplicateProfileCommand", "DeleteProfileCommand"):
+            line = self.BLOCKED_VM.split(f"{command} = new RelayCommand(")[1].split(";")[0]
+            assert "CanEditProfiles" in line or "CanDeleteProfile" in line, \
+                f"{command} must be refused while Sealed"
+        assert "public bool CanEditProfiles => !IsSealed" in self.BLOCKED_VM
+        assert "public bool CanDeleteProfile => CanEditProfiles" in self.BLOCKED_VM
+
+    def test_a_resumed_sprint_comes_back_on_the_profile_it_started_with(self):
+        """Otherwise a restart is a way round Sealed's lock (F3 + F9)."""
+        assert "ActiveProfileId = S.ActiveProfile.Id," in self.TODAY_VM, \
+            "the running sprint record must name the profile it is enforcing"
+        resume = self.TODAY_VM.split("case SprintResume.Resume:")[1].split("break;")[0]
+        assert "SetActiveProfile(saved.ActiveProfileId)" in resume
+
+    # -------------------------------------- enforcement uses one profile only
+
+    def test_the_blocker_enforces_the_active_profile_and_nothing_else(self):
+        assert "_targets = settings.ActiveProfile.Apps.ToList();" in self.BLOCKER
+        assert "foreach (var app in settings.ActiveProfile.Apps)" in self.BLOCKER
+        assert "settings.Profiles" not in self.BLOCKER, \
+            "the shield must never walk every profile — only the active one is enforced"
+
+    def test_adds_and_removes_land_on_the_selected_profile_only(self):
+        assert "ActiveApps.Add(app);" in self.BLOCKED_VM
+        assert "ActiveApps.RemoveAll(a =>" in self.BLOCKED_VM
+        assert "_main.Settings.BlockedApps.Add(" not in self.BLOCKED_VM
+
+    def test_today_says_which_blocklist_the_next_sprint_uses(self):
+        assert 'AutomationProperties.AutomationId="TodayProfileCaption"' in self.TODAY_XAML
+        assert '$"Blocking: {ActiveProfile.Name}"' in self.BLOCKED_VM
+
+    # ------------------------------------------------ the existing ids survive
+
+    @pytest.mark.parametrize("auto_id", [
+        "NewAppNameInput", "AddAppButton", "BlockedAppsList", "BlockedAppsStatusText",
+        "BlockedAppsEmptyText", "AppSearchInput", "AppSearchNotice", "AppPickerList",
+        "RefreshProcessesButton",
+    ])
+    def test_every_blocked_apps_id_the_suite_drives_is_still_there(self, auto_id):
+        assert f'AutomationProperties.AutomationId="{auto_id}"' in self.BLOCKED_XAML
+
+    def test_the_per_row_ids_keep_their_shape(self):
+        assert "StringFormat=RemoveApp_{0}" in self.BLOCKED_XAML
+        assert "StringFormat=AppEnabledSwitch_{0}" in self.BLOCKED_XAML
+
+    @pytest.mark.parametrize("auto_id", [
+        "ProfileNameInput", "RenameProfileButton", "NewProfileButton",
+        "DuplicateProfileButton", "DeleteProfileButton",
+        "ConfirmDeleteProfileButton", "CancelDeleteProfileButton",
+    ])
+    def test_the_new_profile_controls_are_all_addressable(self, auto_id):
+        assert f'AutomationProperties.AutomationId="{auto_id}"' in self.BLOCKED_XAML
+
+    def test_the_new_ids_sit_on_controls_not_layout_panels(self):
+        """#134: an id on a Border or a StackPanel is never surfaced."""
+        for marker, control in (
+            ('AutomationId="ProfileNameInput"', "TextBox"),
+            ('AutomationId="NewProfileButton"', "Button"),
+            ('AutomationId="DeleteProfileButton"', "Button"),
+        ):
+            before = self.BLOCKED_XAML.split(marker)[0]
+            opening = before.rstrip().rsplit("<", 1)[-1].split()[0]
+            assert opening == control, f"{marker} sits on <{opening}>, not <{control}>"

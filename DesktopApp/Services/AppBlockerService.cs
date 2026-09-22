@@ -79,7 +79,9 @@ public class AppBlockerService : IDisposable
     private AppSettings _settings;
 
     /// <summary>
-    /// Private snapshot of the blocklist, rebuilt whenever settings change.
+    /// Private snapshot of the active profile's blocklist, rebuilt whenever
+    /// settings change (F9: only the active profile is ever enforced — the other
+    /// profiles are lists the customer keeps, not lists the shield acts on).
     ///
     /// The timer thread must never enumerate <c>AppSettings.BlockedApps</c>
     /// directly: the UI thread adds to and removes from that same List, and an
@@ -140,7 +142,7 @@ public class AppBlockerService : IDisposable
     {
         _settingsService = settingsService;
         _settings = settings;
-        _targets = settings.BlockedApps.ToList();
+        _targets = settings.ActiveProfile.Apps.ToList();
 
         _timer = new System.Timers.Timer(2000) { AutoReset = true };
         _timer.Elapsed += (_, _) => Tick();
@@ -149,14 +151,15 @@ public class AppBlockerService : IDisposable
 
     /// <summary>
     /// Republish settings to the watcher. Must be called on the UI thread after
-    /// any change to the blocklist — it is what refreshes the private snapshot.
+    /// any change to the blocklist, or after the active profile changes — it is
+    /// what refreshes the private snapshot.
     /// </summary>
     public void UpdateSettings(AppSettings settings)
     {
         lock (_gate)
         {
             _settings = settings;
-            _targets = settings.BlockedApps.ToList();
+            _targets = settings.ActiveProfile.Apps.ToList();
         }
     }
 
@@ -171,7 +174,7 @@ public class AppBlockerService : IDisposable
     public IReadOnlyList<string> RunningBlockedApps(AppSettings settings)
     {
         var targets = new Dictionary<string, BlockedApp>(StringComparer.OrdinalIgnoreCase);
-        foreach (var app in settings.BlockedApps)
+        foreach (var app in settings.ActiveProfile.Apps)
         {
             if (!app.IsEnabled) continue;
             foreach (var processName in app.AllProcessNames) targets[processName] = app;

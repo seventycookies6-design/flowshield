@@ -34,6 +34,96 @@
                                VerticalAlignment="Bottom" Margin="12,0,0,4"/>
                 </StackPanel>
 
+                <!-- ===================================== profile switcher (F9)
+                     Segmented chips (§7 "Segmented choices"), the same control
+                     as sprint length and shield level, because this is the same
+                     kind of choice: one of a few named things. The list below
+                     edits the selected profile only. -->
+                <StackPanel DockPanel.Dock="Top" Margin="0,0,0,16">
+                    <TextBlock Text="BLOCKLIST PROFILE" Style="{StaticResource Eyebrow}" Margin="0,0,0,8"/>
+                    <ItemsControl ItemsSource="{Binding Profiles}"
+                                  IsEnabled="{Binding CanSwitchProfile}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <RadioButton Style="{StaticResource Segment}" GroupName="BlocklistProfile"
+                                             Margin="0,0,8,8"
+                                             Content="{Binding Name}"
+                                             IsChecked="{Binding IsActive, Mode=OneWay}"
+                                             Command="{Binding DataContext.SelectProfileCommand,
+                                                       RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                             CommandParameter="{Binding}"
+                                             AutomationProperties.AutomationId="{Binding Name, StringFormat=Profile_{0}}"
+                                             AutomationProperties.Name="{Binding Name, StringFormat=Use the {0} blocklist}"/>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <Grid Margin="0,4,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBox Grid.Column="0" Style="{StaticResource Field}"
+                                 MaxLength="40"
+                                 Text="{Binding ProfileNameText, UpdateSourceTrigger=PropertyChanged}"
+                                 IsEnabled="{Binding CanEditProfiles}"
+                                 AutomationProperties.AutomationId="ProfileNameInput"
+                                 AutomationProperties.Name="Profile name"
+                                 AutomationProperties.HelpText="School, Gaming break, Everything"/>
+                        <Button Grid.Column="1" Style="{StaticResource BtnGhost}" Content="Rename"
+                                Margin="8,0,0,0" Padding="16,0"
+                                Command="{Binding RenameProfileCommand}"
+                                AutomationProperties.AutomationId="RenameProfileButton"
+                                AutomationProperties.Name="Rename this profile"/>
+                        <Button Grid.Column="2" Style="{StaticResource BtnGhost}" Content="New profile"
+                                Margin="8,0,0,0" Padding="16,0"
+                                Command="{Binding NewProfileCommand}"
+                                AutomationProperties.AutomationId="NewProfileButton"
+                                AutomationProperties.Name="Add a profile"/>
+                    </Grid>
+
+                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                        <Button Style="{StaticResource BtnQuiet}" Content="Duplicate" Padding="12,0"
+                                Command="{Binding DuplicateProfileCommand}"
+                                AutomationProperties.AutomationId="DuplicateProfileButton"
+                                AutomationProperties.Name="Duplicate this profile"/>
+                        <Button Style="{StaticResource BtnDanger}" Content="Delete" Padding="12,0" Margin="8,0,0,0"
+                                Command="{Binding DeleteProfileCommand}"
+                                AutomationProperties.AutomationId="DeleteProfileButton"
+                                AutomationProperties.Name="Delete this profile"/>
+                    </StackPanel>
+
+                    <!-- confirm before a profile's list goes with it -->
+                    <Border Style="{StaticResource RowCard}" Padding="16" Margin="0,8,0,0"
+                            Visibility="{Binding DeleteProfileConfirmVisible, Converter={StaticResource BoolVis}}">
+                        <StackPanel>
+                            <TextBlock Text="{Binding DeleteProfileConfirmText}" Style="{StaticResource Body}"
+                                       TextWrapping="Wrap"
+                                       AutomationProperties.AutomationId="DeleteProfileConfirmText"/>
+                            <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                                <Button Style="{StaticResource BtnDanger}" Content="Delete profile" Padding="16,0"
+                                        Command="{Binding ConfirmDeleteProfileCommand}"
+                                        AutomationProperties.AutomationId="ConfirmDeleteProfileButton"
+                                        AutomationProperties.Name="Delete this profile for good"/>
+                                <Button Style="{StaticResource BtnGhost}" Content="Keep it" Padding="16,0" Margin="8,0,0,0"
+                                        Command="{Binding CancelDeleteProfileCommand}"
+                                        AutomationProperties.AutomationId="CancelDeleteProfileButton"
+                                        AutomationProperties.Name="Keep this profile"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <TextBlock Style="{StaticResource Caption}" Margin="4,8,0,0" TextWrapping="Wrap"
+                               AutomationProperties.AutomationId="ProfileHint"
+                               Text="A profile is a named blocklist. A new one starts from the list you are looking at, so “School” or “Gaming break” is a copy with a few apps changed."/>
+                </StackPanel>
+
                 <!-- add row -->
                 <StackPanel DockPanel.Dock="Top" Margin="0,0,0,16">
                     <TextBlock Text="ADD AN APP TO BLOCK" Style="{StaticResource Eyebrow}" Margin="0,0,0,8"/>

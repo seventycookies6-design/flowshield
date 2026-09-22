@@ -95,7 +95,7 @@ roadmap item below has exactly one owner. Tracking issues: #37 (Keenan) and
 | F5 | Breaks and study cycles (Roadmap 3.4) | M |
 | F6 | Study templates and scheduled sprints | M |
 | F8 | App picker with student and gamer suggestions (Roadmap 2.2) (done, #58) | M |
-| F9 | Blocklist profiles (Roadmap 3.8) | M |
+| F9 | Blocklist profiles (Roadmap 3.8) (done, #225) | M |
 | F16 | History and weekly view (Roadmap 3.1, 3.6) (done, #217) | M |
 | F18 | Three-step first run (Roadmap 2.1) (done, #68) | M |
 | F19 | Native notifications and tray (Roadmap 2.5, 2.7) (done, #95) | S |
@@ -394,7 +394,7 @@ A summary of the research, to explain the choices below.
 
 ### F9 — Blocklist profiles · **Launch+** · M · Roadmap 3.8
 
-- [ ] Done
+- [x] Done (#225)
 
 **Assigned:** Keenan (seventycookies6-design), built with Claude Code
 

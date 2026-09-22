@@ -26,6 +26,11 @@ public class MainViewModel : ViewModelBase
             Log.Info($"free trial started; ends {Settings.TrialEndsUtc:u}");
         _lastHasAccess = HasAccess;
 
+        // F9: a settings file written before profiles existed has one blocklist;
+        // it becomes the Default profile here, before anything reads it.
+        if (Settings.EnsureProfiles())
+            Log.Info($"blocklist profiles ready: {Settings.Profiles.Count}, active \"{Settings.ActiveProfile.Name}\"");
+
         Blocker = new AppBlockerService(settingsService, Settings);
         Blocker.Blocked += OnBlocked;
         Blocker.SoftForeground += OnSoftForeground;

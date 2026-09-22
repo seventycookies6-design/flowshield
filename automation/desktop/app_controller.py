@@ -811,6 +811,47 @@ class DesktopController:
     def remove_blocked_app(self, process_name: str) -> None:
         self.click(f"RemoveApp_{process_name}")
 
+    # ------------------------------------------------- blocklist profiles (F9)
+
+    def select_profile(self, name: str) -> None:
+        """Switch the active blocklist profile from the Blocked Apps switcher."""
+        self.click(f"Profile_{name}")
+        time.sleep(0.4)
+
+    def select_profile_on_today(self, name: str) -> None:
+        """The same switch, from Today's chips before a sprint starts."""
+        self.click(f"TodayProfile_{name}")
+        time.sleep(0.4)
+
+    def new_profile(self, name: str) -> None:
+        """
+        Add a profile that starts as a copy of the list on screen, which is what
+        New profile does — a profile is a named blocklist, not an empty page.
+        """
+        self.set_text("ProfileNameInput", name)
+        self.click("NewProfileButton")
+        time.sleep(0.5)
+
+    def rename_profile(self, name: str) -> None:
+        self.set_text("ProfileNameInput", name)
+        self.click("RenameProfileButton")
+        time.sleep(0.5)
+
+    def duplicate_profile(self) -> None:
+        self.click("DuplicateProfileButton")
+        time.sleep(0.5)
+
+    def delete_profile(self, confirm: bool = True) -> None:
+        self.click("DeleteProfileButton")
+        if not confirm:
+            return
+        if self.exists("ConfirmDeleteProfileButton", timeout=2.0):
+            self.click("ConfirmDeleteProfileButton")
+            time.sleep(0.5)
+
+    def today_profile_caption(self) -> str:
+        return self.text_of("TodayProfileCaption")
+
     # --------------------------------------------------------- sleep blocking
 
     def set_sleep_window(self, start: str, end: str) -> None:
