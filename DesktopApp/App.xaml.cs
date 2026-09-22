@@ -37,7 +37,17 @@ public partial class App : Application
         {
             Models.EndSprintPolicy.UseShortTimers = true;
             Models.GracefulClose.UseShortTimers = true;
+            // F5: a three-second break, so tier 3 can run a whole cycle.
+            Models.CycleState.UseShortTimers = true;
             Log.Info("short end-sprint timers enabled by --short-timers flag");
+        }
+
+        // --short-sprints makes a sprint five seconds long, so the UI suite can
+        // watch a whole cycle (F5). Test only; it changes no rule, only a clock.
+        if (args.Any(a => a.Equals("--short-sprints", StringComparison.OrdinalIgnoreCase)))
+        {
+            Models.CycleState.UseShortSprints = true;
+            Log.Info("five-second sprints enabled by --short-sprints flag");
         }
 
         if (args.Any(a => a.Equals("--dev", StringComparison.OrdinalIgnoreCase)))

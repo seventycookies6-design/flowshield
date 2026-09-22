@@ -55,9 +55,24 @@ public static class NotificationPolicy
     public static bool TooShortForEndingSoon(int plannedMinutes) =>
         plannedMinutes <= EndingSoon.TotalMinutes + 1;
 
-    /// <summary>The tray tooltip: what FlowShield is doing right now.</summary>
-    public static string TrayText(bool running, ShieldLevel shield, TimeSpan remaining)
+    /// <summary>
+    /// The break countdown as the tray and the window title show it: "Break · 4:59".
+    ///
+    /// Seconds rather than minutes, unlike a sprint: a five-minute break rounded
+    /// to whole minutes would read "5 minutes left" for most of itself (F5).
+    /// </summary>
+    public static string BreakLabel(TimeSpan remaining)
     {
+        if (remaining < TimeSpan.Zero) remaining = TimeSpan.Zero;
+        return $"Break · {(int)remaining.TotalMinutes}:{remaining.Seconds:00}";
+    }
+
+    /// <summary>The tray tooltip: what FlowShield is doing right now.</summary>
+    public static string TrayText(bool running, ShieldLevel shield, TimeSpan remaining, bool onBreak = false)
+    {
+        // A break says so instead of naming a shield: during one the shield is
+        // down, and claiming otherwise in the tooltip would be a lie (F5).
+        if (onBreak) return $"FlowShield — {BreakLabel(remaining)}";
         if (!running) return "FlowShield — no sprint running";
         var minutes = Math.Max(1, (int)Math.Ceiling(remaining.TotalMinutes));
         return $"FlowShield — {shield} shield, {minutes} minute{(minutes == 1 ? "" : "s")} left";

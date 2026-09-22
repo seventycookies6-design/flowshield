@@ -172,6 +172,12 @@ public class RunningSprint
     /// </summary>
     public string ActiveProfileId { get; set; } = "";
 
+    /// <summary>The cycle this sprint belongs to, so "Sprint 2 of 3" survives a restart (F5).</summary>
+    public int CycleSprintsPlanned { get; set; }
+
+    /// <summary>Sprints of that cycle already finished when this one started (F5).</summary>
+    public int CycleSprintsDone { get; set; }
+
     /// <summary>Last time FlowShield confirmed it was still running this sprint.</summary>
     public DateTime LastSeenUtc { get; set; }
 
@@ -549,6 +555,27 @@ public class AppSettings
 
     /// <summary>The sprint in progress, or null. See <see cref="RunningSprint"/>.</summary>
     public RunningSprint? ActiveSprint { get; set; }
+
+    // ---- breaks and cycles (F5) -----------------------------------------
+
+    /// <summary>The break in progress, or null. See <see cref="RunningBreak"/>.</summary>
+    public RunningBreak? ActiveBreak { get; set; }
+
+    /// <summary>The usual break after a completed sprint.</summary>
+    public int ShortBreakMinutes { get; set; } = CycleState.DefaultShortBreakMinutes;
+
+    /// <summary>The longer break after every fourth completed sprint in a row.</summary>
+    public int LongBreakMinutes { get; set; } = CycleState.DefaultLongBreakMinutes;
+
+    /// <summary>
+    /// Completed sprints in a row, which is what earns the long break. Reset by
+    /// a sprint ended early or interrupted. Nothing else reads it — it is not
+    /// the streak, and it never touches momentum or the daily goal.
+    /// </summary>
+    public int CompletedSprintsInARow { get; set; }
+
+    /// <summary>The cycle chooser's last value on Today: 0 for no cycle.</summary>
+    public int CycleSprints { get; set; }
 
     /// <summary>
     /// Compounding score: completed sprints add, abandoned ones decay it.

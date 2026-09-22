@@ -28,7 +28,20 @@
                         <Ellipse Width="222" Height="222" Stroke="{StaticResource Primary}" StrokeThickness="12"
                                  StrokeDashCap="Round"
                                  StrokeDashArray="{Binding Progress, Converter={StaticResource ProgressDash}}"
-                                 Visibility="{Binding Progress, Converter={StaticResource PositiveVis}}"
+                                 Visibility="{Binding SprintRingVisible, Converter={StaticResource BoolVis}}"
+                                 RenderTransformOrigin="0.5,0.5">
+                            <Ellipse.RenderTransform>
+                                <RotateTransform Angle="-90"/>
+                            </Ellipse.RenderTransform>
+                        </Ellipse>
+
+                        <!-- The break arc is the same ring in text-muted (§7).
+                             §2: teal means state, selection or progress through a
+                             sprint — a break is visibly not a sprint (F5). -->
+                        <Ellipse Width="222" Height="222" Stroke="{StaticResource InkDim}" StrokeThickness="12"
+                                 StrokeDashCap="Round"
+                                 StrokeDashArray="{Binding Progress, Converter={StaticResource ProgressDash}}"
+                                 Visibility="{Binding BreakRingVisible, Converter={StaticResource BoolVis}}"
                                  RenderTransformOrigin="0.5,0.5">
                             <Ellipse.RenderTransform>
                                 <RotateTransform Angle="-90"/>
@@ -61,6 +74,11 @@
                             </StackPanel>
                             <!-- NoWrap so the trimming applies: the caption style wraps by
                                  default, and a long intention pushed itself out of the ring. -->
+                            <!-- "Sprint 2 of 3" while a cycle runs (F5). -->
+                            <TextBlock Text="{Binding CycleProgressText}" Style="{StaticResource Caption}"
+                                       HorizontalAlignment="Center" Margin="0,4,0,0"
+                                       Visibility="{Binding CycleProgressVisible, Converter={StaticResource BoolVis}}"
+                                       AutomationProperties.AutomationId="CycleProgressText"/>
                             <TextBlock Text="{Binding IntentionDisplayText}" Style="{StaticResource Caption}"
                                        HorizontalAlignment="Center" Margin="0,4,0,0" MaxWidth="150"
                                        TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"
@@ -296,6 +314,38 @@
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
 
+                    <!-- cycle (F5): run several sprints with breaks between them -->
+                    <TextBlock Text="CYCLE" Style="{StaticResource Eyebrow}" Margin="0,24,0,8"/>
+                    <WrapPanel IsEnabled="{Binding IsRunning, Converter={StaticResource InvBool}}">
+                        <RadioButton Style="{StaticResource Segment}" GroupName="Cycle" Content="One sprint"
+                                     Margin="0,0,8,8"
+                                     AutomationProperties.AutomationId="Cycle_Off"
+                                     AutomationProperties.Name="One sprint, no cycle"
+                                     IsChecked="{Binding CycleSprints, Converter={StaticResource IntEq},
+                                                 ConverterParameter=0}"/>
+                        <RadioButton Style="{StaticResource Segment}" GroupName="Cycle" Content="2 sprints"
+                                     Margin="0,0,8,8"
+                                     AutomationProperties.AutomationId="Cycle_2"
+                                     AutomationProperties.Name="Two sprints with breaks"
+                                     IsChecked="{Binding CycleSprints, Converter={StaticResource IntEq},
+                                                 ConverterParameter=2}"/>
+                        <RadioButton Style="{StaticResource Segment}" GroupName="Cycle" Content="3 sprints"
+                                     Margin="0,0,8,8"
+                                     AutomationProperties.AutomationId="Cycle_3"
+                                     AutomationProperties.Name="Three sprints with breaks"
+                                     IsChecked="{Binding CycleSprints, Converter={StaticResource IntEq},
+                                                 ConverterParameter=3}"/>
+                        <RadioButton Style="{StaticResource Segment}" GroupName="Cycle" Content="4 sprints"
+                                     Margin="0,0,8,8"
+                                     AutomationProperties.AutomationId="Cycle_4"
+                                     AutomationProperties.Name="Four sprints with breaks"
+                                     IsChecked="{Binding CycleSprints, Converter={StaticResource IntEq},
+                                                 ConverterParameter=4}"/>
+                    </WrapPanel>
+                    <TextBlock Text="{Binding CycleDescription}" Style="{StaticResource Caption}"
+                               TextWrapping="Wrap"
+                               AutomationProperties.AutomationId="CycleDescriptionText"/>
+
                     <!-- intention (F13) -->
                     <TextBlock Text="INTENTION" Style="{StaticResource Eyebrow}" Margin="0,24,0,8"/>
                     <TextBox Style="{StaticResource Field}" MaxLength="80"
@@ -329,6 +379,37 @@
                                        Margin="0,4,0,0"
                                        Visibility="{Binding SummaryIntentionVisible, Converter={StaticResource BoolVis}}"
                                        AutomationProperties.AutomationId="SummaryIntentionText"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- break (F5): offered after a completed sprint, and the
+                         panel a running break lives in. No AutomationId on the
+                         Border — a panel is not surfaced to UI Automation; the
+                         title, the line and the three buttons are. -->
+                    <Border Style="{StaticResource RowCard}" Margin="0,24,0,0" Padding="16"
+                            Visibility="{Binding BreakPanelVisible, Converter={StaticResource BoolVis}}">
+                        <StackPanel>
+                            <TextBlock Text="{Binding BreakPanelTitle}" Style="{StaticResource H2}"
+                                       AutomationProperties.AutomationId="BreakPanelTitle"/>
+                            <TextBlock Text="{Binding BreakPanelText}" Style="{StaticResource Body}"
+                                       TextWrapping="Wrap" Margin="0,8,0,0"
+                                       AutomationProperties.AutomationId="BreakPanelText"/>
+
+                            <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
+                                <Button Style="{StaticResource BtnPrimary}" Content="Start break"
+                                        Command="{Binding StartBreakCommand}" Padding="24,8"
+                                        Visibility="{Binding StartBreakVisible, Converter={StaticResource BoolVis}}"
+                                        AutomationProperties.AutomationId="StartBreakButton"
+                                        AutomationProperties.Name="Start break"/>
+                                <Button Style="{StaticResource BtnGhost}" Content="Skip break"
+                                        Command="{Binding SkipBreakCommand}" Padding="24,8" Margin="12,0,0,0"
+                                        AutomationProperties.AutomationId="SkipBreakButton"
+                                        AutomationProperties.Name="Skip break"/>
+                                <Button Style="{StaticResource BtnGhost}" Content="Start next sprint"
+                                        Command="{Binding StartNextSprintCommand}" Padding="24,8" Margin="12,0,0,0"
+                                        AutomationProperties.AutomationId="StartNextSprintButton"
+                                        AutomationProperties.Name="Start next sprint"/>
+                            </StackPanel>
                         </StackPanel>
                     </Border>
 

@@ -739,6 +739,7 @@ public class SettingsViewModel : ViewModelBase
             Raise(nameof(NotifySprintInterrupted));
             Raise(nameof(NotifyTrialEnding));
             Raise(nameof(NotifyAppClosing));
+            Raise(nameof(NotifyBreakOver));
         }
     }
 
@@ -776,6 +777,63 @@ public class SettingsViewModel : ViewModelBase
     {
         get => IsOn(NotificationKind.AppClosing);
         set => SetNotification(NotificationKind.AppClosing, value);
+    }
+
+    public bool NotifyBreakOver
+    {
+        get => IsOn(NotificationKind.BreakOver);
+        set => SetNotification(NotificationKind.BreakOver, value);
+    }
+
+    // ------------------------------------------------------------ breaks (F5)
+
+    /// <summary>
+    /// The two break lengths, as text for the same reason the custom sprint
+    /// length is: "abc" has to be refused with a message rather than silently
+    /// leaving the old number in place.
+    /// </summary>
+    private string? _shortBreakText;
+    public string ShortBreakMinutesText
+    {
+        get => _shortBreakText ??= _main.Settings.ShortBreakMinutes.ToString();
+        set => SetBreakMinutes(ref _shortBreakText, value, isLong: false);
+    }
+
+    private string? _longBreakText;
+    public string LongBreakMinutesText
+    {
+        get => _longBreakText ??= _main.Settings.LongBreakMinutes.ToString();
+        set => SetBreakMinutes(ref _longBreakText, value, isLong: true);
+    }
+
+    public string BreakMinutesError =>
+        $"Choose between {CycleState.MinBreakMinutes} and {CycleState.MaxBreakMinutes} minutes.";
+
+    private bool _shortBreakInvalid;
+    public bool ShortBreakErrorVisible { get => _shortBreakInvalid; private set => Set(ref _shortBreakInvalid, value); }
+
+    private bool _longBreakInvalid;
+    public bool LongBreakErrorVisible { get => _longBreakInvalid; private set => Set(ref _longBreakInvalid, value); }
+
+    public string LongBreakExplanation =>
+        $"The longer break comes after every {CycleState.LongBreakEvery} completed sprints in a row.";
+
+    private void SetBreakMinutes(ref string? field, string? value, bool isLong,
+                                 [CallerMemberName] string? name = null)
+    {
+        var text = value ?? "";
+        if (field == text) return;
+        field = text;
+        Raise(name);
+
+        var valid = int.TryParse(text.Trim(), out var minutes) && CycleState.IsValidBreakMinutes(minutes);
+        if (isLong) LongBreakErrorVisible = !valid;
+        else ShortBreakErrorVisible = !valid;
+        if (!valid) return;
+
+        if (isLong) _main.Settings.LongBreakMinutes = minutes;
+        else _main.Settings.ShortBreakMinutes = minutes;
+        _main.SaveSettings();
     }
 
     private bool IsOn(NotificationKind kind) => _main.Settings.IsNotificationOn(kind);

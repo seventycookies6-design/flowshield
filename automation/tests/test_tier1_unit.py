@@ -3429,3 +3429,414 @@ class TestBlocklistProfileRules:
         ensure = self.method("public bool EnsureProfiles()")
         assert "SuggestedProfileNames" not in ensure, \
             "the suggestions are names to pick from, not profiles the app makes"
+
+
+# ================================================ breaks and cycles (F5)
+
+LONG_BREAK_EVERY = 4
+
+
+def break_minutes(in_a_row: int, short_minutes: int, long_minutes: int) -> int:
+    """Mirror of CycleState.BreakMinutes."""
+    return long_minutes if in_a_row > 0 and in_a_row % LONG_BREAK_EVERY == 0 else short_minutes
+
+
+def offers_break(completed: bool) -> bool:
+    """Mirror of CycleState.OffersBreak: only a sprint that finished earns one."""
+    return completed
+
+
+class Cycle:
+    """Mirror of CycleState: where a cycle is, and nothing else."""
+
+    def __init__(self, planned=0, done=0, phase="idle"):
+        self.phase = phase
+        self.planned = planned
+        self.done = done
+
+    # ---- the properties the view binds to
+    @property
+    def in_cycle(self) -> bool:
+        return self.planned > 1
+
+    @property
+    def sprint_number(self) -> int:
+        return min(self.done + 1, max(self.planned, 1))
+
+    @property
+    def label(self) -> str:
+        return f"Sprint {self.sprint_number} of {self.planned}" if self.in_cycle else ""
+
+    @property
+    def cycle_finished(self) -> bool:
+        return self.in_cycle and self.done >= self.planned
+
+    @property
+    def starts_next_sprint(self) -> bool:
+        return self.in_cycle and self.done < self.planned
+
+    # ---- transitions
+    def sprint_started(self, chooser: int) -> "Cycle":
+        if self.in_cycle and not self.cycle_finished:
+            self.phase = "sprint"
+            return self
+        return Cycle(max(chooser, 0), 0, "sprint")
+
+    def sprint_completed(self) -> "Cycle":
+        return Cycle(self.planned, self.done + 1, "idle")
+
+    def sprint_abandoned(self) -> "Cycle":
+        return Cycle()
+
+    def break_started(self) -> "Cycle":
+        self.phase = "break"
+        return self
+
+    def break_ended(self) -> "Cycle":
+        self.phase = "idle"
+        return self
+
+    def cycle_done(self) -> "Cycle":
+        return Cycle(0, 0, "idle")
+
+
+class Today:
+    """
+    The handful of TodayViewModel decisions the cycle drives, and nothing else.
+
+    `momentum` and `goal_days` stand in for the two things a break must never
+    touch: they are only ever changed by a sprint ending.
+    """
+
+    def __init__(self, chooser=0, short_break=5, long_break=15):
+        self.cycle = Cycle()
+        self.chooser = chooser
+        self.short_break = short_break
+        self.long_break = long_break
+        self.offer_visible = False
+        self.on_break = False
+        self.break_minutes_running = 0
+        self.enforcing = False
+        self.momentum = 0
+        self.goal_days = 0
+        self.sprints_run = 0
+        # AppSettings.CompletedSprintsInARow: what earns the long break.
+        self.in_a_row = 0
+
+    def start_sprint(self):
+        self.end_break()
+        self.cycle = self.cycle.sprint_started(self.chooser)
+        self.offer_visible = False
+        self.enforcing = True
+        self.sprints_run += 1
+
+    def end_sprint(self, completed: bool):
+        self.enforcing = False
+        if completed:
+            self.momentum += 10
+            self.goal_days += 1
+            self.in_a_row += 1
+            self.cycle = self.cycle.sprint_completed()
+        else:
+            self.momentum -= 5
+            self.in_a_row = 0
+            self.cycle = self.cycle.sprint_abandoned()
+
+        if offers_break(completed):
+            self.offer_visible = True
+            if self.cycle.starts_next_sprint:
+                self.start_break()
+        else:
+            self.offer_visible = False
+
+        if self.cycle.cycle_finished:
+            self.cycle = self.cycle.cycle_done()
+
+    def start_break(self):
+        if not self.offer_visible or self.on_break:
+            return
+        self.break_minutes_running = break_minutes(
+            self.in_a_row, self.short_break, self.long_break)
+        self.cycle = self.cycle.break_started()
+        self.offer_visible = False
+        self.on_break = True
+
+    def end_break(self):
+        self.offer_visible = False
+        if not self.on_break:
+            return
+        self.on_break = False
+        self.cycle = self.cycle.break_ended()
+
+    def skip_break(self):
+        self.end_break()
+        self.continue_or_idle()
+
+    def break_ran_out(self):
+        self.end_break()
+        self.continue_or_idle()
+
+    def continue_or_idle(self):
+        if self.cycle.starts_next_sprint:
+            self.start_sprint()
+
+
+class TestBreakLength:
+    """F5: five minutes, and fifteen after every fourth completed sprint in a row."""
+
+    def test_the_usual_break_is_the_short_one(self):
+        assert break_minutes(1, 5, 15) == 5
+        assert break_minutes(3, 5, 15) == 5
+
+    def test_the_fourth_sprint_in_a_row_earns_the_long_break(self):
+        assert break_minutes(4, 5, 15) == 15
+
+    def test_and_every_fourth_after_that(self):
+        assert break_minutes(8, 5, 15) == 15
+        assert break_minutes(12, 5, 15) == 15
+        assert break_minutes(9, 5, 15) == 5
+
+    def test_a_run_of_none_earns_nothing_long(self):
+        assert break_minutes(0, 5, 15) == 5, "zero % 4 is zero; that must not read as a fourth sprint"
+
+    def test_both_lengths_come_from_settings(self):
+        assert break_minutes(1, 3, 30) == 3
+        assert break_minutes(4, 3, 30) == 30
+
+
+class TestBreakIsOfferedOnlyForAFinishedSprint:
+    """F5: ending early is F2's business; a break for it would pay for stopping."""
+
+    def test_a_completed_sprint_offers_one(self):
+        t = Today()
+        t.end_sprint(completed=True)
+        assert t.offer_visible
+
+    def test_a_sprint_ended_early_offers_nothing(self):
+        t = Today()
+        t.end_sprint(completed=False)
+        assert not t.offer_visible
+        assert not t.on_break
+
+    def test_ending_early_clears_the_run_towards_a_long_break(self):
+        t = Today()
+        for _ in range(3):
+            t.start_sprint()
+            t.end_sprint(completed=True)
+            t.skip_break()
+        t.start_sprint()
+        t.end_sprint(completed=False)
+        assert t.in_a_row == 0, "three finished then one abandoned is not four in a row"
+
+
+class TestBreaksChangeNothingElse:
+    """F5: momentum, the streak and the daily goal never hear about a break."""
+
+    def test_starting_and_ending_a_break_moves_nothing(self):
+        t = Today()
+        t.start_sprint()
+        t.end_sprint(completed=True)
+        before = (t.momentum, t.goal_days)
+        t.start_break()
+        t.break_ran_out()
+        assert (t.momentum, t.goal_days) == before
+
+    def test_skipping_a_break_costs_nothing(self):
+        t = Today()
+        t.start_sprint()
+        t.end_sprint(completed=True)
+        before = (t.momentum, t.goal_days)
+        t.skip_break()
+        assert (t.momentum, t.goal_days) == before
+
+    def test_nothing_is_enforced_while_a_break_runs(self):
+        t = Today()
+        t.start_sprint()
+        assert t.enforcing
+        t.end_sprint(completed=True)
+        t.start_break()
+        assert not t.enforcing, "the shield is down for the whole break"
+
+
+class TestCycles:
+    """F5: "3 × 45" runs sprint → break → sprint by itself."""
+
+    def test_a_cycle_shows_which_sprint_is_running(self):
+        t = Today(chooser=3)
+        t.start_sprint()
+        assert t.cycle.label == "Sprint 1 of 3"
+        t.end_sprint(completed=True)
+        assert t.cycle.label == "Sprint 2 of 3"
+
+    def test_a_single_sprint_has_no_label(self):
+        t = Today()
+        t.start_sprint()
+        assert t.cycle.label == ""
+
+    def test_the_break_starts_itself_between_sprints(self):
+        t = Today(chooser=3)
+        t.start_sprint()
+        t.end_sprint(completed=True)
+        assert t.on_break, "a cycle should not need a click between its sprints"
+        assert not t.enforcing
+
+    def test_the_next_sprint_starts_when_the_break_runs_out(self):
+        t = Today(chooser=3)
+        t.start_sprint()
+        t.end_sprint(completed=True)
+        t.break_ran_out()
+        assert t.sprints_run == 2
+        assert t.enforcing
+
+    def test_skipping_a_break_moves_straight_to_the_next_sprint(self):
+        t = Today(chooser=2)
+        t.start_sprint()
+        t.end_sprint(completed=True)
+        t.skip_break()
+        assert t.sprints_run == 2, "skipping is free, and free does not mean the cycle stops"
+
+    def test_the_cycle_stops_after_its_last_sprint(self):
+        t = Today(chooser=2)
+        t.start_sprint()
+        t.end_sprint(completed=True)
+        t.break_ran_out()
+        t.end_sprint(completed=True)
+        t.break_ran_out()
+        assert t.sprints_run == 2, "a 2-sprint cycle must not run a third"
+        assert t.cycle.label == ""
+
+    def test_the_chooser_does_not_restart_the_count_mid_cycle(self):
+        t = Today(chooser=3)
+        t.start_sprint()
+        t.end_sprint(completed=True)
+        t.break_ran_out()
+        assert t.cycle.done == 1 and t.cycle.planned == 3
+
+    def test_a_cycle_abandoned_mid_sprint_stops_there(self):
+        t = Today(chooser=3)
+        t.start_sprint()
+        t.end_sprint(completed=True)
+        t.break_ran_out()
+        t.end_sprint(completed=False)          # the second sprint is given up
+        assert not t.cycle.in_cycle, "the rest of the cycle must not run on"
+        assert not t.on_break and not t.offer_visible
+        assert t.sprints_run == 2
+
+    def test_abandoning_costs_that_sprint_and_no_more(self):
+        """F2 decides the price once. The cycle does not add a second one."""
+        t = Today(chooser=3)
+        t.start_sprint()
+        t.end_sprint(completed=False)
+        assert t.momentum == -5, "one ended-early sprint, one decay"
+
+    def test_the_fourth_sprint_of_a_cycle_earns_the_long_break(self):
+        t = Today(chooser=4)
+        t.start_sprint()
+        for _ in range(3):
+            t.end_sprint(completed=True)
+            assert t.break_minutes_running == 5, "the first three breaks are the short one"
+            t.break_ran_out()          # which starts the next sprint itself
+        t.end_sprint(completed=True)
+        assert t.in_a_row == 4
+        assert break_minutes(t.in_a_row, t.short_break, t.long_break) == 15
+        assert t.sprints_run == 4
+
+
+def decide_break(ends_at, now) -> str:
+    """Mirror of RunningBreak.Decide."""
+    return "end quietly" if ends_at <= now else "resume"
+
+
+class TestBreakSurvivesARestart:
+    """F5: a saved break is picked up, or ended without a word."""
+
+    def test_a_break_with_time_left_resumes(self):
+        assert decide_break(100, 40) == "resume"
+
+    def test_a_break_that_ran_out_while_closed_ends_quietly(self):
+        assert decide_break(100, 100) == "end quietly"
+        assert decide_break(100, 900) == "end quietly"
+
+    def test_a_resumed_break_keeps_its_cycle(self):
+        saved = Cycle(planned=3, done=1, phase="break")
+        t = Today(chooser=0)
+        t.cycle = saved
+        t.on_break = True
+        assert t.cycle.label == "Sprint 2 of 3"
+        t.break_ran_out()
+        assert t.sprints_run == 1, "the cycle carries on where it left off"
+
+
+class TestBreaksAndCyclesSource:
+    """The C# the mirrors above stand in for."""
+
+    ROOT = Path(SERVER_DIR).parent / "DesktopApp"
+    MODEL = ROOT / "Models" / "CycleState.cs"
+    SETTINGS = ROOT / "Models" / "AppSettings.cs"
+    TODAY_VM = ROOT / "ViewModels" / "TodayViewModel.cs"
+    TODAY_XAML = ROOT / "Views" / "TodayView.xaml"
+    SETTINGS_XAML = ROOT / "Views" / "SettingsView.xaml"
+    NOTIFICATIONS = ROOT / "Models" / "Notifications.cs"
+
+    def test_the_rules_live_in_a_model_of_their_own(self):
+        assert self.MODEL.exists(), "tier 1 pins these rules by reading them"
+        source = self.MODEL.read_text(encoding="utf-8")
+        assert "LongBreakEvery = 4" in source
+        assert "DefaultShortBreakMinutes = 5" in source
+        assert "DefaultLongBreakMinutes = 15" in source
+        assert "OffersBreak(bool completed) => completed" in source
+
+    def test_the_model_never_reads_momentum_a_streak_or_a_goal(self):
+        source = self.MODEL.read_text(encoding="utf-8")
+        for forbidden in ("MomentumScore", "CurrentStreak", "DailyGoal"):
+            assert forbidden not in source, f"a break must not be able to touch {forbidden}"
+
+    def test_the_settings_persist_the_break_and_its_lengths(self):
+        source = self.SETTINGS.read_text(encoding="utf-8")
+        for field in ("ActiveBreak", "ShortBreakMinutes", "LongBreakMinutes",
+                      "CompletedSprintsInARow", "CycleSprints"):
+            assert field in source, f"AppSettings must persist {field}"
+
+    def test_a_break_is_only_ever_offered_through_the_model(self):
+        vm = self.TODAY_VM.read_text(encoding="utf-8")
+        assert "CycleState.OffersBreak(completed)" in vm, \
+            "the offer rule belongs to the model, not to a condition in the view model"
+        assert "CycleState.BreakMinutes(" in vm
+
+    def test_the_test_only_override_shortens_only_the_break(self):
+        source = self.MODEL.read_text(encoding="utf-8")
+        assert "UseShortTimers" in source, "tier 3 cannot wait five minutes for a break"
+        app = (self.ROOT / "App.xaml.cs").read_text(encoding="utf-8")
+        assert "Models.CycleState.UseShortTimers = true;" in app
+
+    def test_today_names_the_break_and_the_cycle(self):
+        xaml = self.TODAY_XAML.read_text(encoding="utf-8")
+        for automation_id in ("StartBreakButton", "SkipBreakButton", "StartNextSprintButton",
+                              "BreakPanelTitle", "CycleProgressText",
+                              "Cycle_Off", "Cycle_2", "Cycle_3", "Cycle_4"):
+            assert f'AutomationProperties.AutomationId="{automation_id}"' in xaml
+
+    def test_settings_can_change_both_break_lengths_and_the_notice(self):
+        xaml = self.SETTINGS_XAML.read_text(encoding="utf-8")
+        for automation_id in ("ShortBreakMinutesInput", "LongBreakMinutesInput",
+                              "NotifyBreakOverToggle"):
+            assert f'AutomationProperties.AutomationId="{automation_id}"' in xaml
+
+    def test_the_tray_says_break_rather_than_naming_a_shield(self):
+        source = self.NOTIFICATIONS.read_text(encoding="utf-8")
+        assert 'Break · ' in source, "the tooltip and title read \"Break · 4:59\" during a break"
+        window = (self.ROOT / "MainWindow.xaml.cs").read_text(encoding="utf-8")
+        assert "NotificationPolicy.BreakLabel(remaining)" in window
+
+    def test_the_break_copy_has_no_exclamation_marks(self):
+        """DESIGN_SYSTEM §9: no exclamation marks anywhere the customer reads."""
+        vm = self.TODAY_VM.read_text(encoding="utf-8")
+        region = vm.split("breaks and cycles (F5)")[1].split("--------------- stats")[0]
+        assert '!"' not in region and "! " not in region, region
+
+    def test_the_break_record_carries_the_cycle_it_belongs_to(self):
+        source = self.MODEL.read_text(encoding="utf-8")
+        run = source.split("public class RunningBreak")[1]
+        for field in ("StartedUtc", "EndsUtc", "SprintsPlanned", "SprintsDone"):
+            assert field in run, f"a resumed break needs {field}"
+        assert "BreakResume.EndQuietly" in run

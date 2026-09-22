@@ -300,6 +300,46 @@
                 </StackPanel>
             </Border>
 
+            <!-- =================================================== breaks (F5) -->
+            <Border Style="{StaticResource Card}" Padding="24">
+                <StackPanel>
+                    <TextBlock Text="BREAKS" Style="{StaticResource Eyebrow}" Margin="0,0,0,8"/>
+                    <TextBlock Text="A break is offered after a sprint finishes. The shield is down while one runs, and a break changes nothing about your momentum, streak or daily goal."
+                               Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,16"/>
+
+                    <TextBlock Text="BREAK LENGTH" Style="{StaticResource Eyebrow}" Margin="0,0,0,8"/>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBox Width="72" Style="{StaticResource Field}"
+                                 Text="{Binding ShortBreakMinutesText, UpdateSourceTrigger=PropertyChanged}"
+                                 AutomationProperties.AutomationId="ShortBreakMinutesInput"
+                                 AutomationProperties.Name="Break length in minutes"/>
+                        <TextBlock Text="minutes" Style="{StaticResource Body}"
+                                   VerticalAlignment="Center" Margin="12,0,0,0"/>
+                    </StackPanel>
+                    <TextBlock Text="{Binding BreakMinutesError}" Style="{StaticResource Caption}"
+                               Foreground="{StaticResource Amber}" Margin="0,8,0,0"
+                               Visibility="{Binding ShortBreakErrorVisible, Converter={StaticResource BoolVis}}"
+                               AutomationProperties.AutomationId="ShortBreakMinutesError"/>
+
+                    <TextBlock Text="LONGER BREAK" Style="{StaticResource Eyebrow}" Margin="0,16,0,8"/>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBox Width="72" Style="{StaticResource Field}"
+                                 Text="{Binding LongBreakMinutesText, UpdateSourceTrigger=PropertyChanged}"
+                                 AutomationProperties.AutomationId="LongBreakMinutesInput"
+                                 AutomationProperties.Name="Longer break length in minutes"/>
+                        <TextBlock Text="minutes" Style="{StaticResource Body}"
+                                   VerticalAlignment="Center" Margin="12,0,0,0"/>
+                    </StackPanel>
+                    <TextBlock Text="{Binding BreakMinutesError}" Style="{StaticResource Caption}"
+                               Foreground="{StaticResource Amber}" Margin="0,8,0,0"
+                               Visibility="{Binding LongBreakErrorVisible, Converter={StaticResource BoolVis}}"
+                               AutomationProperties.AutomationId="LongBreakMinutesError"/>
+                    <TextBlock Text="{Binding LongBreakExplanation}" Style="{StaticResource Caption}"
+                               TextWrapping="Wrap" Margin="0,8,0,0"
+                               AutomationProperties.AutomationId="LongBreakExplanation"/>
+                </StackPanel>
+            </Border>
+
             <!-- ============================================ journal export -->
             <Border Style="{StaticResource Card}" Padding="24">
                 <StackPanel>
@@ -395,6 +435,13 @@
                                 <TextBlock Text="When a sprint is picked up again after a restart or a crash."
                                            Style="{StaticResource Caption}" Margin="0,4,0,0"/>
                             </StackPanel>
+                        </CheckBox>
+
+                        <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding NotifyBreakOver}"
+                                  Margin="0,16,0,0"
+                                  AutomationProperties.AutomationId="NotifyBreakOverToggle"
+                                  AutomationProperties.Name="Break over">
+                            <TextBlock Text="Break over" Style="{StaticResource Label}"/>
                         </CheckBox>
 
                         <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding NotifyAppClosing}"

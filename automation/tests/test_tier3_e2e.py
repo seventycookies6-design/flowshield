@@ -2025,3 +2025,187 @@ class TestHistoryPage:
         time.sleep(0.5)
 
         assert verify.read_settings()["Sessions"] == before
+
+
+# ==================================================== breaks and cycles (F5)
+#
+# Written for F5 but NOT run in this session: UI tests take over the screen,
+# only one can run at a time on this machine, and the orchestrator schedules
+# them. See the PR description.
+
+class TestBreaksAndCycles:
+    """
+    A two-sprint cycle, end to end, with five-second sprints and three-second
+    breaks (--short-sprints and --short-timers).
+
+    The point of the test is the one thing only a real run can show: that a
+    blocked app launched *during* the break is left alone, and closed again as
+    soon as the next sprint starts. Everything else about the state machine is
+    tier 1's job.
+    """
+
+    TARGET = "flowshield-test-target"
+
+    @staticmethod
+    def _start(logger, **launch):
+        from config import APP_EXE
+        from desktop.app_controller import DesktopController
+
+        if not Path(APP_EXE).exists():
+            pytest.skip(f"{APP_EXE} not built")
+
+        ctrl = DesktopController(logger)
+        ctrl.launch_app(clean_state=True, **launch)
+        ctrl.connect_window()
+        time.sleep(1.0)
+        ctrl.focus(force=True)
+        return ctrl
+
+    @pytest.fixture
+    def cycle_app(self, logger):
+        """Five-second sprints and three-second breaks: a whole cycle in seconds."""
+        ctrl = self._start(logger, extra_args=["--short-sprints"])
+        yield ctrl
+        ctrl.close_app()
+
+    @pytest.fixture
+    def long_break_app(self, logger):
+        """
+        Five-second sprints, but a real five-minute break.
+
+        use_defaults drops the launcher's own --short-timers, which is what
+        makes the break long enough to watch a blocked app live through it.
+        """
+        ctrl = self._start(logger, use_defaults=True, extra_args=["--short-sprints"])
+        yield ctrl
+        ctrl.close_app()
+
+    def _decoy(self, tmp_path, suffix=""):
+        """A quiet blocked app: a copy of ping, as the tests above do."""
+        import shutil
+        exe = tmp_path / f"{self.TARGET}{suffix}.exe"
+        if not exe.exists():
+            shutil.copy2(Path(os.environ["WINDIR"]) / "System32" / "PING.EXE", exe)
+        return subprocess.Popen(
+            [str(exe), "-n", "300", "127.0.0.1"],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+
+    def test_a_completed_sprint_offers_a_break(self, cycle_app):
+        cycle_app.navigate_to_tab("Today")
+        cycle_app.select_sprint_length(15)
+        cycle_app.start_sprint()
+
+        # Five seconds later the sprint finishes on its own.
+        assert cycle_app.exists("BreakPanelTitle", timeout=20), \
+            "a completed sprint must offer a break"
+        assert cycle_app.text_of("BreakPanelTitle") == "Take a break"
+        assert "5 minutes" in cycle_app.text_of("BreakPanelText")
+        for control in ("StartBreakButton", "SkipBreakButton", "StartNextSprintButton"):
+            assert cycle_app.exists(control, timeout=3), f"{control} is missing from the card"
+
+    def test_a_sprint_ended_early_offers_no_break(self, fresh_app):
+        """A normal 15-minute sprint, ended by hand after its grace period."""
+        fresh_app.navigate_to_tab("Today")
+        fresh_app.select_sprint_length(15)
+        fresh_app.start_sprint()
+        fresh_app.stop_sprint()
+        time.sleep(1.0)
+
+        assert fresh_app.exists("SummaryTitle", timeout=5), "the summary card should be up"
+        assert not fresh_app.exists("StartBreakButton", timeout=2), \
+            "ending early must not be rewarded with a break"
+
+    def test_nothing_is_blocked_during_the_break(self, long_break_app, tmp_path):
+        app = long_break_app
+        app.navigate_to_tab("Blocked Apps")
+        assert app.add_blocked_app(self.TARGET)
+        time.sleep(0.6)
+
+        app.navigate_to_tab("Today")
+        app.select_shield("Firm")
+        app.select_sprint_length(15)
+        app.start_sprint()
+
+        # Five seconds later the sprint finishes and the break is offered.
+        assert app.exists("StartBreakButton", timeout=20)
+        app.click("StartBreakButton")
+        time.sleep(1.0)
+        assert app.text_of("BreakPanelTitle") == "On a break"
+
+        # The shield is down: a blocked app may be opened and must survive. The
+        # blocker sweeps every two seconds, so twelve is several chances to fail.
+        process = self._decoy(tmp_path)
+        try:
+            deadline = time.time() + 12
+            while time.time() < deadline:
+                assert process.poll() is None, \
+                    "a blocked app was closed during a break; the shield must be down"
+                time.sleep(1)
+
+            # And the shield comes straight back up with the next sprint.
+            app.click("StartNextSprintButton")
+            deadline = time.time() + 25
+            while time.time() < deadline and process.poll() is None:
+                time.sleep(1)
+            assert process.poll() is not None, \
+                "the next sprint must enforce again as soon as it starts"
+        finally:
+            if process.poll() is None:
+                process.kill()
+
+    def test_a_two_sprint_cycle_runs_itself(self, cycle_app):
+        """Five-second sprints and three-second breaks: about fifteen seconds."""
+        cycle_app.navigate_to_tab("Today")
+        cycle_app.select_sprint_length(15)
+        cycle_app.choose("Cycle_2")
+        time.sleep(0.4)
+        cycle_app.start_sprint()
+
+        assert cycle_app.text_of("CycleProgressText", timeout=5) == "Sprint 1 of 2"
+
+        # Sprint 1 finishes, a three-second break runs itself, and sprint 2
+        # starts with no click at all.
+        deadline = time.time() + 30
+        seen_second = False
+        while time.time() < deadline:
+            try:
+                if cycle_app.text_of("CycleProgressText", timeout=1) == "Sprint 2 of 2":
+                    seen_second = True
+                    break
+            except Exception:
+                pass
+            time.sleep(0.5)
+        assert seen_second, "the cycle did not start its second sprint by itself"
+
+        # Both sprints are recorded as completed, and the cycle stops at two.
+        deadline = time.time() + 30
+        while time.time() < deadline:
+            sessions = verify.read_settings().get("Sessions", [])
+            if len([s for s in sessions if s.get("Completed")]) >= 2:
+                break
+            time.sleep(1)
+        sessions = verify.read_settings().get("Sessions", [])
+        completed = [s for s in sessions if s.get("Completed")]
+        assert len(completed) == 2, f"a 2-sprint cycle ran {len(completed)} sprints"
+
+        time.sleep(6)
+        assert not cycle_app.exists("StopSprintButton", timeout=2), \
+            "the cycle must stop after its last sprint, not roll on"
+
+    def test_a_break_never_moves_momentum_or_the_goal(self, cycle_app):
+        cycle_app.navigate_to_tab("Today")
+        cycle_app.select_sprint_length(15)
+        cycle_app.start_sprint()
+        assert cycle_app.exists("StartBreakButton", timeout=20)
+
+        momentum_before = cycle_app.text_of("MomentumValue")
+        minutes_before = cycle_app.text_of("FocusMinutesValue")
+
+        cycle_app.click("SkipBreakButton")
+        time.sleep(1.0)
+
+        assert cycle_app.text_of("MomentumValue") == momentum_before, \
+            "skipping a break must not change momentum"
+        assert cycle_app.text_of("FocusMinutesValue") == minutes_before, \
+            "a break is not focus time"

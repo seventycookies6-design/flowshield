@@ -401,16 +401,20 @@ public partial class MainWindow : Window
     private void UpdateTrayIcon()
     {
         var running = Vm?.Today.IsRunning == true;
+        var onBreak = Vm?.Today.IsOnBreak == true;
         var remaining = Vm?.Today.Remaining ?? TimeSpan.Zero;
 
         if (_tray is not null)
         {
             // While a sprint runs the tray icon stays visible even with the
             // window open: it is the countdown.
-            if (running) _tray.Visible = true;
+            if (running || onBreak) _tray.Visible = true;
 
-            _tray.Text = NotificationPolicy.TrayText(running, Vm?.Today.SelectedShield ?? ShieldLevel.Firm, remaining);
+            _tray.Text = NotificationPolicy.TrayText(
+                running, Vm?.Today.SelectedShield ?? ShieldLevel.Firm, remaining, onBreak);
 
+            // No countdown icon during a break: the icon is the shield's, and
+            // during a break the shield is down (F5).
             var countdown = running ? NotificationPolicy.TrayIconText(remaining) : null;
             if (countdown is null)
             {
@@ -437,7 +441,9 @@ public partial class MainWindow : Window
         // Windows 11 hides new tray icons in the overflow until the user drags
         // one out, so the countdown also goes in the title: the taskbar button's
         // tooltip and thumbnail then show the time left without any setup.
-        Title = running ? $"FlowShield — {Vm?.Today.RemainingText}" : "FlowShield";
+        Title = onBreak ? $"FlowShield — {NotificationPolicy.BreakLabel(remaining)}"
+              : running ? $"FlowShield — {Vm?.Today.RemainingText}"
+              : "FlowShield";
 
         // Taskbar button: a progress bar for as long as the sprint runs.
         if (TaskbarItemInfo is not null)
@@ -534,7 +540,10 @@ public partial class MainWindow : Window
     {
         // Remaining ticks every second while a sprint runs; it is what keeps the
         // countdown in the notification area current.
-        if (e.PropertyName is nameof(TodayViewModel.Remaining) or nameof(TodayViewModel.IsRunning))
+        // Remaining also ticks every second during a break (F5), which is what
+        // puts "Break · 4:59" in the tooltip and the window title.
+        if (e.PropertyName is nameof(TodayViewModel.Remaining) or nameof(TodayViewModel.IsRunning)
+            or nameof(TodayViewModel.IsOnBreak))
             UpdateTrayIcon();
 
         if (e.PropertyName != nameof(TodayViewModel.IsRunning)) return;
