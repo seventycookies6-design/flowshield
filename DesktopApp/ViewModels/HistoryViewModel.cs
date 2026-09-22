@@ -180,7 +180,10 @@ public class HistoryViewModel : ViewModelBase
         WeekFocusText = (week.FocusMinutes / 60).ToString("0.0");
         WeekSprintsText = week.SprintsCompleted.ToString("0");
         WeekDistractionsText = week.Distractions.ToString("0");
-        MostBlockedText = HistoryStats.MostBlocked(S.BlockedApps);
+        // Every profile, not only the active one: "all the time you have been
+        // blocking" would otherwise change its answer when a profile is
+        // switched, which is the scope-mixing the note below warns against.
+        MostBlockedText = HistoryStats.MostBlocked(S.Profiles.SelectMany(p => p.Apps));
         Raise(nameof(MostBlockedNoteText));
 
         var cells = HistoryStats.Heatmap(S.Sessions, now);

@@ -3330,3 +3330,102 @@ class TestTrayMenuSource:
         assert "vm.Today.StopCommand.Execute(null)" in end, \
             "the tray must trigger the same StopCommand as the Today button, not end the sprint directly"
         assert "EndSprint(" not in end
+
+
+# ================================================ blocklist profiles (F9)
+
+class TestBlocklistProfileRules:
+    """
+    The three rules a blocklist profile lives by (F9, roadmap 3.8): the one
+    list that existed before becomes the Default profile, there is always at
+    least one profile, and an active id naming nothing still resolves to a
+    list the shield can enforce.
+
+    Unit-by-source, like the settings-model tests above: it reads the C# rather
+    than running it.
+    """
+
+    SETTINGS = Path(SERVER_DIR).parent / "DesktopApp" / "Models" / "AppSettings.cs"
+    PROFILE = Path(SERVER_DIR).parent / "DesktopApp" / "Models" / "BlocklistProfile.cs"
+    MAIN_VM = Path(SERVER_DIR).parent / "DesktopApp" / "ViewModels" / "MainViewModel.cs"
+
+    def source(self) -> str:
+        return self.SETTINGS.read_text(encoding="utf-8")
+
+    def method(self, signature: str) -> str:
+        return self.source().split(signature)[1].split("\n    }")[0]
+
+    # ------------------------------------------------------------- migration
+
+    def test_the_old_single_blocklist_becomes_the_default_profile(self):
+        ensure = self.method("public bool EnsureProfiles()")
+        assert "Profiles.Count == 0" in ensure
+        assert "DefaultProfileName" in ensure
+        assert "_legacyBlockedApps" in ensure, \
+            "the list from a settings file written before profiles must carry over"
+        assert "changed = true" in ensure
+
+    def test_the_legacy_list_is_what_the_old_property_name_still_writes_into(self):
+        source = self.source()
+        blocked = source.split("public List<BlockedApp> BlockedApps")[1].split("\n    }")[0]
+        assert "set => _legacyBlockedApps = value;" in blocked
+        assert "get => ActiveProfile.Apps;" in blocked
+
+    def test_migration_runs_once_at_startup_before_anything_reads_the_list(self):
+        main = self.MAIN_VM.read_text(encoding="utf-8")
+        ctor = main.split("public MainViewModel(")[1].split("\n    public SettingsService")[0]
+        assert "Settings.EnsureProfiles()" in ctor
+        assert ctor.index("Settings.EnsureProfiles()") < ctor.index("new AppBlockerService("), \
+            "profiles must exist before the blocker takes its first snapshot"
+
+    # -------------------------------------------- never delete the last one
+
+    def test_the_last_profile_cannot_be_deleted(self):
+        remove = self.method("public bool RemoveProfile(string? id)")
+        assert "if (Profiles.Count <= 1) return false;" in remove, \
+            "there is always at least one blocklist"
+
+    def test_deleting_the_active_profile_moves_the_active_id(self):
+        remove = self.method("public bool RemoveProfile(string? id)")
+        assert "ActiveProfileId = Profiles[0].Id" in remove
+
+    def test_the_view_model_hides_delete_on_the_only_profile(self):
+        vm = (Path(SERVER_DIR).parent / "DesktopApp" / "ViewModels"
+              / "BlockedAppsViewModel.cs").read_text(encoding="utf-8")
+        assert "public bool CanDeleteProfile => CanEditProfiles && Profiles.Count > 1;" in vm
+
+    # ----------------------------------------------- resolving the active id
+
+    def test_a_missing_active_id_falls_back_rather_than_throwing(self):
+        active = self.source().split("public BlocklistProfile ActiveProfile")[1].split("\n    }")[0]
+        assert "FindProfile(ActiveProfileId)" in active
+        assert "if (Profiles.Count > 0) return Profiles[0];" in active, \
+            "an id naming a deleted profile must still resolve to a list"
+        assert "Profiles.Add(seeded)" in active, \
+            "with no profiles at all, one is seeded rather than returning null"
+
+    def test_an_empty_id_never_matches_a_profile(self):
+        find = self.source().split(
+            "public BlocklistProfile? FindProfile(string? id) =>")[1].split(";")[0]
+        assert "string.IsNullOrEmpty(id)" in find
+        assert "? null" in find
+
+    def test_ensureprofiles_settles_a_dangling_active_id(self):
+        ensure = self.method("public bool EnsureProfiles()")
+        assert "if (FindProfile(ActiveProfileId) is null)" in ensure
+        assert "ActiveProfileId = Profiles[0].Id;" in ensure
+
+    # ------------------------------------------------------ keeping it simple
+
+    def test_a_profile_is_a_name_and_a_list_and_nothing_more(self):
+        profile = self.PROFILE.read_text(encoding="utf-8")
+        for rule in ("Schedule", "TimeWindow", "DaysOfWeek", "ShieldLevel"):
+            assert rule not in profile, \
+                f"a profile carries no {rule}: per-profile rules are the complexity F9 refuses"
+
+    def test_the_suggested_profiles_are_offered_not_created(self):
+        source = self.source()
+        assert '"School", "Gaming break", "Everything"' in source
+        ensure = self.method("public bool EnsureProfiles()")
+        assert "SuggestedProfileNames" not in ensure, \
+            "the suggestions are names to pick from, not profiles the app makes"

@@ -26,6 +26,12 @@ public static class DataPrivacyService
         {
             exportedUtc = DateTime.UtcNow,
             blockedApps = settings.BlockedApps,
+
+            // Every profile, not just the active one, or the export is not
+            // everything the app holds locally (F9).
+            blocklistProfiles = settings.Profiles,
+            activeProfileId = settings.ActiveProfileId,
+
             sleepBlocking = new
             {
                 enabled = settings.IsSleepBlockEnabled,
