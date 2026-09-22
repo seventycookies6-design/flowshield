@@ -579,10 +579,9 @@ class DesktopController:
         the viewport, not necessarily fully clear of the window's edges.
         """
         try:
-            control = self.element(auto_id)
-            if control.is_offscreen():
-                return False
-            rect = control.rectangle()
+            # pywinauto's UIA wrappers have no is_offscreen(); calling it raised
+            # AttributeError, which the except below turned into a silent False.
+            rect = self.element(auto_id).rectangle()
             window = self.window.rectangle()
             return (rect.left < window.right and rect.right > window.left
                     and rect.top < window.bottom and rect.bottom > window.top)
