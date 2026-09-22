@@ -657,7 +657,7 @@ Build to Roadmap 4.2. As scheduling, profiles and notifications arrive (F5–F9,
 
 ### F23 — A privacy promise, stated plainly and provable · **Launch** · S
 
-- [x] Done (#207)
+- [x] Done (#211)
 
 **Assigned:** Keenan (seventycookies6-design), built with Claude Code
 
