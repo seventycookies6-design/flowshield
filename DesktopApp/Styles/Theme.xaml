@@ -462,6 +462,17 @@
                             <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
                             <Setter Property="FontWeight" Value="SemiBold"/>
                         </Trigger>
+                        <!-- F22: on narrow windows the rail's WrapPanel switches to
+                             Orientation="Horizontal" (chip row) — the selected
+                             indicator becomes a 2px bottom bar instead of the 3px
+                             left bar, so it still reads as an underline in a row
+                             rather than a stray left tick. Bold weight plus the bar
+                             carries the selected state; colour is never the only
+                             signal. -->
+                        <DataTrigger Binding="{Binding Orientation, RelativeSource={RelativeSource
+                                     FindAncestor, AncestorType=WrapPanel}}" Value="Horizontal">
+                            <Setter TargetName="bd" Property="BorderThickness" Value="0,0,0,2"/>
+                        </DataTrigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
             </Setter.Value>

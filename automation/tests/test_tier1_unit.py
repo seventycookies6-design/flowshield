@@ -4065,3 +4065,8 @@ class TestSettingsIsGrouped:
         activates with either key (constraints.md keyboard requirement)."""
         cs = (self.XAML.parent / "SettingsView.xaml.cs").read_text(encoding="utf-8")
         assert "Key.Enter" in cs
+
+    def test_rail_collapses_on_narrow_windows(self):
+        cs = (self.XAML.parent / "SettingsView.xaml.cs").read_text(encoding="utf-8")
+        assert "RailBreakpoint = 900" in cs
+        assert "SizeChanged" in cs

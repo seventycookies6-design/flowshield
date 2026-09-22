@@ -13,6 +13,11 @@ public partial class SettingsView : UserControl
     private static readonly string[] Groups = { "Licence", "Focus", "App", "Notifications", "Data", "About" };
     private bool _jumping;
 
+    // F22: below this width the rail collapses from a left-hand column into a
+    // horizontal, wrapping chip row above the groups (constraints.md: must
+    // still work at 800x540).
+    private const double RailBreakpoint = 900;
+
     public SettingsView()
     {
         InitializeComponent();
@@ -24,6 +29,45 @@ public partial class SettingsView : UserControl
         DevOnlyFields.Visibility = App.Current?.DevMode == true
             ? Visibility.Visible
             : Visibility.Collapsed;
+
+        ApplyRailLayout(ActualWidth);
+    }
+
+    private void OnRootSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        ApplyRailLayout(e.NewSize.Width);
+    }
+
+    /// <summary>
+    /// Switches the rail between its two layouts. Narrow: a horizontal,
+    /// wrapping chip row spanning both columns in a new top row, with the
+    /// scroll area moved below it. At or above the breakpoint: the rail is
+    /// restored to its left-hand column, spanning both rows.
+    /// </summary>
+    private void ApplyRailLayout(double width)
+    {
+        if (width < RailBreakpoint)
+        {
+            Rail.Orientation = Orientation.Horizontal;
+            Rail.Margin = new Thickness(0, 0, 0, 12);
+            Grid.SetRow(Rail, 0);
+            Grid.SetColumn(Rail, 0);
+            Grid.SetColumnSpan(Rail, 2);
+            RailColumn.Width = new GridLength(0);
+
+            Grid.SetRow(SettingsScroll, 1);
+        }
+        else
+        {
+            Rail.Orientation = Orientation.Vertical;
+            Rail.Margin = new Thickness(0, 0, 16, 0);
+            Grid.SetRow(Rail, 0);
+            Grid.SetColumn(Rail, 0);
+            Grid.SetColumnSpan(Rail, 1);
+            RailColumn.Width = new GridLength(180);
+
+            Grid.SetRow(SettingsScroll, 0);
+        }
     }
 
     private void OnNavClick(object sender, RoutedEventArgs e)
