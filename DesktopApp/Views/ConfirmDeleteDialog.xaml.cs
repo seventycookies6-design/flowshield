@@ -14,7 +14,7 @@ public partial class ConfirmDeleteDialog : Window
         Owner = Application.Current?.MainWindow;
     }
 
-    private void OnCancel(object sender, RoutedEventArgs e) => DialogResult = false;
-
+    // Cancel is IsCancel="True" in the XAML: it sets DialogResult false itself,
+    // and Escape does the same (F21, DESIGN_SYSTEM.md §13).
     private void OnConfirm(object sender, RoutedEventArgs e) => DialogResult = true;
 }

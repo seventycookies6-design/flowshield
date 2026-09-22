@@ -5,7 +5,7 @@
         Title="FlowShield"
         WindowStyle="None" ResizeMode="NoResize" ShowInTaskbar="False"
         AllowsTransparency="True" Topmost="True"
-        Background="{StaticResource Scrim}"
+        Background="{DynamicResource Scrim}"
         FontFamily="{StaticResource FontStack}"
         TextOptions.TextFormattingMode="Ideal"
         UseLayoutRounding="True"
@@ -47,7 +47,7 @@
                 HorizontalAlignment="Center" VerticalAlignment="Center">
             <StackPanel>
                 <StackPanel Orientation="Horizontal">
-                    <Image Source="{StaticResource ShieldGlyphSoft}" Width="20" Height="20"
+                    <Image Source="{DynamicResource ShieldGlyphSoft}" Width="20" Height="20"
                            Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,12,0"/>
                     <TextBlock Text="SHIELD I · SOFT" Style="{StaticResource Eyebrow}"
                                VerticalAlignment="Center"

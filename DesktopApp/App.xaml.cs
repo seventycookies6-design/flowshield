@@ -67,6 +67,11 @@ public partial class App : Application
 
         var licenseService = new LicenseService(settingsService);
         ViewModel = new MainViewModel(settingsService, licenseService);
+
+        // The colour theme before any window exists, so the first frame is
+        // already in the right one (F21). System is the default, and the app
+        // then follows Windows for as long as that stays the choice.
+        ThemeService.Initialise(ViewModel.Settings);
         // Repair an enabled Run value only from an installed copy. A dev build
         // shares these settings and must not redirect sign-in into bin/.
         StartupEntry.RefreshIfEnabled(

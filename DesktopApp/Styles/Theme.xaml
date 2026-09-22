@@ -4,12 +4,15 @@
 
     <!-- ============================================================ palette
          Every colour comes from Tokens.xaml, generated from design/tokens.json by
-         tools/build_tokens.py. Change colours there, never here. -->
+         tools/build_tokens.py. Change colours there, never here.
+
+         Tokens.xaml and ShieldGlyphs.xaml are merged by App.xaml, ahead of this
+         file, not here: F21 swaps the tokens dictionary at run time, and a merge
+         from inside this file would shadow the swapped one and pin the app to
+         dark. Colour references below are DynamicResource for the same reason. -->
 
     <ResourceDictionary.MergedDictionaries>
-        <ResourceDictionary Source="Tokens.xaml"/>
         <ResourceDictionary Source="Icons.xaml"/>
-        <ResourceDictionary Source="ShieldGlyphs.xaml"/>
     </ResourceDictionary.MergedDictionaries>
 
     <!-- ================================================================ shape
@@ -66,6 +69,32 @@
     <!-- History's heatmap (F16): five steps mixed from surface-2 to primary. -->
     <inf:HeatStepToBrushConverter x:Key="HeatStep" Steps="5"/>
 
+    <!-- ======================================================== focus ring
+         DESIGN_SYSTEM.md §13: "Every interactive element is reachable and
+         usable from the keyboard, with a visible 2 px focus ring."
+
+         WPF's own focus visual is a 1px dotted rectangle that all but vanishes
+         on these surfaces, so every interactive style below sets this one
+         instead: a 2px focus-ring outline, offset 2px so it reads as a ring
+         around the control rather than a border on it. It is drawn in the
+         adorner layer, above whatever the control is sitting on.
+
+         FocusVisualStyle only draws for *keyboard* focus, which is what §13
+         asks for — clicking a button does not make it sprout a ring. Controls
+         that also change their own template on IsKeyboardFocused (buttons, the
+         text field, heatmap cells) keep doing so; this makes the rest of the
+         app match them. -->
+    <Style x:Key="FocusVisual">
+        <Setter Property="Control.Template">
+            <Setter.Value>
+                <ControlTemplate>
+                    <Rectangle Margin="-3" StrokeThickness="2" RadiusX="10" RadiusY="10"
+                               Stroke="{DynamicResource FocusRing}" SnapsToDevicePixels="True"/>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <!-- ========================================================= typography -->
 
     <!-- A FontFamily resource (not a string): a StaticResource reference does not
@@ -104,7 +133,7 @@
         <Setter Property="FontWeight" Value="SemiBold"/>
         <Setter Property="LineHeight" Value="36"/>
         <Setter Property="LineStackingStrategy" Value="BlockLineHeight"/>
-        <Setter Property="Foreground" Value="{StaticResource Ink}"/>
+        <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
     </Style>
 
     <!-- title: card titles, dialog titles -->
@@ -114,7 +143,7 @@
         <Setter Property="FontWeight" Value="SemiBold"/>
         <Setter Property="LineHeight" Value="24"/>
         <Setter Property="LineStackingStrategy" Value="BlockLineHeight"/>
-        <Setter Property="Foreground" Value="{StaticResource Ink}"/>
+        <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
     </Style>
 
     <!-- body: paragraphs, list items (14/21 in the app; the site uses 17/27) -->
@@ -124,7 +153,7 @@
         <Setter Property="FontWeight" Value="Normal"/>
         <Setter Property="LineHeight" Value="21"/>
         <Setter Property="LineStackingStrategy" Value="BlockLineHeight"/>
-        <Setter Property="Foreground" Value="{StaticResource InkDim}"/>
+        <Setter Property="Foreground" Value="{DynamicResource InkDim}"/>
         <Setter Property="TextWrapping" Value="Wrap"/>
     </Style>
 
@@ -133,14 +162,14 @@
         <Setter Property="FontSize" Value="13"/>
         <Setter Property="FontWeight" Value="Medium"/>
         <Setter Property="LineHeight" Value="18"/>
-        <Setter Property="Foreground" Value="{StaticResource Ink}"/>
+        <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
     </Style>
 
     <!-- caption: hints, timestamps -->
     <Style x:Key="Caption" TargetType="TextBlock" BasedOn="{StaticResource Body}">
         <Setter Property="FontSize" Value="12"/>
         <Setter Property="LineHeight" Value="17"/>
-        <Setter Property="Foreground" Value="{StaticResource InkFaint}"/>
+        <Setter Property="Foreground" Value="{DynamicResource InkFaint}"/>
     </Style>
 
     <!-- eyebrow: section labels such as "MOMENTUM". Text is authored in caps
@@ -167,7 +196,7 @@
         <Setter Property="FontWeight" Value="SemiBold"/>
         <Setter Property="LineHeight" Value="64"/>
         <Setter Property="LineStackingStrategy" Value="BlockLineHeight"/>
-        <Setter Property="Foreground" Value="{StaticResource Ink}"/>
+        <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
         <Setter Property="Typography.NumeralAlignment" Value="Tabular"/>
     </Style>
 
@@ -179,15 +208,15 @@
         <Setter Property="FontWeight" Value="SemiBold"/>
         <Setter Property="LineHeight" Value="40"/>
         <Setter Property="LineStackingStrategy" Value="BlockLineHeight"/>
-        <Setter Property="Foreground" Value="{StaticResource Ink}"/>
+        <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
         <Setter Property="Typography.NumeralAlignment" Value="Tabular"/>
     </Style>
 
     <!-- ============================================================== cards -->
 
     <Style x:Key="Card" TargetType="Border">
-        <Setter Property="Background" Value="{StaticResource Surface}"/>
-        <Setter Property="BorderBrush" Value="{StaticResource Edge}"/>
+        <Setter Property="Background" Value="{DynamicResource Surface}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource Edge}"/>
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="CornerRadius" Value="{StaticResource RadiusCard}"/>
         <Setter Property="Padding" Value="24"/>
@@ -199,8 +228,8 @@
     </Style>
 
     <Style x:Key="Chip" TargetType="Border">
-        <Setter Property="Background" Value="{StaticResource Surface2}"/>
-        <Setter Property="BorderBrush" Value="{StaticResource Edge}"/>
+        <Setter Property="Background" Value="{DynamicResource Surface2}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource Edge}"/>
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="inf:Pill.IsRound" Value="True"/>
         <Setter Property="Padding" Value="12,4"/>
@@ -211,8 +240,8 @@
          candidate ("Chat", "Music" …). Text-only, so a TextBlock using it
          sets its own Style="{StaticResource Caption}" inside. -->
     <Style x:Key="TagChip" TargetType="Border">
-        <Setter Property="Background" Value="{StaticResource Surface2}"/>
-        <Setter Property="BorderBrush" Value="{StaticResource Edge}"/>
+        <Setter Property="Background" Value="{DynamicResource Surface2}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource Edge}"/>
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="CornerRadius" Value="{StaticResource RadiusChip}"/>
         <Setter Property="Padding" Value="8,4"/>
@@ -232,10 +261,11 @@
         <Setter Property="FontFamily" Value="{StaticResource FontStack}"/>
         <Setter Property="FontSize" Value="13"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
-        <Setter Property="Foreground" Value="{StaticResource Ink}"/>
+        <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
         <Setter Property="Height" Value="40"/>
         <Setter Property="Padding" Value="20,0"/>
         <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusVisual}"/>
         <Setter Property="SnapsToDevicePixels" Value="True"/>
         <Setter Property="Template">
             <Setter.Value>
@@ -249,7 +279,7 @@
                                 Padding="{TemplateBinding Padding}">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
-                        <Border x:Name="focus" BorderBrush="{StaticResource FocusRing}" BorderThickness="2"
+                        <Border x:Name="focus" BorderBrush="{DynamicResource FocusRing}" BorderThickness="2"
                                 CornerRadius="{StaticResource RadiusCard}" Margin="-4" Opacity="0" IsHitTestVisible="False"/>
                     </Grid>
                     <ControlTemplate.Triggers>
@@ -273,8 +303,8 @@
     </Style>
 
     <Style x:Key="BtnPrimary" TargetType="Button" BasedOn="{StaticResource BtnBase}">
-        <Setter Property="Background" Value="{StaticResource Primary}"/>
-        <Setter Property="Foreground" Value="{StaticResource PrimaryInk}"/>
+        <Setter Property="Background" Value="{DynamicResource Primary}"/>
+        <Setter Property="Foreground" Value="{DynamicResource PrimaryInk}"/>
         <Setter Property="BorderThickness" Value="0"/>
         <Setter Property="Template">
             <Setter.Value>
@@ -288,12 +318,12 @@
                                 Padding="{TemplateBinding Padding}">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
-                        <Border x:Name="focus" BorderBrush="{StaticResource FocusRing}" BorderThickness="2"
+                        <Border x:Name="focus" BorderBrush="{DynamicResource FocusRing}" BorderThickness="2"
                                 CornerRadius="{StaticResource RadiusCard}" Margin="-4" Opacity="0" IsHitTestVisible="False"/>
                     </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="bd" Property="Background" Value="{StaticResource PrimaryHover}"/>
+                            <Setter TargetName="bd" Property="Background" Value="{DynamicResource PrimaryHover}"/>
                         </Trigger>
                         <Trigger Property="IsPressed" Value="True">
                             <Setter TargetName="bd" Property="Opacity" Value="0.88"/>
@@ -313,12 +343,12 @@
 
     <!-- Secondary: surface-2 fill, border, text label (§7 table). -->
     <Style x:Key="BtnGhost" TargetType="Button" BasedOn="{StaticResource BtnBase}">
-        <Setter Property="Background" Value="{StaticResource Surface2}"/>
-        <Setter Property="BorderBrush" Value="{StaticResource Edge}"/>
+        <Setter Property="Background" Value="{DynamicResource Surface2}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource Edge}"/>
         <Setter Property="BorderThickness" Value="1"/>
         <Style.Triggers>
             <Trigger Property="IsMouseOver" Value="True">
-                <Setter Property="BorderBrush" Value="{StaticResource EdgeBright}"/>
+                <Setter Property="BorderBrush" Value="{DynamicResource EdgeBright}"/>
             </Trigger>
         </Style.Triggers>
     </Style>
@@ -329,10 +359,10 @@
          a blocked app row); there's no "delete everything"-style action in
          the app today. -->
     <Style x:Key="BtnDanger" TargetType="Button" BasedOn="{StaticResource BtnBase}">
-        <Setter Property="Background" Value="{StaticResource Surface2}"/>
-        <Setter Property="BorderBrush" Value="{StaticResource Rose}"/>
+        <Setter Property="Background" Value="{DynamicResource Surface2}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource Rose}"/>
         <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="Foreground" Value="{StaticResource Rose}"/>
+        <Setter Property="Foreground" Value="{DynamicResource Rose}"/>
     </Style>
 
     <!-- Quiet: no fill, text-muted label, fill on hover (§7 table). The
@@ -342,12 +372,12 @@
     <Style x:Key="BtnQuiet" TargetType="Button" BasedOn="{StaticResource BtnBase}">
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="BorderThickness" Value="0"/>
-        <Setter Property="Foreground" Value="{StaticResource InkDim}"/>
+        <Setter Property="Foreground" Value="{DynamicResource InkDim}"/>
         <Setter Property="FontWeight" Value="Normal"/>
         <Style.Triggers>
             <Trigger Property="IsMouseOver" Value="True">
-                <Setter Property="Background" Value="{StaticResource Surface2}"/>
-                <Setter Property="Foreground" Value="{StaticResource Ink}"/>
+                <Setter Property="Background" Value="{DynamicResource Surface2}"/>
+                <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
             </Trigger>
         </Style.Triggers>
     </Style>
@@ -358,7 +388,7 @@
         <Setter Property="HorizontalContentAlignment" Value="Left"/>
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="BorderThickness" Value="0"/>
-        <Setter Property="Foreground" Value="{StaticResource InkDim}"/>
+        <Setter Property="Foreground" Value="{DynamicResource InkDim}"/>
         <Setter Property="FontWeight" Value="Normal"/>
         <!-- BtnBase fixes Height=40; with 12px vertical padding that left a
              16px box for a 20px icon, clipping it top and bottom (#189). -->
@@ -374,17 +404,17 @@
                             <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="Center"/>
                         </Border>
                         <Border x:Name="bar" Width="3" HorizontalAlignment="Left" Margin="0,8"
-                                inf:Pill.IsRound="True" Background="{StaticResource Primary}" Opacity="0"/>
+                                inf:Pill.IsRound="True" Background="{DynamicResource Primary}" Opacity="0"/>
                     </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="bd" Property="Background" Value="{StaticResource Surface2}"/>
-                            <Setter Property="Foreground" Value="{StaticResource Ink}"/>
+                            <Setter TargetName="bd" Property="Background" Value="{DynamicResource Surface2}"/>
+                            <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
                         </Trigger>
                         <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="True">
-                            <Setter TargetName="bd" Property="Background" Value="{StaticResource Surface2}"/>
+                            <Setter TargetName="bd" Property="Background" Value="{DynamicResource Surface2}"/>
                             <Setter TargetName="bar" Property="Opacity" Value="1"/>
-                            <Setter Property="Foreground" Value="{StaticResource Ink}"/>
+                            <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
                             <Setter Property="FontWeight" Value="SemiBold"/>
                         </DataTrigger>
                     </ControlTemplate.Triggers>
@@ -396,13 +426,14 @@
     <!-- ============================================================= inputs -->
 
     <Style x:Key="Field" TargetType="TextBox">
+        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusVisual}"/>
         <Setter Property="FontFamily" Value="{StaticResource FontStack}"/>
         <Setter Property="FontSize" Value="13"/>
-        <Setter Property="Foreground" Value="{StaticResource Ink}"/>
-        <Setter Property="CaretBrush" Value="{StaticResource Primary}"/>
-        <Setter Property="SelectionBrush" Value="{StaticResource PrimarySoft}"/>
-        <Setter Property="Background" Value="{StaticResource Surface2}"/>
-        <Setter Property="BorderBrush" Value="{StaticResource Edge}"/>
+        <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
+        <Setter Property="CaretBrush" Value="{DynamicResource Primary}"/>
+        <Setter Property="SelectionBrush" Value="{DynamicResource PrimarySoft}"/>
+        <Setter Property="Background" Value="{DynamicResource Surface2}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource Edge}"/>
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="Padding" Value="12,8"/>
         <Setter Property="VerticalContentAlignment" Value="Center"/>
@@ -418,7 +449,7 @@
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsKeyboardFocused" Value="True">
-                            <Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource Primary}"/>
+                            <Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource Primary}"/>
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Trigger.EnterActions>
@@ -455,8 +486,9 @@
     <!-- Toggle switch, built from a CheckBox so it keeps the Toggle pattern
          that UI Automation (and the test suite) expects. -->
     <Style x:Key="Switch" TargetType="CheckBox">
+        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusVisual}"/>
         <Setter Property="Cursor" Value="Hand"/>
-        <Setter Property="Foreground" Value="{StaticResource Ink}"/>
+        <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
         <Setter Property="FontFamily" Value="{StaticResource FontStack}"/>
         <Setter Property="FontSize" Value="13"/>
         <Setter Property="VerticalContentAlignment" Value="Center"/>
@@ -470,19 +502,19 @@
                         </Grid.ColumnDefinitions>
                         <ContentPresenter Grid.Column="0" VerticalAlignment="Center" Margin="0,0,16,0"/>
                         <Border x:Name="track" Grid.Column="1" Width="46" Height="26" inf:Pill.IsRound="True"
-                                Background="{StaticResource Surface2}" BorderBrush="{StaticResource Edge}"
+                                Background="{DynamicResource Surface2}" BorderBrush="{DynamicResource Edge}"
                                 BorderThickness="1">
-                            <Ellipse x:Name="knob" Width="18" Height="18" Fill="{StaticResource InkFaint}"
+                            <Ellipse x:Name="knob" Width="18" Height="18" Fill="{DynamicResource InkFaint}"
                                      HorizontalAlignment="Left" Margin="4,0,0,0"/>
                         </Border>
                     </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsChecked" Value="True">
-                            <Setter TargetName="track" Property="Background" Value="{StaticResource Primary}"/>
+                            <Setter TargetName="track" Property="Background" Value="{DynamicResource Primary}"/>
                             <Setter TargetName="track" Property="BorderBrush" Value="Transparent"/>
                             <Setter TargetName="knob" Property="HorizontalAlignment" Value="Right"/>
                             <Setter TargetName="knob" Property="Margin" Value="0,0,4,0"/>
-                            <Setter TargetName="knob" Property="Fill" Value="{StaticResource PrimaryInk}"/>
+                            <Setter TargetName="knob" Property="Fill" Value="{DynamicResource PrimaryInk}"/>
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter Property="Opacity" Value="0.45"/>
@@ -500,27 +532,28 @@
          intention, per UI-SPEC.md A4) crossfades to 45% opacity the same way
          when a sprint starts, and back to full when it ends. -->
     <Style x:Key="Segment" TargetType="RadioButton">
+        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusVisual}"/>
         <Setter Property="Cursor" Value="Hand"/>
         <Setter Property="FontFamily" Value="{StaticResource FontStack}"/>
         <Setter Property="FontSize" Value="12.5"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
-        <Setter Property="Foreground" Value="{StaticResource InkDim}"/>
+        <Setter Property="Foreground" Value="{DynamicResource InkDim}"/>
         <Setter Property="Margin" Value="0,0,8,0"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="RadioButton">
-                    <Border x:Name="bd" Background="{StaticResource Surface2}" BorderBrush="{StaticResource Edge}"
+                    <Border x:Name="bd" Background="{DynamicResource Surface2}" BorderBrush="{DynamicResource Edge}"
                             BorderThickness="1" CornerRadius="{StaticResource RadiusControl}" Padding="16,8">
                         <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource EdgeBright}"/>
+                            <Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource EdgeBright}"/>
                         </Trigger>
                         <Trigger Property="IsChecked" Value="True">
-                            <Setter TargetName="bd" Property="Background" Value="{StaticResource PrimarySoft}"/>
-                            <Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource Primary}"/>
-                            <Setter Property="Foreground" Value="{StaticResource Ink}"/>
+                            <Setter TargetName="bd" Property="Background" Value="{DynamicResource PrimarySoft}"/>
+                            <Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource Primary}"/>
+                            <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
                             <Trigger.EnterActions>
                                 <BeginStoryboard>
                                     <Storyboard>
@@ -570,24 +603,25 @@
          Segment above, tall enough (52px) for the shared shield glyph
          stacked above its label, per the winning sketch's ".seg-shield". -->
     <Style x:Key="SegmentShield" TargetType="RadioButton">
+        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusVisual}"/>
         <Setter Property="Cursor" Value="Hand"/>
         <Setter Property="FontFamily" Value="{StaticResource FontStack}"/>
-        <Setter Property="Foreground" Value="{StaticResource InkDim}"/>
+        <Setter Property="Foreground" Value="{DynamicResource InkDim}"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="RadioButton">
-                    <Border x:Name="bd" Background="{StaticResource Surface2}" BorderBrush="{StaticResource Edge}"
+                    <Border x:Name="bd" Background="{DynamicResource Surface2}" BorderBrush="{DynamicResource Edge}"
                             BorderThickness="1" CornerRadius="{StaticResource RadiusControl}" Padding="8,8" Height="52">
                         <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource EdgeBright}"/>
+                            <Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource EdgeBright}"/>
                         </Trigger>
                         <Trigger Property="IsChecked" Value="True">
-                            <Setter TargetName="bd" Property="Background" Value="{StaticResource PrimarySoft}"/>
-                            <Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource Primary}"/>
-                            <Setter Property="Foreground" Value="{StaticResource Ink}"/>
+                            <Setter TargetName="bd" Property="Background" Value="{DynamicResource PrimarySoft}"/>
+                            <Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource Primary}"/>
+                            <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
                             <Trigger.EnterActions>
                                 <BeginStoryboard>
                                     <Storyboard>
@@ -633,6 +667,21 @@
         </Setter>
     </Style>
 
+    <!-- Plain radio buttons and check boxes — the daily-goal and export-format
+         choices, the first-run app list — keep WPF's own template but take the
+         same 2px focus ring as everything else (§13). Keyed styles above are
+         unaffected: an explicit Style replaces the implicit one outright, which
+         is why Segment, SegmentShield and Switch each set it themselves. -->
+    <Style TargetType="RadioButton">
+        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusVisual}"/>
+        <Setter Property="FontFamily" Value="{StaticResource FontStack}"/>
+    </Style>
+
+    <Style TargetType="CheckBox">
+        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusVisual}"/>
+        <Setter Property="FontFamily" Value="{StaticResource FontStack}"/>
+    </Style>
+
     <!-- ========================================================= scrollbars -->
 
     <Style TargetType="ScrollBar">
@@ -651,7 +700,7 @@
                                                  itself is a fixed 9px chrome element (Width above), and
                                                  a 4px inset each side would leave only 1px of visible
                                                  thumb. Noted as a deliberate exception in the A2 PR. -->
-                                            <Border Background="{StaticResource EdgeBright}" inf:Pill.IsRound="True" Margin="2,0"/>
+                                            <Border Background="{DynamicResource EdgeBright}" inf:Pill.IsRound="True" Margin="2,0"/>
                                         </ControlTemplate>
                                     </Thumb.Template>
                                 </Thumb>
@@ -672,8 +721,8 @@
     <!-- ========================================================== list rows -->
 
     <Style x:Key="RowCard" TargetType="Border">
-        <Setter Property="Background" Value="{StaticResource Surface2}"/>
-        <Setter Property="BorderBrush" Value="{StaticResource Edge}"/>
+        <Setter Property="Background" Value="{DynamicResource Surface2}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource Edge}"/>
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="CornerRadius" Value="{StaticResource RadiusCard}"/>
         <Setter Property="Padding" Value="16,12"/>
@@ -681,6 +730,7 @@
     </Style>
 
     <Style TargetType="ListBoxItem" x:Key="PlainItem">
+        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusVisual}"/>
         <Setter Property="Padding" Value="0"/>
         <Setter Property="Margin" Value="0"/>
         <Setter Property="Background" Value="Transparent"/>
@@ -713,17 +763,17 @@
                     <Border x:Name="Cell" Width="28" Height="28" Margin="0,0,4,4"
                             CornerRadius="{StaticResource RadiusChip}"
                             BorderThickness="1"
-                            BorderBrush="{StaticResource Edge}"
+                            BorderBrush="{DynamicResource Edge}"
                             Background="{Binding Step, Converter={StaticResource HeatStep}}"/>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsKeyboardFocused" Value="True">
                             <Setter TargetName="Cell" Property="BorderBrush"
-                                    Value="{StaticResource FocusRing}"/>
+                                    Value="{DynamicResource FocusRing}"/>
                             <Setter TargetName="Cell" Property="BorderThickness" Value="2"/>
                         </Trigger>
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="Cell" Property="BorderBrush"
-                                    Value="{StaticResource EdgeBright}"/>
+                                    Value="{DynamicResource EdgeBright}"/>
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -740,7 +790,7 @@
                 <ControlTemplate TargetType="ListBoxItem">
                     <Border Width="14" Height="14" Margin="0,0,4,0"
                             CornerRadius="{StaticResource RadiusChip}"
-                            BorderThickness="1" BorderBrush="{StaticResource Edge}"
+                            BorderThickness="1" BorderBrush="{DynamicResource Edge}"
                             Background="{Binding Converter={StaticResource HeatStep}}"/>
                 </ControlTemplate>
             </Setter.Value>
@@ -748,7 +798,8 @@
     </Style>
 
     <Style x:Key="PickerItem" TargetType="ListBoxItem">
-        <Setter Property="Foreground" Value="{StaticResource InkDim}"/>
+        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusVisual}"/>
+        <Setter Property="Foreground" Value="{DynamicResource InkDim}"/>
         <Setter Property="FontFamily" Value="{StaticResource FontStack}"/>
         <Setter Property="FontSize" Value="12.5"/>
         <Setter Property="Padding" Value="12,8"/>
@@ -762,11 +813,11 @@
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="bd" Property="Background" Value="{StaticResource Surface2}"/>
+                            <Setter TargetName="bd" Property="Background" Value="{DynamicResource Surface2}"/>
                         </Trigger>
                         <Trigger Property="IsSelected" Value="True">
-                            <Setter TargetName="bd" Property="Background" Value="{StaticResource PrimarySoft}"/>
-                            <Setter Property="Foreground" Value="{StaticResource Ink}"/>
+                            <Setter TargetName="bd" Property="Background" Value="{DynamicResource PrimarySoft}"/>
+                            <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -782,8 +833,8 @@
          and nothing else. Turns green once the goal is met, so the state is
          not carried by width alone. -->
     <Style x:Key="GoalBar" TargetType="ProgressBar">
-        <Setter Property="Foreground" Value="{StaticResource Primary}"/>
-        <Setter Property="Background" Value="{StaticResource Track}"/>
+        <Setter Property="Foreground" Value="{DynamicResource Primary}"/>
+        <Setter Property="Background" Value="{DynamicResource Track}"/>
         <Setter Property="BorderThickness" Value="0"/>
         <Setter Property="Template">
             <Setter.Value>
@@ -798,7 +849,7 @@
                     <ControlTemplate.Triggers>
                         <DataTrigger Binding="{Binding GoalMetToday}" Value="True">
                             <Setter TargetName="PART_Indicator" Property="Background"
-                                    Value="{StaticResource Green}"/>
+                                    Value="{DynamicResource Green}"/>
                         </DataTrigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>

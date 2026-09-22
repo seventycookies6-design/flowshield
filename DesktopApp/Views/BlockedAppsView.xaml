@@ -30,7 +30,7 @@
                      teal stays reserved for state/selection/progress. -->
                 <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,24" VerticalAlignment="Bottom">
                     <TextBlock Style="{StaticResource Stat}" Text="{Binding Apps.Count, StringFormat={}{0:00}}"/>
-                    <TextBlock Text="apps on the shield" Style="{StaticResource Body}" Foreground="{StaticResource InkDim}"
+                    <TextBlock Text="apps on the shield" Style="{StaticResource Body}" Foreground="{DynamicResource InkDim}"
                                VerticalAlignment="Bottom" Margin="12,0,0,4"/>
                 </StackPanel>
 
@@ -151,7 +151,7 @@
                 <Border DockPanel.Dock="Top" Style="{StaticResource Chip}" HorizontalAlignment="Left"
                         Margin="0,0,0,16">
                     <TextBlock Text="{Binding StatusText}" Style="{StaticResource Caption}"
-                               Foreground="{StaticResource InkDim}"
+                               Foreground="{DynamicResource InkDim}"
                                AutomationProperties.AutomationId="BlockedAppsStatusText"/>
                 </Border>
 
@@ -194,10 +194,10 @@
                                     </Grid.ColumnDefinitions>
 
                                     <Border Grid.Column="0" Width="34" Height="34" CornerRadius="{StaticResource RadiusControl}"
-                                            Background="{StaticResource PrimarySoft}" BorderBrush="{StaticResource Primary}" BorderThickness="1"
+                                            Background="{DynamicResource PrimarySoft}" BorderBrush="{DynamicResource Primary}" BorderThickness="1"
                                             Margin="0,0,12,0">
                                         <Path Style="{StaticResource Icon}" Data="{StaticResource IconBlocked}"
-                                              Stroke="{StaticResource PrimaryHover}"
+                                              Stroke="{DynamicResource PrimaryHover}"
                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                     </Border>
 
@@ -238,7 +238,7 @@
                                                Style="{StaticResource Caption}">
                                         <Run Text="blocked"/>
                                         <Run Text="{Binding BlockCount, Mode=OneWay}"
-                                             Foreground="{StaticResource Rose}"/>
+                                             Foreground="{DynamicResource Rose}"/>
                                         <Run Text="×"/>
                                     </TextBlock>
 
@@ -294,7 +294,7 @@
                              AutomationProperties.Name="Search apps"
                              AutomationProperties.HelpText="Discord, Steam, Minecraft…"/>
                     <TextBlock Text="{Binding PickerNotice}" Style="{StaticResource Caption}" TextWrapping="Wrap"
-                               Foreground="{StaticResource Amber}" Margin="4,8,0,0"
+                               Foreground="{DynamicResource Amber}" Margin="4,8,0,0"
                                Visibility="{Binding HasPickerNotice, Converter={StaticResource BoolVis}}"
                                AutomationProperties.AutomationId="AppSearchNotice"/>
                 </StackPanel>
@@ -316,10 +316,10 @@
                                 </Grid.ColumnDefinitions>
 
                                 <Grid Grid.Column="0" Width="28" Height="28" Margin="0,0,12,0" VerticalAlignment="Top">
-                                    <Border CornerRadius="{StaticResource RadiusControl}" Background="{StaticResource PrimarySoft}"
+                                    <Border CornerRadius="{StaticResource RadiusControl}" Background="{DynamicResource PrimarySoft}"
                                             Visibility="{Binding HasIcon, Converter={StaticResource InvBoolVis}}">
                                         <TextBlock Text="{Binding Initial}" FontWeight="SemiBold"
-                                                   Foreground="{StaticResource Ink}"
+                                                   Foreground="{DynamicResource Ink}"
                                                    HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                     </Border>
                                     <Image Source="{Binding Icon}" Width="24" Height="24"
@@ -332,7 +332,7 @@
                                             <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="{Binding Name}" Foreground="{StaticResource Ink}"
+                                        <TextBlock Grid.Column="0" Text="{Binding Name}" Foreground="{DynamicResource Ink}"
                                                    FontSize="13" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
                                         <!-- category tag chip (UI-SPEC.md A3, graft from raycast):
                                              "Music", "Chat", "Browsers", "Utilities" … A Grid column, not a
@@ -347,7 +347,7 @@
                                     <TextBlock Text="{Binding SourceLabel}" Style="{StaticResource Caption}"
                                                Visibility="{Binding HasSourceLabel, Converter={StaticResource BoolVis}}"/>
                                     <TextBlock Text="{Binding Note}" Style="{StaticResource Caption}" TextWrapping="Wrap"
-                                               Foreground="{StaticResource Amber}"
+                                               Foreground="{DynamicResource Amber}"
                                                Visibility="{Binding HasNote, Converter={StaticResource BoolVis}}"/>
                                 </StackPanel>
 

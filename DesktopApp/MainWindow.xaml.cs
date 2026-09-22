@@ -47,6 +47,8 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         DataContextChanged += OnDataContextChanged;
+        ThemeService.Changed += OnThemeChanged;
+        Closed += (_, _) => ThemeService.Changed -= OnThemeChanged;
         SetUpTray();
     }
 
@@ -84,22 +86,61 @@ public partial class MainWindow : Window
 
     private MainViewModel? Vm => DataContext as MainViewModel;
 
+    /// <summary>
+    /// Puts the keyboard inside a panel the moment it opens (F21,
+    /// DESIGN_SYSTEM.md §13). Each overlay is also a Cycle tab scope, so once
+    /// focus is in it, Tab stays in it rather than wandering onto the page
+    /// underneath — which UI Automation can still see even when it is covered
+    /// (CLAUDE.md, "Covered controls").
+    /// </summary>
+    private void OnOverlayVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
+    {
+        if (e.NewValue is not true || sender is not UIElement panel) return;
+
+        // After layout: a panel that has only just become visible has nothing
+        // focusable arranged yet, and MoveFocus would find nothing to move to.
+        Dispatcher.BeginInvoke(
+            () => panel.MoveFocus(new System.Windows.Input.TraversalRequest(
+                System.Windows.Input.FocusNavigationDirection.First)),
+            System.Windows.Threading.DispatcherPriority.Input);
+    }
+
+    /// <summary>
+    /// Escape closes the panel on top, if that panel has a way out (F21,
+    /// DESIGN_SYSTEM.md §13 — "every interactive element is reachable and
+    /// usable from the keyboard").
+    ///
+    /// Order matters: the activation prompt is drawn above the welcome, which
+    /// is drawn above everything else, so Escape closes whichever of those is
+    /// actually in front. The terms gate and the trial-ended lock screen are
+    /// deliberately left out — neither has a cancel action, because nothing in
+    /// FlowShield is usable until the terms are accepted, and the lock screen
+    /// is the state itself rather than a dialog over it.
+    /// </summary>
+    protected override void OnPreviewKeyDown(System.Windows.Input.KeyEventArgs e)
+    {
+        base.OnPreviewKeyDown(e);
+        if (e.Handled || e.Key != System.Windows.Input.Key.Escape || Vm is null) return;
+
+        if (Vm.ActivationPromptVisible)
+        {
+            Vm.DismissActivationCommand.Execute(null);
+            e.Handled = true;
+            return;
+        }
+
+        if (Vm.FirstRun.IsVisible)
+        {
+            Vm.FirstRun.SkipCommand.Execute(null);
+            e.Handled = true;
+        }
+    }
+
     protected override void OnSourceInitialized(EventArgs e)
     {
         base.OnSourceInitialized(e);
 
-        // Ask DWM for the dark title bar so the standard chrome matches the app.
-        try
-        {
-            var hwnd = new WindowInteropHelper(this).Handle;
-            int enabled = 1;
-            DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, ref enabled, sizeof(int));
-        }
-        catch (Exception ex)
-        {
-            Log.Warn($"dark title bar unavailable: {ex.Message}");
-        }
-
+        ApplyTitleBarTheme();
         SetUpGlobalHotkey();
     }
 
@@ -465,9 +506,20 @@ public partial class MainWindow : Window
     private string? _countdownText;
     private System.Drawing.Icon? _countdownIcon;
 
-    /// <summary>Draws the minutes left as the tray icon. Null if drawing fails.</summary>
+    /// <summary>
+    /// Draws the minutes left as the tray icon. Null if drawing fails, or if
+    /// the colour tokens are unavailable — the icon is drawn in primary on
+    /// primary-ink (DESIGN_SYSTEM.md §12 "Tray icon"), which change with the
+    /// theme (F21), and there is no hard-coded pair to fall back to.
+    /// </summary>
     private static System.Drawing.Icon? CountdownIcon(string text)
     {
+        if (!ThemeService.TryColour("PrimaryColor", out var primary)
+            || !ThemeService.TryColour("PrimaryInkColor", out var primaryInk))
+        {
+            return null;
+        }
+
         try
         {
             using var bitmap = new System.Drawing.Bitmap(32, 32);
@@ -477,13 +529,13 @@ public partial class MainWindow : Window
                 g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
                 g.Clear(System.Drawing.Color.Transparent);
 
-                using var background = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(0xFF, 0x3A, 0xA8, 0x92));
+                using var background = new System.Drawing.SolidBrush(Gdi(primary));
                 g.FillEllipse(background, 0, 0, 31, 31);
 
                 var size = text.Length >= 3 ? 13f : 17f;
                 using var font = new System.Drawing.Font("Segoe UI", size, System.Drawing.FontStyle.Bold,
                     System.Drawing.GraphicsUnit.Pixel);
-                using var ink = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(0xFF, 0x0E, 0x14, 0x12));
+                using var ink = new System.Drawing.SolidBrush(Gdi(primaryInk));
                 using var format = new System.Drawing.StringFormat
                 {
                     Alignment = System.Drawing.StringAlignment.Center,
@@ -514,6 +566,43 @@ public partial class MainWindow : Window
 
     [System.Runtime.InteropServices.DllImport("user32.dll", SetLastError = true)]
     private static extern bool DestroyIcon(IntPtr handle);
+
+    /// <summary>A WPF token colour as the GDI+ colour the tray drawing needs.</summary>
+    private static System.Drawing.Color Gdi(System.Windows.Media.Color colour) =>
+        System.Drawing.Color.FromArgb(colour.A, colour.R, colour.G, colour.B);
+
+    /// <summary>
+    /// Redraws everything that was coloured in code rather than by a resource
+    /// reference: the tray countdown icon, and the title bar, which DWM paints
+    /// dark or light for us (F21).
+    /// </summary>
+    private void OnThemeChanged(object? sender, EventArgs e)
+    {
+        _countdownText = null;
+        _countdownIcon?.Dispose();
+        _countdownIcon = null;
+        ApplyTitleBarTheme();
+        UpdateTrayIcon();
+    }
+
+    /// <summary>
+    /// Asks DWM for a dark or light title bar so the standard chrome matches
+    /// the app's theme. Harmless on Windows builds that don't support it.
+    /// </summary>
+    private void ApplyTitleBarTheme()
+    {
+        try
+        {
+            var hwnd = new WindowInteropHelper(this).Handle;
+            if (hwnd == IntPtr.Zero) return;
+            int dark = ThemeService.IsLight ? 0 : 1;
+            DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, ref dark, sizeof(int));
+        }
+        catch (Exception ex)
+        {
+            Log.Warn($"title bar theme unavailable: {ex.Message}");
+        }
+    }
 
     /// <summary>
     /// Really exit. During a Firm or Sealed sprint (past its grace period) the

@@ -6,7 +6,7 @@
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize"
         ShowInTaskbar="False"
-        Background="{StaticResource Bg}"
+        Background="{DynamicResource Bg}"
         FontFamily="{StaticResource FontStack}"
         TextOptions.TextFormattingMode="Ideal"
         UseLayoutRounding="True"
@@ -27,8 +27,11 @@
                         Click="OnGetHelp" Margin="12,0,0,0" Padding="16,8"
                         AutomationProperties.AutomationId="ErrorGetHelpButton"
                         AutomationProperties.Name="Get help"/>
+                <!-- IsDefault/IsCancel close the dialog themselves, and make
+                     Enter and Escape dismiss it too (§13). A Click handler as
+                     well would close it twice. -->
                 <Button Style="{StaticResource BtnPrimary}" Content="OK"
-                        Click="OnOk" Margin="12,0,0,0" Padding="24,8"
+                        IsDefault="True" IsCancel="True" Margin="12,0,0,0" Padding="24,8"
                         AutomationProperties.AutomationId="ErrorOkButton"
                         AutomationProperties.Name="OK"/>
             </StackPanel>

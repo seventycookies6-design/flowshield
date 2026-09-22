@@ -486,6 +486,14 @@ public class AppSettings
     /// </summary>
     public bool ShowSoftOverlayEnabled { get; set; } = true;
 
+    /// <summary>
+    /// Which colour theme the app draws in (F21, DESIGN_SYSTEM.md §12).
+    /// <see cref="AppTheme.System"/> by default: FlowShield then follows
+    /// Windows' own app theme and changes with it, without a restart. Stored
+    /// here like every other preference — it never leaves the PC.
+    /// </summary>
+    public AppTheme Theme { get; set; } = AppTheme.System;
+
     /// <summary>The first-run welcome (F18) has been shown, finished or skipped.</summary>
     public bool FirstRunCompleted { get; set; }
 

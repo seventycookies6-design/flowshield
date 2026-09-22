@@ -449,6 +449,53 @@ public class SettingsViewModel : ViewModelBase
         }
     }
 
+    // ----------------------------------------------------------- appearance
+
+    /// <summary>
+    /// System, Dark or Light (F21, DESIGN_SYSTEM.md §12). System is the
+    /// default and follows Windows' own app theme, changing with it while the
+    /// app runs. Applied straight away, then saved — the tokens dictionary is
+    /// swapped by <see cref="ThemeService"/>, nothing restarts.
+    /// </summary>
+    public AppTheme Theme
+    {
+        get => _main.Settings.Theme;
+        set
+        {
+            if (_main.Settings.Theme == value) return;
+            _main.Settings.Theme = value;
+            ThemeService.Apply(value);
+            _main.SaveSettings();
+            Raise();
+            Raise(nameof(ThemeIsSystem));
+            Raise(nameof(ThemeIsDark));
+            Raise(nameof(ThemeIsLight));
+        }
+    }
+
+    /// <summary>
+    /// One property per option, because a RadioButton binds a bool. Setting one
+    /// to false is the other option's setter arriving a moment later, so only a
+    /// true is acted on.
+    /// </summary>
+    public bool ThemeIsSystem
+    {
+        get => Theme == AppTheme.System;
+        set { if (value) Theme = AppTheme.System; }
+    }
+
+    public bool ThemeIsDark
+    {
+        get => Theme == AppTheme.Dark;
+        set { if (value) Theme = AppTheme.Dark; }
+    }
+
+    public bool ThemeIsLight
+    {
+        get => Theme == AppTheme.Light;
+        set { if (value) Theme = AppTheme.Light; }
+    }
+
     public string LicenseServerUrl
     {
         get => _main.Settings.LicenseServerUrl;

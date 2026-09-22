@@ -148,8 +148,12 @@ public class NonEmptyToVisibilityConverter : IValueConverter
 /// DESIGN_SYSTEM.md §7 asks for "five steps from surface-2 to primary", so the
 /// ramp is mixed from those two tokens at run time rather than written out as
 /// five more colours: the generated Tokens.xaml stays the only place a colour
-/// is defined (§14), and the light theme (F21) will recolour the heatmap by
+/// is defined (§14), and the light theme (F21) recolours the heatmap by
 /// changing those two values and nothing else.
+///
+/// Because it reads the tokens itself rather than binding to them, a theme
+/// change has to tell it to look again: ThemeService.RefreshConverterBindings
+/// re-evaluates every binding that runs a converter once the swap is done.
 ///
 /// Step 0 is plain surface-2 — a day with no focus at all.
 /// </summary>
@@ -160,14 +164,13 @@ public class HeatStepToBrushConverter : IValueConverter
     public object Convert(object value, Type t, object p, CultureInfo c)
     {
         var step = value is int i ? Math.Clamp(i, 0, Steps - 1) : 0;
-        var from = Colour("Surface2Color", MediaColor.FromRgb(0x18, 0x20, 0x1E));
-        var to = Colour("PrimaryColor", MediaColor.FromRgb(0x3A, 0xA8, 0x92));
+        // No hard-coded fallback: a missing token leaves the cell transparent
+        // (it keeps its border), rather than pinning one colour into the code.
+        FlowShield.Services.ThemeService.TryColour("Surface2Color", out var from);
+        FlowShield.Services.ThemeService.TryColour("PrimaryColor", out var to);
         var mix = Steps <= 1 ? 0 : step / (double)(Steps - 1);
         return new SolidColorBrush(Lerp(from, to, mix));
     }
-
-    private static MediaColor Colour(string key, MediaColor fallback) =>
-        Application.Current?.TryFindResource(key) is MediaColor found ? found : fallback;
 
     private static MediaColor Lerp(MediaColor from, MediaColor to, double mix) => MediaColor.FromRgb(
         (byte)Math.Round(from.R + (to.R - from.R) * mix),

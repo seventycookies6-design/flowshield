@@ -11,7 +11,7 @@
 
             <!-- trial-ended gate (the window-wide lock screen normally covers this) -->
             <Border Style="{StaticResource Card}" Padding="24" Margin="0,0,0,16"
-                    Background="{StaticResource PrimarySoft}" BorderBrush="{StaticResource Primary}"
+                    Background="{DynamicResource PrimarySoft}" BorderBrush="{DynamicResource Primary}"
                     Visibility="{Binding IsLocked, Converter={StaticResource BoolVis}}">
                 <Grid>
                     <Grid.ColumnDefinitions>
@@ -42,8 +42,8 @@
                                  labels stay inside it as the non-colour fallback, so
                                  the window is never colour-only information. -->
                             <Grid Width="222" Height="222" HorizontalAlignment="Center" Margin="0,4,0,24">
-                                <Ellipse Width="222" Height="222" Stroke="{StaticResource Track}" StrokeThickness="12"/>
-                                <Ellipse Width="222" Height="222" Stroke="{StaticResource Primary}" StrokeThickness="12"
+                                <Ellipse Width="222" Height="222" Stroke="{DynamicResource Track}" StrokeThickness="12"/>
+                                <Ellipse Width="222" Height="222" Stroke="{DynamicResource Primary}" StrokeThickness="12"
                                          StrokeDashCap="Round"
                                          StrokeDashArray="{Binding WindowSweepFraction, Converter={StaticResource ProgressDash}}"
                                          Visibility="{Binding WindowSweepFraction, Converter={StaticResource PositiveVis}}"
@@ -55,7 +55,7 @@
 
                                 <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
                                     <Path Style="{StaticResource Icon}" Data="{StaticResource IconSleep}"
-                                          Stroke="{StaticResource PrimaryHover}" HorizontalAlignment="Center" Margin="0,0,0,8"/>
+                                          Stroke="{DynamicResource PrimaryHover}" HorizontalAlignment="Center" Margin="0,0,0,8"/>
                                     <TextBlock HorizontalAlignment="Center" Style="{StaticResource H2}"
                                                Typography.NumeralAlignment="Tabular">
                                         <Run Text="{Binding StartText, Mode=OneWay}"/>
@@ -70,16 +70,16 @@
                                     Padding="16,8">
                                 <StackPanel Orientation="Horizontal">
                                     <Path Style="{StaticResource IconSmall}" Data="{StaticResource IconSleep}"
-                                               Margin="0,0,8,0" Stroke="{StaticResource PrimaryHover}"/>
+                                               Margin="0,0,8,0" Stroke="{DynamicResource PrimaryHover}"/>
                                     <TextBlock Text="{Binding StatusText}" Style="{StaticResource Caption}"
-                                               Foreground="{StaticResource InkDim}"
+                                               Foreground="{DynamicResource InkDim}"
                                                AutomationProperties.AutomationId="SleepStatusText"/>
                                 </StackPanel>
                             </Border>
                             <TextBlock Style="{StaticResource Caption}" Margin="0,12,0,0" HorizontalAlignment="Center"
                                        AutomationProperties.AutomationId="SleepWindowText">
                                 <Run Text="Current window:"/>
-                                <Run Text="{Binding WindowText, Mode=OneWay}" Foreground="{StaticResource Ink}"/>
+                                <Run Text="{Binding WindowText, Mode=OneWay}" Foreground="{DynamicResource Ink}"/>
                             </TextBlock>
                     </StackPanel>
                 </Border>
@@ -99,7 +99,7 @@
                                 </StackPanel>
                             </CheckBox>
 
-                        <Border Height="1" Background="{StaticResource Edge}" Margin="0,24,0,24"/>
+                        <Border Height="1" Background="{DynamicResource Edge}" Margin="0,24,0,24"/>
 
                         <TextBlock Text="WINDOW" Style="{StaticResource Eyebrow}" Margin="0,0,0,12"/>
 
@@ -112,7 +112,7 @@
                                              AutomationProperties.Name="Sleep block start time"/>
                                 </StackPanel>
 
-                                <TextBlock Text="→" FontSize="18" Foreground="{StaticResource InkFaint}"
+                                <TextBlock Text="→" FontSize="18" Foreground="{DynamicResource InkFaint}"
                                            VerticalAlignment="Bottom" Margin="0,0,16,12"/>
 
                                 <StackPanel Margin="0,0,16,0">

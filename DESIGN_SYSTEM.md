@@ -363,8 +363,9 @@ mostly use "licence".)
 ## 12. Desktop app specifics
 
 - **Theme:**
-  - Dark is the default until checklist F21 adds the light theme with a system-follow option.
-  - Build the light theme from the same tokens, as a second `ResourceDictionary`, not by overriding individual views.
+  - Settings → Appearance offers System, Dark and Light; **System is the default**, and follows Windows' own app theme (`AppsUseLightTheme` under HKCU, read-only), changing with it without a restart. Done in F21 (#237).
+  - The light theme is the same tokens in a second `ResourceDictionary`, never per-view overrides: `App.xaml` merges `Styles/Tokens.xaml` as its own entry and `ThemeService` swaps that entry for `Styles/Tokens.Light.xaml`. Nothing else may merge a Tokens file — a later merge shadows the swapped one — and every colour reference in XAML is a `DynamicResource` so it re-resolves.
+  - Two things cannot follow a swapped dictionary and are handled in code instead: a `DynamicResource` inside a Freezable (the shield glyphs' `DrawingImage` brushes), which is why `ShieldGlyphs.xaml` is reloaded on a change; and anything drawn rather than bound (the tray countdown icon, the DWM title bar), which re-reads its tokens on `ThemeService.Changed`.
 - **Window:**
   - Keep the standard Windows title bar for now.
   - A custom title bar is out of scope; it's easy to get wrong with snapping and accessibility.
@@ -376,9 +377,9 @@ mostly use "licence".)
 
 ## 13. Accessibility checklist
 
-- [ ] All token pairs meet WCAG AA, with the fixes in section 2 applied.
-- [ ] Every interactive element is reachable and usable from the keyboard, with a visible 2 px focus ring.
-- [ ] Every control has an accessible name; existing `AutomationId`s are kept.
+- [x] All token pairs meet WCAG AA, with the fixes in section 2 applied. Done in F21 (#237): a tier 1 test computes WCAG contrast for every pair in section 2's table, in **both** themes, from `design/tokens.json`, and fails below 4.5:1. Measured: dark 16.56 / 8.41 / 5.35 / 6.46 / 5.87 / 9.67 / 9.14 / 7.01; light 13.83 / 5.49 / 5.81 / 5.05 / 5.78 / 5.32 / 5.14 / 5.28.
+- [x] Every interactive element is reachable and usable from the keyboard, with a visible 2 px focus ring. Done in F21 (#237): the shared `FocusVisual` style in `Theme.xaml` draws a 2 px `focus-ring` outline, set by every operable style (`BtnBase`, `Field`, `Switch`, `Segment`, `SegmentShield`, `PlainItem`/`HeatCellItem`, `PickerItem`) and by the implicit `RadioButton`/`CheckBox` styles. Escape closes the dialogs and panels that have a cancel action; each overlay is a `Cycle` tab scope and takes focus when it opens.
+- [x] Every control has an accessible name; existing `AutomationId`s are kept. Done in F21 (#237), with a tier 5 test over the XAML.
 - [ ] Colour is never the only signal: shield levels use bars and labels, and status uses icons and text.
 - [ ] Text scales with Windows text-size settings and browser zoom to 200% without clipping.
 - [ ] Reduced motion is honoured in the app and on the site.
@@ -413,4 +414,4 @@ Who owns each task is in `LAUNCH_FEATURE_CHECKLIST.md` → "Who builds what": th
 - [x] Destructive and quiet button variants added (section 7). Done in #180 (A3: `BtnQuiet`/`BtnDanger` styles in `Theme.xaml`) and #178 (B3: `.btn-quiet`/`.btn-danger` classes in `styles.css`).
 - [ ] Copy pass against the word list and tone rules, including one consistent spelling of licence/license (section 9). Partial: B4/B6 (#184, #188) fixed tone on the site, but the two spellings are still mixed rather than one chosen consistently — `DesktopApp/Views/SettingsView.xaml` shows the user-facing label `Text="LICENSE KEY"` and `AutomationProperties.Name="License key"` (American), while other app and email copy uses "licence" (British); the site mixes both across `index.html`/`legal.html`/`success.html`/`checkout.js`. Left unticked.
 - [x] Reduced-motion support in the app and on the site (section 8). Done in #176 (A4: `DesktopApp/Infrastructure/Motion.cs` reads `SystemParameters.ClientAreaAnimation` and zeroes every duration when it's off) and pre-existing site support (`prefers-reduced-motion` in `Website/index.html`/`styles.css`).
-- [ ] Light theme in the app (section 12, checklist F21). Not done — `Tokens.Light.xaml` is generated but no second `ResourceDictionary`/theme switch wires it up yet; still open per issue #38.
+- [x] Light theme in the app (section 12, checklist F21). Done in #237: `App.xaml` merges `Styles/Tokens.xaml` as its own entry and `DesktopApp/Services/ThemeService.cs` swaps it for the generated `Tokens.Light.xaml`; Settings → Appearance offers System (the default, following Windows) / Dark / Light, and every colour reference in the app's XAML is a `DynamicResource`.

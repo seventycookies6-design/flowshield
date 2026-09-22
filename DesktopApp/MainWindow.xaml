@@ -8,7 +8,7 @@
         Height="760" Width="1180"
         MinHeight="540" MinWidth="800"
         WindowStartupLocation="CenterScreen"
-        Background="{StaticResource Bg}"
+        Background="{DynamicResource Bg}"
         FontFamily="{StaticResource FontStack}"
         TextOptions.TextFormattingMode="Ideal"
         UseLayoutRounding="True"
@@ -48,7 +48,7 @@
         </Grid.ColumnDefinitions>
 
         <!-- ================================================== navigation rail -->
-        <Border Grid.Column="0" Background="{StaticResource BgSoft}" BorderBrush="{StaticResource Edge}"
+        <Border Grid.Column="0" Background="{DynamicResource BgSoft}" BorderBrush="{DynamicResource Edge}"
                 BorderThickness="0,0,1,0">
             <DockPanel x:Name="NavDockPanel" Margin="16,24,16,16">
 
@@ -56,9 +56,9 @@
                 <StackPanel x:Name="NavBrand" DockPanel.Dock="Top" Orientation="Horizontal" Margin="8,0,0,24">
                     <Canvas Width="26" Height="26" VerticalAlignment="Center">
                         <Path Data="M13 1.6 3.2 5.4v7.6c0 5.5 3.9 9.7 9.8 11.1 5.9-1.4 9.8-5.6 9.8-11.1V5.4L13 1.6Z"
-                              Fill="{StaticResource PrimarySoft}" Stroke="{StaticResource Primary}" StrokeThickness="1.4"/>
+                              Fill="{DynamicResource PrimarySoft}" Stroke="{DynamicResource Primary}" StrokeThickness="1.4"/>
                         <Path Data="M8.9 13.3 11.8 16.2 17.6 9.9"
-                              Stroke="{StaticResource Primary}" StrokeThickness="1.9"
+                              Stroke="{DynamicResource Primary}" StrokeThickness="1.9"
                               StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
                     </Canvas>
                     <TextBlock x:Name="NavBrandText" Text="FlowShield" Style="{StaticResource H2}"
@@ -86,7 +86,7 @@
                                      Margin="0,0,8,0"/>
                             <TextBlock Text="{Binding TierBadge}" Style="{StaticResource Eyebrow}"
                                        AutomationProperties.AutomationId="TierBadge"
-                                       Foreground="{StaticResource InkDim}"/>
+                                       Foreground="{DynamicResource InkDim}"/>
                         </StackPanel>
                     </Border>
                 </StackPanel>
@@ -197,8 +197,10 @@
             <!-- Covers every page once the free trial ends without a purchase.
                  The nav rail stays usable so the user can still look around,
                  but nothing behind this can be operated. -->
-            <Border Grid.Row="0" Grid.RowSpan="2" Background="{StaticResource Scrim}"
+            <Border Grid.Row="0" Grid.RowSpan="2" Background="{DynamicResource Scrim}"
                     Visibility="{Binding IsLocked, Converter={StaticResource BoolVis}}"
+                    KeyboardNavigation.TabNavigation="Cycle"
+                    IsVisibleChanged="OnOverlayVisibleChanged"
                     AutomationProperties.AutomationId="TrialEndedPanel">
                 <Border Style="{StaticResource Card}" Padding="32" MaxWidth="520"
                         HorizontalAlignment="Center" VerticalAlignment="Center">
@@ -216,7 +218,7 @@
                                 AutomationProperties.AutomationId="LockBuyButton"
                                 AutomationProperties.Name="Buy FlowShield"/>
 
-                        <Border Height="1" Background="{StaticResource Edge}" Margin="0,24,0,16"/>
+                        <Border Height="1" Background="{DynamicResource Edge}" Margin="0,24,0,16"/>
 
                         <TextBlock Text="ALREADY BOUGHT IT?" Style="{StaticResource Eyebrow}" Margin="0,0,0,8"/>
                         <TextBox Style="{StaticResource Field}"
@@ -242,9 +244,11 @@
             </Border>
 
             <!-- ================================================= first run (F18) -->
-            <Border Grid.Row="0" Grid.RowSpan="2" Background="{StaticResource Scrim}"
+            <Border Grid.Row="0" Grid.RowSpan="2" Background="{DynamicResource Scrim}"
                     DataContext="{Binding FirstRun}"
                     Visibility="{Binding IsVisible, Converter={StaticResource BoolVis}}"
+                    KeyboardNavigation.TabNavigation="Cycle"
+                    IsVisibleChanged="OnOverlayVisibleChanged"
                     AutomationProperties.AutomationId="FirstRunPanel">
                 <Border Style="{StaticResource Card}" Padding="32,24" Width="600" MaxWidth="600" Margin="24"
                         HorizontalAlignment="Center" VerticalAlignment="Center">
@@ -312,20 +316,20 @@
                                                         <ColumnDefinition Width="*"/>
                                                     </Grid.ColumnDefinitions>
                                                     <Grid Width="26" Height="26" Margin="0,0,12,0">
-                                                        <Border CornerRadius="{StaticResource RadiusControl}" Background="{StaticResource PrimarySoft}"
+                                                        <Border CornerRadius="{StaticResource RadiusControl}" Background="{DynamicResource PrimarySoft}"
                                                                 Visibility="{Binding Entry.HasIcon, Converter={StaticResource InvBoolVis}}">
                                                             <TextBlock Text="{Binding Entry.Initial}" FontWeight="SemiBold"
-                                                                       Foreground="{StaticResource Ink}"
+                                                                       Foreground="{DynamicResource Ink}"
                                                                        HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                                         </Border>
                                                         <Image Source="{Binding Entry.Icon}" Width="22" Height="22"/>
                                                     </Grid>
                                                     <StackPanel Grid.Column="1">
-                                                        <TextBlock Text="{Binding Entry.Name}" Foreground="{StaticResource Ink}"
+                                                        <TextBlock Text="{Binding Entry.Name}" Foreground="{DynamicResource Ink}"
                                                                    FontSize="13" FontWeight="SemiBold"/>
                                                         <TextBlock Text="{Binding Caption}" Style="{StaticResource Caption}"/>
                                                         <TextBlock Text="{Binding Entry.Note}" Style="{StaticResource Caption}"
-                                                                   Foreground="{StaticResource Amber}" TextWrapping="Wrap"
+                                                                   Foreground="{DynamicResource Amber}" TextWrapping="Wrap"
                                                                    Visibility="{Binding Entry.HasNote, Converter={StaticResource BoolVis}}"/>
                                                     </StackPanel>
                                                 </Grid>
@@ -346,7 +350,7 @@
                                              AutomationProperties.AutomationId="FirstRunShield_Soft"
                                              AutomationProperties.Name="Soft">
                                      <StackPanel Margin="8,0,0,0">
-                                         <TextBlock Text="Soft" Foreground="{StaticResource Ink}" FontWeight="SemiBold"/>
+                                         <TextBlock Text="Soft" Foreground="{DynamicResource Ink}" FontWeight="SemiBold"/>
                                          <TextBlock Text="{Binding SoftPromise}" Style="{StaticResource Caption}"
                                                     AutomationProperties.AutomationId="FirstRunSoftPromise"/>
                                          <TextBlock Text="{Binding SoftBestFor}" Style="{StaticResource Caption}"
@@ -359,8 +363,8 @@
                                              AutomationProperties.AutomationId="FirstRunShield_Firm"
                                              AutomationProperties.Name="Firm (recommended)">
                                      <StackPanel Margin="8,0,0,0">
-                                         <TextBlock Foreground="{StaticResource Ink}" FontWeight="SemiBold">
-                                             <Run Text="Firm"/><Run Text="  recommended" Foreground="{StaticResource Primary}" FontWeight="Normal"/>
+                                         <TextBlock Foreground="{DynamicResource Ink}" FontWeight="SemiBold">
+                                             <Run Text="Firm"/><Run Text="  recommended" Foreground="{DynamicResource Primary}" FontWeight="Normal"/>
                                          </TextBlock>
                                          <TextBlock Text="{Binding FirmPromise}" Style="{StaticResource Caption}"
                                                     AutomationProperties.AutomationId="FirstRunFirmPromise"/>
@@ -374,7 +378,7 @@
                                              AutomationProperties.AutomationId="FirstRunShield_Sealed"
                                              AutomationProperties.Name="Sealed">
                                      <StackPanel Margin="8,0,0,0">
-                                         <TextBlock Text="Sealed" Foreground="{StaticResource Ink}" FontWeight="SemiBold"/>
+                                         <TextBlock Text="Sealed" Foreground="{DynamicResource Ink}" FontWeight="SemiBold"/>
                                          <TextBlock Text="{Binding SealedPromise}" Style="{StaticResource Caption}" TextWrapping="Wrap"
                                                     AutomationProperties.AutomationId="FirstRunSealedPromise"/>
                                          <TextBlock Text="{Binding SealedBestFor}" Style="{StaticResource Caption}" TextWrapping="Wrap"
@@ -404,7 +408,7 @@
                                           AutomationProperties.AutomationId="FirstRunStartWithWindows"
                                           AutomationProperties.Name="Start FlowShield with Windows">
                                     <StackPanel>
-                                        <TextBlock Text="Start FlowShield with Windows" Foreground="{StaticResource Ink}"/>
+                                        <TextBlock Text="Start FlowShield with Windows" Foreground="{DynamicResource Ink}"/>
                                         <TextBlock Text="Opens quietly in the tray when you sign in, so a sprint survives a restart."
                                                    Style="{StaticResource Caption}" TextWrapping="Wrap"/>
                                     </StackPanel>
@@ -421,15 +425,17 @@
             <!-- ============================================ activation link (1.4) -->
             <!-- Sits above the lock screen, since that's exactly when a buyer
                  arrives from the success page. Nothing activates without Activate. -->
-            <Border Grid.Row="0" Grid.RowSpan="2" Background="{StaticResource Scrim}"
-                    Visibility="{Binding ActivationPromptVisible, Converter={StaticResource BoolVis}}">
+            <Border Grid.Row="0" Grid.RowSpan="2" Background="{DynamicResource Scrim}"
+                    Visibility="{Binding ActivationPromptVisible, Converter={StaticResource BoolVis}}"
+                    KeyboardNavigation.TabNavigation="Cycle"
+                    IsVisibleChanged="OnOverlayVisibleChanged">
                 <Border Style="{StaticResource Card}" Padding="32" MaxWidth="460"
                         HorizontalAlignment="Center" VerticalAlignment="Center">
                     <StackPanel>
                         <TextBlock Text="FROM YOUR PURCHASE" Style="{StaticResource Eyebrow}"/>
                         <TextBlock Text="Activate this licence?" Style="{StaticResource H2}" Margin="0,8,0,0"/>
                         <TextBlock Text="{Binding PendingActivationKey}" FontFamily="Cascadia Mono, Consolas, monospace"
-                                   Foreground="{StaticResource Ink}" FontSize="14" Margin="0,12,0,0"
+                                   Foreground="{DynamicResource Ink}" FontSize="14" Margin="0,12,0,0"
                                    AutomationProperties.AutomationId="ActivationLinkKey"/>
                         <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,8,0,0"
                                    Text="FlowShield will check this key with the licence server and unlock this device."/>
@@ -450,8 +456,10 @@
             <!-- ============================================ terms gate (legal 2.3) -->
             <!-- Above every other panel, including the lock screen: nothing in
                  FlowShield should be usable before this is accepted. -->
-            <Border Grid.Row="0" Grid.RowSpan="2" Background="{StaticResource Scrim}"
+            <Border Grid.Row="0" Grid.RowSpan="2" Background="{DynamicResource Scrim}"
                     Visibility="{Binding TermsGateVisible, Converter={StaticResource BoolVis}}"
+                    KeyboardNavigation.TabNavigation="Cycle"
+                    IsVisibleChanged="OnOverlayVisibleChanged"
                     AutomationProperties.AutomationId="TermsGatePanel">
                 <Border Style="{StaticResource Card}" Padding="32,24" Width="560" MaxWidth="560" Margin="24"
                         HorizontalAlignment="Center" VerticalAlignment="Center">
@@ -495,12 +503,12 @@
             <!-- toast -->
             <Border Grid.Row="1" VerticalAlignment="Bottom" HorizontalAlignment="Center"
                     Margin="0,0,0,24" CornerRadius="{StaticResource RadiusCard}" Padding="16,12"
-                    Background="{StaticResource Surface}" BorderBrush="{StaticResource EdgeBright}" BorderThickness="1"
+                    Background="{DynamicResource Surface}" BorderBrush="{DynamicResource EdgeBright}" BorderThickness="1"
                     Visibility="{Binding ToastVisible, Converter={StaticResource BoolVis}}">
                 <Border.Effect>
                     <DropShadowEffect BlurRadius="20" ShadowDepth="4" Direction="270" Opacity="0.55"/>
                 </Border.Effect>
-                <TextBlock Text="{Binding ToastText}" Style="{StaticResource Caption}" Foreground="{StaticResource Ink}"
+                <TextBlock Text="{Binding ToastText}" Style="{StaticResource Caption}" Foreground="{DynamicResource Ink}"
                            AutomationProperties.AutomationId="ToastText"/>
             </Border>
         </Grid>
