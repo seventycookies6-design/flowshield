@@ -403,14 +403,14 @@ Who owns each task is in `LAUNCH_FEATURE_CHECKLIST.md` → "Who builds what": th
 `AutomationId`s, and includes before and after screenshots in the PR.
 
 - [x] Tokens: `design/tokens.json`, the generator and the parity test (section 14). Done in #41: colours only so far; type, spacing and radii can be added to the JSON as their tasks land.
-- [ ] Contrast fixes applied in the app and on the site (section 2).
+- [x] Contrast fixes applied in the app and on the site (section 2). Done in #180 (A3, app tokens) and #178 (B3, site inherits the regenerated CSS block): `Tokens.xaml`/`Tokens.Light.xaml` carry `InkFaintColor` `#948F86`/`#625E57` (the proposed passing values), and B4 (#184) confirmed the site's own block was already current off the same generator run.
 - [x] Legacy colour aliases removed from `Theme.xaml` and `styles.css`. Done in #130.
-- [ ] No hard-coded colours left in app views.
-- [ ] Inter embedded in the app and served on the site, replacing Syne, Source Sans 3 and Segoe UI, with tabular figures for numbers (section 3).
-- [ ] Spacing and radii normalised to the scales (section 4).
+- [x] No hard-coded colours left in app views. Verified: `grep -rE "#[0-9A-Fa-f]{6}" DesktopApp --include=*.xaml` matches only `Styles/Tokens.xaml` and `Styles/Tokens.Light.xaml` (the generated token files); every view and `Theme.xaml` itself is clean. Done in #180 (A3).
+- [x] Inter embedded in the app and served on the site, replacing Syne, Source Sans 3 and Segoe UI, with tabular figures for numbers (section 3). Done in #171 (A1: `DesktopApp/Assets/Fonts/Inter-{Regular,Medium,SemiBold}.ttf` + `InterDisplay-SemiBold.ttf`, `OFL.txt`, `Typography.NumeralAlignment="Tabular"` on Today/Sleep Blocking numbers) and #172 (B1: `Website/fonts/InterVariable.woff2` + `OFL.txt`, no `fonts.googleapis.com` links remain, `font-variant-numeric: tabular-nums` used 5× in `styles.css`).
+- [x] Spacing and radii normalised to the scales (section 4). Done in #182 (A2): `RadiusChip`/`RadiusControl`/`RadiusCard` resources referenced 15× in `Theme.xaml`; `--radius-chip: 6px` added and used in `styles.css` (#178, B3). #191 (merged) extended the same scale to the new adaptive layout.
 - [x] Icon set adopted, and the Unicode glyphs in navigation replaced (section 5). Done in #151: Lucide outlines in `Styles/Icons.xaml`, navigation and the two list views. Shield glyphs are section 6 and still to come.
-- [ ] Shield glyphs built and used on Today, the site, notifications and the tray (section 6).
-- [ ] Destructive and quiet button variants added (section 7).
-- [ ] Copy pass against the word list and tone rules, including one consistent spelling of licence/license (section 9).
-- [ ] Reduced-motion support in the app and on the site (section 8).
-- [ ] Light theme in the app (section 12, checklist F21).
+- [x] Shield glyphs built and used on Today, the site, notifications and the tray (section 6). Done in #176 (A4: `DesktopApp/Styles/ShieldGlyphs.xaml`, shared by the shield chips and the beside-timer glyph) and #178 (B3: inline SVG `<symbol>` set in `Website/index.html` reusing the same crest geometry, used by the shields section).
+- [x] Destructive and quiet button variants added (section 7). Done in #180 (A3: `BtnQuiet`/`BtnDanger` styles in `Theme.xaml`) and #178 (B3: `.btn-quiet`/`.btn-danger` classes in `styles.css`).
+- [ ] Copy pass against the word list and tone rules, including one consistent spelling of licence/license (section 9). Partial: B4/B6 (#184, #188) fixed tone on the site, but the two spellings are still mixed rather than one chosen consistently — `DesktopApp/Views/SettingsView.xaml` shows the user-facing label `Text="LICENSE KEY"` and `AutomationProperties.Name="License key"` (American), while other app and email copy uses "licence" (British); the site mixes both across `index.html`/`legal.html`/`success.html`/`checkout.js`. Left unticked.
+- [x] Reduced-motion support in the app and on the site (section 8). Done in #176 (A4: `DesktopApp/Infrastructure/Motion.cs` reads `SystemParameters.ClientAreaAnimation` and zeroes every duration when it's off) and pre-existing site support (`prefers-reduced-motion` in `Website/index.html`/`styles.css`).
+- [ ] Light theme in the app (section 12, checklist F21). Not done — `Tokens.Light.xaml` is generated but no second `ResourceDictionary`/theme switch wires it up yet; still open per issue #38.
