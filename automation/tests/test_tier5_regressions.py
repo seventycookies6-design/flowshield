@@ -2918,6 +2918,31 @@ class TestLandingPageLengthB5:
         assert features.count('class="surface feature"') == 3
 
 
+class TestSiteToneB6:
+    """
+    #187: "Pick how much you trust yourself today" and "when you do not trust
+    yourself" framed the reader as untrustworthy. Miles chose to rewrite both
+    and to keep "The 1 a.m. version of you doesn't get a vote", which sides
+    with the reader against an impulse they chose to guard against
+    (DESIGN_SYSTEM.md §9: kind, never guilty).
+    """
+
+    def _site(self) -> str:
+        return " ".join((Path(WEBSITE_DIR) / "index.html").read_text(encoding="utf-8").split())
+
+    def test_the_site_does_not_call_the_reader_untrustworthy(self):
+        site = self._site().lower()
+        for phrase in ("trust yourself", "not trust yourself"):
+            assert phrase not in site, f"{phrase!r} frames the reader as untrustworthy"
+
+    def test_the_rewrites_and_the_kept_line_are_in_place(self):
+        site = self._site()
+        assert "Pick how hard it should be to quit today" in site
+        assert "“just checking” Steam turns into an hour" in site
+        assert "The 1 a.m. version of you doesn't get a vote." in site, (
+            "Miles chose to keep this line (#187)")
+
+
 class TestPhoneVisitorMarkup:
     """
     Roadmap 6.4: on small screens the nav collapses behind a hamburger and the
@@ -3447,6 +3472,34 @@ class TestSiteSystemPassB3:
         for name in ("--violet", "--cyan", "--grad"):
             assert f"{name}:" not in css
             assert f"var({name})" not in html
+
+class TestTheSiteDescribesTheCloseTheAppDoes:
+    """
+    F7 (#146) made Firm and Sealed warn first, but the landing page kept
+    saying they close apps "on sight" — a claim the build stopped making the
+    day it merged, contradicting the legal page beside it. Nothing checked the
+    marketing copy against GracefulClose, only the legal page.
+    """
+
+    def test_no_page_promises_an_instant_close_while_the_app_warns(self):
+        model = (Path(DESKTOP_DIR) / "Models" / "GracefulClose.cs").read_text(encoding="utf-8")
+        if "!hardKill && shield >= ShieldLevel.Firm" not in model:
+            pytest.skip("Firm no longer warns; this claim test no longer applies")
+        for page in sorted(Path(WEBSITE_DIR).glob("*.html")):
+            text = " ".join(re.sub(r"<[^>]+>", " ", page.read_text(encoding="utf-8")).split()).lower()
+            for claim in ("on sight", "hard close"):
+                assert claim not in text, (
+                    f"{page.name} says {claim!r}, but Firm and Sealed warn and wait "
+                    f"before closing (GracefulClose.IsGraceful)"
+                )
+
+    def test_the_shields_section_says_it_warns(self):
+        index = (Path(WEBSITE_DIR) / "index.html").read_text(encoding="utf-8")
+        flat = " ".join(re.sub(r"<[^>]+>", " ", index).split())
+        assert "Warns, then closes" in flat
+        assert "Hard kill mode skips the warning" in flat, (
+            "the page must not imply every user gets a warning — Hard kill gives none"
+        )
 
 class TestInterTypeScale:
     """
