@@ -2178,20 +2178,29 @@ class TestBreaksAndCycles:
             time.sleep(0.5)
         assert seen_second, "the cycle did not start its second sprint by itself"
 
-        # Both sprints are recorded as completed, and the cycle stops at two.
+        # The cycle stops at two. Nothing is checked in Sessions here on
+        # purpose: --short-sprints records nothing at all, which is exactly what
+        # stops that flag from buying momentum, a streak day or a goal (tier 5's
+        # TestShortSprintsCannotBuyCredit). What a real run proves is that the
+        # cycle ends rather than rolling into a third sprint.
         deadline = time.time() + 30
-        while time.time() < deadline:
-            sessions = verify.read_settings().get("Sessions", [])
-            if len([s for s in sessions if s.get("Completed")]) >= 2:
-                break
+        while time.time() < deadline and cycle_app.exists("StopSprintButton", timeout=1):
             time.sleep(1)
-        sessions = verify.read_settings().get("Sessions", [])
-        completed = [s for s in sessions if s.get("Completed")]
-        assert len(completed) == 2, f"a 2-sprint cycle ran {len(completed)} sprints"
 
-        time.sleep(6)
+        time.sleep(8)
         assert not cycle_app.exists("StopSprintButton", timeout=2), \
             "the cycle must stop after its last sprint, not roll on"
+        assert cycle_app.text_of("CycleProgressText", timeout=2) == "" \
+            or not cycle_app.exists("CycleProgressText", timeout=1), \
+            "the cycle label must go once the cycle is over"
+
+        # And nothing was credited for those five-second sprints.
+        settings = verify.read_settings()
+        assert settings.get("Sessions", []) == [], \
+            "--short-sprints must record nothing"
+        assert settings.get("MomentumScore", 0) == 0, \
+            "--short-sprints must not move momentum"
+        assert settings.get("CurrentStreak", 0) == 0
 
     def test_a_break_never_moves_momentum_or_the_goal(self, cycle_app):
         cycle_app.navigate_to_tab("Today")

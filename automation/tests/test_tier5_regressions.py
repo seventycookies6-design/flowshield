@@ -6381,7 +6381,6 @@ class TestSoftOverlayNeverCloses:
             )
 
 
-<<<<<<< HEAD
 # ================================== blocklist profiles must not break anything
 
 class TestBlocklistProfilesKeepTheirPromises:
@@ -6515,7 +6514,8 @@ class TestBlocklistProfilesKeepTheirPromises:
             before = self.BLOCKED_XAML.split(marker)[0]
             opening = before.rstrip().rsplit("<", 1)[-1].split()[0]
             assert opening == control, f"{marker} sits on <{opening}>, not <{control}>"
-=======
+
+
 # ============================== a break leaves the shield, and everything
 # ============================== else, alone (F5)
 
@@ -6631,4 +6631,112 @@ class TestTheRingSaysWhichClockIsRunning:
         vm = (Path(DESKTOP_DIR) / "ViewModels" / "TodayViewModel.cs").read_text(encoding="utf-8")
         assert re.search(r"SprintRingVisible\s*=>\s*!IsOnBreak", vm)
         assert re.search(r"BreakRingVisible\s*=>\s*IsOnBreak", vm)
->>>>>>> c581a98 (F5: breaks and study cycles)
+
+
+class TestShortSprintsCannotBuyCredit:
+    """
+    PR #230 review: --short-sprints makes any sprint run five seconds, and it is
+    an ordinary command-line flag — nothing stops a customer passing it. As
+    first written, EndSprint still recorded the sprint at its *planned* length
+    and ran ApplyMomentum on it, so `FlowShield.exe --short-sprints` with a
+    90-minute sprint selected bought 30 points of momentum, a streak day and a
+    day's goal every five seconds.
+
+    The rule it now follows is --expire-trial's: a test flag may take something
+    away, never hand it out. A shortened sprint records nothing and moves no
+    score, exactly like a sprint cancelled inside the grace period.
+
+    Proven to fail first: deleting the `if (CycleState.SprintCountsAsProgress)`
+    guard in EndSprint (going back to an unconditional Sessions.Add +
+    ApplyMomentum) fails the second and third assertions below.
+    """
+
+    MODEL = Path(DESKTOP_DIR) / "Models" / "CycleState.cs"
+    TODAY_VM = Path(DESKTOP_DIR) / "ViewModels" / "TodayViewModel.cs"
+    APP = Path(DESKTOP_DIR) / "App.xaml.cs"
+
+    def vm(self) -> str:
+        return self.TODAY_VM.read_text(encoding="utf-8")
+
+    def test_the_flag_has_a_named_invariant_of_its_own(self):
+        source = self.MODEL.read_text(encoding="utf-8")
+        assert "public static bool SprintCountsAsProgress => !UseShortSprints;" in source, \
+            "the rule must be one readable line, not a condition spread through the view model"
+
+    def test_a_shortened_sprint_is_never_recorded(self):
+        end = self.vm().split("private void EndSprint(bool completed)")[1].split(
+            "\n    /// <summary>")[0]
+        guard = end.split("if (CycleState.SprintCountsAsProgress)")
+        assert len(guard) == 2, "EndSprint must gate the record on the flag's invariant"
+        body = guard[1].split("\n        }")[0]
+        assert "S.Sessions.Add(_current);" in body, \
+            "the session record must sit inside the guard, not outside it"
+        assert "ApplyMomentum(completed, _current);" in body, \
+            "momentum must sit inside the guard too"
+
+        # Nothing may add a session or score outside that guard.
+        outside = guard[0] + guard[1].split("\n        }", 1)[1]
+        for forbidden in ("S.Sessions.Add(", "ApplyMomentum("):
+            assert forbidden not in outside, \
+                f"{forbidden} outside the guard lets --short-sprints buy credit again"
+
+    def test_the_resume_path_cannot_be_used_to_get_round_it(self):
+        """The other place a sprint is recorded and scored (F3's resume)."""
+        resume = self.vm().split("public void ResumeInterruptedSprint(")[1].split(
+            "\n    private void OnTick()")[0]
+        assert "if (CycleState.SprintCountsAsProgress)" in resume
+        recorded = resume.split("if (CycleState.SprintCountsAsProgress)")[1].split(
+            "\n                }")[0]
+        assert "S.Sessions.Add(session);" in recorded
+        assert "ApplyMomentum(completed: true, session);" in recorded
+
+    def test_the_daily_goal_and_streak_are_reached_only_through_that_record(self):
+        """
+        DailyGoal counts S.Sessions, and the streak only moves inside
+        ApplyMomentum — so gating those two is gating all three kinds of credit.
+        Nothing else in the view model may touch the goal or the streak.
+        """
+        vm = self.vm()
+        apply_momentum = vm.split("private void ApplyMomentum(")[1].split("\n    private ")[0]
+        assert "DailyGoal.NoteProgress" in apply_momentum
+        assert "S.MomentumScore" in apply_momentum
+
+        # RefreshStats settles the streak for the day, which must stay a
+        # read-only settle — it may not count a sprint that was never recorded.
+        elsewhere = vm.replace(apply_momentum, "")
+        assert "DailyGoal.NoteProgress" not in elsewhere, \
+            "goal credit must have exactly one route, and it is the gated one"
+
+    def test_the_flag_is_documented_as_test_only_where_it_is_read(self):
+        app = self.APP.read_text(encoding="utf-8")
+        block = app.split('"--short-sprints"')[1].split("\n        }")[0]
+        assert "Models.CycleState.UseShortSprints = true;" in block
+        assert "IsPro" not in block and "TrialStartedUtc" not in block, \
+            "a launch flag must never grant a licence or a trial"
+
+
+class TestTheTrayFollowsTheBreak:
+    """
+    PR #230 review: during a break the tray still read "Start sprint (last
+    settings)", which is the idle label. The break is not idle — the next thing
+    is the next sprint, and that is what the row does.
+    """
+
+    WINDOW = Path(DESKTOP_DIR) / "MainWindow.xaml.cs"
+
+    def test_the_menu_names_the_next_sprint_during_a_break(self):
+        build = self.WINDOW.read_text(encoding="utf-8").split(
+            "private void BuildTrayMenu(")[1].split("\n    /// <summary>")[0]
+        assert 'onBreak ? "Start next sprint" : "Start sprint (last settings)"' in build, \
+            "the tray must say what it is about to do"
+        assert "Vm?.Today.IsOnBreak == true" in build
+
+    def test_it_is_still_the_same_start_command(self):
+        """
+        The label changed, not the action: starting a sprint cuts the break
+        short through the same StartCommand the Today button and Space use.
+        """
+        build = self.WINDOW.read_text(encoding="utf-8").split(
+            "private void BuildTrayMenu(")[1].split("\n    /// <summary>")[0]
+        assert "Vm?.Today.StartCommand.Execute(null)" in build
+        assert "StartBreak" not in build, "the tray never reaches into the break itself"

@@ -72,6 +72,19 @@ public readonly record struct CycleState(
     public static TimeSpan SprintLength(int minutes) =>
         UseShortSprints ? TimeSpan.FromSeconds(5) : TimeSpan.FromMinutes(Math.Max(minutes, 0));
 
+    /// <summary>
+    /// Whether a finished sprint may be recorded and scored.
+    ///
+    /// False under --short-sprints, and this is the invariant that makes that
+    /// flag safe to ship: five seconds is not ninety minutes, so a shortened
+    /// sprint leaves no record and moves no score — no momentum, no streak day,
+    /// no progress towards the daily goal — exactly as cancelling inside the
+    /// grace period does. Like --expire-trial, the flag can only ever take
+    /// credit away, never hand any out, so a customer who finds it on the
+    /// command line gains nothing by passing it.
+    /// </summary>
+    public static bool SprintCountsAsProgress => !UseShortSprints;
+
     public static CycleState Nothing => new(CyclePhase.Idle, 0, 0);
 
     /// <summary>A run of more than one sprint, chosen before the first one started.</summary>

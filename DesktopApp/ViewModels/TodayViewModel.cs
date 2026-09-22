@@ -1305,9 +1305,14 @@ public class TodayViewModel : ViewModelBase
                     Interrupted = !completed,
                 };
                 // Added first, for the same reason as in EndSprint: the goal
-                // rules count S.Sessions.
-                S.Sessions.Add(session);
-                if (completed) ApplyMomentum(completed: true, session);
+                // rules count S.Sessions. And skipped under --short-sprints for
+                // the same reason too, so there is no path at all by which that
+                // flag can hand out credit.
+                if (CycleState.SprintCountsAsProgress)
+                {
+                    S.Sessions.Add(session);
+                    if (completed) ApplyMomentum(completed: true, session);
+                }
 
                 // The long-break run follows the same rule as a sprint ended in
                 // front of you: a finish adds to it, anything else clears it.
@@ -1408,9 +1413,18 @@ public class TodayViewModel : ViewModelBase
         // read S.Sessions, so a sprint added afterwards was invisible to them:
         // "Daily goal met" fired on the next sprint instead of this one, and on
         // the day's last sprint never fired at all.
-        S.Sessions.Add(_current);
-
-        ApplyMomentum(completed, _current);
+        //
+        // Both are skipped under --short-sprints, which is what keeps that
+        // test-only flag from being a cheat code: a five-second sprint claiming
+        // to be ninety minutes would otherwise take ninety minutes' momentum, a
+        // streak day and a goal's worth of progress. Under the flag it records
+        // nothing and moves nothing, exactly as a sprint cancelled inside the
+        // grace period does — see CycleState.SprintCountsAsProgress.
+        if (CycleState.SprintCountsAsProgress)
+        {
+            S.Sessions.Add(_current);
+            ApplyMomentum(completed, _current);
+        }
 
         // F5: the cycle moves on, and the run of completed sprints that earns a
         // long break grows or resets. Neither is momentum, a streak or a goal —

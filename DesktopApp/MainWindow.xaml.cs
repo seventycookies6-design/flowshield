@@ -216,7 +216,14 @@ public partial class MainWindow : Window
             // Bound to the same StartCommand the Today button uses, with
             // whatever length and shield were last used — they already
             // persist as AppSettings.DefaultSprintMinutes/DefaultShield.
-            menu.Items.Add("Start sprint (last settings)", null, (_, _) => Vm?.Today.StartCommand.Execute(null));
+            //
+            // During a break that same command is what comes next, so the row
+            // says so (F5): starting a sprint cuts the break short, which is
+            // exactly what "Start next sprint" on the card and Space both do.
+            // The label is the only difference — the action is unchanged.
+            var onBreak = Vm?.Today.IsOnBreak == true;
+            menu.Items.Add(onBreak ? "Start next sprint" : "Start sprint (last settings)", null,
+                           (_, _) => Vm?.Today.StartCommand.Execute(null));
             menu.Items.Add("Start…", null, (_, _) => OpenToStartSprint());
             menu.Items.Add(new Forms.ToolStripSeparator());
             menu.Items.Add("Open FlowShield", null, (_, _) => RestoreFromTray());

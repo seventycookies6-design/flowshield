@@ -3435,6 +3435,21 @@ class TestBlocklistProfileRules:
 
 LONG_BREAK_EVERY = 4
 
+CYCLE_MODEL = Path(SERVER_DIR).parent / "DesktopApp" / "Models" / "CycleState.cs"
+
+
+def cycle_source() -> str:
+    """
+    The model the mirrors below stand for.
+
+    Every mirror class anchors itself to a line of this file. Without that, the
+    Python mirror keeps passing after someone changes — or deletes — the C# it
+    is supposed to be describing, which is the one way a unit-by-source test can
+    quietly become fiction.
+    """
+    assert CYCLE_MODEL.exists(), "CycleState.cs is what these tests describe"
+    return CYCLE_MODEL.read_text(encoding="utf-8")
+
 
 def break_minutes(in_a_row: int, short_minutes: int, long_minutes: int) -> int:
     """Mirror of CycleState.BreakMinutes."""
@@ -3584,6 +3599,16 @@ class Today:
 class TestBreakLength:
     """F5: five minutes, and fifteen after every fourth completed sprint in a row."""
 
+    def test_the_source_picks_the_long_break_on_every_fourth(self):
+        """The mirror below is only worth anything if it matches this line."""
+        source = cycle_source()
+        assert "public const int LongBreakEvery = 4;" in source
+        picker = source.split("public static int BreakMinutes(")[1].split(";")[0]
+        assert "completedInARow > 0 && completedInARow % LongBreakEvery == 0" in picker, picker
+        assert "? longMinutes : shortMinutes" in picker, picker
+        assert "public const int DefaultShortBreakMinutes = 5;" in source
+        assert "public const int DefaultLongBreakMinutes = 15;" in source
+
     def test_the_usual_break_is_the_short_one(self):
         assert break_minutes(1, 5, 15) == 5
         assert break_minutes(3, 5, 15) == 5
@@ -3606,6 +3631,15 @@ class TestBreakLength:
 
 class TestBreakIsOfferedOnlyForAFinishedSprint:
     """F5: ending early is F2's business; a break for it would pay for stopping."""
+
+    def test_the_source_offers_a_break_for_a_completed_sprint_and_nothing_else(self):
+        source = cycle_source()
+        assert "public static bool OffersBreak(bool completed) => completed;" in source, \
+            "the rule must be exactly 'completed', not a condition that can drift"
+        # And the view model asks the model rather than deciding for itself.
+        vm = (Path(SERVER_DIR).parent / "DesktopApp" / "ViewModels" / "TodayViewModel.cs").read_text(
+            encoding="utf-8")
+        assert "CycleState.OffersBreak(completed)" in vm
 
     def test_a_completed_sprint_offers_one(self):
         t = Today()
@@ -3660,6 +3694,17 @@ class TestBreaksChangeNothingElse:
 
 class TestCycles:
     """F5: "3 × 45" runs sprint → break → sprint by itself."""
+
+    def test_the_source_transitions_match_the_mirror(self):
+        source = cycle_source()
+        assert "public bool InCycle => SprintsPlanned > 1;" in source
+        assert "public bool CycleFinished => InCycle && SprintsDone >= SprintsPlanned;" in source
+        assert "public bool StartsNextSprint => InCycle && SprintsDone < SprintsPlanned;" in source
+        assert "SprintsDone = SprintsDone + 1" in source, "a finished sprint counts towards the cycle"
+        assert "public CycleState OnSprintAbandoned() => Nothing;" in source, \
+            "an abandoned sprint must end the cycle outright, not shrink it"
+        label = source.split("public string CycleLabel =>")[1].split(";")[0]
+        assert '$"Sprint {SprintNumber} of {SprintsPlanned}"' in label, label
 
     def test_a_cycle_shows_which_sprint_is_running(self):
         t = Today(chooser=3)
@@ -3749,6 +3794,20 @@ def decide_break(ends_at, now) -> str:
 
 class TestBreakSurvivesARestart:
     """F5: a saved break is picked up, or ended without a word."""
+
+    def test_the_source_ends_an_expired_break_quietly(self):
+        source = cycle_source()
+        decide = source.split("public BreakResume Decide(DateTime nowUtc) =>")[1].split(";")[0]
+        assert "EndsUtc <= nowUtc ? BreakResume.EndQuietly : BreakResume.Resume" in decide, decide
+
+        # And the view model takes that branch silently: no notification, and no
+        # sprint started behind the customer's back.
+        vm = (Path(SERVER_DIR).parent / "DesktopApp" / "ViewModels" / "TodayViewModel.cs").read_text(
+            encoding="utf-8")
+        resume = vm.split("public void ResumeInterruptedBreak(")[1].split("\n    }")[0]
+        quietly = resume.split("BreakResume.EndQuietly")[1]
+        assert "Notify" not in quietly, "a break that ran out hours ago must not announce itself"
+        assert "StartSprint" not in quietly, "nor start a sprint nobody is there for"
 
     def test_a_break_with_time_left_resumes(self):
         assert decide_break(100, 40) == "resume"
