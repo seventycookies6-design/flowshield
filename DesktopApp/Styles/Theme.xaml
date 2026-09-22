@@ -357,7 +357,10 @@
         <Setter Property="BorderThickness" Value="0"/>
         <Setter Property="Foreground" Value="{StaticResource InkDim}"/>
         <Setter Property="FontWeight" Value="Normal"/>
-        <Setter Property="Padding" Value="16,12"/>
+        <!-- BtnBase fixes Height=40; with 12px vertical padding that left a
+             16px box for a 20px icon, clipping it top and bottom (#189). -->
+        <Setter Property="Height" Value="44"/>
+        <Setter Property="Padding" Value="16,0"/>
         <Setter Property="Margin" Value="0,0,0,4"/>
         <Setter Property="Template">
             <Setter.Value>
@@ -365,7 +368,7 @@
                     <Grid>
                         <Border x:Name="bd" Background="{TemplateBinding Background}" CornerRadius="{StaticResource RadiusControl}"
                                 Padding="{TemplateBinding Padding}">
-                            <ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="Center"/>
                         </Border>
                         <Border x:Name="bar" Width="3" HorizontalAlignment="Left" Margin="0,8"
                                 inf:Pill.IsRound="True" Background="{StaticResource Primary}" Opacity="0"/>

@@ -13,6 +13,7 @@ sys.path.insert(0, str(AUTOMATION_DIR))
 
 from config import (  # noqa: E402
     APP_EXE,
+    SERVER_PORT,
     SERVER_URL,
     stripe_configured,
     stripe_missing,
@@ -54,8 +55,8 @@ def services(logger):
 @pytest.fixture(scope="session")
 def server(services):
     """The license server's base URL, once it is confirmed healthy."""
-    if not port_is_open(3000):
-        pytest.skip("license server is not reachable on port 3000")
+    if not port_is_open(SERVER_PORT):
+        pytest.skip(f"license server is not reachable on port {SERVER_PORT}")
     return SERVER_URL
 
 

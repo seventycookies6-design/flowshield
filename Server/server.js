@@ -518,15 +518,20 @@ app.post('/create-checkout', async (req, res) => {
       metadata: { license_key: licenseKeyValue, app: APP_NAME },
       // The buyer ticks a box agreeing to the terms, and Stripe stores that
       // with the payment. A liability limit nobody agreed to is worth little
-      // (legal checklist 2.2), and the terms say plainly that FlowShield
-      // closes programs.
+      // (legal checklist 2.2). The box links to the terms-of-service URL set
+      // on the Stripe account (Dashboard → Settings → Checkout), which points
+      // at legal.html#terms — and that page spells out the "closes programs /
+      // unsaved work" warning in full (also stated up front in the app's own
+      // first-run terms gate), so no per-request custom_text is needed to
+      // carry it.
+      //
+      // custom_text itself cannot be used at all once Managed Payments is on
+      // (enabled by default on newer accounts, same as the tax-code
+      // requirement tools/setup_stripe_store.js works around) — Stripe
+      // rejects the whole session with a 400 if it is present. Managed
+      // Payments stays on (consistent with that script) and custom_text is
+      // simply dropped rather than disabled per-request.
       consent_collection: { terms_of_service: 'required' },
-      custom_text: {
-        terms_of_service_acceptance: {
-          message: `I agree to the [${APP_NAME} terms](${WEBSITE_URL}/legal.html#terms),`
-            + ' including that FlowShield closes programs I block and that unsaved work in them can be lost.',
-        },
-      },
     };
 
     // Stripe only accepts the consent box once a terms-of-service URL is set on
@@ -542,7 +547,7 @@ app.post('/create-checkout', async (req, res) => {
       tosConsent.lastError = err.message;
       log(`create-checkout: terms consent unavailable (${err.message}); `
         + 'set a terms-of-service URL in the Stripe Dashboard → Settings → Checkout');
-      const { consent_collection: _c, custom_text: _t, ...withoutConsent } = params;
+      const { consent_collection: _c, ...withoutConsent } = params;
       session = await stripe.checkout.sessions.create(withoutConsent);
     }
 

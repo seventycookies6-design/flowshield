@@ -12,7 +12,6 @@
         FontFamily="{StaticResource FontStack}"
         TextOptions.TextFormattingMode="Ideal"
         UseLayoutRounding="True"
-        SizeChanged="OnSizeChanged"
         AutomationProperties.AutomationId="FlowShieldMainWindow">
 
     <!-- Sprint progress on the taskbar button, updated from the tray code (F19). -->
@@ -21,7 +20,7 @@
     </Window.TaskbarItemInfo>
 
 
-    <Grid>
+    <Grid x:Name="RootGrid" SizeChanged="OnSizeChanged">
         <Grid.ColumnDefinitions>
             <!-- 240px per DESIGN_SYSTEM.md §4's nav-rail width (A2, issue #147);
                  was 238px, one pixel short of the spec on each of two edges. -->
@@ -35,7 +34,7 @@
             <DockPanel x:Name="NavDockPanel" Margin="16,24,16,16">
 
                 <!-- brand -->
-                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="8,0,0,24">
+                <StackPanel x:Name="NavBrand" DockPanel.Dock="Top" Orientation="Horizontal" Margin="8,0,0,24">
                     <Canvas Width="26" Height="26" VerticalAlignment="Center">
                         <Path Data="M13 1.6 3.2 5.4v7.6c0 5.5 3.9 9.7 9.8 11.1 5.9-1.4 9.8-5.6 9.8-11.1V5.4L13 1.6Z"
                               Fill="{StaticResource PrimarySoft}" Stroke="{StaticResource Primary}" StrokeThickness="1.4"/>
@@ -72,15 +71,15 @@
                 </StackPanel>
 
                 <!-- tabs -->
-                <StackPanel DockPanel.Dock="Top">
+                <StackPanel x:Name="NavTabs" DockPanel.Dock="Top">
                     <Button Style="{StaticResource NavButton}"
                             Command="{Binding NavigateCommand}" CommandParameter="Today"
                             Tag="{Binding IsTodayPage}"
                             AutomationProperties.AutomationId="Tab_Today"
                             AutomationProperties.Name="Today">
                         <StackPanel Orientation="Horizontal">
-                            <Path Style="{StaticResource Icon}" Data="{StaticResource IconToday}" Margin="0,0,12,0"/>
-                            <TextBlock x:Name="NavTodayLabel" Text="Today" VerticalAlignment="Center"/>
+                            <Path Style="{StaticResource Icon}" Data="{StaticResource IconToday}"/>
+                            <TextBlock x:Name="NavTodayLabel" Text="Today" Margin="12,0,0,0" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
 
@@ -90,8 +89,8 @@
                             AutomationProperties.AutomationId="Tab_BlockedApps"
                             AutomationProperties.Name="Blocked Apps">
                         <StackPanel Orientation="Horizontal">
-                            <Path Style="{StaticResource Icon}" Data="{StaticResource IconBlocked}" Margin="0,0,12,0"/>
-                            <TextBlock x:Name="NavBlockedAppsLabel" Text="Blocked Apps" VerticalAlignment="Center"/>
+                            <Path Style="{StaticResource Icon}" Data="{StaticResource IconBlocked}"/>
+                            <TextBlock x:Name="NavBlockedAppsLabel" Text="Blocked Apps" Margin="12,0,0,0" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
 
@@ -101,8 +100,8 @@
                             AutomationProperties.AutomationId="Tab_SleepBlocking"
                             AutomationProperties.Name="Sleep Blocking">
                         <StackPanel Orientation="Horizontal">
-                            <Path Style="{StaticResource Icon}" Data="{StaticResource IconSleep}" Margin="0,0,12,0"/>
-                            <TextBlock x:Name="NavSleepBlockingLabel" Text="Sleep Blocking" VerticalAlignment="Center"/>
+                            <Path Style="{StaticResource Icon}" Data="{StaticResource IconSleep}"/>
+                            <TextBlock x:Name="NavSleepBlockingLabel" Text="Sleep Blocking" Margin="12,0,0,0" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
 
@@ -112,8 +111,8 @@
                             AutomationProperties.AutomationId="Tab_Settings"
                             AutomationProperties.Name="Settings">
                         <StackPanel Orientation="Horizontal">
-                            <Path Style="{StaticResource Icon}" Data="{StaticResource IconSettings}" Margin="0,0,12,0"/>
-                            <TextBlock x:Name="NavSettingsLabel" Text="Settings" VerticalAlignment="Center"/>
+                            <Path Style="{StaticResource Icon}" Data="{StaticResource IconSettings}"/>
+                            <TextBlock x:Name="NavSettingsLabel" Text="Settings" Margin="12,0,0,0" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
                 </StackPanel>
