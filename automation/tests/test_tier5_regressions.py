@@ -7457,3 +7457,20 @@ class TestTheUiSuiteCanObserveWhatItAsserts:
             "the fixture must publish when the trial ends so the test can wait "
             "for the real boundary rather than sleeping a guess"
         )
+
+
+class TestHeroExampleMatchesTheOtherBoxes:
+    """The 5-7 PM example shares the SmartScreen note's border and corners."""
+
+    CSS = Path(SERVER_DIR).parent / "Website" / "styles.css"
+
+    def _rule(self, selector):
+        css = self.CSS.read_text(encoding="utf-8")
+        start = css.index(selector + " {")
+        return css[start:css.index("}", start)]
+
+    def test_rounded_like_the_smartscreen_note(self):
+        rule = self._rule(".hero .example")
+        assert "border-radius: var(--radius-sm)" in rule
+        assert "border: 1px solid var(--color-border)" in rule
+        assert "border-left: 3px" not in rule

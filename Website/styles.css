@@ -611,7 +611,8 @@ html[data-theme="dark"] .theme-toggle .icon-moon { display: block; }
   color: var(--color-text-muted);
   max-width: min(52ch, 100%);
   padding: var(--space-4);
-  border-left: 3px solid var(--color-border-strong);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
   background: var(--color-surface);
   margin: 0;
 }
