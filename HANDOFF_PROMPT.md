@@ -2,7 +2,7 @@
 
 Paste everything below the line into a new Claude Code session opened in a
 clone of the repo — on a new computer, or for a new teammate. Last brought up
-to date on 14 September 2026.
+to date on 22 September 2026.
 
 ---
 
