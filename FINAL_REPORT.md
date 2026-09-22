@@ -1,6 +1,6 @@
 # FlowShield — build & test report
 
-_Generated 2026-09-12 01:39_
+_Generated 2026-09-22 01:59_
 
 ---
 
@@ -16,7 +16,7 @@ The twist is **escalating shield levels** plus **momentum instead of streaks**:
 | --- | --- | --- |
 | Shield I | Soft | A brief notice inside FlowShield; the blocked app keeps running. |
 | Shield II | Firm | Blocked apps are closed on sight; the blocklist stays editable. |
-| Shield III | Sealed *(Pro)* | Closed on sight **and** the blocklist locks for the rest of the sprint. |
+| Shield III | Sealed | Closed on sight **and** the blocklist locks for the rest of the sprint. |
 
 Momentum compounds on completed sprints and *decays* (×0.85 − 2, floored at zero)
 on abandoned ones rather than resetting — one bad afternoon should not erase a
@@ -31,59 +31,44 @@ month. Every sprint ends with a one-line "what moved?" journal entry.
 | Marketing site | Static HTML/CSS/JS, dark glassmorphism | `Website/` |
 | Automation suite | Python, pywinauto + Playwright + pytest | `automation/` |
 
-### Free vs Pro
+### Trial and purchase
 
-| | Free | Pro — $4.99/mo |
+| | 7-day free trial | Bought — $4.99 once |
 | --- | --- | --- |
-| Blocked apps | 3 | Unlimited |
-| Shield levels | I, II | I, II, **III Sealed** |
-| Sprint length | 15 or 25 min | Also 45, 60 or 90 min |
-| Sleep blocking | — | ✅ |
-| Hard kill mode | — | ✅ |
-| History | 7 days kept | Kept beyond 7 days (no history screen yet) |
+| Blocked apps | Unlimited | Unlimited |
+| Shield levels | I, II, III | I, II, III |
+| Sprint length | 15, 25, 45, 60 or 90 min | 15, 25, 45, 60 or 90 min |
+| Sleep blocking | ✅ | ✅ |
+| Hard kill mode | ✅ | ✅ |
+| After day 7 | Locked until bought | Keeps working |
 
 ---
 
 ## 2. Stripe configuration
 
-**Status: configured (TEST mode).**
+**Status: not configured.** Payment-path steps were skipped, not faked.
 
-| Credential | Value |
-| --- | --- |
-| Publishable key | `pk_test_51U8••••••••••••••••••` _(redacted)_ |
-| Secret key | `sk_test_51••••••••••••••••••` _(redacted)_ |
-| Price ID | `price_1UEN5uCcqk10eo83Od3c7gCq` |
-| Webhook secret | `whsec_7u••••••••••••••••••` _(redacted)_ |
+Missing: `secret_key`, `price_id`
 
-Secret values are redacted here by design — this file is meant to be shareable.
-The real values live only in `.stripe_keys.json`, which is git-ignored.
+Creating the Stripe account is the one step left to a human — registering a
+financial-services account under a generated identity breaks Stripe's terms,
+and the secret key never needs to pass through an assistant to be used.
+`STRIPE_SETUP.md` has the exact click-path; it takes about five minutes.
+
+Once `.stripe_keys.json` is populated, re-run:
+
+```
+python automation/e2e_runner.py
+```
+
+and every skipped step above becomes a real test-mode purchase.
 
 
 ---
 
 ## 3. End-to-end run
 
-Run `20260912-005956` · 276.21s · **17 passed, 0 failed, 0 skipped**
-
-| # | Step | Result | Time |
-| --: | --- | --- | --: |
-| 1 | Build the desktop app | ✅ passed — FlowShield.exe built | 1.94s |
-| 2 | Start the license server | ✅ passed — db=better-sqlite3 stripe=configured (test) | 0.03s |
-| 3 | Start the website | ✅ passed — http://localhost:5500 serving 13725 bytes | 4.1s |
-| 4 | Launch FlowShield (clean state) | ✅ passed — pid 16272 | 0.06s |
-| 5 | Connect to the app window via UI Automation | ✅ passed — hwnd 396090, title 'Today' | 16.2s |
-| 6 | Navigate to Settings | ✅ passed — status='Free plan', badge='FREE' | 13.02s |
-| 7 | Click ★ Get Pro (opens the website) | ✅ passed — upgrade page launched; toast='Opened the upgrade page in your browser.' | 10.58s |
-| 8 | Website → POST /create-checkout | ✅ passed — key=FS-DJ9E-9XE6-AC7D-9Z04 session=cs_test_b1BdKoFNv6Ynx3hr4OX6MzuKQ7buxR4VlOIIvgnC4tvyHEJDSvgjCl2aF3 | 0.76s |
-| 9 | Stripe Checkout — pay with the 4242 test card | ✅ passed — session=cs_test_b1BdKoFNv6Ynx3hr4OX6MzuKQ7buxR4VlOIIvgnC4tvyHEJDSvgjCl2aF3 | 105.88s |
-| 10 | GET /get-license → retrieve the key | ✅ passed — key=FS-DJ9E-9XE6-AC7D-9Z04 status=active email=testbuyer@example.com | 0.45s |
-| 11 | Activate Pro in the app | ✅ passed — status='✅ Pro Active' | 24.25s |
-| 12 | Verify the UI reports Pro | ✅ passed — status='✅ Pro Active', badge='PRO' | 11.59s |
-| 13 | Verify DPAPI settings.json has IsPro=true | ✅ passed — settings file is a DPAPI-protected envelope; IsPro=True, key=FS-DJ9E-9XE6-AC7D-9Z04, status=active | 0.0s |
-| 14 | Blocked Apps — add an app and verify it persists | ✅ passed — 1 in list; 'flowshield-test-target' persisted (list=['flowshield-test-target']) | 25.1s |
-| 15 | Sleep Blocking — enable a schedule and verify it saves | ✅ passed — enabled=True, window=23:15:00 → 06:45:00; ui='Active now — the shield is up until 06:45.' | 34.62s |
-| 16 | Pro gating — Shield III and the app limit | ✅ passed — shield description='Closed on sight, and the blocklist locks until the timer ends.' (pro=True) | 16.72s |
-| 17 | Capture final state and write the report | ✅ passed — state captured | 10.83s |
+_No E2E report found. Run `python automation/e2e_runner.py` first._
 
 
 ---
@@ -92,40 +77,40 @@ Run `20260912-005956` · 276.21s · **17 passed, 0 failed, 0 skipped**
 
 | Tier | Passed | Failed | Skipped |
 | --- | --: | --: | --: |
-| Tier 1 — unit | 62 | 0 | 0 |
-| Tier 2 — server integration | 21 | 0 | 1 |
-| Tier 3 — end-to-end UI | 24 | 0 | 0 |
-| Tier 4 — adversarial | 37 | 0 | 0 |
-| Tier 5 — regressions | 23 | 0 | 0 |
-| Tier 6 — email delivery | 11 | 0 | 0 |
-| Tier 7 — device limit | 17 | 0 | 0 |
-| **Total** | **195** | **0** | **1** |
+| Tier 1 — unit | 380 | 0 | 0 |
+| Tier 2 — server integration | 20 | 0 | 12 |
+| Tier 3 — end-to-end UI | 82 | 13 | 2 |
+| Tier 4 — adversarial | 40 | 0 | 2 |
+| Tier 5 — regressions | 369 | 1 | 6 |
+| Tier 6 — email delivery | 10 | 0 | 3 |
+| Tier 7 — device limit | 6 | 0 | 11 |
+| **Total** | **907** | **14** | **36** |
 
-Duration: 1661.6s · 196 tests collected
+Duration: 6135.1s · 957 tests collected
+
+**Failing tests**
+
+- `tests/test_tier3_e2e.py::TestAppShell::test_settings_cannot_be_read_without_dpapi`
+- `tests/test_tier3_e2e.py::TestSprintIntention::test_a_long_intention_is_capped_and_stays_on_one_line`
+- `tests/test_tier3_e2e.py::TestSprintIntention::test_cancelling_a_sprint_clears_the_intention_input`
+- `tests/test_tier3_e2e.py::TestShieldWording::test_today_shows_the_promise_and_scenario_for_each_shield`
+- `tests/test_tier3_e2e.py::TestTrialExpiringDuringASprint::test_the_lock_waits_for_the_sprint_and_its_summary`
+- `tests/test_tier3_e2e.py::TestEndingASprint::test_cancelling_in_the_grace_period_leaves_no_record`
+- `tests/test_tier3_e2e.py::TestEndingASprint::test_firm_needs_a_confirmation_that_waits`
+- `tests/test_tier3_e2e.py::TestEndingASprint::test_sealed_needs_the_countdown_and_the_phrase`
+- `tests/test_tier3_e2e.py::TestFirstRun::test_completing_it_saves_every_choice_and_starts_the_sprint`
+- `tests/test_tier3_e2e.py::TestSpaceStartsAndEndsASprint::test_space_starts_a_sprint_and_opens_the_firm_end_flow`
+- `tests/test_tier3_e2e.py::TestSpaceStartsAndEndsASprint::test_space_typed_into_the_intention_field_stays_a_space`
+- `tests/test_tier3_e2e.py::TestHistoryPage::test_history_is_reachable_and_empty_to_begin_with`
+- `tests/test_tier3_e2e.py::TestHistoryPage::test_the_week_picks_up_a_sprint_run_on_today`
+- `tests/test_tier5_regressions.py::TestStartWithWindowsBehaviour::test_tray_launch_has_an_icon_but_no_visible_window`
 
 
 ---
 
 ## 5. Screenshots
 
-Captured locally in `screenshots/e2e-20260912-005956` — 12 images, not committed to the repository.
-
-| Step | File |
-| --- | --- |
-| App launched | `05-app-launched.png` |
-| Settings free | `06-settings-free.png` |
-| After get pro | `07-after-get-pro.png` |
-| License key entered | `11-license-key-entered.png` |
-| Pro activated | `11-pro-activated.png` |
-| Blocked app added | `14-blocked-app-added.png` |
-| Sleep blocking saved | `15-sleep-blocking-saved.png` |
-| Shield selection | `16-shield-selection.png` |
-| Final settings | `17-final-settings.png` |
-| 01 loaded | `stripe-01-loaded.png` |
-| 02 filled | `stripe-02-filled.png` |
-| 03 success | `stripe-03-success.png` |
-
-Regenerate them any time with `python automation/e2e_runner.py`, or `python automation/smoke_ui.py` for a quick four-tab sweep.
+_No screenshots captured yet. Run `python automation/e2e_runner.py`._
 
 
 ---
@@ -165,6 +150,9 @@ existing binary. `python automation/smoke_ui.py` captures all four tabs in one p
 
 ## 7. Known limitations
 
+- **The payment path was not executed in this run** because Stripe has no
+  credentials configured. Those steps are reported as *skipped*, never as
+  passed. Everything else below ran for real.
 - **The Stripe account is not created by the automation.** Registering a
   financial-services account under a disposable identity violates Stripe's
   terms, and the registration flow is gated by SMS and bot detection. This is a
@@ -200,15 +188,17 @@ Do this only when you actually intend to charge real cards.
 1. **Activate the account.** Live keys require completing Stripe's business and
    bank-details onboarding. Test mode needs none of that.
 2. **Recreate the product in live mode.** Price IDs do not cross the test/live
-   boundary — toggle to live, create *FlowShield Pro* at $4.99/month, copy the
-   new `price_...`.
+   boundary — run `node tools/setup_stripe_store.js` against live mode (after
+   deliberately lifting its test-key guard) to create *FlowShield* at a one-time
+   $4.99, and copy the new `price_...`.
 3. **Swap the credentials** in `.stripe_keys.json` for the `pk_live_` /
    `sk_live_` pair, or set `STRIPE_SECRET_KEY` and friends in the environment
    instead so no secret sits on disk.
 4. **Host the webhook somewhere reachable.** `http://localhost:3000/webhook`
    cannot receive live events. Deploy the server, register the public HTTPS URL
-   under Developers → Webhooks for `checkout.session.completed`,
-   `customer.subscription.updated` and `customer.subscription.deleted`, and use
+   under Developers → Webhooks for `checkout.session.completed` and
+   `charge.refunded` (plus the two `customer.subscription.*` events while any
+   old monthly licences remain), and use
    that endpoint's signing secret.
 5. **Serve both server and site over HTTPS**, and set `WEBSITE_URL` on the
    server so success/cancel URLs point at the deployed site rather than
@@ -219,6 +209,6 @@ Do this only when you actually intend to charge real cards.
    fails against live keys on purpose. Keep it that way; point the suite at a
    test-mode server instead of relaxing the assertion.
 
-Before going live, confirm on a real card that the subscription appears under
-Customers → Subscriptions and that a cancellation propagates back to `IsPro`
-being cleared in the app within one validation cycle.
+Before going live, confirm on a real card that the payment appears under
+Payments and that a refund propagates back to `IsPro` being cleared in the app
+within one validation cycle.
