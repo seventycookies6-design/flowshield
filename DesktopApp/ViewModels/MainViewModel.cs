@@ -102,6 +102,16 @@ public class MainViewModel : ViewModelBase
 
     public bool IsSprintRunning => Today.IsRunning;
 
+    /// <summary>
+    /// A sprint or the break that follows it is under way (F5).
+    ///
+    /// The break counts: the shield is down, but the person is mid-routine, and
+    /// interrupting them to sell something — or locking the app under them —
+    /// three minutes before the next sprint would break F20's promise just as
+    /// surely as doing it mid-sprint.
+    /// </summary>
+    public bool IsFocusInProgress => Today.IsRunning || Today.IsOnBreak;
+
     // ------------------------------------------------------ terms gate (legal 2.3)
 
     private bool _termsGateVisible;
@@ -363,7 +373,7 @@ public class MainViewModel : ViewModelBase
     /// </summary>
     public void RefreshAccess()
     {
-        if (IsSprintRunning || Today.JournalPromptVisible) return;
+        if (IsFocusInProgress || Today.JournalPromptVisible) return;
 
         var hasAccess = HasAccess;
         if (hasAccess != _lastHasAccess)
@@ -409,7 +419,7 @@ public class MainViewModel : ViewModelBase
     public bool Notify(NotificationKind kind, string title, string message,
                        NotificationAction action = NotificationAction.OpenApp)
     {
-        if (!NotificationPolicy.ShouldShow(kind, Settings, IsSprintRunning)) return false;
+        if (!NotificationPolicy.ShouldShow(kind, Settings, IsFocusInProgress)) return false;
         NotificationRequested?.Invoke(this, new Notification(kind, title, message, action));
         Log.Info($"notification: {kind}");
         return true;
@@ -435,6 +445,7 @@ public class MainViewModel : ViewModelBase
     public void OnSprintStateChanged()
     {
         Raise(nameof(IsSprintRunning));
+        Raise(nameof(IsFocusInProgress));
         BlockedApps.RefreshStatus();
 
         // An allowance belongs to the sprint it was granted in, and a notice

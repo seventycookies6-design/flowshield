@@ -51,8 +51,15 @@ public class TodayViewModel : ViewModelBase
         SelectShieldFirmCommand = new RelayCommand(() => SelectedShield = ShieldLevel.Firm, CanChangeShield);
         SelectShieldSealedCommand = new RelayCommand(() => SelectedShield = ShieldLevel.Sealed, CanChangeShield);
 
+        // F5: breaks and cycles. Three buttons on the summary card and the
+        // cycle chooser above it; every rule they follow lives in CycleState.
+        StartBreakCommand = new RelayCommand(StartBreak, () => BreakOfferVisible && !IsOnBreak);
+        SkipBreakCommand = new RelayCommand(SkipBreak, () => BreakOfferVisible || IsOnBreak);
+        StartNextSprintCommand = new RelayCommand(StartNextSprint, () => BreakOfferVisible || IsOnBreak);
+
         _customMinutesText = S.LastCustomSprintMinutes.ToString();
         _customMinutes = S.LastCustomSprintMinutes;
+        _cycleSprints = S.CycleSprints;
 
         RefreshStats();
     }
@@ -222,10 +229,17 @@ public class TodayViewModel : ViewModelBase
         _current = null;
         _main.Blocker.StopEnforcing();
 
+        // Cancelling inside the grace period leaves no record, but it does stop
+        // a cycle: the sprint it was part of never happened (F5).
+        _cycle = _cycle.OnSprintAbandoned();
+        BreakOfferVisible = false;
+
         S.ActiveSprint = null;
         _main.SaveSettings();
 
         SessionStateText = "Sprint cancelled";
+        Raise(nameof(CycleProgressText));
+        Raise(nameof(CycleProgressVisible));
         JournalPromptVisible = false;
         IntentionDisplayText = "";
         IntentionDisplayVisible = false;
@@ -275,8 +289,17 @@ public class TodayViewModel : ViewModelBase
     public string RemainingText { get => _remainingText; private set => Set(ref _remainingText, value); }
 
     private double _progress;
-    /// <summary>0→1 completion of the current sprint; drives the ring.</summary>
-    public double Progress { get => _progress; private set => Set(ref _progress, value); }
+    /// <summary>0→1 completion of the current sprint — or break (F5); drives the ring.</summary>
+    public double Progress
+    {
+        get => _progress;
+        private set
+        {
+            if (!Set(ref _progress, value)) return;
+            Raise(nameof(SprintRingVisible));
+            Raise(nameof(BreakRingVisible));
+        }
+    }
 
     public string PrimaryActionLabel => IsRunning ? "End sprint" : "Start sprint";
 
@@ -529,6 +552,262 @@ public class TodayViewModel : ViewModelBase
 
     private bool _summaryIntentionVisible;
     public bool SummaryIntentionVisible { get => _summaryIntentionVisible; private set => Set(ref _summaryIntentionVisible, value); }
+
+    // ------------------------------------------ breaks and cycles (F5)
+
+    /// <summary>
+    /// Where the cycle is. Every rule about it — which break comes next,
+    /// whether one is offered, whether another sprint follows — is decided by
+    /// <see cref="CycleState"/>; this class only starts and stops the clock.
+    /// </summary>
+    private CycleState _cycle = CycleState.Nothing;
+
+    private DateTime _breakEndsUtc;
+
+    public RelayCommand StartBreakCommand { get; }
+    public RelayCommand SkipBreakCommand { get; }
+    public RelayCommand StartNextSprintCommand { get; }
+
+    private bool _isOnBreak;
+    /// <summary>
+    /// A break is counting down and the shield is down with it.
+    ///
+    /// Deliberately not <see cref="IsRunning"/>: no sprint is running, so
+    /// nothing that keys off a running sprint (enforcement, the F2 end flow,
+    /// momentum) applies. What does follow a break is spelled out where it is
+    /// read — the blocker stays stood down, and the trial lock waits.
+    /// </summary>
+    public bool IsOnBreak
+    {
+        get => _isOnBreak;
+        private set
+        {
+            if (!Set(ref _isOnBreak, value)) return;
+            Raise(nameof(BreakPanelVisible));
+            Raise(nameof(BreakPanelTitle));
+            Raise(nameof(BreakPanelText));
+            Raise(nameof(StartBreakVisible));
+            Raise(nameof(SprintRingVisible));
+            Raise(nameof(BreakRingVisible));
+        }
+    }
+
+    private bool _breakOfferVisible;
+    /// <summary>A completed sprint's break is on offer and has not started yet.</summary>
+    public bool BreakOfferVisible
+    {
+        get => _breakOfferVisible;
+        private set
+        {
+            if (!Set(ref _breakOfferVisible, value)) return;
+            Raise(nameof(BreakPanelVisible));
+            Raise(nameof(BreakPanelTitle));
+            Raise(nameof(BreakPanelText));
+            Raise(nameof(StartBreakVisible));
+        }
+    }
+
+    public bool BreakPanelVisible => BreakOfferVisible || IsOnBreak;
+
+    public bool StartBreakVisible => BreakOfferVisible && !IsOnBreak;
+
+    public string BreakPanelTitle => IsOnBreak ? "On a break" : "Take a break";
+
+    public string BreakPanelText => IsOnBreak
+        ? "The shield is down. Blocked apps are allowed until the break ends."
+        : OfferedBreakIsLong
+            ? $"{CycleState.LongBreakEvery} sprints in a row, so this break is "
+              + $"{OfferedBreakMinutes} minutes. The shield stays down while it runs."
+            : $"{OfferedBreakMinutes} minutes with the shield down. It changes nothing about your momentum.";
+
+    /// <summary>The break the last completed sprint earned, short or long.</summary>
+    private int OfferedBreakMinutes =>
+        CycleState.BreakMinutes(S.CompletedSprintsInARow, S.ShortBreakMinutes, S.LongBreakMinutes);
+
+    private bool OfferedBreakIsLong =>
+        S.CompletedSprintsInARow > 0 && S.CompletedSprintsInARow % CycleState.LongBreakEvery == 0;
+
+    /// <summary>
+    /// Which arc the ring draws: primary for a sprint, text-muted for a break
+    /// (DESIGN_SYSTEM §7, and §2's "teal means state or progress" — a break is
+    /// neither a sprint nor progress through one).
+    /// </summary>
+    public bool SprintRingVisible => !IsOnBreak && Progress > 0;
+    public bool BreakRingVisible => IsOnBreak && Progress > 0;
+
+    /// <summary>"Sprint 2 of 3" under the timer, or empty for a single sprint.</summary>
+    public string CycleProgressText => _cycle.CycleLabel;
+
+    public bool CycleProgressVisible => CycleProgressText.Length > 0;
+
+    /// <summary>The cycle chooser's options: no cycle, or 2, 3 or 4 sprints.</summary>
+    public int[] CycleChoices { get; } = CycleState.CycleChoices;
+
+    private int _cycleSprints;
+    /// <summary>How many sprints the next Start runs with breaks between them. 0 means one sprint.</summary>
+    public int CycleSprints
+    {
+        get => _cycleSprints;
+        set
+        {
+            if (!Set(ref _cycleSprints, value)) return;
+            S.CycleSprints = value;
+            _main.SaveSettings();
+            Raise(nameof(CycleDescription));
+        }
+    }
+
+    public string CycleDescription => CycleSprints > 1
+        ? $"{CycleSprints} sprints of {SelectedMinutes} minutes, with a break between them, run one after another."
+        : "One sprint. A break is offered when it finishes.";
+
+    /// <summary>
+    /// Start the break the last completed sprint earned.
+    ///
+    /// The blocker is already stood down — <see cref="EndSprint"/> stops it when
+    /// the sprint ends — and nothing here starts it again. That is the whole of
+    /// "during a break the shield is down": no new blocker mode, no exception
+    /// list, simply no enforcement.
+    /// </summary>
+    private void StartBreak()
+    {
+        if (IsRunning || IsOnBreak || !BreakOfferVisible) return;
+
+        var minutes = OfferedBreakMinutes;
+        var now = DateTime.UtcNow;
+        _breakEndsUtc = now + CycleState.BreakLength(minutes);
+        _cycle = _cycle.OnBreakStarted();
+
+        S.ActiveBreak = new RunningBreak
+        {
+            StartedUtc = now,
+            EndsUtc = _breakEndsUtc,
+            Minutes = minutes,
+            SprintsPlanned = _cycle.SprintsPlanned,
+            SprintsDone = _cycle.SprintsDone,
+        };
+        _main.SaveSettings();
+
+        BeginBreakClock("Break — the shield is down");
+        Log.Info($"break started: {minutes} minute(s)");
+    }
+
+    private void BeginBreakClock(string stateText)
+    {
+        BreakOfferVisible = false;
+        IsOnBreak = true;
+        SessionStateText = stateText;
+        _main.OnSprintStateChanged();
+        OnBreakTick();
+        _tick.Start();
+    }
+
+    /// <summary>Skipping is free: no momentum, no streak, no goal, nothing recorded.</summary>
+    private void SkipBreak()
+    {
+        if (!BreakOfferVisible && !IsOnBreak) return;
+        Log.Info(IsOnBreak ? "break cut short" : "break skipped");
+        EndBreak(notify: false);
+        ContinueCycleOrIdle();
+    }
+
+    /// <summary>Straight into the next sprint, whether or not a break is running.</summary>
+    private void StartNextSprint()
+    {
+        if (!BreakOfferVisible && !IsOnBreak) return;
+        EndBreak(notify: false);
+        BreakOfferVisible = false;
+        StartSprint();
+    }
+
+    /// <summary>
+    /// Stops the break clock and clears the saved record.
+    /// <paramref name="notify"/> is true only when the break ran its full length.
+    /// </summary>
+    private void EndBreak(bool notify)
+    {
+        BreakOfferVisible = false;
+        if (!IsOnBreak)
+        {
+            if (S.ActiveBreak is not null)
+            {
+                S.ActiveBreak = null;
+                _main.SaveSettings();
+            }
+            return;
+        }
+
+        _tick.Stop();
+        IsOnBreak = false;
+        _cycle = _cycle.OnBreakEnded();
+        S.ActiveBreak = null;
+        _main.SaveSettings();
+
+        SessionStateText = "Break over";
+        UpdateIdleDisplay();
+        _main.OnSprintStateChanged();
+
+        if (notify)
+            _main.Notify(NotificationKind.BreakOver, "Break over",
+                _cycle.StartsNextSprint
+                    ? $"Back to it — {_cycle.CycleLabel.ToLowerInvariant()}."
+                    : "Back to it when you're ready.");
+    }
+
+    /// <summary>In a cycle, the next sprint starts by itself; otherwise Today goes quiet.</summary>
+    private void ContinueCycleOrIdle()
+    {
+        if (_cycle.StartsNextSprint) StartSprint();
+        else UpdateIdleDisplay();
+    }
+
+    private void OnBreakTick()
+    {
+        var remaining = _breakEndsUtc - DateTime.UtcNow;
+        if (remaining <= TimeSpan.Zero)
+        {
+            EndBreak(notify: true);
+            ContinueCycleOrIdle();
+            return;
+        }
+
+        Remaining = remaining;
+        RemainingText = $"{(int)remaining.TotalMinutes:00}:{remaining.Seconds:00}";
+
+        var total = (_breakEndsUtc - (S.ActiveBreak?.StartedUtc ?? _breakEndsUtc)).TotalSeconds;
+        Progress = total <= 0 ? 0 : Math.Clamp(1 - remaining.TotalSeconds / total, 0, 1);
+    }
+
+    /// <summary>
+    /// Pick up a break that was running when FlowShield last closed (F5).
+    ///
+    /// A break whose time ran out while FlowShield was closed simply goes away:
+    /// there is nothing to enforce, nothing to record and nobody to tell — a
+    /// "break over" notice hours later would be noise. A cycle waiting behind it
+    /// does not start a sprint by itself either; that needs someone at the desk.
+    /// </summary>
+    public void ResumeInterruptedBreak(DateTime? nowUtc = null)
+    {
+        var saved = S.ActiveBreak;
+        if (saved is null || IsRunning || IsOnBreak) return;
+
+        var now = nowUtc ?? DateTime.UtcNow;
+        if (saved.Decide(now) == BreakResume.EndQuietly)
+        {
+            Log.Info("a saved break had already run out; ended quietly");
+            S.ActiveBreak = null;
+            _cycle = CycleState.Nothing;
+            _main.SaveSettings();
+            return;
+        }
+
+        _cycle = saved.ToCycle();
+        _breakEndsUtc = saved.EndsUtc;
+        Raise(nameof(CycleProgressText));
+        Raise(nameof(CycleProgressVisible));
+        BeginBreakClock("Break resumed — the shield is down");
+        Log.Info($"break resumed, {(saved.EndsUtc - now).TotalSeconds:0} s left");
+    }
 
     // --------------------------------------------------------------- stats
 
@@ -842,6 +1121,16 @@ public class TodayViewModel : ViewModelBase
         }
         _runningAppsAnswered = false;
 
+        // A break on offer is over the moment a sprint starts, and a break still
+        // running is cut short rather than left counting down behind the sprint.
+        EndBreak(notify: false);
+
+        // F5: the chooser only starts a cycle; a sprint inside one keeps the
+        // cycle it is already part of.
+        _cycle = _cycle.OnSprintStarted(CycleSprints);
+        Raise(nameof(CycleProgressText));
+        Raise(nameof(CycleProgressVisible));
+
         var now = DateTime.UtcNow;
         var intention = (IntentionText ?? "").Trim();
         _current = new FocusSession
@@ -868,6 +1157,9 @@ public class TodayViewModel : ViewModelBase
             // The blocklist this sprint enforces, written down rather than
             // inferred later (F9). F6's templates will set it before starting.
             ActiveProfileId = S.ActiveProfile.Id,
+
+            CycleSprintsPlanned = _cycle.SprintsPlanned,
+            CycleSprintsDone = _cycle.SprintsDone,
         };
         _main.SaveSettings();
 
@@ -881,7 +1173,7 @@ public class TodayViewModel : ViewModelBase
 
     private void BeginRunning(string stateText)
     {
-        _endsAtUtc = _current!.StartedUtc.AddMinutes(_current.PlannedMinutes);
+        _endsAtUtc = _current!.StartedUtc + CycleState.SprintLength(_current.PlannedMinutes);
         _lastHeartbeatUtc = DateTime.UtcNow;
         _blocksThisSprint = 0;
         _closedThisSprint = 0;
@@ -926,7 +1218,12 @@ public class TodayViewModel : ViewModelBase
     public void ResumeInterruptedSprint(DateTime? nowUtc = null)
     {
         var saved = S.ActiveSprint;
-        if (saved is null || IsRunning) return;
+        if (saved is null || IsRunning)
+        {
+            // No sprint to pick up: a break might still be running (F5).
+            if (saved is null) ResumeInterruptedBreak(nowUtc);
+            return;
+        }
 
         var now = nowUtc ?? DateTime.UtcNow;
         var decision = saved.Decide(now);
@@ -972,9 +1269,20 @@ public class TodayViewModel : ViewModelBase
                     Log.Info($"resumed sprint restored its blocklist: \"{S.ActiveProfile.Name}\"");
                 }
 
+                // The cycle comes back with the sprint, so "Sprint 2 of 3" is
+                // still true and the run finishes itself (F5).
+                _cycle = new CycleState(CyclePhase.Sprint, saved.CycleSprintsPlanned,
+                                        saved.CycleSprintsDone);
+                _cycleSprints = saved.CycleSprintsPlanned;
+                Raise(nameof(CycleSprints));
+                Raise(nameof(CycleProgressText));
+                Raise(nameof(CycleProgressVisible));
+
                 // LastSeenUtc moves up, but the gap it spans is deliberately
                 // not added to WatchedMinutes: FlowShield was closed for it.
                 saved.LastSeenUtc = now;
+                // A sprint and a break cannot both be running; the sprint wins.
+                S.ActiveBreak = null;
                 _main.SaveSettings();
 
                 var left = (int)Math.Ceiling((saved.EndsUtc - now).TotalMinutes);
@@ -997,9 +1305,20 @@ public class TodayViewModel : ViewModelBase
                     Interrupted = !completed,
                 };
                 // Added first, for the same reason as in EndSprint: the goal
-                // rules count S.Sessions.
-                S.Sessions.Add(session);
-                if (completed) ApplyMomentum(completed: true, session);
+                // rules count S.Sessions. And skipped under --short-sprints for
+                // the same reason too, so there is no path at all by which that
+                // flag can hand out credit.
+                if (CycleState.SprintCountsAsProgress)
+                {
+                    S.Sessions.Add(session);
+                    if (completed) ApplyMomentum(completed: true, session);
+                }
+
+                // The long-break run follows the same rule as a sprint ended in
+                // front of you: a finish adds to it, anything else clears it.
+                // No break is offered here — it ended while nobody was there.
+                S.CompletedSprintsInARow = completed ? S.CompletedSprintsInARow + 1 : 0;
+                _cycle = CycleState.Nothing;
 
                 S.ActiveSprint = null;
                 _main.SaveSettings();
@@ -1026,6 +1345,14 @@ public class TodayViewModel : ViewModelBase
 
     private void OnTick()
     {
+        // The one timer runs both clocks; a break has no shield, no heartbeat
+        // and no end flow, so it takes the short path (F5).
+        if (IsOnBreak)
+        {
+            OnBreakTick();
+            return;
+        }
+
         var now = DateTime.UtcNow;
         var remaining = _endsAtUtc - now;
         if (remaining <= TimeSpan.Zero)
@@ -1062,7 +1389,7 @@ public class TodayViewModel : ViewModelBase
             ? $"{(int)remaining.TotalHours}:{remaining.Minutes:00}:{remaining.Seconds:00}"
             : $"{(int)remaining.TotalMinutes:00}:{remaining.Seconds:00}";
 
-        var total = TimeSpan.FromMinutes(_current?.PlannedMinutes ?? SelectedMinutes).TotalSeconds;
+        var total = CycleState.SprintLength(_current?.PlannedMinutes ?? SelectedMinutes).TotalSeconds;
         Progress = total <= 0 ? 0 : Math.Clamp(1 - remaining.TotalSeconds / total, 0, 1);
     }
 
@@ -1086,9 +1413,32 @@ public class TodayViewModel : ViewModelBase
         // read S.Sessions, so a sprint added afterwards was invisible to them:
         // "Daily goal met" fired on the next sprint instead of this one, and on
         // the day's last sprint never fired at all.
-        S.Sessions.Add(_current);
+        //
+        // Both are skipped under --short-sprints, which is what keeps that
+        // test-only flag from being a cheat code: a five-second sprint claiming
+        // to be ninety minutes would otherwise take ninety minutes' momentum, a
+        // streak day and a goal's worth of progress. Under the flag it records
+        // nothing and moves nothing, exactly as a sprint cancelled inside the
+        // grace period does — see CycleState.SprintCountsAsProgress.
+        if (CycleState.SprintCountsAsProgress)
+        {
+            S.Sessions.Add(_current);
+            ApplyMomentum(completed, _current);
+        }
 
-        ApplyMomentum(completed, _current);
+        // F5: the cycle moves on, and the run of completed sprints that earns a
+        // long break grows or resets. Neither is momentum, a streak or a goal —
+        // those are ApplyMomentum's business and a break never reaches them.
+        if (completed)
+        {
+            S.CompletedSprintsInARow++;
+            _cycle = _cycle.OnSprintCompleted();
+        }
+        else
+        {
+            S.CompletedSprintsInARow = 0;
+            _cycle = _cycle.OnSprintAbandoned();
+        }
 
         S.ActiveSprint = null;
         _main.SaveSettings();
@@ -1120,6 +1470,42 @@ public class TodayViewModel : ViewModelBase
             _main.Notify(NotificationKind.SprintComplete, "Sprint complete",
                 $"{_current.PlannedMinutes} minutes done. Momentum {S.MomentumScore:0.0}.",
                 NotificationAction.OpenJournal);
+        }
+
+        OfferBreakIfEarned(completed);
+    }
+
+    /// <summary>
+    /// The break offer that follows a sprint (F5).
+    ///
+    /// Only a completed sprint earns one: ending early is F2's territory, and a
+    /// break for stopping would pay for the thing the shields exist to make
+    /// harder. In a cycle with a sprint still to come the break starts by
+    /// itself, which is what "sprint → break → sprint, automatically" means.
+    /// </summary>
+    private void OfferBreakIfEarned(bool completed)
+    {
+        Raise(nameof(CycleProgressText));
+        Raise(nameof(CycleProgressVisible));
+        Raise(nameof(BreakPanelText));
+
+        if (CycleState.OffersBreak(completed))
+        {
+            BreakOfferVisible = true;
+            if (_cycle.StartsNextSprint) StartBreak();
+        }
+        else
+        {
+            BreakOfferVisible = false;
+        }
+
+        if (_cycle.CycleFinished)
+        {
+            var ran = _cycle.SprintsPlanned;
+            _cycle = _cycle.OnCycleFinished();
+            Raise(nameof(CycleProgressText));
+            Raise(nameof(CycleProgressVisible));
+            _main.Toast($"Cycle done — {ran} sprints.");
         }
     }
 
@@ -1202,7 +1588,7 @@ public class TodayViewModel : ViewModelBase
 
     public void UpdateIdleDisplay()
     {
-        if (IsRunning) return;
+        if (IsRunning || IsOnBreak) return;
         RemainingText = $"{SelectedMinutes:00}:00";
         Progress = 0;
     }

@@ -1555,7 +1555,9 @@ class TestTrialThenOneTimePurchase:
         refresh = main.split("public void RefreshAccess()")[1].split("\n    }")[0]
         # F20 extended this to also hold off while the sprint's summary card
         # is still on screen — see TestTrialNeverNagsDuringASprint below.
-        assert "if (IsSprintRunning || Today.JournalPromptVisible) return;" in refresh
+        # F5 widened the guard again: IsFocusInProgress is a running sprint plus
+        # the break that follows one.
+        assert "if (IsFocusInProgress || Today.JournalPromptVisible) return;" in refresh
 
     def test_the_expire_trial_flag_only_takes_access_away(self):
         app = self.read("DesktopApp", "App.xaml.cs")
@@ -1837,7 +1839,9 @@ class TestNotificationsStayQuiet:
     def test_nothing_about_buying_reaches_a_running_sprint(self):
         main = self.read("ViewModels", "MainViewModel.cs")
         notify = main.split("public bool Notify(")[1].split("\n    }")[0]
-        assert "NotificationPolicy.ShouldShow(kind, Settings, IsSprintRunning)" in notify, \
+        # IsFocusInProgress is a running sprint plus the break that follows one
+        # (F5); before breaks existed this passed IsSprintRunning.
+        assert "NotificationPolicy.ShouldShow(kind, Settings, IsFocusInProgress)" in notify, \
             "every notification must go through the policy, with the sprint state"
 
     def test_the_trial_notice_happens_once_a_day_at_most(self):
@@ -1866,7 +1870,11 @@ class TestNotificationsStayQuiet:
         assert "nameof(TodayViewModel.Remaining)" in changed
         update = window.split("private void UpdateTrayIcon()")[1].split("\n    }")[0]
         assert "NotificationPolicy.TrayIconText(remaining)" in update
-        assert 'Title = running ? $"FlowShield — {Vm?.Today.RemainingText}" : "FlowShield";' in update
+        # F5 put a break ahead of the sprint countdown in the same expression:
+        # "Break · 4:59" while one runs, the sprint's time left otherwise.
+        assert 'running ? $"FlowShield — {Vm?.Today.RemainingText}"' in update
+        assert ': "FlowShield";' in update
+        assert 'onBreak ? $"FlowShield — {NotificationPolicy.BreakLabel(remaining)}"' in update
 
     def test_the_tray_search_only_trusts_explorer(self):
         # A Claude desktop session titled "FlowShield …" was double-clicked as
@@ -1903,7 +1911,7 @@ class TestTrialNeverNagsDuringASprint:
         # goes through, and it always passes the live sprint state in.
         main = self.read("ViewModels", "MainViewModel.cs")
         notify = main.split("public bool Notify(")[1].split("\n    }")[0]
-        assert "NotificationPolicy.ShouldShow(kind, Settings, IsSprintRunning)" in notify
+        assert "NotificationPolicy.ShouldShow(kind, Settings, IsFocusInProgress)" in notify
 
         notifications = self.read("Models", "Notifications.cs")
         interrupts = notifications.split("public static bool InterruptsFocus(")[1].split(";")[0]
@@ -1934,7 +1942,8 @@ class TestTrialNeverNagsDuringASprint:
         refresh = main.split("public void RefreshAccess()")[1].split("\n    }")[0]
         code_lines = [line.strip() for line in refresh.splitlines()
                       if line.strip() and not line.strip().startswith("//") and line.strip() != "{"]
-        assert code_lines[0].startswith("if (IsSprintRunning"), \
+        # IsFocusInProgress covers a running sprint and the break after one (F5).
+        assert code_lines[0].startswith("if (IsFocusInProgress"), \
             "the sprint guard must be the first statement RefreshAccess runs"
 
     def test_the_lock_also_waits_out_the_summary_card(self):
@@ -6505,3 +6514,229 @@ class TestBlocklistProfilesKeepTheirPromises:
             before = self.BLOCKED_XAML.split(marker)[0]
             opening = before.rstrip().rsplit("<", 1)[-1].split()[0]
             assert opening == control, f"{marker} sits on <{opening}>, not <{control}>"
+
+
+# ============================== a break leaves the shield, and everything
+# ============================== else, alone (F5)
+
+class TestABreakStandsTheShieldDown:
+    """
+    F5's promise is that during a break blocked apps are allowed. The way that
+    is kept is that nothing starts the blocker again: the sprint's end stops
+    enforcing, and the break path never calls BeginEnforcing.
+
+    Written as source tests because the alternative — a second "break mode" in
+    AppBlockerService — is exactly what this must not become. A mode could be
+    entered by mistake; no call at all cannot be.
+    """
+
+    TODAY_VM = Path(DESKTOP_DIR) / "ViewModels" / "TodayViewModel.cs"
+    BLOCKER = Path(DESKTOP_DIR) / "Services" / "AppBlockerService.cs"
+
+    def vm(self) -> str:
+        return self.TODAY_VM.read_text(encoding="utf-8")
+
+    def break_region(self) -> str:
+        source = self.vm()
+        assert "breaks and cycles (F5)" in source, "the F5 code should be in one place"
+        return source.split("breaks and cycles (F5)")[1].split("--------------- stats")[0]
+
+    def test_ending_a_sprint_stops_enforcing_before_any_break_can_start(self):
+        source = self.vm()
+        end = source.split("private void EndSprint(bool completed)")[1].split("\n    /// <summary>")[0]
+        assert "_main.Blocker.StopEnforcing();" in end
+
+    def test_nothing_in_the_break_path_starts_the_blocker(self):
+        region = self.break_region()
+        assert "BeginEnforcing" not in region, \
+            "a break that enforces is not a break; the shield stays down for all of it"
+
+    def test_the_blocker_gained_no_break_mode(self):
+        blocker = self.BLOCKER.read_text(encoding="utf-8")
+        for name in ("CycleState", "RunningBreak", "IsOnBreak", "BreakMode"):
+            assert name not in blocker, \
+                f"F5 uses the existing BeginEnforcing/StopEnforcing; {name} in the blocker is a second way to be wrong"
+
+    def test_the_break_never_touches_momentum_the_streak_or_the_goal(self):
+        region = self.break_region()
+        for forbidden in ("MomentumScore", "ApplyMomentum", "CurrentStreak", "DailyGoal"):
+            assert forbidden not in region, \
+                f"a break must not reach {forbidden}; five minutes off is not progress and not a penalty"
+
+    def test_only_a_completed_sprint_earns_a_break(self):
+        source = self.vm()
+        offer = source.split("private void OfferBreakIfEarned(bool completed)")[1].split("\n    }")[0]
+        assert "CycleState.OffersBreak(completed)" in offer, \
+            "ending early must not be rewarded with a break; the rule stays in the model"
+
+    def test_a_break_starts_no_sprint_of_its_own_without_a_cycle(self):
+        region = self.break_region()
+        assert "StartsNextSprint" in region, \
+            "only a cycle continues by itself; a single sprint's break ends quietly"
+
+
+class TestNothingSellsOrLocksDuringABreak:
+    """
+    F20: the trial lock and anything about money wait for a sprint to end. A
+    break is part of the same sitting — locking the app or offering to sell
+    during the three minutes between two sprints breaks that promise just as
+    surely, and until F5 the guard only knew about a running sprint.
+    """
+
+    MAIN_VM = Path(DESKTOP_DIR) / "ViewModels" / "MainViewModel.cs"
+
+    def source(self) -> str:
+        return self.MAIN_VM.read_text(encoding="utf-8")
+
+    def test_focus_in_progress_includes_the_break(self):
+        source = self.source()
+        assert re.search(r"IsFocusInProgress\s*=>\s*Today\.IsRunning\s*\|\|\s*Today\.IsOnBreak", source), \
+            "the guard must know a break is under way"
+
+    def test_the_access_check_waits_for_the_break_too(self):
+        source = self.source()
+        refresh = source.split("public void RefreshAccess()")[1].split("\n    /// <summary>")[0]
+        assert "IsFocusInProgress" in refresh, \
+            "the lock screen must not appear between two sprints of a cycle"
+
+    def test_a_notification_that_interrupts_focus_waits_for_the_break_too(self):
+        source = self.source()
+        notify = source.split("public bool Notify(")[1].split("\n    /// <summary>")[0]
+        assert "NotificationPolicy.ShouldShow(kind, Settings, IsFocusInProgress)" in notify
+
+    def test_the_break_over_notice_is_switchable_like_the_others(self):
+        settings_vm = (Path(DESKTOP_DIR) / "ViewModels" / "SettingsViewModel.cs").read_text(encoding="utf-8")
+        assert "NotificationKind.BreakOver" in settings_vm
+        settings_xaml = (Path(DESKTOP_DIR) / "Views" / "SettingsView.xaml").read_text(encoding="utf-8")
+        assert 'AutomationProperties.AutomationId="NotifyBreakOverToggle"' in settings_xaml
+
+
+class TestTheRingSaysWhichClockIsRunning:
+    """
+    DESIGN_SYSTEM §2: teal means state, selection or progress — through a
+    sprint. A break drawn in the same teal arc would read as "the shield is up"
+    at a glance, which is the one thing it is not (§7 timer ring).
+    """
+
+    XAML = Path(DESKTOP_DIR) / "Views" / "TodayView.xaml"
+
+    def test_the_two_arcs_have_different_colours_and_never_show_together(self):
+        xaml = self.XAML.read_text(encoding="utf-8")
+        assert 'Visibility="{Binding SprintRingVisible' in xaml
+        assert 'Visibility="{Binding BreakRingVisible' in xaml
+        assert 'Stroke="{StaticResource InkDim}" StrokeThickness="12"' in xaml, \
+            "the break arc is text-muted, not primary"
+
+    def test_the_view_model_keeps_them_exclusive(self):
+        vm = (Path(DESKTOP_DIR) / "ViewModels" / "TodayViewModel.cs").read_text(encoding="utf-8")
+        assert re.search(r"SprintRingVisible\s*=>\s*!IsOnBreak", vm)
+        assert re.search(r"BreakRingVisible\s*=>\s*IsOnBreak", vm)
+
+
+class TestShortSprintsCannotBuyCredit:
+    """
+    PR #230 review: --short-sprints makes any sprint run five seconds, and it is
+    an ordinary command-line flag — nothing stops a customer passing it. As
+    first written, EndSprint still recorded the sprint at its *planned* length
+    and ran ApplyMomentum on it, so `FlowShield.exe --short-sprints` with a
+    90-minute sprint selected bought 30 points of momentum, a streak day and a
+    day's goal every five seconds.
+
+    The rule it now follows is --expire-trial's: a test flag may take something
+    away, never hand it out. A shortened sprint records nothing and moves no
+    score, exactly like a sprint cancelled inside the grace period.
+
+    Proven to fail first: deleting the `if (CycleState.SprintCountsAsProgress)`
+    guard in EndSprint (going back to an unconditional Sessions.Add +
+    ApplyMomentum) fails the second and third assertions below.
+    """
+
+    MODEL = Path(DESKTOP_DIR) / "Models" / "CycleState.cs"
+    TODAY_VM = Path(DESKTOP_DIR) / "ViewModels" / "TodayViewModel.cs"
+    APP = Path(DESKTOP_DIR) / "App.xaml.cs"
+
+    def vm(self) -> str:
+        return self.TODAY_VM.read_text(encoding="utf-8")
+
+    def test_the_flag_has_a_named_invariant_of_its_own(self):
+        source = self.MODEL.read_text(encoding="utf-8")
+        assert "public static bool SprintCountsAsProgress => !UseShortSprints;" in source, \
+            "the rule must be one readable line, not a condition spread through the view model"
+
+    def test_a_shortened_sprint_is_never_recorded(self):
+        end = self.vm().split("private void EndSprint(bool completed)")[1].split(
+            "\n    /// <summary>")[0]
+        guard = end.split("if (CycleState.SprintCountsAsProgress)")
+        assert len(guard) == 2, "EndSprint must gate the record on the flag's invariant"
+        body = guard[1].split("\n        }")[0]
+        assert "S.Sessions.Add(_current);" in body, \
+            "the session record must sit inside the guard, not outside it"
+        assert "ApplyMomentum(completed, _current);" in body, \
+            "momentum must sit inside the guard too"
+
+        # Nothing may add a session or score outside that guard.
+        outside = guard[0] + guard[1].split("\n        }", 1)[1]
+        for forbidden in ("S.Sessions.Add(", "ApplyMomentum("):
+            assert forbidden not in outside, \
+                f"{forbidden} outside the guard lets --short-sprints buy credit again"
+
+    def test_the_resume_path_cannot_be_used_to_get_round_it(self):
+        """The other place a sprint is recorded and scored (F3's resume)."""
+        resume = self.vm().split("public void ResumeInterruptedSprint(")[1].split(
+            "\n    private void OnTick()")[0]
+        assert "if (CycleState.SprintCountsAsProgress)" in resume
+        recorded = resume.split("if (CycleState.SprintCountsAsProgress)")[1].split(
+            "\n                }")[0]
+        assert "S.Sessions.Add(session);" in recorded
+        assert "ApplyMomentum(completed: true, session);" in recorded
+
+    def test_the_daily_goal_and_streak_are_reached_only_through_that_record(self):
+        """
+        DailyGoal counts S.Sessions, and the streak only moves inside
+        ApplyMomentum — so gating those two is gating all three kinds of credit.
+        Nothing else in the view model may touch the goal or the streak.
+        """
+        vm = self.vm()
+        apply_momentum = vm.split("private void ApplyMomentum(")[1].split("\n    private ")[0]
+        assert "DailyGoal.NoteProgress" in apply_momentum
+        assert "S.MomentumScore" in apply_momentum
+
+        # RefreshStats settles the streak for the day, which must stay a
+        # read-only settle — it may not count a sprint that was never recorded.
+        elsewhere = vm.replace(apply_momentum, "")
+        assert "DailyGoal.NoteProgress" not in elsewhere, \
+            "goal credit must have exactly one route, and it is the gated one"
+
+    def test_the_flag_is_documented_as_test_only_where_it_is_read(self):
+        app = self.APP.read_text(encoding="utf-8")
+        block = app.split('"--short-sprints"')[1].split("\n        }")[0]
+        assert "Models.CycleState.UseShortSprints = true;" in block
+        assert "IsPro" not in block and "TrialStartedUtc" not in block, \
+            "a launch flag must never grant a licence or a trial"
+
+
+class TestTheTrayFollowsTheBreak:
+    """
+    PR #230 review: during a break the tray still read "Start sprint (last
+    settings)", which is the idle label. The break is not idle — the next thing
+    is the next sprint, and that is what the row does.
+    """
+
+    WINDOW = Path(DESKTOP_DIR) / "MainWindow.xaml.cs"
+
+    def test_the_menu_names_the_next_sprint_during_a_break(self):
+        build = self.WINDOW.read_text(encoding="utf-8").split(
+            "private void BuildTrayMenu(")[1].split("\n    /// <summary>")[0]
+        assert 'onBreak ? "Start next sprint" : "Start sprint (last settings)"' in build, \
+            "the tray must say what it is about to do"
+        assert "Vm?.Today.IsOnBreak == true" in build
+
+    def test_it_is_still_the_same_start_command(self):
+        """
+        The label changed, not the action: starting a sprint cuts the break
+        short through the same StartCommand the Today button and Space use.
+        """
+        build = self.WINDOW.read_text(encoding="utf-8").split(
+            "private void BuildTrayMenu(")[1].split("\n    /// <summary>")[0]
+        assert "Vm?.Today.StartCommand.Execute(null)" in build
+        assert "StartBreak" not in build, "the tray never reaches into the break itself"
