@@ -27,7 +27,8 @@ class TestAppShell:
     def test_window_opens_on_the_today_page(self, app):
         assert app.current_page_title() == "Today"
 
-    @pytest.mark.parametrize("tab", ["Blocked Apps", "Sleep Blocking", "Settings", "Today"])
+    @pytest.mark.parametrize("tab", ["History", "Blocked Apps", "Sleep Blocking",
+                                     "Settings", "Today"])
     def test_every_tab_is_reachable(self, app, tab):
         assert app.navigate_to_tab(tab) == tab
 
@@ -1598,3 +1599,93 @@ class TestYourDataCard:
         fresh_app.click("ConfirmDeleteCancelButton")
         time.sleep(0.5)
         assert fresh_app.exists("DeleteEverythingButton"), "Settings must still be there after cancelling"
+
+
+# =========================================== History and the weekly view (F16)
+
+class TestHistoryPage:
+    """
+    F16: the History page. The unit tests pin the arithmetic; what only the real
+    app can show is that the page is reachable, that it picks up a sprint that
+    happened on another page, and that the week's figures on screen match what
+    was actually written to the settings file.
+    """
+
+    def _one_sprint(self, app, intention, journal):
+        app.navigate_to_tab("Today")
+        app.set_text("IntentionInput", intention)
+        app.start_sprint()
+        time.sleep(1.2)
+        app.stop_sprint()
+        time.sleep(0.8)
+        app.set_text("JournalInput", journal)
+        app.click("SaveJournalButton")
+        time.sleep(1.0)
+
+    def test_history_is_reachable_and_empty_to_begin_with(self, fresh_app):
+        assert fresh_app.navigate_to_tab("History") == "History"
+        assert fresh_app.text_of("WeekSprintsValue") == "0"
+        assert fresh_app.text_of("WeekFocusHours") == "0.0"
+        assert "No sprints yet" in fresh_app.text_of("HistoryEmptyText")
+        # Nothing has been blocked, and the card says so rather than naming an app.
+        assert "Nothing has needed blocking yet" in fresh_app.text_of("MostBlockedNote")
+
+    def test_the_week_picks_up_a_sprint_run_on_today(self, fresh_app):
+        """
+        The refresh-on-entry case. History is built when the app starts, so
+        without MainViewModel refreshing it on navigation the page would show
+        zeroes for the rest of the run.
+        """
+        self._one_sprint(fresh_app, "finish chapter 3", "shipped the history page")
+
+        fresh_app.navigate_to_tab("History")
+        assert int(fresh_app.text_of("WeekDistractionsValue")) >= 0
+        # Ended early, so it is not a completed sprint — but its minutes count.
+        assert fresh_app.text_of("WeekSprintsValue") == "0"
+        assert float(fresh_app.text_of("WeekFocusHours")) >= 0.0
+
+        # The row is the newest, so it is the first HistoryRow* control found.
+        assert "ended early" in fresh_app.text_of("HistoryRowOutcome")
+        assert "finish chapter 3" in fresh_app.text_of("HistoryRowIntention")
+        assert "shipped the history page" in fresh_app.text_of("HistoryRowJournal")
+
+        # And it matches what was persisted, not just what the UI claims.
+        session = verify.read_settings()["Sessions"][-1]
+        assert session["Intention"] == "finish chapter 3"
+        assert session["Journal"] == "shipped the history page"
+        assert session["Completed"] is False
+
+    def test_the_heatmap_states_its_values_rather_than_only_colouring_them(self, fresh_app):
+        """
+        DESIGN_SYSTEM.md §7: never colour alone. Every cell is a focusable
+        control whose accessible name is its own day and minutes, so this is
+        also the check that a screen reader gets something to read.
+        """
+        self._one_sprint(fresh_app, "", "measured the heatmap")
+        fresh_app.navigate_to_tab("History")
+
+        assert fresh_app.exists("FocusHeatmap"), "the heatmap never rendered"
+        assert "–" in fresh_app.text_of("HeatmapRange"), "the range names both ends"
+        assert "best day" in fresh_app.text_of("HeatmapPeak")
+        assert fresh_app.text_of("HeatmapLegendLow") == "Less"
+        assert fresh_app.text_of("HeatmapLegendHigh") == "More"
+
+    def test_the_export_is_reachable_from_history(self, fresh_app):
+        """F17's card stays on Settings; History is the way to it (F16)."""
+        fresh_app.navigate_to_tab("History")
+        fresh_app.click("HistoryExportButton")
+        time.sleep(0.8)
+        assert fresh_app.current_page_title() == "Settings"
+        assert fresh_app.exists("ExportJournalButton")
+
+    def test_looking_at_history_changes_nothing(self, fresh_app):
+        """The page only reads. Visiting it must not rewrite the sprint record."""
+        self._one_sprint(fresh_app, "", "wrote it down")
+        before = verify.read_settings()["Sessions"]
+
+        fresh_app.navigate_to_tab("History")
+        time.sleep(1.0)
+        fresh_app.navigate_to_tab("Today")
+        time.sleep(0.5)
+
+        assert verify.read_settings()["Sessions"] == before

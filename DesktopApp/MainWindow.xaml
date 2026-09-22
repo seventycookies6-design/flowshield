@@ -86,6 +86,17 @@
                     </Button>
 
                     <Button Style="{StaticResource NavButton}"
+                            Command="{Binding NavigateCommand}" CommandParameter="History"
+                            Tag="{Binding IsHistoryPage}"
+                            AutomationProperties.AutomationId="Tab_History"
+                            AutomationProperties.Name="History">
+                        <StackPanel Orientation="Horizontal">
+                            <Path Style="{StaticResource Icon}" Data="{StaticResource IconHistory}"/>
+                            <TextBlock x:Name="NavHistoryLabel" Text="History" Margin="12,0,0,0" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+
+                    <Button Style="{StaticResource NavButton}"
                             Command="{Binding NavigateCommand}" CommandParameter="BlockedApps"
                             Tag="{Binding IsBlockedAppsPage}"
                             AutomationProperties.AutomationId="Tab_BlockedApps"
@@ -141,6 +152,11 @@
                                  Visibility="{Binding DataContext.IsTodayPage,
                                               RelativeSource={RelativeSource AncestorType=Window},
                                               Converter={StaticResource BoolVis}}"/>
+
+                <views:HistoryView DataContext="{Binding History}"
+                                   Visibility="{Binding DataContext.IsHistoryPage,
+                                                RelativeSource={RelativeSource AncestorType=Window},
+                                                Converter={StaticResource BoolVis}}"/>
 
                 <views:BlockedAppsView DataContext="{Binding BlockedApps}"
                                        Visibility="{Binding DataContext.IsBlockedAppsPage,

@@ -3,6 +3,10 @@ using System.Windows;
 using System.Windows.Data;
 using System.Windows.Media;
 
+// System.Drawing is in scope through the tray code's global usings, and it has a
+// Color of its own; this file means the WPF one.
+using MediaColor = System.Windows.Media.Color;
+
 namespace FlowShield.Infrastructure;
 
 public class InverseBooleanConverter : IValueConverter
@@ -134,6 +138,41 @@ public class NonEmptyToVisibilityConverter : IValueConverter
 {
     public object Convert(object value, Type t, object p, CultureInfo c) =>
         string.IsNullOrWhiteSpace(value as string) ? Visibility.Collapsed : Visibility.Visible;
+
+    public object ConvertBack(object value, Type t, object p, CultureInfo c) => Binding.DoNothing;
+}
+
+/// <summary>
+/// One of the heatmap's five steps as a brush (History, F16).
+///
+/// DESIGN_SYSTEM.md §7 asks for "five steps from surface-2 to primary", so the
+/// ramp is mixed from those two tokens at run time rather than written out as
+/// five more colours: the generated Tokens.xaml stays the only place a colour
+/// is defined (§14), and the light theme (F21) will recolour the heatmap by
+/// changing those two values and nothing else.
+///
+/// Step 0 is plain surface-2 — a day with no focus at all.
+/// </summary>
+public class HeatStepToBrushConverter : IValueConverter
+{
+    public int Steps { get; set; } = 5;
+
+    public object Convert(object value, Type t, object p, CultureInfo c)
+    {
+        var step = value is int i ? Math.Clamp(i, 0, Steps - 1) : 0;
+        var from = Colour("Surface2Color", MediaColor.FromRgb(0x18, 0x20, 0x1E));
+        var to = Colour("PrimaryColor", MediaColor.FromRgb(0x3A, 0xA8, 0x92));
+        var mix = Steps <= 1 ? 0 : step / (double)(Steps - 1);
+        return new SolidColorBrush(Lerp(from, to, mix));
+    }
+
+    private static MediaColor Colour(string key, MediaColor fallback) =>
+        Application.Current?.TryFindResource(key) is MediaColor found ? found : fallback;
+
+    private static MediaColor Lerp(MediaColor from, MediaColor to, double mix) => MediaColor.FromRgb(
+        (byte)Math.Round(from.R + (to.R - from.R) * mix),
+        (byte)Math.Round(from.G + (to.G - from.G) * mix),
+        (byte)Math.Round(from.B + (to.B - from.B) * mix));
 
     public object ConvertBack(object value, Type t, object p, CultureInfo c) => Binding.DoNothing;
 }
