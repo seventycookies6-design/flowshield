@@ -262,6 +262,7 @@ public class TodayViewModel : ViewModelBase
         {
             if (!Set(ref _isRunning, value)) return;
             Raise(nameof(NotRunning));
+            Raise(nameof(SprintRingVisible));
             Raise(nameof(PrimaryActionLabel));
             Raise(nameof(SessionStateText));
             Raise(nameof(SealedRestartHintVisible));
@@ -633,8 +634,11 @@ public class TodayViewModel : ViewModelBase
     /// (DESIGN_SYSTEM §7, and §2's "teal means state or progress" — a break is
     /// neither a sprint nor progress through one).
     /// </summary>
-    public bool SprintRingVisible => !IsOnBreak && Progress > 0;
-    public bool BreakRingVisible => IsOnBreak && Progress > 0;
+    // The rings drain (TodayView.RingRemaining), so they show for as long as the
+    // clock runs; the view hides the arc itself once nothing is left, so an
+    // empty ring never paints a round-cap dot.
+    public bool SprintRingVisible => !IsOnBreak && IsRunning;
+    public bool BreakRingVisible => IsOnBreak;
 
     /// <summary>"Sprint 2 of 3" under the timer, or empty for a single sprint.</summary>
     public string CycleProgressText => _cycle.CycleLabel;
