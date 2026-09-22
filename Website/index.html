@@ -115,10 +115,14 @@
         you choose — Soft, Firm, or Sealed — and logs every finished sprint into
         momentum you can see at the end of the day.
       </p>
+      <!-- CTA labels name the outcome rather than the intention. NN/g,
+           "Get Started" Stops Users (Harley & Flaherty, 20 Aug 2017): a
+           link is a promise, so state precisely what the click does. The
+           old "Start free trial" never said an installer downloads. -->
       <div class="hero-cta">
         <a class="btn btn-primary btn-lg" data-download-guide data-download-direct
            href="https://github.com/seventycookies6-design/flowshield/releases/latest/download/FlowShield-win-Setup.exe">
-          Start free trial
+          Download for Windows
         </a>
         <button class="btn btn-primary btn-lg" type="button" data-download-copy>
           Get the download link
@@ -127,8 +131,31 @@
       </div>
       <p class="copy-confirm" data-copy-confirm role="status" aria-live="polite"></p>
       <p class="hero-note">
-        7 days free, then $4.99 once · Windows 10 &amp; 11 · No .NET install needed ·
+        <!-- Phones hide the installer link (styles.css, 520px) and show the
+             copy button instead. Without a reason beside it, the swap reads as
+             a missing download rather than a deliberate one. -->
+        <span class="phone-only">FlowShield runs on Windows, so there is nothing
+        to install on a phone — copy the link and open it on your PC.<br></span>
+        7 days free, then $4.99 once · Windows 10 &amp; 11 · No account, no card ·
         <a href="legal.html">Terms &amp; privacy</a>
+      </p>
+      <!-- The SmartScreen warning is the biggest install drop-off there is
+           (SELLING.md), and it is now said before the click, not only inside
+           the download dialog. Microsoft's own advice for an unsigned build:
+           "let beta users know they may see a SmartScreen prompt on first
+           download" — learn.microsoft.com/windows/apps/package-and-deploy/
+           smartscreen-reputation, updated 17 Aug 2026. Delete this note the
+           day F25 signs the installer. -->
+      <p class="smartscreen-note" data-smartscreen-note>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+          <path d="M12 3 4.5 6v5.5c0 4.7 3.2 8.3 7.5 9.5 4.3-1.2 7.5-4.8 7.5-9.5V6Z"/>
+          <path d="M12 8.5v4"/><path d="M12 16h.01"/>
+        </svg>
+        <span><strong>Windows warns the first time.</strong> The build isn&rsquo;t
+        code-signed yet, so you will see &ldquo;Windows protected your PC&rdquo;:
+        choose <b>More info</b>, then <b>Run anyway</b>.
+        <a href="#faq">Why, and what the installer does</a>.</span>
       </p>
     </div>
 
@@ -417,7 +444,7 @@
         </ul>
         <a class="btn btn-ghost btn-block" data-download-guide data-download-direct
            href="https://github.com/seventycookies6-design/flowshield/releases/latest/download/FlowShield-win-Setup.exe">
-          Start the free trial
+          Download for Windows
         </a>
         <button class="btn btn-ghost btn-block" type="button" data-download-copy>
           Get the download link
@@ -442,6 +469,17 @@
           <li class="on" data-feature="three-devices"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M20 6 9 17l-5-5"/></svg> Use it on up to 3 PCs</li>
         </ul>
         <button class="btn btn-primary btn-block btn-lg" data-checkout>Buy FlowShield — $4.99</button>
+        <!-- The reassurance sits with the decision, not three clicks away in
+             the footer. Baymard's checkout research finds 15% of shoppers
+             abandoned a cart in the past quarter solely over the return
+             policy (baymard.com/blog/checkout-flow-ux-optimization). Every
+             line here is a fact the product can back today — a refund policy
+             in legal.html, no account anywhere in the app, no telemetry —
+             not a testimonial, a badge or a number we invented. -->
+        <p class="buy-reassure" data-buy-reassure>
+          <a href="legal.html#refunds">14-day refund</a>, no reason needed ·
+          No account to create · Nothing about your sprints leaves your PC
+        </p>
       </div>
     </div>
   </div>
@@ -482,11 +520,17 @@
       </details>
 
       <details class="surface faq-item">
-        <summary>Does it need admin rights or install drivers?
+        <summary>What does the installer do to my PC?
           <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m6 9 6 6 6-6"/></svg>
         </summary>
-        <p>No. It runs as a normal user program, installs no drivers and changes no system settings.
-        It only closes the applications you chose, while a sprint you started is running.</p>
+        <p>It runs as a normal user program. No admin rights, no drivers, no services and no system
+        settings changed, and no separate .NET install. It only closes the applications you chose,
+        while a sprint you started is running. Uninstalling removes it and its startup entry.</p>
+        <p>Because the build isn&rsquo;t code-signed yet, Windows shows &ldquo;Windows protected your
+        PC&rdquo; the first time you run the installer. Choose <b>More info</b>, then <b>Run
+        anyway</b>. A code-signing certificate is on the list; until it is bought, every release
+        starts from zero SmartScreen reputation, and we would rather say so here than let you
+        meet it unwarned.</p>
       </details>
 
       <details class="surface faq-item">
@@ -505,6 +549,19 @@
         $30&ndash;$60 every year instead.</p>
       </details>
 
+      <!-- The refund already exists in legal.html#refunds; it was reachable
+           only from the footer, which is the last place a hesitating buyer
+           looks. Stated as a question here because that is how it is asked. -->
+      <details class="surface faq-item">
+        <summary>What if I buy it and don&rsquo;t like it?
+          <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m6 9 6 6 6-6"/></svg>
+        </summary>
+        <p>Email us within 14 days and we will refund it in full. You do not need to give a reason,
+        and the refunded licence stops working. The whole policy is on the
+        <a href="legal.html#refunds">refund page</a>. The seven-day trial is there so it rarely
+        comes to that: the app is not crippled during it, so you can find out before you pay.</p>
+      </details>
+
       <details class="surface faq-item">
         <summary>Where does my data go?
           <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m6 9 6 6 6-6"/></svg>
@@ -513,7 +570,7 @@
         to our payment provider. Entering your licence key in the app sends it, your email,
         a device ID (a one-way hash, not your hardware details) and your PC and Windows user name
         to our licence server, so the 3-PC limit can be counted. The
-        <a href="privacy.html">privacy policy</a> lists everything.</p>
+        <a href="legal.html#privacy">privacy policy</a> lists everything.</p>
       </details>
     </div>
   </div>
@@ -557,7 +614,8 @@
         <span class="n">02</span>
         <div>
           <strong>Installer</strong>
-          <p>The FlowShield installer runs and places the app in your Start Menu.</p>
+          <p>The FlowShield installer runs and places the app in your Start Menu. Nothing else is
+          needed — no separate .NET install, no admin rights and no drivers.</p>
         </div>
       </li>
       <li>

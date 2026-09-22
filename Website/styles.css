@@ -631,6 +631,44 @@ html[data-theme="dark"] .theme-toggle .icon-moon { display: block; }
   text-decoration: underline;
   text-underline-offset: 2px;
 }
+/* The phone reason only makes sense where the installer link is hidden
+   (the 520px rule further down), so it appears only there. */
+.hero-note .phone-only { display: none; }
+
+/* The SmartScreen note: honest, not alarming. It uses the border and muted
+   text already in the system — no status colour, because an expected warning
+   about an unsigned build is not an error (DESIGN_SYSTEM.md §2). */
+.smartscreen-note {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  margin: var(--space-4) 0 0;
+  padding: var(--space-3) var(--space-4);
+  max-width: min(58ch, 100%);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  font-size: var(--text-label);
+  line-height: 1.6;
+  color: var(--color-text-muted);
+}
+.smartscreen-note svg {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  color: var(--color-text-faint);
+}
+.smartscreen-note strong,
+.smartscreen-note b { color: var(--color-text); }
+/* Underlined in the note's own colour, like .hero-note's link: teal marks
+   state and selection, not every link inside a quiet block. */
+.smartscreen-note a {
+  color: var(--color-text-muted);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.smartscreen-note a:hover { color: var(--color-text); }
 
 .trust {
   display: flex;
@@ -1172,6 +1210,21 @@ section.band,
 .plan li.off { color: var(--color-text-faint); }
 .plan li.off svg { color: var(--color-text-faint); opacity: 0.55; }
 .plan .btn { margin-top: auto; }
+/* Sits directly under the buy button, so the refund and the no-account
+   promise are read at the moment the price is. */
+.buy-reassure {
+  margin: var(--space-3) 0 0;
+  font-size: var(--text-label);
+  line-height: 1.6;
+  color: var(--color-text-muted);
+  text-align: center;
+}
+.buy-reassure a {
+  color: var(--color-text-muted);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.buy-reassure a:hover { color: var(--color-text); }
 
 /* --------------------------------------------------------------------- alert */
 
@@ -1499,6 +1552,7 @@ footer p {
   .download-panel-card { padding: var(--space-6); }
   [data-download-direct] { display: none; }
   [data-download-copy] { display: inline-flex; }
+  .hero-note .phone-only { display: inline; }
 
   /* REFERENCES gap #3: the hero CTA row used to crowd two nowrap buttons
      onto one line and run them off the viewport. Stacking them full width
