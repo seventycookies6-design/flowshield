@@ -290,7 +290,7 @@
                     <Border Style="{StaticResource Card}" Padding="24">
                         <StackPanel>
                             <TextBlock Text="BREAKS" Style="{StaticResource Eyebrow}" Margin="0,0,0,8"/>
-                            <TextBlock Text="A break is offered after a sprint finishes. The shield is down while one runs, and a break changes nothing about your momentum, streak or daily goal."
+                            <TextBlock Text="A break is offered after a sprint finishes. The sprint's shield is down while one runs (a nightly sleep window still applies), and a break changes nothing about your momentum, streak or daily goal."
                                        Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,16"/>
 
                             <TextBlock Text="BREAK LENGTH" Style="{StaticResource Eyebrow}" Margin="0,0,0,8"/>

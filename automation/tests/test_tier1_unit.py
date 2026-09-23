@@ -3998,6 +3998,125 @@ class TestBreaksAndCyclesSource:
         for field in ("StartedUtc", "EndsUtc", "SprintsPlanned", "SprintsDone"):
             assert field in run, f"a resumed break needs {field}"
         assert "BreakResume.EndQuietly" in run
+
+
+# ================ what a break says inside the nightly sleep window (#272, #301)
+
+BREAK_COPY_MODEL = Path(SERVER_DIR).parent / "DesktopApp" / "Models" / "BreakCopy.cs"
+
+
+def break_panel_text(in_window: bool, on_break: bool, is_long: bool, minutes, ends,
+                     long_every=LONG_BREAK_EVERY) -> str:
+    """
+    Mirror of BreakCopy.PanelText: the break card's line, as the offer and
+    while the break runs. Inside the sleep window the sprint's shield is down
+    but the nightly one still closes blocked apps, so no line there may say
+    the shield is down without saying which shield is still up.
+    """
+    if on_break:
+        if in_window:
+            return ("The sprint's shield is down, but your nightly sleep shield is still up — "
+                    f"blocked apps are still closed until it ends at {ends}.")
+        return "The shield is down. Blocked apps are allowed until the break ends."
+    if is_long:
+        if in_window:
+            return (f"{long_every} sprints in a row, so this break is {minutes} minutes. "
+                    "The sprint's shield comes down, but your nightly sleep shield stays up "
+                    f"until {ends}, so blocked apps are still closed.")
+        return (f"{long_every} sprints in a row, so this break is {minutes} minutes. "
+                "The shield stays down while it runs.")
+    if in_window:
+        return (f"{minutes} minutes with the sprint's shield down, but your nightly sleep "
+                f"shield stays up until {ends}, so blocked apps are still closed.")
+    return f"{minutes} minutes with the shield down. It changes nothing about your momentum."
+
+
+def break_caption(in_window: bool, resumed: bool) -> str:
+    """Mirror of BreakCopy.Caption: the state line under the ring while a break runs."""
+    start = "Break resumed" if resumed else "Break"
+    return f"{start} — the sleep shield is still up" if in_window else f"{start} — the shield is down"
+
+
+#: Inside or outside the window × running or offered × long or short.
+BREAK_COPY_CASES = [(in_window, on_break, is_long)
+                    for in_window in (True, False)
+                    for on_break in (True, False)
+                    for is_long in (True, False)]
+
+
+class TestBreakCopyInTheSleepWindow:
+    """
+    #272 and #301: during a break inside the nightly sleep window the
+    sprint's shield is down, but the sleep shield still closes blocked apps.
+    The offer, the running break's line and the caption under the ring each
+    say which shield is up; outside the window they read as they always did.
+    """
+
+    def source(self) -> str:
+        """The C# the mirrors stand for. Every case reads it first."""
+        assert BREAK_COPY_MODEL.exists(), "Models/BreakCopy.cs is what these cases describe"
+        return BREAK_COPY_MODEL.read_text(encoding="utf-8")
+
+    @pytest.mark.parametrize("on_break,is_long", [(True, True), (True, False),
+                                                  (False, True), (False, False)])
+    def test_inside_the_window_every_line_says_the_sleep_shield_is_up(self, on_break, is_long):
+        self.source()
+        text = break_panel_text(True, on_break, is_long, 5, "06:00")
+        assert "sleep shield" in text and "06:00" in text, text
+        assert "still closed" in text, "and that blocked apps are still closed under it"
+        assert "allowed" not in text, text
+        assert not re.search(r"\bthe shield (is|stays) down|with the shield down", text), (
+            "inside the window 'the shield is down' is only true of the sprint's shield"
+        )
+
+    def test_outside_the_window_the_lines_are_unchanged(self):
+        self.source()
+        assert break_panel_text(False, True, False, 5, "06:00") == \
+            "The shield is down. Blocked apps are allowed until the break ends."
+        assert break_panel_text(False, False, False, 5, "06:00") == \
+            "5 minutes with the shield down. It changes nothing about your momentum."
+        assert break_panel_text(False, False, True, 15, "06:00") == \
+            "4 sprints in a row, so this break is 15 minutes. The shield stays down while it runs."
+
+    @pytest.mark.parametrize("in_window", [True, False])
+    def test_the_offer_names_its_length_either_way(self, in_window):
+        self.source()
+        assert "5 minutes" in break_panel_text(in_window, False, False, 5, "06:00")
+        long_offer = break_panel_text(in_window, False, True, 15, "06:00")
+        assert long_offer.startswith("4 sprints in a row, so this break is 15 minutes."), long_offer
+
+    @pytest.mark.parametrize("in_window,resumed,expected", [
+        (False, False, "Break — the shield is down"),
+        (False, True, "Break resumed — the shield is down"),
+        (True, False, "Break — the sleep shield is still up"),
+        (True, True, "Break resumed — the sleep shield is still up"),
+    ])
+    def test_the_caption(self, in_window, resumed, expected):
+        self.source()
+        assert break_caption(in_window, resumed) == expected
+
+    @pytest.mark.parametrize("in_window,on_break,is_long", BREAK_COPY_CASES)
+    def test_the_source_has_each_line_word_for_word(self, in_window, on_break, is_long):
+        """
+        The mirror rendered with the C# placeholders is the C# literal, so the
+        two cannot drift apart without this failing.
+        """
+        rendered = break_panel_text(in_window, on_break, is_long, "{minutes}", "{sleepEndsText}",
+                                    long_every="{CycleState.LongBreakEvery}")
+        literal = ('$"' if "{" in rendered else '"') + rendered + '"'
+        assert literal in self.source(), f"BreakCopy.PanelText has no {literal}"
+
+    @pytest.mark.parametrize("in_window", [True, False])
+    @pytest.mark.parametrize("resumed", [True, False])
+    def test_the_source_has_each_caption(self, in_window, resumed):
+        assert f'"{break_caption(in_window, resumed)}"' in self.source()
+
+    def test_the_copy_has_no_exclamation_marks(self):
+        """DESIGN_SYSTEM §9: no exclamation marks anywhere the customer reads."""
+        source = self.source()
+        assert '!"' not in source and "! " not in source, source
+
+
 # ============================ every token pair meets WCAG AA (F21, DESIGN_SYSTEM.md §2)
 
 class TestTokenContrast:

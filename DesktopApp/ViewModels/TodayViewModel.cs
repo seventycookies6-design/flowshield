@@ -566,6 +566,9 @@ public class TodayViewModel : ViewModelBase
 
     private DateTime _breakEndsUtc;
 
+    /// <summary>The running break was picked up after a restart; its caption says so.</summary>
+    private bool _breakResumed;
+
     public RelayCommand StartBreakCommand { get; }
     public RelayCommand SkipBreakCommand { get; }
     public RelayCommand StartNextSprintCommand { get; }
@@ -615,14 +618,12 @@ public class TodayViewModel : ViewModelBase
 
     public string BreakPanelTitle => IsOnBreak ? "On a break" : "Take a break";
 
-    public string BreakPanelText => IsOnBreak
-        ? AppBlockerService.IsWithinSleepWindow(S)
-            ? $"The sprint's shield is down, but your nightly sleep shield is still up — blocked apps are still closed until it ends at {SleepBlockingViewModel.Format(S.SleepBlockEndTime)}."
-            : "The shield is down. Blocked apps are allowed until the break ends."
-        : OfferedBreakIsLong
-            ? $"{CycleState.LongBreakEvery} sprints in a row, so this break is "
-              + $"{OfferedBreakMinutes} minutes. The shield stays down while it runs."
-            : $"{OfferedBreakMinutes} minutes with the shield down. It changes nothing about your momentum.";
+    /// <summary>
+    /// The offer, or the break running. Both name the nightly sleep shield when
+    /// its window is open (#272, #301); the words live in <see cref="BreakCopy"/>.
+    /// </summary>
+    public string BreakPanelText => BreakCopy.PanelText(AppBlockerService.IsWithinSleepWindow(S),
+        IsOnBreak, OfferedBreakIsLong, OfferedBreakMinutes, SleepBlockingViewModel.Format(S.SleepBlockEndTime));
 
     /// <summary>The break the last completed sprint earned, short or long.</summary>
     private int OfferedBreakMinutes =>
@@ -695,17 +696,17 @@ public class TodayViewModel : ViewModelBase
         };
         _main.SaveSettings();
 
-        BeginBreakClock("Break — the shield is down");
+        BeginBreakClock(resumed: false);
         Log.Info($"break started: {minutes} minute(s)");
     }
 
-    private void BeginBreakClock(string stateText)
+    private void BeginBreakClock(bool resumed)
     {
+        _breakResumed = resumed;
         BreakOfferVisible = false;
         IsOnBreak = true;
-        SessionStateText = stateText;
         _main.OnSprintStateChanged();
-        OnBreakTick();
+        OnBreakTick();   // sets the caption under the ring
         _tick.Start();
         CommandManager.InvalidateRequerySuggested();
     }
@@ -784,7 +785,9 @@ public class TodayViewModel : ViewModelBase
         Remaining = remaining;
         RemainingText = $"{(int)remaining.TotalMinutes:00}:{remaining.Seconds:00}";
 
-        // #272: the nightly sleep window can begin during this break.
+        // #272, #301: the nightly sleep window can open or close during this
+        // break, and both the caption and the panel say which shield is up.
+        SessionStateText = BreakCopy.Caption(AppBlockerService.IsWithinSleepWindow(S), _breakResumed);
         Raise(nameof(BreakPanelText));
 
         var total = (_breakEndsUtc - (S.ActiveBreak?.StartedUtc ?? _breakEndsUtc)).TotalSeconds;
@@ -818,7 +821,7 @@ public class TodayViewModel : ViewModelBase
         _breakEndsUtc = saved.EndsUtc;
         Raise(nameof(CycleProgressText));
         Raise(nameof(CycleProgressVisible));
-        BeginBreakClock("Break resumed — the shield is down");
+        BeginBreakClock(resumed: true);
         Log.Info($"break resumed, {(saved.EndsUtc - now).TotalSeconds:0} s left");
     }
 
@@ -1379,6 +1382,16 @@ public class TodayViewModel : ViewModelBase
             return;
         }
 
+        // #301: with neither clock running, the timer only keeps a waiting
+        // break offer current — the sleep window can open or close under it —
+        // and stops itself once nothing is on offer.
+        if (!IsRunning)
+        {
+            if (BreakOfferVisible) Raise(nameof(BreakPanelText));
+            else _tick.Stop();
+            return;
+        }
+
         var now = DateTime.UtcNow;
         var remaining = _endsAtUtc - now;
         if (remaining <= TimeSpan.Zero)
@@ -1575,6 +1588,9 @@ public class TodayViewModel : ViewModelBase
         {
             BreakOfferVisible = true;
             if (_cycle.StartsNextSprint) StartBreak();
+            // The offer can wait on screen for hours, and the sleep window can
+            // open meanwhile: keep ticking so its text follows (#301).
+            else _tick.Start();
         }
         else
         {

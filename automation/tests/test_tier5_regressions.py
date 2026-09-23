@@ -7043,29 +7043,39 @@ class TestBreakCopyTracksScheduledSleepWindow:
     down but the nightly shield still closes blocked apps; Today must say so."""
 
     TODAY_VM = Path(DESKTOP_DIR) / "ViewModels" / "TodayViewModel.cs"
+    BREAK_COPY = Path(DESKTOP_DIR) / "Models" / "BreakCopy.cs"
 
     def vm(self) -> str:
         return self.TODAY_VM.read_text(encoding="utf-8")
 
-    def test_break_text_distinguishes_the_nightly_shield_from_an_open_break(self):
-        source = self.vm()
+    def copy(self) -> str:
+        """Since #301 the break's wording lives in one model, as ShieldCopy's does."""
+        assert self.BREAK_COPY.exists(), "#301: the break's wording lives in Models/BreakCopy.cs"
+        return self.BREAK_COPY.read_text(encoding="utf-8")
+
+    def panel_text_getter(self) -> str:
         getter = re.search(
             r"public\s+string\s+BreakPanelText\s*=>\s*(.*?);",
-            source,
+            self.vm(),
             re.DOTALL,
         )
         assert getter, "could not find the BreakPanelText getter in TodayViewModel.cs"
-        expression = " ".join(getter.group(1).split())
+        return " ".join(getter.group(1).split())
 
-        assert "IsWithinSleepWindow" in expression, (
+    def test_break_text_distinguishes_the_nightly_shield_from_an_open_break(self):
+        # #301 moved the ternary #272 added into BreakCopy.PanelText; the view
+        # model passes it the same sleep-window check.
+        expression = self.panel_text_getter()
+        assert "BreakCopy.PanelText(AppBlockerService.IsWithinSleepWindow(S)," in expression, (
             "#272: BreakPanelText must check the scheduled sleep window because "
             "blocked apps are still closed during a break then"
         )
+        running = " ".join(self.copy().split("if (onBreak)")[1].split(";")[0].split())
         assert re.search(
-            r"IsWithinSleepWindow\s*\([^)]*\)\s*\?\s*"
-            r"(?:\$?\"[^\"]*sleep[^\"]*\"|'[^']*sleep[^']*')\s*:\s*"
+            r"inSleepWindow\s*\?\s*"
+            r"\$?\"[^\"]*sleep[^\"]*\"\s*:\s*"
             r"\"The shield is down\. Blocked apps are allowed until the break ends\.\"",
-            expression,
+            running,
             re.IGNORECASE,
         ), (
             "#272: the sleep-window branch must say the nightly shield is still "
@@ -7081,13 +7091,88 @@ class TestBreakCopyTracksScheduledSleepWindow:
             "BreakPanelText on that tick"
         )
 
-    def test_starting_a_break_raises_the_sleep_aware_text(self):
-        source = self.vm()
-        state = source.split("public bool IsOnBreak")[1].split("\n    }")[0]
-        assert "Raise(nameof(BreakPanelText))" in state, (
-            "#272: starting a break must refresh BreakPanelText for the current "
-            "scheduled sleep window"
+    # ------------------------------------------------------------------ #301
+    # #272 fixed the running break's line only. Inside the window the offer
+    # before a break, the caption under the ring and Settings' description of
+    # breaks still promised the shield was down.
+
+    def test_the_offer_says_the_sleep_shield_is_still_up(self):
+        """
+        Replaces a test that only checked the IsOnBreak setter raised
+        BreakPanelText, which it did before #272 too. This one fails whenever
+        either offer, short or long, loses its sleep-window line.
+        """
+        assert "BreakCopy.PanelText(AppBlockerService.IsWithinSleepWindow(S)," in self.panel_text_getter()
+        panel = self.copy().split("public static string PanelText(")[1].split("\n    }")[0]
+        offer = " ".join(panel.split("if (onBreak)")[1].split(";", 1)[1].split())
+        sleep_lines = re.findall(
+            r"inSleepWindow\s*\?\s*\$\"[^\"]*nightly sleep shield stays up until "
+            r"\{sleepEndsText\}, so blocked apps are still closed\.\"",
+            offer,
         )
+        assert len(sleep_lines) == 2, (
+            "#301: the short and the long break offer must each say the nightly "
+            f"sleep shield stays up inside the window; found {len(sleep_lines)}"
+        )
+
+    def test_the_ring_caption_follows_the_sleep_window_on_every_break_tick(self):
+        tick = self.vm().split("private void OnBreakTick()")[1].split("\n    }")[0]
+        assert re.search(
+            r"SessionStateText\s*=\s*BreakCopy\.Caption\(\s*"
+            r"AppBlockerService\.IsWithinSleepWindow\(S\)\s*,\s*_breakResumed\s*\)",
+            tick,
+        ), (
+            "#301: the caption under the ring must be recomputed on every break "
+            "tick, because the window can open or close mid-break"
+        )
+        caption = self.copy().split("public static string Caption(")[1]
+        for line in ('"Break — the sleep shield is still up"',
+                     '"Break resumed — the sleep shield is still up"'):
+            assert line in caption, f"#301: the caption needs {line} for the sleep window"
+
+    def test_the_view_model_hard_codes_no_line_about_the_shield_being_down(self):
+        """Every break line comes from BreakCopy, which knows about the window."""
+        code = re.sub(r"//.*", "", self.vm())
+        literals = re.findall(r'"(?:[^"\\\n]|\\.)*"', code)
+        claims = [s for s in literals if re.search(r"shield (is|stays) down|shield down", s, re.I)]
+        assert not claims, (
+            f"#301: {claims} would promise the shield is down inside the sleep "
+            "window too; take the line from BreakCopy instead"
+        )
+
+    def test_the_offer_is_re_raised_while_it_is_on_screen(self):
+        """
+        No clock runs while a break is on offer, so the window opening under it
+        went unnoticed until the next sprint. The one timer keeps running for
+        the offer, raises its text, and stops once nothing is on screen.
+        """
+        source = self.vm()
+        offer = source.split("private void OfferBreakIfEarned(bool completed)")[1].split("\n    }")[0]
+        shown = offer.split("BreakOfferVisible = true;")[1].split("BreakOfferVisible = false;")[0]
+        assert "_tick.Start();" in shown, (
+            "#301: the timer must keep running while a break offer waits on screen"
+        )
+        tick = source.split("private void OnTick()")[1].split("\n    }")[0]
+        assert "if (!IsRunning)" in tick, (
+            "#301: OnTick needs a path for when neither a sprint nor a break runs"
+        )
+        idle = tick.split("if (!IsRunning)")[1].split("var remaining")[0]
+        assert re.search(
+            r"if\s*\(\s*BreakOfferVisible\s*\)\s*Raise\(nameof\(BreakPanelText\)\);"
+            r"\s*else\s+_tick\.Stop\(\);",
+            idle,
+        ), (
+            "#301: while no sprint or break runs, a tick must refresh the offer's "
+            "text if the offer is up, and stop the timer if it is not"
+        )
+
+    def test_settings_describes_breaks_without_promising_the_shield_is_down(self):
+        xaml = (Path(DESKTOP_DIR) / "Views" / "SettingsView.xaml").read_text(encoding="utf-8")
+        assert "The shield is down while one runs" not in xaml, (
+            "#301: a nightly sleep window still closes blocked apps during a break"
+        )
+        assert ("The sprint's shield is down while one runs (a nightly sleep window "
+                "still applies)") in xaml
 
 
 class TestNothingSellsOrLocksDuringABreak:
