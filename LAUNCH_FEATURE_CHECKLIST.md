@@ -93,7 +93,7 @@ roadmap item below has exactly one owner. Tracking issues: #37 (Keenan) and
 | F3 | Sprints survive restarts and crashes (Roadmap 1.10) | M |
 | F4 | Start a sprint from the tray or keyboard (Roadmap 3.9) (done, #214) | S |
 | F5 | Breaks and study cycles (Roadmap 3.4) (done, #230) | M |
-| F6 | Study templates and scheduled sprints (done, #293, #279) | M |
+| F6 | Study templates and scheduled sprints (done, #293, #306) | M |
 | F8 | App picker with student and gamer suggestions (Roadmap 2.2) (done, #58) | M |
 | F9 | Blocklist profiles (Roadmap 3.8) (done, #233) | M |
 | F16 | History and weekly view (Roadmap 3.1, 3.6) (done, #217) | M |
@@ -118,7 +118,7 @@ roadmap item below has exactly one owner. Tracking issues: #37 (Keenan) and
 | Item | What | Effort |
 | --- | --- | --- |
 | F1 | Shield levels as clear commitment modes | S |
-| F7 | Soft overlay and graceful Firm close (Roadmap 1.7, 1.8) (done, #146, #224, #278) | M |
+| F7 | Soft overlay and graceful Firm close (Roadmap 1.7, 1.8) (done, #146, #224, #298) | M |
 | F12 | Sprint summary card | S |
 | F13 | Set an intention before a sprint (Roadmap 3.3) | S |
 | F14 | Momentum explained, trend chart and milestones (Roadmap 3.2) | M |
@@ -320,7 +320,7 @@ A summary of the research, to explain the choices below.
 
 ### F6 — Study templates and scheduled sprints · **Launch+** · M
 
-- [x] Done (#293, #279): three built-in templates — Homework evening (3 × 45 min, Firm, 10-minute breaks), Exam prep (90 min, Sealed) and Light study (25 min, Soft, 5-minute breaks) — plus the user's own, each a named sprint length, shield, cycle, break length and blocklist profile. A chip row above Start on Today fills in length, shield, cycle and profile (a preset, not a lock) and hides while a sprint or break runs. Sleep Blocking became the **Schedule** page, with the nightly window unchanged at the bottom, where a template is attached to days and a start time. Five minutes before, a notification and a card on Today say what starts at what time and which open blocked apps it will close, with **Start now** and **Skip today**; clicking the notification opens Today; with Ask first off it starts and says so. An Ask-first start nobody was asked about (its heads-up fell while a sprint or break was running) is offered on the card as due now, never taken. A scheduled start applies the template to Today the way a chip does and goes through the same gates as Start (terms, first run, trial, one sprint at a time); it asks F7's open-apps question unless the heads-up named those apps where the user could see them (the window up, or the notification that names them sent). A start missed while the PC was asleep or FlowShield was closed is offered for 30 minutes, never started; a card goes once its start is handled or 30 minutes have passed. Skipping costs no momentum. A template's break length stays with its sprint and its breaks across a restart, and a chip carries it to a hand start. The rules live in `DesktopApp/Models/ScheduleMatcher.cs` and `SchedulePlanner.cs`; `--short-schedules` gives a 15-second heads-up and a 30-second late window for the UI suite.
+- [x] Done (#293, #306): three built-in templates — Homework evening (3 × 45 min, Firm, 10-minute breaks), Exam prep (90 min, Sealed) and Light study (25 min, Soft, 5-minute breaks) — plus the user's own, each a named sprint length, shield, cycle, break length and blocklist profile. A chip row above Start on Today fills in length, shield, cycle and profile (a preset, not a lock) and hides while a sprint or break runs. Sleep Blocking became the **Schedule** page, with the nightly window unchanged at the bottom, where a template is attached to days and a start time. Five minutes before, a notification and a card on Today say what starts at what time and which open blocked apps it will close, with **Start now** and **Skip today**; clicking the notification opens Today; with Ask first off it starts and says so. An Ask-first start nobody was asked about (its heads-up fell while a sprint or break was running) is offered on the card as due now, never taken. A scheduled start applies the template to Today the way a chip does and goes through the same gates as Start (terms, first run, trial, one sprint at a time); it asks F7's open-apps question unless the heads-up named those apps where the user could see them (the window up, or the notification that names them sent). A start missed while the PC was asleep or FlowShield was closed is offered for 30 minutes, never started; a card goes once its start is handled or 30 minutes have passed. Skipping costs no momentum. A template's break length stays with its sprint and its breaks across a restart, and a chip carries it to a hand start. The rules live in `DesktopApp/Models/ScheduleMatcher.cs` and `SchedulePlanner.cs`; `--short-schedules` gives a 15-second heads-up and a 30-second late window for the UI suite.
 
 **Assigned:** Keenan (seventycookies6-design), built with Claude Code
 
@@ -344,7 +344,7 @@ A summary of the research, to explain the choices below.
 
 ### F7 — Soft shows a real overlay; Firm closes gracefully · **Launch** · M · Roadmap 1.7, 1.8
 
-- [x] Done (#146, #224, #278) — 1.8's close path shipped in #146: a warning naming the
+- [x] Done (#146, #224, #298) — 1.8's close path shipped in #146: a warning naming the
       app, a grace period, `CloseMainWindow` before any kill, and a panel before
       the sprint saying what is already open. Hard kill still closes instantly,
       by design. 1.7's Soft notice shipped in #224: a topmost full-screen window
@@ -352,7 +352,7 @@ A summary of the research, to explain the choices below.
       *Back to work* and *Allow 5 minutes*. It never closes anything on its
       own, shows once per sighting, never over a FlowShield panel, and never
       at Firm or Sealed. A Settings switch turns it off.
-      1.0.10 (#278): the notice gained *Close ‹app›*, first and primary (it
+      1.0.10 (#298): the notice gained *Close ‹app›*, first and primary (it
       asks the app to close and never kills it); *Back to work* is the default
       and keyboard action (Enter, Esc), so a keystroke meant for the blocked
       app can never close it; *Allow 5 minutes* waits 5, 10, 20, then 30 s
