@@ -8923,3 +8923,69 @@ class TestScheduledSprintsGoThroughStart:
             for literal in re.findall(r'"[^"\n]*"', text):
                 assert "!" not in literal, literal
                 assert literal.isascii(), literal
+
+
+# ===================== F6's chip row moved Today's controls (PR C regressions)
+
+class TestTodayGrewARowAndItsControlsStayReachable:
+    """
+    PR C's row of template chips made Today's idle page about 56 px taller.
+    Two things that had been clear of each other at the default window height
+    then overlapped, and two tier 3 tests that pass on main failed on the
+    branch alone (test_sealed_locks_the_profile_switcher and
+    test_cancelling_a_sprint_clears_the_intention_input):
+
+    - the toast ("Profile "School" added, starting from...") lay over the
+      Sealed chip of the shield picker for its four seconds, and an opaque
+      Border takes the click, so the sprint started at the default shield
+      (Firm) and the switcher stayed enabled;
+    - with the page scrolled down to the intention field, Start collapsed the
+      chips and itself, the page kept its scroll offset, and the ring with its
+      Cancel button slid up under the page header, where no click could reach
+      them: the cancel never happened and the intention was never cleared.
+
+    Neither is a test problem. A notice must never take a click meant for the
+    page, and a sprint that has just started must show its countdown and the
+    way to end it.
+    """
+
+    WINDOW_XAML = Path(DESKTOP_DIR) / "MainWindow.xaml"
+    TODAY_XAML = Path(DESKTOP_DIR) / "Views" / "TodayView.xaml"
+    TODAY_CS = Path(DESKTOP_DIR) / "Views" / "TodayView.xaml.cs"
+
+    def test_the_toast_never_takes_a_click_meant_for_the_page(self):
+        xaml = self.WINDOW_XAML.read_text(encoding="utf-8-sig")
+        toast = xaml.split("<!-- toast -->", 1)[1].split("<Border", 1)[1].split(">", 1)[0]
+        assert 'Visibility="{Binding ToastVisible' in toast, "the toast moved; update this test"
+        assert 'IsHitTestVisible="False"' in toast, \
+            "the toast must let the mouse (and UI Automation's hit test) through to the page under it"
+
+    def test_a_sprint_starting_brings_the_ring_and_its_end_button_into_view(self):
+        handler = TestScheduledSprintsGoThroughStart.member(
+            TestScheduledSprintsGoThroughStart.code(self.TODAY_CS), "private void OnViewModelChanged(")
+        assert "nameof(TodayViewModel.IsRunning)" in handler and "PageScroll.ScrollToTop()" in handler, \
+            "Today must scroll back to the top when a sprint starts"
+        assert '<ScrollViewer x:Name="PageScroll"' in self.TODAY_XAML.read_text(encoding="utf-8")
+
+    @pytest.mark.ui
+    def test_sealed_can_be_picked_while_the_profile_toast_is_up(self, fresh_app):
+        fresh_app.navigate_to_tab("Blocked Apps")
+        fresh_app.new_profile("School")          # "Profile "School" added..." for four seconds
+        fresh_app.navigate_to_tab("Today")
+        assert fresh_app.toast_text(timeout=1.0), "the toast is not up, so this proves nothing"
+        fresh_app.select_shield("Sealed")
+        assert fresh_app.is_selected("Shield_Sealed"), "the toast took the click meant for the shield picker"
+
+    @pytest.mark.ui
+    def test_starting_from_the_intention_field_leaves_the_countdown_and_cancel_in_view(self, fresh_app):
+        fresh_app.navigate_to_tab("Today")
+        # The field is below the fold at the default height, so this scrolls the page down.
+        fresh_app.set_text("IntentionInput", "write the report")
+        fresh_app.start_sprint()
+        time.sleep(1.0)
+        assert fresh_app.is_on_screen("SprintTimerText"), \
+            "the countdown was left scrolled up under the page header"
+        fresh_app.cancel_sprint()
+        time.sleep(0.8)
+        assert "cancelled" in fresh_app.session_state().lower(), \
+            "Cancel sprint could not be clicked where it was left"
