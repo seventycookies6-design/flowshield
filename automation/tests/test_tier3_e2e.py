@@ -1589,6 +1589,12 @@ class TestAppPicker:
 
 # ===================================================== terms acceptance (legal)
 
+def current_terms_version() -> str:
+    """LegalTerms.Version as the app has it, so a terms bump needs no test edit."""
+    source = (Path(__file__).resolve().parents[2] / "DesktopApp" / "Models" / "LegalTerms.cs")
+    return source.read_text(encoding="utf-8").split('public const string Version = "')[1].split('"')[0]
+
+
 class TestTermsGate:
     """A clean install must agree to the terms before FlowShield can do anything."""
 
@@ -1631,7 +1637,7 @@ class TestTermsGate:
             while time.time() < deadline and not settings.get("TermsAcceptedVersion"):
                 time.sleep(0.5)
                 settings = verify.read_settings()
-            assert settings["TermsAcceptedVersion"].startswith("1.0 ("), settings["TermsAcceptedVersion"]
+            assert settings["TermsAcceptedVersion"] == current_terms_version(), settings["TermsAcceptedVersion"]
             assert settings["TermsAcceptedUtc"], "the time of acceptance must be recorded"
             assert not app.exists("AcceptTermsButton", timeout=1)
             assert app.exists("FirstRunSkipButton", timeout=4), \
@@ -1655,7 +1661,7 @@ class TestTermsGate:
     def test_settings_shows_when_the_terms_were_accepted(self, fresh_app):
         fresh_app.navigate_to_tab("Settings")
         text = fresh_app.text_of("TermsAcceptedText")
-        assert "accepted" in text.lower() and "1.0 (" in text, text
+        assert "accepted" in text.lower() and current_terms_version() in text, text
 
 
 # ========================================================= notifications (F19)

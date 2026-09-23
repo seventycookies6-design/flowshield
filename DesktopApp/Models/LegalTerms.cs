@@ -17,7 +17,7 @@ public static class LegalTerms
     /// means the gate appears again, so the recorded acceptance always refers
     /// to wording the customer actually saw.
     /// </summary>
-    public const string Version = "1.0 (17 September 2026)";
+    public const string Version = "1.1 (23 September 2026)";
 
     public const string Headline = "Before you start";
 

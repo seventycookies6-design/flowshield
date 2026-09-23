@@ -83,7 +83,7 @@ settings = {
     "HardKillModeEnabled": False,
     "NotificationsEnabled": True,
     "FirstRunCompleted": True,
-    "TermsAcceptedVersion": "1.0 (17 September 2026)",
+    "TermsAcceptedVersion": "1.1 (23 September 2026)",
     "TermsAcceptedUtc": (now - timedelta(days=14)).astimezone(timezone.utc)
                         .strftime("%Y-%m-%dT%H:%M:%S.0000000Z"),
     "TrialStartedUtc": (now - timedelta(days=2)).astimezone(timezone.utc)
