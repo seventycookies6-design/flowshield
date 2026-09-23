@@ -47,7 +47,7 @@
   <a class="back" href="index.html">← FlowShield</a>
 
   <h1>Terms, Privacy &amp; Refunds</h1>
-  <p class="updated">Version 1.0 (17 September 2026) · last updated 17 September 2026</p>
+  <p class="updated">Version 1.1 (23 September 2026) · last updated 23 September 2026</p>
 
   <div class="draft">
     <p><strong>These are drafts.</strong> They describe what FlowShield actually does
@@ -68,7 +68,7 @@
 
   <h3>1. What FlowShield is</h3>
   <p>FlowShield is a Windows desktop application that blocks applications you
-  nominate during focus sessions you start. You can use every feature free for
+  nominate during focus sessions you start or schedule. You can use every feature free for
   7 days from the first time you open it. After that, FlowShield must be bought
   to keep using it. It is a one-time purchase, not a subscription.</p>
 
@@ -80,6 +80,12 @@
   application running unless you choose Close on its notice. Firm and Sealed close it;
   Hard kill mode also makes Soft close it.
   During a scheduled sleep window, blocked applications are closed.
+  A schedule you set up can start a focus session by itself at the time you
+  chose, with that session's shield, so at Firm and Sealed blocked applications
+  are closed without you pressing Start. Unless you turn off "Ask five minutes
+  before" for that schedule, FlowShield shows a heads-up five minutes before,
+  with Skip today. A start missed while your computer was asleep
+  or FlowShield was closed is offered, never started by itself.
   Any unsaved work in an application FlowShield closes may be lost. You choose
   what goes on that list.</p>
   <p>At Firm and Sealed, and during a sleep window, FlowShield warns you first:
@@ -164,10 +170,13 @@
   </ul>
 
   <h3>What stays on your computer</h3>
-  <p>Your block list, focus sessions, journal entries, momentum score and
-  preferences are stored locally and encrypted with Windows DPAPI under your user
-  account. <strong>None of it is uploaded.</strong> We do not know which
+  <p>Your block list, focus sessions, journal entries, momentum score, templates,
+  schedules and preferences are stored locally and encrypted with Windows DPAPI
+  under your user account. <strong>None of it is uploaded.</strong> We do not know which
   applications you block, when you work, or what you write in your journal.</p>
+  <p>Your templates' names and lengths also appear in FlowShield's Jump List
+  (right-click it on the taskbar). Windows keeps that list in your user profile,
+  outside FlowShield's encrypted settings. It is not uploaded either.</p>
 
   <h3>What we do not do</h3>
   <ul>

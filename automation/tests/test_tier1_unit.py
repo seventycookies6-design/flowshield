@@ -1084,6 +1084,24 @@ class TestTermsAcceptance:
         # it refers to, so the page carries the same version string.
         assert f"Version {self.version()}" in self.LEGAL.read_text(encoding="utf-8")
 
+    def test_the_terms_cover_what_1_0_10_added(self):
+        # 1.1 of the terms (#309): a schedule can start a sprint, and so close
+        # apps, without anyone pressing Start; Soft closes an app only when
+        # Close is chosen; template names reach Windows' own Jump List file.
+        # Each is on the page everyone agrees to, or the recorded acceptance
+        # doesn't cover it.
+        page = " ".join(self.LEGAL.read_text(encoding="utf-8").split())
+        terms = page.split('id="terms"')[1].split('id="privacy"')[0]
+        privacy = page.split('id="privacy"')[1].split('id="refunds"')[0]
+        assert "start a focus session by itself" in terms
+        assert "Ask five minutes before" in terms
+        assert "offered, never started by itself" in terms
+        assert "unless you choose Close on its notice" in terms
+        assert "templates, schedules and preferences" in privacy
+        assert "Jump List" in privacy and "outside FlowShield's encrypted settings" in privacy
+        assert self.version() != "1.0 (17 September 2026)", \
+            "these changes are material: the version must move so everyone is asked again"
+
     def test_accepting_records_the_version_and_the_time(self):
         source = self.SOURCE.read_text(encoding="utf-8")
         accept = source.split("public static void Accept(")[1].split("\n    }")[0]
