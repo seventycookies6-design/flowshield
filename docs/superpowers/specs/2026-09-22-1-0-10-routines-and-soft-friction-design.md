@@ -67,10 +67,13 @@ Soft sprint). Those touch `TodayViewModel` (`OnTick`, `EndSprint`,
 
 Both live in `AppSettings` (the existing encrypted settings file).
 
-**`StudyTemplate`** — `Id` (Guid string), `Name`, `SprintMinutes`, `Shield`,
-`CycleSprints` (1–4; 1 means a single sprint), `BreakMinutes`, `ProfileId`
-(a `BlocklistProfile.Id`; falls back to the default profile if that profile
-is deleted), `BuiltIn` (bool, for **Restore built-ins**).
+**`StudyTemplate`** — `Id` (Guid string), `Name`, `SprintMinutes` (5–240),
+`Shield`, `CycleSprints` (one of `CycleState.CycleChoices`: 0 for a single
+sprint, or 2, 3, 4), `BreakMinutes` (1–60), `ProfileId` (a
+`BlocklistProfile.Id`; empty, or naming a deleted profile, means the active
+profile), `BuiltInKey` ("homework", "exam", "light", or empty for the user's
+own, so **Restore built-ins** knows which is missing). `AppSettings` also
+records `TemplatesSeeded`, so deleting every template is respected.
 
 Three built-ins, seeded when the list is empty on first load:
 
@@ -260,12 +263,17 @@ heading) and ticks what it ships in `LAUNCH_FEATURE_CHECKLIST.md`.
 
 | PR | Contents | Built | Tests |
 |---|---|---|---|
-| 1 | `StudyTemplate`, `SprintSchedule`, `ScheduleMatcher`, seeding and saving | Now | tier 1 |
-| 2 | The Schedule page (§3.4) | Now | tier 3, tier 5 |
-| 3 | Soft friction: policy, notice, copy, claims (§4.1, §4.2, §4.4) | Now | tier 1, tier 3, tier 5 |
-| 4 | `ScheduleService`, heads-up card, start hook, Today chips, notification switch, `--short-schedules` (§3.3, §3.5) | After 1.0.9 | tier 1, tier 3, tier 5 |
-| 5 | Turned back recorded and shown (§4.3) | After 1.0.9 | tier 1, tier 3, tier 5 |
-| 6 | Jump List (§5) | After 1.0.9 | tier 1, tier 5 |
+| A | Tier 1 model probe; `StudyTemplate`, `SprintSchedule`, `ScheduleMatcher`, seeding and saving; the Schedule page (§3.1, §3.2, §3.4) | Now | tier 1, tier 3, tier 5 |
+| B | Soft friction: policy, notice, copy, claims (§4.1, §4.2, §4.4) | Now | tier 1, tier 3, tier 5 |
+| C | Scheduler, heads-up card, start hook, Today chips, notification switch, `--short-schedules` (§3.3, §3.5) | After 1.0.9 | tier 1, tier 3, tier 5 |
+| D | Turned back recorded and shown (§4.3) | After 1.0.9 and B | tier 1, tier 3, tier 5 |
+| E | Jump List (§5) | After 1.0.9 and A | tier 1, tier 3, tier 5 |
+
+The models and the page are one PR because a page PR stacked on an unmerged
+models PR is the stacked-PR problem `CLAUDE.md` warns about. Tier 1 gains a
+small probe (`automation/csharp/ModelProbe`) that compiles
+`DesktopApp/Models` as it is, so the date, time-zone and Soft rules are tested
+in .NET rather than only in Python mirrors.
 
 Checks on every pull request: the fast suite (`-m "not ui and not stripe"`),
 the touched UI tests on this PC one run at a time, a screenshot of each visible
