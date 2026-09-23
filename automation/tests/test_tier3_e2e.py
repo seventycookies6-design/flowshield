@@ -3121,6 +3121,77 @@ class TestScheduledSprints:
         assert self._wait_for_sprint(schedule_app, timeout=100), "the sprint started by itself"
         assert self._start_notices_since(schedule_app, seen, "ScheduledSprint") == ["ScheduledSprint"]
 
+    def _wait_for_log_line(self, app, needle: str, since: int, deadline: datetime, what: str) -> None:
+        """
+        Poll the app log for `needle` after its first `since` lines until
+        `deadline`; a miss fails as `what`, not as a timeout. The log is one
+        file a day, so an earlier run's line would otherwise match at once.
+        """
+        while not any(needle in line for line in self._log_lines(app)[since:]):
+            assert datetime.now() < deadline, what
+            time.sleep(0.2)
+
+    def test_a_start_whose_heads_up_fell_in_a_hand_sprint_is_offered_not_started(self, schedule_app):
+        """
+        Final review of PR C: Ask first promises a question before a start.
+        A sprint running when the heads-up is due swallows it (the scheduler
+        refuses while busy, and remembers the heads-up as shown), so at the
+        time nobody had been asked. The start is then offered on the card,
+        never taken. A 25-minute hand sprint ending between T-5 and T is
+        enough; here one is stopped by hand inside that window.
+        """
+        since = len(self._log_lines(schedule_app))     # this launch's lines only
+        at = self._schedule_in(schedule_app)
+        schedule_app.navigate_to_tab("Today")
+        schedule_app.select_shield("Soft")             # a fresh state starts at Firm, whose Stop asks first
+        schedule_app.start_sprint()
+        assert datetime.now() < at - timedelta(seconds=6), \
+            "Start landed too late for the heads-up to fall inside the sprint"
+
+        # The heads-up tick lands while the sprint runs: refused, and remembered
+        # as shown. The sprint is then stopped inside the lead: one lookup and
+        # an invoke, not click()'s resolve-scroll-settle, so the stop lands
+        # seconds before the start instead of racing it (#241). Soft ends on
+        # one press, in or out of the grace period.
+        stop = schedule_app.element("StopSprintButton")
+        self._wait_for_log_line(schedule_app, "schedule HeadsUp for Light study skipped: busy or gated",
+                                since=since, deadline=at, what="the heads-up was not swallowed by the sprint")
+        try:
+            stop.invoke()
+        except Exception:                                  # noqa: BLE001
+            stop.click_input()
+        stopped_at = datetime.now()
+        seen = len(self._log_lines(schedule_app))
+        assert stopped_at < at, "the sprint ended after the start; too slow for the 5-second lead"
+        ended_by = time.time() + 5
+        while "Shield" in schedule_app.session_state():
+            assert time.time() < ended_by, "the Stop press did not end the sprint"
+            time.sleep(0.2)
+
+        schedule_app.wait_until_control_enabled("HeadsUpStartNowButton", timeout=20)
+        assert schedule_app.text_of("HeadsUpCard") == "Light study is due now"
+        assert schedule_app.text_of("HeadsUpText") == "25 minutes at Soft."
+        assert not any("schedule card shown: HeadsUp for Light study" in line
+                       for line in self._log_lines(schedule_app)[since:]), \
+            "no heads-up card was ever up: this offer is the first question"
+
+        # Past the start and its three-second on-time window: offered, not started.
+        while datetime.now() < at + timedelta(seconds=8):
+            time.sleep(0.5)
+        assert verify.read_settings().get("ActiveSprint") is None
+        assert "Shield" not in schedule_app.session_state()
+        assert schedule_app.exists("HeadsUpStartNowButton", timeout=0.5), "the offer stays up"
+        assert self._start_notices_since(schedule_app, seen, "ScheduledSprint") == ["ScheduledSprint"], \
+            "the offer is announced once, and no start is"
+
+        # The offer is live: Start now starts the template, with its own break.
+        schedule_app.click("HeadsUpStartNowButton")
+        assert self._wait_for_sprint(schedule_app, timeout=10), "Start now starts the template"
+        sprint = verify.wait_for_settings(lambda st: st.get("ActiveSprint") is not None,
+                                          what="the sprint")["ActiveSprint"]
+        assert sprint["PlannedMinutes"] == 25 and sprint["TemplateBreakMinutes"] == 5
+        assert not schedule_app.exists("HeadsUpStartNowButton", timeout=0.5), "the card has done its job"
+
     def test_a_template_chip_fills_in_today(self, fresh_app):
         fresh_app.select_shield("Soft")
         fresh_app.click("TemplateChip_Homework evening")

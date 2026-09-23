@@ -8624,8 +8624,11 @@ class TestScheduledSprintsGoThroughStart:
         off, "Sprint started" still comes: Notify says whether it showed.
         """
         start_case = self.case("private void OnScheduleAction(", "Start")
-        assert "Notify(" not in start_case, "a start's notice is sent once, where the sprint starts"
-        assert "announceByName: !action.Schedule.AskFirst" in start_case
+        # Past the unasked offer (which starts nothing, see the next test),
+        # the start's own notice is sent once, where the sprint starts.
+        starting = start_case.split("return;", 1)[-1]
+        assert "Notify(" not in starting, "a start's notice is sent once, where the sprint starts"
+        assert "announceByName: !action.Schedule.AskFirst" in starting
 
         today = self.code(self.TODAY)
         assert "_startingAnnouncedName = announceByName ? template.Name : null;" in \
@@ -8641,6 +8644,35 @@ class TestScheduledSprintsGoThroughStart:
                          start)
         assert re.search(r"if \(!announced\)\s*_main\.Notify\(NotificationKind\.SprintStarted,", start)
         assert start.count("_main.Notify(") == 2
+
+    def test_an_ask_first_start_nobody_was_asked_about_is_offered_not_started(self):
+        """
+        Final review of PR C: the service remembers a heads-up as shown
+        before the handler runs, and the handler refuses it while a sprint or
+        break is running, so a 25-minute hand sprint ending between T-5 and T
+        left the schedule's Start to pass the guard with no card up and no
+        question asked. A clock set back past a start, or a westward zone
+        change, reach the same place. Ask first is the one promise the switch
+        makes: a Start with no card up for its schedule is offered on the
+        card ("X is due now", Start now / Skip today), never taken.
+        """
+        start = self.case("private void OnScheduleAction(", "Start")
+        assert "if (action.Schedule.AskFirst && !Today.HeadsUpIsFor(action.Schedule))" in start
+        assert "return;" in start, "the offer is the whole of that tick's work"
+        offer, starting = start.split("return;", 1)
+        assert offer.index("HeadsUpIsFor(") < offer.index("Today.ShowHeadsUp(action, template);")
+        assert "Notify(NotificationKind.ScheduledSprint," in offer
+        assert "StartTemplate(" not in offer, "an unasked start is offered, never taken"
+        assert "HideHeadsUp(" not in offer, "read whether a card is up before anything hides one"
+        assert "Today.StartTemplate(template, skipOpenAppsPanel: named," in starting, \
+            "a start whose card is up still starts as before"
+
+        today = self.code(self.TODAY)
+        assert re.search(r"public bool HeadsUpIsFor\(SprintSchedule schedule\)\s*=>\s*"
+                         r"_headsUp\?\.Schedule\.Id == schedule\.Id;", today)
+        show = self.member(today, "public void ShowHeadsUp(")
+        assert "ScheduleActionKind.Start => $\"{template.Name} is due now\"" in show, \
+            "the card says the start is due, not that it is coming"
 
     def test_the_heads_up_names_what_the_templates_own_shield_and_list_will_close(self):
         today = self.code(self.TODAY)

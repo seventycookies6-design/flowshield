@@ -1146,8 +1146,10 @@ public class TodayViewModel : ViewModelBase
 
     /// <summary>
     /// "Homework evening starts at 17:00", naming the open apps it will close
-    /// so it doubles as the pre-sprint warning; or "You missed Homework
-    /// evening", which is only ever an offer.
+    /// so it doubles as the pre-sprint warning; "Homework evening is due
+    /// now" when the start arrived and nobody had been asked, the same card
+    /// naming the same apps; or "You missed Homework evening", which is only
+    /// ever an offer.
     /// </summary>
     public void ShowHeadsUp(ScheduleAction action, StudyTemplate template)
     {
@@ -1158,7 +1160,12 @@ public class TodayViewModel : ViewModelBase
         var closing = _headsUpNamed.Count > 0 ? $" {string.Join(", ", _headsUpNamed)} will be closed." : "";
         var locks = template.Shield == ShieldLevel.Sealed ? " The list locks until it ends." : "";
 
-        HeadsUpTitle = missed ? $"You missed {template.Name}" : $"{template.Name} starts at {at}";
+        HeadsUpTitle = action.Kind switch
+        {
+            ScheduleActionKind.OfferMissed => $"You missed {template.Name}",
+            ScheduleActionKind.Start => $"{template.Name} is due now",
+            _ => $"{template.Name} starts at {at}",
+        };
         HeadsUpText = missed
             ? $"It was due at {at}. Start it now, or leave it for today."
             : $"{template.SprintMinutes} minutes at {template.Shield}.{closing}{locks}";
@@ -1172,6 +1179,14 @@ public class TodayViewModel : ViewModelBase
         _headsUpNamed = Array.Empty<string>();
         HeadsUpVisible = false;
     }
+
+    /// <summary>
+    /// Whether the card up is this schedule's, so its start has been asked
+    /// about. False when nothing asked: the heads-up tick landed while a
+    /// sprint or break was running, a hand sprint since hid the card, or the
+    /// clock was moved past the heads-up.
+    /// </summary>
+    public bool HeadsUpIsFor(SprintSchedule schedule) => _headsUp?.Schedule.Id == schedule.Id;
 
     /// <summary>
     /// Whether F7's pre-sprint question has nothing left to say for this

@@ -517,6 +517,21 @@ public class MainViewModel : ViewModelBase
                 break;
 
             case ScheduleActionKind.Start:
+                // Ask first promises a question before the start. With no card
+                // up for this schedule at its time, nobody was asked: the
+                // heads-up tick landed while a sprint or break was running
+                // (refused, and remembered as shown), a hand sprint since hid
+                // the card, or the clock was moved past the heads-up. The
+                // start is then offered, never taken.
+                if (action.Schedule.AskFirst && !Today.HeadsUpIsFor(action.Schedule))
+                {
+                    Today.ShowHeadsUp(action, template);
+                    Notify(NotificationKind.ScheduledSprint, $"{template.Name} is due now",
+                        "Start it now or skip it on Today.");
+                    Log.Info($"schedule start for {template.Name} offered, not started: nothing asked first");
+                    return;
+                }
+
                 // F7's question is skipped only when the heads-up for this start
                 // named every open app the sprint will close. Otherwise (Ask
                 // first off, or an app opened since) it is asked as quick start
