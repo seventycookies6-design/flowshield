@@ -209,6 +209,49 @@ public class AppBlockerService : IDisposable
         return found;
     }
 
+    /// <summary>
+    /// The Soft notice's "Close Discord" button (1.0.10). The user chose it;
+    /// Soft never closes anything on its own. Asks every running process of
+    /// that app to close, the way its own close button would, so unsaved work
+    /// gets its "save changes?" prompt. Never kills, and never touches a
+    /// critical process. Returns how many processes accepted the close
+    /// request: 0 when none has a main window to close (an app hidden in the
+    /// tray, or one whose main window is disabled behind its own prompt), when
+    /// the app is not running, or when it is no longer on the active
+    /// blocklist. 0 is not a failure; the caller says so in the log.
+    /// </summary>
+    public int AskToClose(string displayName, AppSettings settings)
+    {
+        var app = settings.ActiveProfile.Apps.FirstOrDefault(a =>
+            a.IsEnabled && string.Equals(a.DisplayName, displayName, StringComparison.OrdinalIgnoreCase));
+        if (app is null) return 0;
+
+        var names = new HashSet<string>(app.AllProcessNames, StringComparer.OrdinalIgnoreCase);
+        var asked = 0;
+        foreach (var process in SafeGetProcesses())
+        {
+            try
+            {
+                var name = process.ProcessName;
+                if (CriticalProcesses.Contains(name) || !names.Contains(name)) continue;
+                if (process.CloseMainWindow())
+                {
+                    asked++;
+                    Log.Info($"soft: asked {name} (pid {process.Id}) to close, as the user chose");
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Warn($"soft: could not ask pid {Safe(() => process.Id)} to close: {ex.Message}");
+            }
+            finally
+            {
+                process.Dispose();
+            }
+        }
+        return asked;
+    }
+
     public void BeginEnforcing(ShieldLevel shield)
     {
         lock (_gate)

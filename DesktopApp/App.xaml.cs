@@ -39,6 +39,8 @@ public partial class App : Application
             Models.GracefulClose.UseShortTimers = true;
             // F5: a three-second break, so tier 3 can run a whole cycle.
             Models.CycleState.UseShortTimers = true;
+            // 1.0.10: every wait before the Soft notice's Allow is one second.
+            Models.SoftOverlayPolicy.UseShortTimers = true;
             Log.Info("short end-sprint timers enabled by --short-timers flag");
         }
 

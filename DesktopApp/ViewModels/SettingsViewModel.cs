@@ -403,9 +403,10 @@ public class SettingsViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// The Soft shield's full-screen notice (F7). Soft closes nothing, so this
-    /// is the only thing it does that is visible from outside FlowShield —
-    /// which is also why someone might want it off.
+    /// The Soft shield's full-screen notice (F7). Soft never closes anything on
+    /// its own — the notice's Close is the user's choice — so this is the only
+    /// thing it does that is visible from outside FlowShield, which is also
+    /// why someone might want it off.
     /// </summary>
     public bool ShowSoftOverlayEnabled
     {

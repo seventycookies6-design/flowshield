@@ -25,8 +25,9 @@ public static class GracefulClose
     /// <summary>
     /// Whether this sighting gets a warning and a grace period at all.
     ///
-    /// Soft never closes anything, so it never warns about closing. Hard kill
-    /// is instant by definition.
+    /// Soft never closes anything on its own (the notice's Close is the user's
+    /// choice, and asks rather than warns), so it never warns about closing.
+    /// Hard kill is instant by definition.
     /// </summary>
     public static bool IsGraceful(ShieldLevel shield, bool hardKill) =>
         !hardKill && shield >= ShieldLevel.Firm;
@@ -45,6 +46,6 @@ public static class GracefulClose
     /// <summary>What the toast says once it has actually gone.</summary>
     public static string Closed(string displayName) => $"{displayName} closed by the shield.";
 
-    /// <summary>What the toast says at Soft, where nothing is closed.</summary>
+    /// <summary>What the toast says at Soft, where nothing is closed unless the user chooses Close on the notice.</summary>
     public static string Noted(string displayName) => $"{displayName} is on your blocklist.";
 }

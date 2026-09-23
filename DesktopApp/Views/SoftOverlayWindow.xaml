@@ -2,6 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:inf="clr-namespace:FlowShield.Infrastructure"
+        xmlns:models="clr-namespace:FlowShield.Models"
         Title="FlowShield"
         WindowStyle="None" ResizeMode="NoResize" ShowInTaskbar="False"
         AllowsTransparency="True" Topmost="True"
@@ -22,9 +23,9 @@
          collapses to zero when Windows' animation effects are off, so under
          reduced motion it simply appears.
 
-         No AutomationId sits on a Border, Grid or StackPanel here: UI
-         Automation never surfaces those, so an id on one could never be found
-         (#134). The text and both buttons are real controls. -->
+         No AutomationId sits on a Border, Grid, StackPanel or WrapPanel here:
+         UI Automation never surfaces those, so an id on one could never be
+         found (#134). The text and all three buttons are real controls. -->
 
     <Window.Triggers>
         <EventTrigger RoutedEvent="Window.Loaded">
@@ -62,23 +63,48 @@
                            Margin="0,12,0,0"
                            AutomationProperties.AutomationId="SoftOverlayTimeLeft"/>
 
-                <TextBlock Text="Nothing has been closed. Soft notes the distraction and leaves the app running."
-                           Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,12,0,0"
+                <TextBlock x:Name="IntentionText" Style="{StaticResource Body}" TextWrapping="Wrap"
+                           Margin="0,12,0,0" Visibility="Collapsed"
+                           AutomationProperties.AutomationId="SoftOverlayIntention"/>
+
+                <TextBlock x:Name="TryLineText" Style="{StaticResource Caption}" Margin="0,12,0,0"
+                           AutomationProperties.AutomationId="SoftOverlayTryLine"/>
+
+                <!-- Soft's promise, in the one place it is worded (SoftOverlayCopy). -->
+                <TextBlock Text="{x:Static models:SoftOverlayCopy.CloseNote}"
+                           Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,4,0,0"
                            AutomationProperties.AutomationId="SoftOverlayNote"/>
 
-                <StackPanel Orientation="Horizontal" Margin="0,24,0,0">
-                    <!-- IsCancel so Escape is the same as Back to work. -->
-                    <Button x:Name="BackToWorkButton" Style="{StaticResource BtnPrimary}"
-                            Content="Back to work" Padding="24,12" IsCancel="True" IsDefault="True"
+                <!-- 1.0.10 (spec 4.1): Close first and primary in colour, but never
+                     the keyboard's default. The notice lands up to one blocker
+                     sweep after the blocked app came to the front, while the user
+                     may still be typing in it, so an Enter or Space meant for that
+                     app must never become "the user chose to close it". Back to
+                     work takes focus and is both the default (Enter) and the
+                     cancel (Escape) action; Close is reached by mouse or by Tab.
+                     Allow is last, disabled until its wait runs out. -->
+                <WrapPanel Orientation="Horizontal" Margin="0,24,0,0">
+                    <!-- Configure names the app: "Close Discord". -->
+                    <Button x:Name="CloseButton" Style="{StaticResource BtnPrimary}" Content="Close"
+                            Padding="24,12" Margin="0,0,12,8"
+                            Click="OnCloseIt"
+                            AutomationProperties.AutomationId="SoftOverlayCloseButton"/>
+                    <!-- Enter and Escape are both Back to work: the app is left running. -->
+                    <Button x:Name="BackToWorkButton" Style="{StaticResource BtnGhost}"
+                            Content="Back to work" Padding="24,12" IsDefault="True" IsCancel="True"
+                            Margin="0,0,12,8"
                             Click="OnBackToWork"
                             AutomationProperties.AutomationId="SoftOverlayBackToWorkButton"
                             AutomationProperties.Name="Back to work"/>
-                    <Button Style="{StaticResource BtnGhost}" Content="Allow 5 minutes"
-                            Padding="24,12" Margin="12,0,0,0"
-                            Click="OnAllowFiveMinutes"
-                            AutomationProperties.AutomationId="SoftOverlayAllowButton"
-                            AutomationProperties.Name="Allow 5 minutes"/>
-                </StackPanel>
+                </WrapPanel>
+
+                <!-- On a line of its own, so the label counting down (and then
+                     getting shorter) never moves a button or re-wraps the card. -->
+                <Button x:Name="AllowButton" Style="{StaticResource BtnQuiet}" Content="Allow 5 minutes"
+                        Padding="24,12" HorizontalAlignment="Left"
+                        Click="OnAllowFiveMinutes"
+                        AutomationProperties.AutomationId="SoftOverlayAllowButton"
+                        AutomationProperties.Name="Allow 5 minutes"/>
             </StackPanel>
         </Border>
     </Grid>

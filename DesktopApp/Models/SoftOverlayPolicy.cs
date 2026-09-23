@@ -6,19 +6,26 @@ namespace FlowShield.Models;
 /// When the Soft shield's full-screen notice may appear (launch checklist F7,
 /// roadmap 1.7).
 ///
-/// Soft closes nothing, so the notice is the whole intervention: a blocked app
-/// comes to the foreground during a sprint and FlowShield says so, once, then
-/// gets out of the way. Two rules keep it from becoming the thing people turn
-/// off:
+/// Soft closes nothing on its own; the Close button is the user's choice,
+/// carried out by <c>AppBlockerService.AskToClose</c>. So the notice is the
+/// whole intervention: a blocked app comes to the foreground during a sprint
+/// and FlowShield says so, once, then gets out of the way. Two rules keep it
+/// from becoming the thing people turn off:
 ///
 ///   * <b>once per sighting.</b> The blocker sweeps every two seconds. Showing
 ///     the notice on every sweep while Discord is still in front would be a
 ///     flashing box, not a nudge, so it shows when the app <i>becomes</i> the
 ///     foreground window and not again until something else has been in front.
+///     Close leans on this rule hardest: the app may well stay in front after
+///     the ask (its own "save changes?" prompt, or an app that ignores it),
+///     and the notice must not come back over that prompt. So Close answers
+///     the sighting rather than clearing it, and nothing shows again until the
+///     app has left the foreground and returned.
 ///   * <b>a suppression window.</b> "Allow 5 minutes" means five minutes of
 ///     silence for that app. "Back to work" gets a few quiet seconds too —
 ///     bringing FlowShield forward takes a moment, and the notice must not
-///     reappear in the gap before it does.
+///     reappear in the gap before it does. Close keeps the same few seconds,
+///     so a quick bounce out of the app and back does not re-trigger it.
 ///
 /// Kept free of UI, timers and Win32 so both rules can be tested on their own
 /// (tier 1). The sighting is still counted as a distraction by
@@ -35,6 +42,34 @@ public class SoftOverlayPolicy
     /// straight back while the blocked app is still the foreground window.
     /// </summary>
     public static readonly TimeSpan BackToWorkQuiet = TimeSpan.FromSeconds(5);
+
+    /// <summary>Set by --short-timers so the UI suite isn't waiting thirty seconds.</summary>
+    public static bool UseShortTimers { get; set; }
+
+    /// <summary>
+    /// The wait before "Allow 5 minutes" can be pressed: 5, 10, 20, then 30
+    /// seconds for every later try this sprint. A wait helped in the one sec
+    /// study; one that grows keeps it from going stale. Under --short-timers
+    /// every try waits three seconds: long enough for the UI suite to see the
+    /// button disabled before the wait runs out, short enough not to wait on.
+    /// </summary>
+    public static TimeSpan AllowWait(int tryNumber)
+    {
+        if (UseShortTimers) return TimeSpan.FromSeconds(3);
+        return TimeSpan.FromSeconds(tryNumber switch
+        {
+            <= 1 => 5,
+            2 => 10,
+            3 => 20,
+            _ => 30,
+        });
+    }
+
+    /// <summary>Notices shown this sprint, across every app. The try number of the one on screen.</summary>
+    public int Tries { get; private set; }
+
+    /// <summary>Close or Back to work, this sprint. Allow doesn't count.</summary>
+    public int TurnedBack { get; private set; }
 
     private readonly Dictionary<string, DateTime> _quietUntil =
         new(StringComparer.OrdinalIgnoreCase);
@@ -58,6 +93,7 @@ public class SoftOverlayPolicy
         if (IsQuiet(displayName, nowUtc)) return false;
 
         _showing = true;
+        Tries++;
         return true;
     }
 
@@ -77,9 +113,28 @@ public class SoftOverlayPolicy
     public void AllowFiveMinutes(string displayName, DateTime nowUtc) =>
         Quieten(displayName, nowUtc, AllowWindow);
 
-    /// <summary>"Back to work": down now, and quiet for a few seconds.</summary>
-    public void BackToWork(string displayName, DateTime nowUtc) =>
+    /// <summary>"Back to work": down now, and quiet for a few seconds. Counts as turned back.</summary>
+    public void BackToWork(string displayName, DateTime nowUtc)
+    {
+        TurnedBack++;
         Quieten(displayName, nowUtc, BackToWorkQuiet);
+    }
+
+    /// <summary>
+    /// "Close Discord": the user chose to close it. Counts as turned back and
+    /// takes the notice down, with the same few quiet seconds as Back to work
+    /// for a quick bounce. Unlike Back to work it keeps the sighting: the app
+    /// may stay in front (its own "save changes?" prompt, or an app that
+    /// ignores the ask), and the notice must not come back over that. It shows
+    /// again only once the app has left the foreground and returned, which
+    /// <see cref="LeftTheForeground"/> already handles.
+    /// </summary>
+    public void CloseIt(string displayName, DateTime nowUtc)
+    {
+        TurnedBack++;
+        _quietUntil[displayName] = nowUtc + BackToWorkQuiet;
+        _showing = false;
+    }
 
     private void Quieten(string displayName, DateTime nowUtc, TimeSpan window)
     {
@@ -95,13 +150,16 @@ public class SoftOverlayPolicy
 
     /// <summary>
     /// Forget everything. Called when enforcement starts or stops: an allowance
-    /// is for the sprint it was granted in, never the next one.
+    /// is for the sprint it was granted in, never the next one, and so are the
+    /// tries and turned-back counts.
     /// </summary>
     public void Reset()
     {
         _quietUntil.Clear();
         _sighting = null;
         _showing = false;
+        Tries = 0;
+        TurnedBack = 0;
     }
 }
 
@@ -112,9 +170,62 @@ public class SoftOverlayPolicy
 /// </summary>
 public static class SoftOverlayCopy
 {
-    /// <summary>"Discord is on your blocklist until 5:45 PM" — §7's own example.</summary>
+    /// <summary>
+    /// Four calm ways to say the same thing, chosen by the try number so the
+    /// notice doesn't go stale (habituation fades fixed friction). Try 1 is
+    /// DESIGN_SYSTEM.md section 7's own example.
+    /// </summary>
+    public static string Sentence(string displayName, DateTime endsAtLocal, int tryNumber)
+    {
+        var until = Until(endsAtLocal);
+        return ((Math.Max(tryNumber, 1) - 1) % 4) switch
+        {
+            0 => $"{displayName} is on your blocklist until {until}",
+            1 => $"You set this time aside until {until}",
+            2 => $"{displayName} can wait until {until}",
+            _ => $"{displayName} will still be there after {until}",
+        };
+    }
+
+    /// <summary>"Discord is on your blocklist until 5:45 PM" — §7's own example, the first try's wording.</summary>
     public static string Sentence(string displayName, DateTime endsAtLocal) =>
-        $"{displayName} is on your blocklist until {Until(endsAtLocal)}";
+        Sentence(displayName, endsAtLocal, 1);
+
+    /// <summary>"3rd try this sprint".</summary>
+    public static string TryLine(int tryNumber)
+    {
+        var n = Math.Max(tryNumber, 1);
+        var suffix = (n % 100) is 11 or 12 or 13 ? "th" : (n % 10) switch
+        {
+            1 => "st",
+            2 => "nd",
+            3 => "rd",
+            _ => "th",
+        };
+        return $"{n}{suffix} try this sprint";
+    }
+
+    /// <summary>"You planned: finish chapter 3", or nothing when no intention was set.</summary>
+    public static string Intention(string? intention)
+    {
+        var text = (intention ?? "").Trim();
+        return text.Length == 0 ? "" : $"You planned: {text}";
+    }
+
+    /// <summary>
+    /// The Allow button's label: the countdown after a middle dot while the
+    /// wait runs ("0:08"), the plain label once it can be pressed. Text, so
+    /// reduced motion changes nothing.
+    /// </summary>
+    public static string AllowLabel(TimeSpan left)
+    {
+        if (left <= TimeSpan.Zero) return "Allow 5 minutes";
+        var seconds = (int)Math.Ceiling(left.TotalSeconds);
+        return $"Allow 5 minutes \u00B7 {seconds / 60}:{seconds % 60:00}";
+    }
+
+    /// <summary>The note under the buttons: Soft's promise, in words.</summary>
+    public const string CloseNote = "Nothing is closed unless you choose to.";
 
     /// <summary>The sprint's end time in the user's own short-time format.</summary>
     public static string Until(DateTime endsAtLocal) =>

@@ -266,7 +266,8 @@ These are where FlowShield steps between the user and a distraction (checklist
 F7, and F10's blocked page). They share one pattern:
 
 - A compact `surface` panel with the shield glyph, one sentence ("Discord is on your blocklist until 5:45 PM"), and the time left.
-- Soft adds one Secondary action ("Allow 5 minutes"); Firm shows a short countdown before closing.
+- The Soft notice (1.0.10) picks its sentence from four calm wordings by try number, then shows the sprint's intention when one was set ("You planned: finish chapter 3") and a `caption` try count ("3rd try this sprint"). Three actions: **Close ‹app›** first and Primary (the user's choice: it asks the app to close and never kills it); **Back to work** second, a Ghost button that has focus and is the default and the keyboard action (Enter and Esc), so a keystroke meant for the blocked app can never close it; **Allow 5 minutes** last, Quiet and on its own line, disabled until a wait that grows with each try runs out, with the countdown in its label as text ("Allow 5 minutes · 0:08"). A caption under the buttons carries the promise: "Nothing is closed unless you choose to."
+- Firm shows a short countdown before closing.
 - **No red, no alarm icons, no shaking animations.** It should feel like a polite colleague tapping your shoulder.
 
 ### Toasts and native notifications

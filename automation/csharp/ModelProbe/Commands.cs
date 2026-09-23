@@ -17,6 +17,8 @@ internal static class Commands
         {
             "ping" => new JsonObject { ["ok"] = true },
             "soft-sequence" => SoftSequence(request),
+            "soft-wait" => SoftWait(request),
+            "soft-copy" => SoftCopy(request),
             "template-builtins" => new JsonObject
             {
                 ["templates"] = JsonSerializer.SerializeToNode(StudyTemplate.BuiltIns()),
@@ -48,8 +50,10 @@ internal static class Commands
 
     /// <summary>
     /// Runs SoftOverlayPolicy through a list of steps:
-    /// {"op": "show"|"left"|"allow"|"back"|"reset", "app": "Discord", "at": seconds}.
-    /// Each step's result is the method's return value, or null for void methods.
+    /// {"op": "show"|"left"|"allow"|"back"|"close"|"reset"|"tries"|"turned",
+    ///  "app": "Discord", "at": seconds}.
+    /// Each step's result is the method's return value, or null for void methods;
+    /// "tries" and "turned" read the two counters.
     /// </summary>
     private static JsonNode SoftSequence(JsonObject request)
     {
@@ -66,12 +70,51 @@ internal static class Commands
                 "left" => (JsonNode)policy.LeftTheForeground(),
                 "allow" => Do(() => policy.AllowFiveMinutes(app, at)),
                 "back" => Do(() => policy.BackToWork(app, at)),
+                "close" => Do(() => policy.CloseIt(app, at)),
                 "reset" => Do(policy.Reset),
+                "tries" => (JsonNode)policy.Tries,
+                "turned" => (JsonNode)policy.TurnedBack,
                 _ => throw new ArgumentException($"unknown soft op '{op}'"),
             };
             results.Add(result);
         }
         return new JsonObject { ["results"] = results };
+    }
+
+    /// <summary>{"try": n, "short": bool}: the wait before Allow on try n, in seconds.</summary>
+    private static JsonNode SoftWait(JsonObject request)
+    {
+        // The flag is static: reset it even when the request is malformed, so
+        // it cannot leak into a later command in the same process.
+        SoftOverlayPolicy.UseShortTimers = (bool?)request["short"] ?? false;
+        try
+        {
+            var seconds = SoftOverlayPolicy.AllowWait((int)request["try"]!).TotalSeconds;
+            return new JsonObject { ["seconds"] = seconds };
+        }
+        finally
+        {
+            SoftOverlayPolicy.UseShortTimers = false;
+        }
+    }
+
+    /// <summary>
+    /// {"try": n, "app", "ends": local ISO time, "intention", "allow_left": seconds}:
+    /// every piece of the notice's wording for that try.
+    /// </summary>
+    private static JsonNode SoftCopy(JsonObject request)
+    {
+        var n = (int)request["try"]!;
+        var app = (string?)request["app"] ?? "Discord";
+        var ends = DateTime.Parse((string?)request["ends"] ?? "2026-09-28T17:45:00", CultureInfo.InvariantCulture);
+        return new JsonObject
+        {
+            ["sentence"] = SoftOverlayCopy.Sentence(app, ends, n),
+            ["try_line"] = SoftOverlayCopy.TryLine(n),
+            ["intention"] = SoftOverlayCopy.Intention((string?)request["intention"]),
+            ["allow_label"] = SoftOverlayCopy.AllowLabel(TimeSpan.FromSeconds((double?)request["allow_left"] ?? 0)),
+            ["close_note"] = SoftOverlayCopy.CloseNote,
+        };
     }
 
     /// <summary>

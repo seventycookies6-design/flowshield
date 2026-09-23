@@ -666,14 +666,30 @@ class TestSoftShieldWording:
         assert "Full-screen nudge overlay" not in model
         assert "blocked app keeps running" in readme
         assert "blocked app keeps running" in model
+        # 1.0.10: the notice has a Close button, so the promise says who decides.
+        assert "unless you choose to close it" in readme
+        assert "unless you choose to close it" in model
 
     def test_legal_page_distinguishes_soft_from_closing_modes(self):
         source = (Path(WEBSITE_DIR) / "legal.html").read_text(encoding="utf-8")
         legal = " ".join(source.split())
 
         assert "Soft records the" in legal and "leaves the application running" in legal
+        assert "unless you choose Close on its notice" in legal
         assert "Firm and Sealed close it" in legal
         assert "Any unsaved work in an application FlowShield closes may be lost" in legal
+
+    def test_the_site_and_the_legal_page_name_every_button_on_the_notice(self):
+        """
+        Both pages told the reader to "choose Close" after listing only Back
+        to work and Allow 5 minutes -- a button the sentence never named. The
+        notice has three, and the one that can close something comes first.
+        """
+        for name in ("index.html", "legal.html"):
+            page = " ".join((Path(WEBSITE_DIR) / name).read_text(encoding="utf-8").split())
+            assert "with Close, Back to work and Allow 5 minutes" in page, (
+                f"{name} must list the notice's three buttons, Close first"
+            )
 
     def test_project_docs_describe_soft_and_sealed_accurately(self):
         """
@@ -693,6 +709,17 @@ class TestSoftShieldWording:
                 f"{name} says Sealed locks until the timer ends"
             assert "full-screen nudge" not in prose, \
                 f"{name} still describes Soft as a full-screen nudge"
+
+        # 1.0.10: the notice has Close, so the template that regenerates
+        # FINAL_REPORT.md carries README's qualifier. The checked-in
+        # FINAL_REPORT.md itself is a record of a past run and is left alone.
+        template = (root / "automation" / "make_report.py").read_text(encoding="utf-8")
+        assert "the blocked app keeps running unless you choose to close it" in template
+        checklist = (root / "LAUNCH_FEATURE_CHECKLIST.md").read_text(encoding="utf-8")
+        f7 = " ".join(checklist.split("### F7", 1)[1].split("\n### ", 1)[0].split())
+        assert "It closes nothing" not in f7, "F7 still makes the pre-1.0.10 promise"
+        assert "never closes anything on its own" in f7
+        assert "1.0.10" in f7 and "Close" in f7, "F7 must record what 1.0.10 added to the notice"
 
 
 # ============================ one shield wording, everywhere (F1, #93)
@@ -6784,13 +6811,15 @@ class TestSoftOverlayNeverCloses:
     def test_its_controls_carry_automation_ids_on_real_controls(self):
         xaml = self.OVERLAY_XAML.read_text(encoding="utf-8")
         for automation_id in ("SoftOverlayText", "SoftOverlayTimeLeft",
-                              "SoftOverlayBackToWorkButton", "SoftOverlayAllowButton"):
+                              "SoftOverlayBackToWorkButton", "SoftOverlayAllowButton",
+                              "SoftOverlayCloseButton", "SoftOverlayIntention",
+                              "SoftOverlayTryLine"):
             assert f'AutomationProperties.AutomationId="{automation_id}"' in xaml
 
         # #134: an id on a layout panel is never surfaced, so it can never be found.
         for tag in re.finditer(r'<(\w+)\b((?:(?!/?>).)*?)/?>', xaml, re.S):
             element, attrs = tag.group(1), tag.group(2)
-            if element in ("Grid", "StackPanel", "Border", "DockPanel", "Image") \
+            if element in ("Grid", "StackPanel", "WrapPanel", "Border", "DockPanel", "Image") \
                     and 'AutomationId="' in attrs:
                 raise AssertionError(
                     f"<{element}> has an AutomationId -- never surfaced to UI Automation")
@@ -6842,6 +6871,168 @@ class TestSoftOverlayNeverCloses:
                 "the sighting was counted when it happened; the notice must not "
                 "add to or subtract from it"
             )
+
+
+class TestSoftCloseNeverKills:
+    """
+    1.0.10 gives Soft a Close button. Soft still never closes anything on its
+    own, and a user-chosen close asks politely (CloseMainWindow) and never kills,
+    so the app's own "save changes?" prompt still appears.
+    """
+
+    BLOCKER = Path(DESKTOP_DIR) / "Services" / "AppBlockerService.cs"
+
+    def _ask_to_close(self) -> str:
+        source = self.BLOCKER.read_text(encoding="utf-8")
+        assert "public int AskToClose(string displayName, AppSettings settings)" in source
+        return source.split("public int AskToClose(", 1)[1].split("\n    }", 1)[0]
+
+    def test_it_only_asks(self):
+        body = self._ask_to_close()
+        assert "CloseMainWindow()" in body
+        for forbidden in ("Kill(", "KillAll(", "_closingAt["):
+            assert forbidden not in body, f"AskToClose must never {forbidden}"
+
+    def test_it_never_touches_a_critical_process(self):
+        assert "CriticalProcesses.Contains(" in self._ask_to_close()
+
+    def test_it_is_only_reached_from_the_close_button(self):
+        callers = [p for p in Path(DESKTOP_DIR).rglob("*.cs")
+                   if "AskToClose(" in p.read_text(encoding="utf-8")]
+        names = sorted(p.name for p in callers)
+        assert names == ["AppBlockerService.cs", "MainViewModel.cs"], names
+
+    def test_the_sweep_still_closes_nothing_at_soft(self):
+        source = self.BLOCKER.read_text(encoding="utf-8")
+        soft = source.split("if (!terminate)", 1)[1].split("continue;", 1)[0]
+        assert "AskToClose" not in soft
+
+    def test_zero_asked_is_explained_not_treated_as_a_failure(self):
+        """
+        AskToClose counts processes whose CloseMainWindow accepted the ask. An
+        app hidden in the tray, or sitting behind its own save prompt, has no
+        main window to close and gives 0, which is not a failure; the log says
+        what it means, and a warning names the pid like the sibling lines do.
+        """
+        body = self._ask_to_close()
+        assert "Safe(() => process.Id)" in body.split("catch (Exception ex)", 1)[1]
+        caller = (Path(DESKTOP_DIR) / "ViewModels" / "MainViewModel.cs").read_text(encoding="utf-8") \
+            .split("public void SoftOverlayCloseIt(string displayName)", 1)[1].split("\n    }", 1)[0]
+        assert "asked == 0" in caller
+        assert "nothing to ask" in caller
+
+
+class TestSoftNoticeFriction:
+    """
+    1.0.10's notice (spec 4.1): Close first and primary, Back to work the
+    default and keyboard action, and Allow only after a wait that grows with
+    each try. The wait is enforced where the click lands, not only by how the
+    button looks.
+    """
+
+    MAIN_VM = Path(DESKTOP_DIR) / "ViewModels" / "MainViewModel.cs"
+    MAIN_WINDOW = Path(DESKTOP_DIR) / "MainWindow.xaml.cs"
+    OVERLAY_XAML = Path(DESKTOP_DIR) / "Views" / "SoftOverlayWindow.xaml"
+    OVERLAY_CS = Path(DESKTOP_DIR) / "Views" / "SoftOverlayWindow.xaml.cs"
+    POLICY = Path(DESKTOP_DIR) / "Models" / "SoftOverlayPolicy.cs"
+
+    def _button(self, automation_id: str) -> str:
+        """The attributes of one button on the notice, up to its AutomationId."""
+        xaml = self.OVERLAY_XAML.read_text(encoding="utf-8")
+        return xaml.split(f'AutomationProperties.AutomationId="{automation_id}"')[0].rsplit("<Button", 1)[1]
+
+    def test_close_is_first_and_primary_but_never_the_keyboards_default(self):
+        """
+        The notice lands up to one blocker sweep (about 2 s) after the blocked
+        app came to the front, while the user may still be typing in it. An
+        Enter or Space meant for a game or a chat line must never become "the
+        user chose to close it", so Close is reached by mouse or by Tab only.
+        """
+        row = self.OVERLAY_XAML.read_text(encoding="utf-8").split("<WrapPanel", 1)[1].split("</WrapPanel>", 1)[0]
+        assert row.index('AutomationId="SoftOverlayCloseButton"') \
+            < row.index('AutomationId="SoftOverlayBackToWorkButton"'), "Close stays first in the row"
+        close = self._button("SoftOverlayCloseButton")
+        assert "BtnPrimary" in close, "Close stays the primary action in colour"
+        assert "IsDefault" not in close, "Enter must never be Close"
+        assert "IsCancel" not in close
+
+    def test_back_to_work_is_the_default_the_cancel_and_the_focused_button(self):
+        """Enter, Space on the focused button and Escape all mean Back to work."""
+        back = self._button("SoftOverlayBackToWorkButton")
+        assert "BtnPrimary" not in back
+        assert 'IsDefault="True"' in back, "Enter is Back to work"
+        assert 'IsCancel="True"' in back, "Escape is still Back to work"
+        opened = self.OVERLAY_CS.read_text(encoding="utf-8") \
+            .split("protected override void OnSourceInitialized", 1)[1].split("\n    }", 1)[0]
+        assert "BackToWorkButton.Focus();" in opened, "Back to work takes the initial focus"
+        assert "CloseButton.Focus()" not in opened, "a focused Close would make Space close the app"
+
+    def test_allow_waits_before_it_can_be_pressed(self):
+        code = self.OVERLAY_CS.read_text(encoding="utf-8")
+        assert "AllowButton.IsEnabled = false" in code
+        assert "SoftOverlayCopy.AllowLabel(" in code
+        assert "DispatcherTimer" in code
+        # A gate refuses where the click lands, not only by how the button
+        # looks (CLAUDE.md, "covered controls"), so the handler checks too.
+        handler = code.split("private void OnAllowFiveMinutes", 1)[1].split("\n    }", 1)[0]
+        assert handler.index("if (!AllowButton.IsEnabled) return;") < handler.index("Answer(AllowFiveMinutes)")
+
+    def test_the_countdown_runs_on_the_monotonic_clock(self):
+        """
+        A deadline on DateTime.UtcNow moves with the wall clock: set back an
+        hour during the wait and Allow stays disabled for an hour. The tick
+        count only ever goes forward.
+        """
+        code = self.OVERLAY_CS.read_text(encoding="utf-8")
+        countdown = code.split("public void Configure(", 1)[1].split("protected override void OnClosed", 1)[0]
+        assert "Environment.TickCount64" in countdown
+        for wall_clock in ("DateTime.UtcNow", "DateTime.Now"):
+            assert wall_clock not in countdown, f"the Allow deadline must not follow {wall_clock}"
+
+    def test_the_countdown_moves_nothing(self):
+        """
+        Sharing a WrapPanel with Close and Back to work, Allow jumped up a row
+        (and the sentence re-wrapped) the moment its countdown ended and the
+        label got shorter -- a button moving just as it becomes pressable.
+        """
+        xaml = self.OVERLAY_XAML.read_text(encoding="utf-8")
+        row = xaml.split("<WrapPanel", 1)[1].split("</WrapPanel>", 1)[0]
+        assert 'AutomationId="SoftOverlayCloseButton"' in row
+        assert 'AutomationId="SoftOverlayBackToWorkButton"' in row
+        assert 'AutomationId="SoftOverlayAllowButton"' not in row, "Allow sits on a line of its own"
+
+    def test_the_note_is_softs_promise_from_one_place(self):
+        xaml = self.OVERLAY_XAML.read_text(encoding="utf-8")
+        assert "{x:Static models:SoftOverlayCopy.CloseNote}" in xaml
+        assert "Nothing has been closed" not in xaml, "the note from before Close existed"
+        policy = self.POLICY.read_text(encoding="utf-8")
+        assert 'CloseNote = "Nothing is closed unless you choose to.";' in policy
+
+    def test_the_settings_switch_makes_the_same_promise(self):
+        """The switch's caption said "Nothing is closed." -- untrue once the notice has Close."""
+        view = (Path(DESKTOP_DIR) / "Views" / "SettingsView.xaml").read_text(encoding="utf-8")
+        caption = view.split('AutomationProperties.AutomationId="SoftOverlayToggle"', 1)[1] \
+            .split("</CheckBox>", 1)[0]
+        assert "Nothing is closed unless you choose to." in caption
+
+    def test_the_close_handler_asks_through_the_view_model_only(self):
+        block = self.MAIN_WINDOW.read_text(encoding="utf-8").split("overlay.CloseIt +=", 1)[1].split("};", 1)[0]
+        assert "SoftOverlayCloseIt" in block
+        for forbidden in ("Kill", "CloseMainWindow", "Process"):
+            assert forbidden not in block
+
+    def test_the_view_model_counts_it_and_asks_the_blocker(self):
+        source = self.MAIN_VM.read_text(encoding="utf-8")
+        body = source.split("public void SoftOverlayCloseIt(string displayName)", 1)[1].split("\n    }", 1)[0]
+        assert "_softOverlay.CloseIt(displayName, DateTime.UtcNow);" in body
+        assert "Blocker.AskToClose(displayName, Settings)" in body
+
+    def test_the_request_carries_intention_try_and_wait(self):
+        handler = self.MAIN_VM.read_text(encoding="utf-8").split("private void OnSoftForeground", 1)[1].split("\n    }", 1)[0]
+        for piece in ("SoftOverlayCopy.Intention(", "SoftOverlayCopy.TryLine(_softOverlay.Tries)",
+                      "SoftOverlayPolicy.AllowWait(_softOverlay.Tries)",
+                      "SoftOverlayCopy.Sentence(e.DisplayName, Today.EndsAtUtc.ToLocalTime(), _softOverlay.Tries)"):
+            assert piece in handler, piece
 
 
 # ================================== blocklist profiles must not break anything
@@ -7951,6 +8142,34 @@ class TestTheUiSuiteCanObserveWhatItAsserts:
         assert self._real("GracePeriod") == ("Minutes", 2.0)
         assert self._real("FirmConfirmDelay") == ("Seconds", 5.0)
         assert self._real("SealedCountdown") == ("Seconds", 30.0)
+
+    def test_the_soft_allow_wait_is_observed_with_real_timers(self):
+        """
+        The Soft notice's Allow wait is three seconds under --short-timers
+        (SoftOverlayPolicy.AllowWait; the 1.0.10 spec fixes it there), which
+        is under OBSERVABLE_SECONDS: a tier 3 test asserting "Allow is still
+        disabled" against it would be asserting on its own speed, #242's trap
+        again. So the tier 3 test that observes the wait launches the app
+        without --short-timers and watches the real five-second first try.
+        """
+        policy = (Path(DESKTOP_DIR) / "Models" / "SoftOverlayPolicy.cs").read_text(encoding="utf-8")
+        match = re.search(r"if \(UseShortTimers\) return TimeSpan\.FromSeconds\((\d+(?:\.\d+)?)\);", policy)
+        assert match, "SoftOverlayPolicy.AllowWait's --short-timers value was not found"
+        shortened = float(match.group(1))
+
+        tier3 = self.TIER3.read_text(encoding="utf-8")
+        head = re.search(r"def test_allow_is_disabled_until_the_wait_runs_out\(self, (\w+)\)", tier3)
+        assert head, "the tier 3 test that observes Allow's wait was not found"
+        if shortened < self.OBSERVABLE_SECONDS:
+            assert head.group(1) == "real_wait_app", (
+                f"Allow's wait is {shortened:g}s under --short-timers, shorter than a UIA "
+                f"round trip; the test must run on the real_wait_app fixture"
+            )
+        fixture = tier3.split("def real_wait_app(", 1)
+        assert len(fixture) == 2, "the real_wait_app fixture was not found in tier 3"
+        assert "short_timers=False" in fixture[1].split("yield", 1)[0], (
+            "real_wait_app must launch without --short-timers"
+        )
 
     def test_the_driver_agrees_with_the_shortened_grace_period(self):
         """

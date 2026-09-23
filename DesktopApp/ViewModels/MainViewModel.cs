@@ -485,7 +485,8 @@ public class MainViewModel : ViewModelBase
 
     /// <summary>What MainWindow needs to put the Soft notice on screen.</summary>
     public sealed record SoftOverlayRequest(
-        string DisplayName, string Sentence, string TimeLeft, IntPtr Window);
+        string DisplayName, string Sentence, string TimeLeft, IntPtr Window,
+        string Intention, string TryLine, TimeSpan AllowWait);
 
     /// <summary>Show the Soft notice for a blocked app that has just come to the front.</summary>
     public event EventHandler<SoftOverlayRequest>? SoftOverlayRequested;
@@ -540,22 +541,44 @@ public class MainViewModel : ViewModelBase
             if (!_softOverlay.ShouldShow(e.DisplayName, DateTime.UtcNow)) return;
 
             Log.Info($"soft notice shown for {e.DisplayName}");
+            // ShouldShow has just counted this notice, so Tries is its own try number.
             SoftOverlayRequested?.Invoke(this, new SoftOverlayRequest(
                 e.DisplayName,
-                SoftOverlayCopy.Sentence(e.DisplayName, Today.EndsAtUtc.ToLocalTime()),
+                SoftOverlayCopy.Sentence(e.DisplayName, Today.EndsAtUtc.ToLocalTime(), _softOverlay.Tries),
                 SoftOverlayCopy.TimeLeft(Today.Remaining),
-                e.Window));
+                e.Window,
+                SoftOverlayCopy.Intention(Today.IntentionDisplayText),
+                SoftOverlayCopy.TryLine(_softOverlay.Tries),
+                SoftOverlayPolicy.AllowWait(_softOverlay.Tries)));
         });
     }
 
+    /// <summary>Turned back this sprint (Close or Back to work). Read when the sprint is recorded.</summary>
+    public int SoftTurnedBackThisSprint => _softOverlay.TurnedBack;
+
     /// <summary>
     /// "Back to work" on the Soft notice. The blocked app is left running — Soft
-    /// closes nothing, and that promise is the whole shield.
+    /// never closes anything on its own, and that promise is the whole shield.
     /// </summary>
     public void SoftOverlayBackToWork(string displayName)
     {
         _softOverlay.BackToWork(displayName, DateTime.UtcNow);
         Log.Info($"soft notice dismissed: back to work from {displayName}");
+    }
+
+    /// <summary>
+    /// "Close Discord" on the Soft notice (1.0.10). The user chose it: the blocker
+    /// asks the app to close and never kills it, so its own save prompt appears.
+    /// </summary>
+    public void SoftOverlayCloseIt(string displayName)
+    {
+        _softOverlay.CloseIt(displayName, DateTime.UtcNow);
+        var asked = Blocker.AskToClose(displayName, Settings);
+        // 0 is not a failure: the app is hidden in the tray, sits behind its own
+        // prompt, has already gone, or left the blocklist since the notice.
+        Log.Info(asked == 0
+            ? $"soft notice: close {displayName} chosen; nothing to ask (not running, or no main window to close)"
+            : $"soft notice: close {displayName} chosen; asked {asked} process(es)");
     }
 
     /// <summary>

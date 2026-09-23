@@ -223,7 +223,7 @@ The twist is **escalating shield levels** plus **momentum instead of streaks**:
 
 | Level | Name | Behaviour |
 | --- | --- | --- |
-| Shield I | Soft | A full-screen notice on its own screen; the blocked app keeps running. |
+| Shield I | Soft | A full-screen notice on its own screen; the blocked app keeps running unless you choose to close it. |
 | Shield II | Firm | Blocked apps are warned, then closed; the blocklist stays editable. |
 | Shield III | Sealed | Warned, then closed, **and** the blocklist locks for the rest of the sprint. |
 

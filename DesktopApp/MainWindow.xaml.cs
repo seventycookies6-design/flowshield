@@ -396,9 +396,10 @@ public partial class MainWindow : Window
     /// <summary>
     /// Puts the Soft notice over the blocked app, on that app's monitor.
     ///
-    /// Neither button closes the blocked app: "Back to work" brings FlowShield
-    /// forward, and "Allow 5 minutes" simply goes quiet. Soft closing something
-    /// would break the promise on its own shield chip.
+    /// Close asks the blocked app to close (the user's choice, never a kill);
+    /// Back to work brings FlowShield forward; Allow goes quiet after its wait.
+    /// Soft closing something on its own would break the promise on its own
+    /// shield chip.
     /// </summary>
     private void OnSoftOverlayRequested(object? sender, MainViewModel.SoftOverlayRequest request)
     {
@@ -407,7 +408,13 @@ public partial class MainWindow : Window
             CloseSoftOverlay();
 
             var overlay = new Views.SoftOverlayWindow();
-            overlay.Configure(request.Sentence, request.TimeLeft, request.Window);
+            overlay.Configure(request.DisplayName, request.Sentence, request.TimeLeft, request.Window,
+                              request.Intention, request.TryLine, request.AllowWait);
+            overlay.CloseIt += (_, _) =>
+            {
+                CloseSoftOverlay();
+                Vm?.SoftOverlayCloseIt(request.DisplayName);
+            };
             overlay.BackToWork += (_, _) =>
             {
                 CloseSoftOverlay();

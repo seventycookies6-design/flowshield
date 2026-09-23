@@ -2804,7 +2804,9 @@ class SoftOverlayPolicy:
     Python mirror of Models/SoftOverlayPolicy.cs.
 
     Times are plain seconds here; the C# version takes UTC instants. Only the
-    two rules matter: once per sighting, and a per-app quiet window.
+    two rules matter: once per sighting, and a per-app quiet window. 1.0.10
+    adds two counters, tries and turned back, which the probe tests in
+    test_tier1_models.py run against the real C#.
     """
 
     ALLOW_WINDOW = 5 * 60
@@ -2814,6 +2816,8 @@ class SoftOverlayPolicy:
         self.quiet_until: dict[str, float] = {}
         self.sighting: str | None = None
         self.showing = False
+        self.tries = 0
+        self.turned_back = 0
 
     def should_show(self, app: str, now: float) -> bool:
         is_new = self.sighting is None or self.sighting.lower() != app.lower()
@@ -2823,6 +2827,7 @@ class SoftOverlayPolicy:
         if self.is_quiet(app, now):
             return False
         self.showing = True
+        self.tries += 1
         return True
 
     def left_the_foreground(self) -> bool:
@@ -2835,7 +2840,16 @@ class SoftOverlayPolicy:
         self._quieten(app, now, self.ALLOW_WINDOW)
 
     def back_to_work(self, app: str, now: float) -> None:
+        self.turned_back += 1
         self._quieten(app, now, self.BACK_TO_WORK_QUIET)
+
+    def close_it(self, app: str, now: float) -> None:
+        # Answered, not cleared: the app may stay in front with its own save
+        # prompt up, and the notice must not come back over it. Only leaving
+        # the foreground clears the sighting.
+        self.turned_back += 1
+        self.quiet_until[app.lower()] = now + self.BACK_TO_WORK_QUIET
+        self.showing = False
 
     def _quieten(self, app: str, now: float, window: float) -> None:
         self.quiet_until[app.lower()] = now + window
@@ -2849,6 +2863,8 @@ class SoftOverlayPolicy:
         self.quiet_until.clear()
         self.sighting = None
         self.showing = False
+        self.tries = 0
+        self.turned_back = 0
 
 
 class TestSoftOverlayPolicy:
@@ -2948,6 +2964,39 @@ class TestSoftOverlayPolicy:
             "a new sprint starts with no allowances carried over"
         )
 
+    def test_the_mirror_counts_tries_and_turned_back_like_the_probe(self):
+        """
+        1.0.10: the same sequence the probe runs against the real C#
+        (test_tier1_models.py), so the mirror cannot drift from it unnoticed.
+        Close and Back to work count as turned back; Allow does not.
+        """
+        policy = SoftOverlayPolicy()
+        assert policy.should_show("Discord", 0)
+        policy.close_it("Discord", 1)
+        policy.left_the_foreground()
+        assert policy.should_show("Steam", 30)
+        policy.back_to_work("Steam", 31)
+        policy.left_the_foreground()
+        assert policy.should_show("Discord", 60)
+        policy.allow_five_minutes("Discord", 61)
+        assert policy.tries == 3
+        assert policy.turned_back == 2
+        policy.reset()
+        assert (policy.tries, policy.turned_back) == (0, 0), "a new sprint counts again"
+
+    def test_close_answers_the_sighting_rather_than_clearing_it(self):
+        """
+        After Close the app may stay in front with its own "save changes?"
+        prompt up. Cleared like Back to work, the sighting came back as a
+        "2nd try" over that prompt once the quiet window ran out.
+        """
+        policy = SoftOverlayPolicy()
+        assert policy.should_show("Discord", 0)
+        policy.close_it("Discord", 0)
+        assert not policy.should_show("Discord", 10), "still the same sighting: the app never left"
+        assert policy.left_the_foreground() is False, "Close already took the notice down"
+        assert policy.should_show("Discord", 11), "left and came back: a fresh sighting"
+
     # ---- the mirror above proves the rules are right; these prove the C# has
     # them. Without this half, `if (false && !isNewSighting)` in ShouldShow
     # left every Python test passing while the notice flashed on every sweep.
@@ -2994,11 +3043,22 @@ class TestSoftOverlayPolicy:
         source = self._model()
         assert ("public void AllowFiveMinutes(string displayName, DateTime nowUtc) => "
                 "Quieten(displayName, nowUtc, AllowWindow);") in source
-        assert ("public void BackToWork(string displayName, DateTime nowUtc) => "
-                "Quieten(displayName, nowUtc, BackToWorkQuiet);") in source
+        back = self._body("public void BackToWork(string displayName, DateTime nowUtc)")
+        assert "TurnedBack++;" in back, "Back to work counts as turned back (1.0.10)"
+        assert "Quieten(displayName, nowUtc, BackToWorkQuiet);" in back
         assert "AllowWindow = TimeSpan.FromMinutes(5)" in source
         assert (f"BackToWorkQuiet = TimeSpan.FromSeconds"
                 f"({self.BACK_TO_WORK_QUIET_SECONDS})") in source
+
+    def test_close_keeps_the_sighting_in_the_model(self):
+        """Close answers the sighting; only leaving the foreground clears it."""
+        close = self._body("public void CloseIt(string displayName, DateTime nowUtc)")
+        assert "TurnedBack++;" in close, "Close counts as turned back (1.0.10)"
+        assert "_quietUntil[displayName] = nowUtc + BackToWorkQuiet;" in close
+        assert "_showing = false;" in close
+        assert "_sighting = null;" not in close and "Quieten(" not in close, (
+            "clearing the sighting re-shows the notice over the app's own save prompt"
+        )
 
     def test_a_quiet_window_is_recorded_per_app_and_read_back(self):
         quieten = self._body(
