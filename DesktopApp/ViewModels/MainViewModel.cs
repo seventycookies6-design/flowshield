@@ -31,6 +31,11 @@ public class MainViewModel : ViewModelBase
         if (Settings.EnsureProfiles())
             Log.Info($"blocklist profiles ready: {Settings.Profiles.Count}, active \"{Settings.ActiveProfile.Name}\"");
 
+        // F6: the three built-in templates arrive once, and a schedule whose
+        // template is gone is dropped before anything reads it.
+        if (Settings.EnsureTemplates())
+            Log.Info($"study templates ready: {Settings.Templates.Count}, schedules {Settings.Schedules.Count}");
+
         Blocker = new AppBlockerService(settingsService, Settings);
         Blocker.Blocked += OnBlocked;
         Blocker.SoftForeground += OnSoftForeground;

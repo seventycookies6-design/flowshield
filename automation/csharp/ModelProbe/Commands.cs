@@ -37,6 +37,10 @@ internal static class Commands
                     DateTime.Parse((string)request["start"]!, CultureInfo.InvariantCulture),
                     DateTime.Parse((string)request["now"]!, CultureInfo.InvariantCulture)),
             },
+            "settings-ensure-templates" => SettingsEnsureTemplates(request),
+            "settings-delete-template" => SettingsDeleteTemplate(request),
+            "settings-restore-builtins" => SettingsRestore(request),
+            "settings-profile-for" => SettingsProfileFor(request),
             _ => throw new ArgumentException($"unknown command '{cmd}'"),
         };
     }
@@ -151,6 +155,75 @@ internal static class Commands
             ["schedule"] = JsonSerializer.SerializeToNode(schedule),
             ["changed"] = changed,
         };
+    }
+
+    /// <summary>{"settings": {...}} as the settings file holds it, with profiles settled as startup does first.</summary>
+    private static AppSettings SettingsOf(JsonObject request)
+    {
+        var settings = request["settings"].Deserialize<AppSettings>() ?? new AppSettings();
+        settings.EnsureProfiles();
+        return settings;
+    }
+
+    private static JsonArray Names(AppSettings s) =>
+        new(s.Templates.Select(t => (JsonNode)t.Name).ToArray());
+
+    private static JsonArray ScheduleIds(AppSettings s) =>
+        new(s.Schedules.Select(x => (JsonNode)x.Id).ToArray());
+
+    /// <summary>
+    /// Runs EnsureTemplates twice, as two launches would, and returns what
+    /// each reported, the lists as they came out, and the settings as a save
+    /// would write them.
+    /// </summary>
+    private static JsonNode SettingsEnsureTemplates(JsonObject request)
+    {
+        var settings = SettingsOf(request);
+        var first = settings.EnsureTemplates();
+        var second = settings.EnsureTemplates();
+        return new JsonObject
+        {
+            ["changed_first"] = first,
+            ["changed_second"] = second,
+            ["seeded"] = settings.TemplatesSeeded,
+            ["templates"] = Names(settings),
+            ["raw_templates"] = JsonSerializer.SerializeToNode(settings.Templates),
+            ["schedules"] = ScheduleIds(settings),
+            ["raw_schedules"] = JsonSerializer.SerializeToNode(settings.Schedules),
+            ["saved"] = JsonSerializer.SerializeToNode(settings),
+        };
+    }
+
+    /// <summary>{"settings", "id"} -> the schedules that start it, then what DeleteTemplate left.</summary>
+    private static JsonNode SettingsDeleteTemplate(JsonObject request)
+    {
+        var settings = SettingsOf(request);
+        var id = (string)request["id"]!;
+        var usedBy = new JsonArray(settings.SchedulesUsing(id).Select(x => (JsonNode)x.Id).ToArray());
+        var removed = settings.DeleteTemplate(id);
+        return new JsonObject
+        {
+            ["used_by"] = usedBy,
+            ["removed"] = removed,
+            ["templates"] = Names(settings),
+            ["schedules"] = ScheduleIds(settings),
+        };
+    }
+
+    /// <summary>{"settings"} -> how many built-ins RestoreBuiltInTemplates added, and the names after.</summary>
+    private static JsonNode SettingsRestore(JsonObject request)
+    {
+        var settings = SettingsOf(request);
+        var added = settings.RestoreBuiltInTemplates();
+        return new JsonObject { ["added"] = added, ["templates"] = Names(settings) };
+    }
+
+    /// <summary>{"settings", "template_id"} -> the name of the profile that template runs with.</summary>
+    private static JsonNode SettingsProfileFor(JsonObject request)
+    {
+        var settings = SettingsOf(request);
+        var template = settings.FindTemplate((string)request["template_id"]!)!;
+        return new JsonObject { ["profile"] = settings.ProfileFor(template).Name };
     }
 
     private static JsonNode? Do(Action action)

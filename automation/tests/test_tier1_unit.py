@@ -3248,7 +3248,7 @@ class TestDataPrivacyExport:
         the export, or the export is not actually "everything"."""
         method = self._export_method()
         for field in ("blockedApps", "sessions", "momentumScore", "currentStreak",
-                      "dailyGoal", "sleepBlocking", "licence"):
+                      "dailyGoal", "sleepBlocking", "licence", "studyTemplates", "sprintSchedules"):
             assert f"{field} =" in method, f"the export is missing {field!r}"
 
     def test_the_licence_section_only_has_non_secret_fields(self):

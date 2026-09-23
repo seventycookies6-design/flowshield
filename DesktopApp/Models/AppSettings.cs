@@ -499,6 +499,82 @@ public class AppSettings
         return wanted;
     }
 
+    // ---- study templates and schedules (F6) -----------------------------
+
+    /// <summary>Named ways to run a sprint. Seeded with the three built-ins once.</summary>
+    public List<StudyTemplate> Templates { get; set; } = new();
+
+    /// <summary>When templates start by themselves.</summary>
+    public List<SprintSchedule> Schedules { get; set; } = new();
+
+    /// <summary>
+    /// Set once the built-ins have been added, so someone who deletes every
+    /// template doesn't find them back on the next launch.
+    /// </summary>
+    public bool TemplatesSeeded { get; set; }
+
+    /// <summary>The template with this id, or null. An empty id never matches.</summary>
+    public StudyTemplate? FindTemplate(string? id) =>
+        string.IsNullOrEmpty(id)
+            ? null
+            : Templates.FirstOrDefault(t => string.Equals(t.Id, id, StringComparison.Ordinal));
+
+    /// <summary>
+    /// Seeds the built-ins on first run, repairs anything out of range, and
+    /// drops schedules whose template no longer exists. Run once at startup,
+    /// after <see cref="EnsureProfiles"/>. True if anything changed.
+    /// </summary>
+    public bool EnsureTemplates()
+    {
+        var changed = false;
+
+        // A hand-edited file can hold null for either list; like
+        // Normalize, filling one in counts as a change.
+        if (Templates is null) { Templates = new List<StudyTemplate>(); changed = true; }
+        if (Schedules is null) { Schedules = new List<SprintSchedule>(); changed = true; }
+
+        if (!TemplatesSeeded)
+        {
+            Templates.AddRange(StudyTemplate.BuiltIns());
+            TemplatesSeeded = true;
+            changed = true;
+        }
+
+        foreach (var template in Templates) changed |= template.Normalize();
+        foreach (var schedule in Schedules) changed |= schedule.Normalize();
+
+        changed |= Schedules.RemoveAll(s => FindTemplate(s.TemplateId) is null) > 0;
+        return changed;
+    }
+
+    /// <summary>Re-adds any built-in that is missing; never touches the user's own. Returns how many came back.</summary>
+    public int RestoreBuiltInTemplates()
+    {
+        var have = Templates.Select(t => t.BuiltInKey).ToHashSet(StringComparer.Ordinal);
+        var missing = StudyTemplate.BuiltIns().Where(b => !have.Contains(b.BuiltInKey)).ToList();
+        Templates.AddRange(missing);
+        return missing.Count;
+    }
+
+    /// <summary>The schedules that start this template, so deleting it can name them first.</summary>
+    public IReadOnlyList<SprintSchedule> SchedulesUsing(string templateId) =>
+        Schedules.Where(s => string.Equals(s.TemplateId, templateId, StringComparison.Ordinal)).ToList();
+
+    /// <summary>Deletes a template and every schedule that starts it. Returns how many schedules went with it.</summary>
+    public int DeleteTemplate(string id)
+    {
+        var template = FindTemplate(id);
+        if (template is null) return 0;
+        Templates.Remove(template);
+        return Schedules.RemoveAll(s => string.Equals(s.TemplateId, id, StringComparison.Ordinal));
+    }
+
+    /// <summary>The blocklist a template runs with: its own profile, or the active one if it has none or it was deleted.</summary>
+    public BlocklistProfile ProfileFor(StudyTemplate template) =>
+        FindProfile(template.ProfileId) ?? ActiveProfile;
+
+    // ---- sleep blocking -------------------------------------------------
+
     public bool IsSleepBlockEnabled { get; set; }
     public TimeSpan SleepBlockStartTime { get; set; } = new(22, 0, 0);
     public TimeSpan SleepBlockEndTime { get; set; } = new(6, 0, 0);

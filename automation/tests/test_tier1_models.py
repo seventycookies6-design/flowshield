@@ -234,3 +234,105 @@ class TestScheduleText:
             for text in re.findall(r'"([^"]*)"', source):
                 assert "!" not in text, f"exclamation mark in {name}: {text!r}"
                 assert text.isascii(), f"non-ascii in {name}: {text!r}"
+
+
+# ================== F6: templates and schedules in the settings file (1.0.10)
+
+def settings_json(**fields) -> dict:
+    """A settings file as 1.0.9 wrote it: two profiles, no Templates, Schedules or TemplatesSeeded."""
+    base = {"Profiles": [{"Id": "p1", "Name": "School", "Apps": []},
+                         {"Id": "p2", "Name": "Everything", "Apps": []}],
+            "ActiveProfileId": "p1"}
+    base.update(fields)
+    return base
+
+
+class TestTemplatesInSettings:
+    """F6: templates and schedules live in the encrypted settings file."""
+
+    def test_a_1_0_9_settings_file_gets_the_built_ins_once(self):
+        out = probe({"cmd": "settings-ensure-templates", "settings": settings_json()})
+        assert out["changed_first"] is True and out["changed_second"] is False
+        assert out["templates"] == ["Homework evening", "Exam prep", "Light study"]
+        assert out["seeded"] is True
+
+    def test_deleting_every_template_does_not_bring_them_back(self):
+        out = probe({"cmd": "settings-ensure-templates",
+                     "settings": settings_json(Templates=[], TemplatesSeeded=True)})
+        assert out["templates"] == [] and out["changed_first"] is False
+
+    def test_the_seeded_mark_is_saved_with_the_file(self):
+        """The next launch reads what this one saved: seed, save, delete them all, load again."""
+        first = probe({"cmd": "settings-ensure-templates", "settings": settings_json()})
+        saved = first["saved"]
+        saved["Templates"] = []
+        out = probe({"cmd": "settings-ensure-templates", "settings": saved})
+        assert out["templates"] == [] and out["changed_first"] is False
+
+    def test_a_schedule_whose_template_is_gone_is_removed_on_load(self):
+        s = {"Id": "s1", "TemplateId": "missing", "Days": [1], "StartMinuteOfDay": 1020}
+        out = probe({"cmd": "settings-ensure-templates",
+                     "settings": settings_json(Templates=[], TemplatesSeeded=True, Schedules=[s])})
+        assert out["schedules"] == [] and out["changed_first"] is True
+
+    def test_load_repairs_a_template_and_a_schedule_out_of_range(self):
+        t = {"Id": "t1", "Name": "Mine", "SprintMinutes": 500, "Shield": 2}
+        s = {"Id": "s1", "TemplateId": "t1", "Days": [4, 1, 1], "StartMinuteOfDay": 1020}
+        out = probe({"cmd": "settings-ensure-templates",
+                     "settings": settings_json(Templates=[t], TemplatesSeeded=True, Schedules=[s])})
+        assert out["changed_first"] is True and out["changed_second"] is False
+        assert out["raw_templates"][0]["SprintMinutes"] == 240
+        assert out["raw_schedules"][0]["Days"] == [1, 4]
+
+    @pytest.mark.parametrize("field", ["Templates", "Schedules"])
+    def test_a_null_list_from_a_hand_edited_file_counts_as_a_change(self, field):
+        out = probe({"cmd": "settings-ensure-templates",
+                     "settings": settings_json(TemplatesSeeded=True, **{field: None})})
+        assert out["changed_first"] is True and out["changed_second"] is False
+
+    def test_deleting_a_template_deletes_its_schedules(self):
+        t = {"Id": "t1", "Name": "Mine", "SprintMinutes": 30, "Shield": 2}
+        keep = {"Id": "s2", "TemplateId": "t2", "Days": [2], "StartMinuteOfDay": 600}
+        gone = {"Id": "s1", "TemplateId": "t1", "Days": [1], "StartMinuteOfDay": 1020}
+        t2 = {"Id": "t2", "Name": "Other", "SprintMinutes": 30, "Shield": 2}
+        out = probe({"cmd": "settings-delete-template", "id": "t1",
+                     "settings": settings_json(Templates=[t, t2], TemplatesSeeded=True,
+                                               Schedules=[gone, keep])})
+        assert out["used_by"] == ["s1"], "the confirmation names the schedules that go with it"
+        assert out["removed"] == 1
+        assert out["templates"] == ["Other"] and out["schedules"] == ["s2"]
+
+    def test_deleting_an_unknown_template_changes_nothing(self):
+        t = {"Id": "t1", "Name": "Mine", "SprintMinutes": 30, "Shield": 2}
+        s = {"Id": "s1", "TemplateId": "t1", "Days": [1], "StartMinuteOfDay": 1020}
+        out = probe({"cmd": "settings-delete-template", "id": "nope",
+                     "settings": settings_json(Templates=[t], TemplatesSeeded=True, Schedules=[s])})
+        assert out["removed"] == 0
+        assert out["templates"] == ["Mine"] and out["schedules"] == ["s1"]
+
+    def test_restore_adds_only_the_missing_built_ins(self):
+        first = probe({"cmd": "settings-ensure-templates", "settings": settings_json()})
+        kept = [t for t in first["raw_templates"] if t["BuiltInKey"] != "exam"]
+        out = probe({"cmd": "settings-restore-builtins",
+                     "settings": settings_json(Templates=kept, TemplatesSeeded=True)})
+        assert out["added"] == 1
+        assert sorted(out["templates"]) == ["Exam prep", "Homework evening", "Light study"]
+
+    def test_restore_leaves_the_users_own_templates_alone(self):
+        mine = {"Id": "t1", "Name": "Mine", "SprintMinutes": 30, "Shield": 2}
+        out = probe({"cmd": "settings-restore-builtins",
+                     "settings": settings_json(Templates=[mine], TemplatesSeeded=True)})
+        assert out["added"] == 3
+        assert out["templates"] == ["Mine", "Homework evening", "Exam prep", "Light study"]
+
+    @pytest.mark.parametrize("profile_id,expected", [("p2", "Everything"), ("", "School"),
+                                                     ("deleted", "School")])
+    def test_a_template_uses_its_profile_or_the_active_one(self, profile_id, expected):
+        t = {"Id": "t1", "Name": "Mine", "SprintMinutes": 30, "Shield": 2, "ProfileId": profile_id}
+        out = probe({"cmd": "settings-profile-for", "template_id": "t1",
+                     "settings": settings_json(Templates=[t], TemplatesSeeded=True)})
+        assert out["profile"] == expected
+
+    def test_startup_ensures_templates_after_profiles(self):
+        source = (Path(SERVER_DIR).parent / "DesktopApp" / "ViewModels" / "MainViewModel.cs").read_text(encoding="utf-8")
+        assert source.index("Settings.EnsureProfiles()") < source.index("Settings.EnsureTemplates()")

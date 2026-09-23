@@ -32,6 +32,11 @@ public static class DataPrivacyService
             blocklistProfiles = settings.Profiles,
             activeProfileId = settings.ActiveProfileId,
 
+            // F6: templates and schedules are stored locally too, so they're
+            // part of "everything".
+            studyTemplates = settings.Templates,
+            sprintSchedules = settings.Schedules,
+
             sleepBlocking = new
             {
                 enabled = settings.IsSleepBlockEnabled,
