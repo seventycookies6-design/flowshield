@@ -539,8 +539,14 @@ class TestSoftFriction:
     def test_the_wait_before_allow_grows(self, try_number, seconds):
         assert probe({"cmd": "soft-wait", "try": try_number})["seconds"] == seconds
 
-    def test_short_timers_make_every_wait_one_second(self):
-        assert probe({"cmd": "soft-wait", "try": 4, "short": True})["seconds"] == 1
+    @pytest.mark.parametrize("try_number", [1, 4])
+    def test_short_timers_make_every_wait_three_seconds(self, try_number):
+        """
+        Three, not one: long enough for the UI suite to see Allow disabled
+        before the wait runs out (a UIA lookup costs most of a second), short
+        enough that no test waits on it.
+        """
+        assert probe({"cmd": "soft-wait", "try": try_number, "short": True})["seconds"] == 3
 
     def test_close_and_back_to_work_count_as_turned_back_and_allow_does_not(self):
         out = probe({"cmd": "soft-sequence", "steps": [
@@ -554,12 +560,35 @@ class TestSoftFriction:
         assert out["results"][-1] == 2
 
     def test_close_goes_quiet_like_back_to_work(self):
+        """
+        A quick bounce out of the app and back inside the quiet window says
+        nothing, as after Back to work; a later return is a fresh sighting.
+        """
         out = probe({"cmd": "soft-sequence", "steps": [
             {"op": "show", "app": "Discord", "at": 0}, {"op": "close", "app": "Discord", "at": 0},
+            {"op": "left"},
             {"op": "show", "app": "Discord", "at": 1}, {"op": "left"},
             {"op": "show", "app": "Discord", "at": 30},
         ]})
-        assert out["results"][2] is False and out["results"][4] is True
+        assert out["results"][3] is False and out["results"][5] is True
+
+    def test_close_keeps_the_notice_down_while_the_app_stays_in_front(self):
+        """
+        After Close the app may well stay in front: its own "save changes?"
+        prompt is up, or it ignores the ask. Quietening it like Back to work
+        put the full-screen notice back over that prompt five seconds later as
+        a "2nd try". The sighting is answered, not cleared: nothing shows again
+        until the app has left the foreground and come back.
+        """
+        out = probe({"cmd": "soft-sequence", "steps": [
+            {"op": "show", "app": "Discord", "at": 0}, {"op": "close", "app": "Discord", "at": 0},
+            {"op": "show", "app": "Discord", "at": 10},
+            {"op": "left"},
+            {"op": "show", "app": "Discord", "at": 11},
+        ]})
+        assert out["results"][2] is False, "the same sighting, long after the quiet window"
+        assert out["results"][3] is False, "Close already took the notice down"
+        assert out["results"][4] is True, "left and came back: a fresh sighting"
 
     def test_a_new_sprint_starts_counting_again(self):
         out = probe({"cmd": "soft-sequence", "steps": [
@@ -585,6 +614,9 @@ class TestSoftFriction:
                             "ends": "2026-09-28T17:45:00"})["sentence"] for n in range(1, 6)]
         assert len(set(sentences[:4])) == 4 and sentences[4] == sentences[0]
         assert all("Discord" in s or "this time" in s for s in sentences)
+        # DESIGN_SYSTEM.md section 7: one sentence, and none of them ends in a
+        # full stop, so a full stop in the middle is a second sentence.
+        assert all(". " not in s and not s.endswith(".") for s in sentences), sentences
 
     @pytest.mark.parametrize("seconds,label", [(8, "Allow 5 minutes · 0:08"),
                                                (30, "Allow 5 minutes · 0:30"),
@@ -596,3 +628,7 @@ class TestSoftFriction:
         assert probe({"cmd": "soft-copy", "try": 1, "intention": "  "})["intention"] == ""
         assert probe({"cmd": "soft-copy", "try": 1, "intention": "finish chapter 3"})["intention"] \
             == "You planned: finish chapter 3"
+
+    def test_the_note_under_the_buttons_is_softs_promise(self):
+        """One wording, read by the notice and the Settings caption alike."""
+        assert probe({"cmd": "soft-copy", "try": 1})["close_note"] == "Nothing is closed unless you choose to."

@@ -8108,7 +8108,7 @@ class TestTheUiSuiteCanObserveWhatItAsserts:
 
     def test_the_soft_allow_wait_is_observed_with_real_timers(self):
         """
-        The Soft notice's Allow wait is one second under --short-timers
+        The Soft notice's Allow wait is three seconds under --short-timers
         (SoftOverlayPolicy.AllowWait; the 1.0.10 spec fixes it there), which
         is under OBSERVABLE_SECONDS: a tier 3 test asserting "Allow is still
         disabled" against it would be asserting on its own speed, #242's trap

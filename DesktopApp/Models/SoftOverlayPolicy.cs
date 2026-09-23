@@ -16,10 +16,16 @@ namespace FlowShield.Models;
 ///     the notice on every sweep while Discord is still in front would be a
 ///     flashing box, not a nudge, so it shows when the app <i>becomes</i> the
 ///     foreground window and not again until something else has been in front.
+///     Close leans on this rule hardest: the app may well stay in front after
+///     the ask (its own "save changes?" prompt, or an app that ignores it),
+///     and the notice must not come back over that prompt. So Close answers
+///     the sighting rather than clearing it, and nothing shows again until the
+///     app has left the foreground and returned.
 ///   * <b>a suppression window.</b> "Allow 5 minutes" means five minutes of
 ///     silence for that app. "Back to work" gets a few quiet seconds too —
 ///     bringing FlowShield forward takes a moment, and the notice must not
-///     reappear in the gap before it does.
+///     reappear in the gap before it does. Close keeps the same few seconds,
+///     so a quick bounce out of the app and back does not re-trigger it.
 ///
 /// Kept free of UI, timers and Win32 so both rules can be tested on their own
 /// (tier 1). The sighting is still counted as a distraction by
@@ -43,11 +49,13 @@ public class SoftOverlayPolicy
     /// <summary>
     /// The wait before "Allow 5 minutes" can be pressed: 5, 10, 20, then 30
     /// seconds for every later try this sprint. A wait helped in the one sec
-    /// study; one that grows keeps it from going stale.
+    /// study; one that grows keeps it from going stale. Under --short-timers
+    /// every try waits three seconds: long enough for the UI suite to see the
+    /// button disabled before the wait runs out, short enough not to wait on.
     /// </summary>
     public static TimeSpan AllowWait(int tryNumber)
     {
-        if (UseShortTimers) return TimeSpan.FromSeconds(1);
+        if (UseShortTimers) return TimeSpan.FromSeconds(3);
         return TimeSpan.FromSeconds(tryNumber switch
         {
             <= 1 => 5,
@@ -112,11 +120,20 @@ public class SoftOverlayPolicy
         Quieten(displayName, nowUtc, BackToWorkQuiet);
     }
 
-    /// <summary>"Close Discord": the user chose to close it. Counts as turned back and goes quiet like Back to work.</summary>
+    /// <summary>
+    /// "Close Discord": the user chose to close it. Counts as turned back and
+    /// takes the notice down, with the same few quiet seconds as Back to work
+    /// for a quick bounce. Unlike Back to work it keeps the sighting: the app
+    /// may stay in front (its own "save changes?" prompt, or an app that
+    /// ignores the ask), and the notice must not come back over that. It shows
+    /// again only once the app has left the foreground and returned, which
+    /// <see cref="LeftTheForeground"/> already handles.
+    /// </summary>
     public void CloseIt(string displayName, DateTime nowUtc)
     {
         TurnedBack++;
-        Quieten(displayName, nowUtc, BackToWorkQuiet);
+        _quietUntil[displayName] = nowUtc + BackToWorkQuiet;
+        _showing = false;
     }
 
     private void Quieten(string displayName, DateTime nowUtc, TimeSpan window)
@@ -166,7 +183,7 @@ public static class SoftOverlayCopy
             0 => $"{displayName} is on your blocklist until {until}",
             1 => $"You set this time aside until {until}",
             2 => $"{displayName} can wait until {until}",
-            _ => $"This sprint runs until {until}. {displayName} will still be there",
+            _ => $"{displayName} will still be there after {until}",
         };
     }
 

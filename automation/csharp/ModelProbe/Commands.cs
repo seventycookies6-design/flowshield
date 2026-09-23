@@ -84,10 +84,18 @@ internal static class Commands
     /// <summary>{"try": n, "short": bool}: the wait before Allow on try n, in seconds.</summary>
     private static JsonNode SoftWait(JsonObject request)
     {
+        // The flag is static: reset it even when the request is malformed, so
+        // it cannot leak into a later command in the same process.
         SoftOverlayPolicy.UseShortTimers = (bool?)request["short"] ?? false;
-        var seconds = SoftOverlayPolicy.AllowWait((int)request["try"]!).TotalSeconds;
-        SoftOverlayPolicy.UseShortTimers = false;
-        return new JsonObject { ["seconds"] = seconds };
+        try
+        {
+            var seconds = SoftOverlayPolicy.AllowWait((int)request["try"]!).TotalSeconds;
+            return new JsonObject { ["seconds"] = seconds };
+        }
+        finally
+        {
+            SoftOverlayPolicy.UseShortTimers = false;
+        }
     }
 
     /// <summary>
@@ -105,6 +113,7 @@ internal static class Commands
             ["try_line"] = SoftOverlayCopy.TryLine(n),
             ["intention"] = SoftOverlayCopy.Intention((string?)request["intention"]),
             ["allow_label"] = SoftOverlayCopy.AllowLabel(TimeSpan.FromSeconds((double?)request["allow_left"] ?? 0)),
+            ["close_note"] = SoftOverlayCopy.CloseNote,
         };
     }
 

@@ -237,7 +237,8 @@ In `SoftOverlayPolicy` (pure, tier 1):
   across all apps. `Reset()` at sprint start and end already clears state; it
   also clears the count.
 - Wait for try *n*: 5 s, 10 s, 20 s, then 30 s for every later try.
-  `--short-timers` makes every wait 1 s.
+  `--short-timers` makes every wait 3 s (long enough for the UI suite to see
+  Allow disabled before the wait runs out).
 - **Close** and **Back to work** each count as one *turned back*; **Allow**
   does not.
 - The "Allow 5 minutes" quiet window and the "Back to work" quiet seconds are

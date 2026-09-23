@@ -515,11 +515,12 @@ class TestSoftShowsTheNotice:
         """
         A fresh FlowShield with the real Soft waits, not --short-timers.
 
-        Under --short-timers Allow's wait is one second, and a wait that short
-        is one the suite cannot see into: a UIA lookup plus an IsEnabled read
-        can cost most of it, so a test asserting "still disabled" would be
-        asserting on its own speed (#242; OBSERVABLE_SECONDS in tier 5). The
-        real first-try wait is five seconds, which is long enough to observe.
+        Under --short-timers Allow's wait is three seconds, still under the
+        floor the suite can see into: a UIA lookup plus an IsEnabled read can
+        cost a second or more, so a test asserting "still disabled" against a
+        short wait would be asserting on its own speed (#242; OBSERVABLE_SECONDS
+        in tier 5). The real first-try wait is five seconds, which is long
+        enough to observe, and it is the wait a customer gets.
         """
         from config import APP_EXE
         from desktop.app_controller import DesktopController
@@ -739,7 +740,7 @@ class TestSoftShowsTheNotice:
         """
         1.0.10: Allow 5 minutes waits (5, 10, 20, then 30 s) before it can be
         pressed; Close works at once; the try count shows. Run with the real
-        five-second first-try wait: the one-second --short-timers wait is
+        five-second first-try wait: the three-second --short-timers wait is
         shorter than the suite can observe (see real_wait_app).
         """
         process = self._decoy()
