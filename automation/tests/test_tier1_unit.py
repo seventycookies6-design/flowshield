@@ -738,6 +738,15 @@ class TestSprintResume:
         assert resume_decision(started, planned, last_seen) == "RecordCompleted", \
             "the old estimate cannot tell these apart; that is the bug"
 
+    @pytest.mark.parametrize("watched,expected", [
+        (2, "RecordInterrupted"),
+        (29.9, "RecordInterrupted"),
+        (30, "RecordCompleted"),
+        (59.5, "RecordCompleted"),  # the last heartbeat was 30 seconds before time was up
+    ])
+    def test_time_up_uses_the_watched_fraction(self, watched, expected):
+        assert resume_decision(60, 60, 0.5, watched) == expected
+
     def test_a_settings_file_without_the_field_falls_back_to_the_old_estimate(self):
         source = self.SOURCE.read_text(encoding="utf-8")
         assert "public double? WatchedMinutes" in source, \
