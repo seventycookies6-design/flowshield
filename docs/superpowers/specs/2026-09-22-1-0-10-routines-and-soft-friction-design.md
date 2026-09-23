@@ -67,15 +67,20 @@ Soft sprint). Those touch `TodayViewModel` (`OnTick`, `EndSprint`,
 
 Both live in `AppSettings` (the existing encrypted settings file).
 
-**`StudyTemplate`** — `Id` (Guid string), `Name`, `SprintMinutes` (5–240),
-`Shield`, `CycleSprints` (one of `CycleState.CycleChoices`: 0 for a single
-sprint, or 2, 3, 4), `BreakMinutes` (1–60), `ProfileId` (a
-`BlocklistProfile.Id`; empty, or naming a deleted profile, means the active
-profile), `BuiltInKey` ("homework", "exam", "light", or empty for the user's
-own, so **Restore built-ins** knows which is missing). `AppSettings` also
-records `TemplatesSeeded`, so deleting every template is respected.
+**`StudyTemplate`** — `Id` (Guid string, assigned by `Normalize()` when a
+record has none, and reported as a change so it is saved), `Name` (unique:
+a second "Mine" becomes "Mine 2", as profiles do, both when saving from the
+editor and when loading a file), `SprintMinutes` (5–240), `Shield`,
+`CycleSprints` (one of `CycleState.CycleChoices`: 0 for a single sprint, or 2,
+3, 4), `BreakMinutes` (1–60), `ProfileId` (a `BlocklistProfile.Id`; empty, or
+naming a deleted profile, means the active profile), `BuiltInKey`
+("homework", "exam", "light", or empty for the user's own, so **Restore
+built-ins** knows which is missing). `AppSettings` also records
+`TemplatesSeeded`, so deleting every template is respected.
 
-Three built-ins, seeded when the list is empty on first load:
+Three built-ins, seeded once, on the first load without the `TemplatesSeeded`
+mark (never again because the list is empty, and never a second copy of one
+that is already there):
 
 | Name | Sprints | Shield | Break |
 |---|---|---|---|
@@ -90,24 +95,29 @@ A template's `BreakMinutes` applies to the breaks of the cycle it started
 only. The global break settings (`ShortBreakMinutes`, `LongBreakMinutes`) are
 unchanged and still apply to sprints started by hand.
 
-**`SprintSchedule`** — `Id`, `TemplateId`, `Days` (a set of `DayOfWeek`),
-`StartLocal` (hour and minute), `AskFirst` (default true), `Enabled` (default
-true), `SkippedDatesLocal` (dates the user chose **Skip today**; pruned to the
-last 14 days on save).
+**`SprintSchedule`** — `Id` (assigned by `Normalize()` like a template's),
+`TemplateId`, `Days` (a set of `DayOfWeek`), `StartMinuteOfDay` (minutes
+after local midnight, 0–1439), `AskFirst` (default true), `Enabled` (default
+true), `SkippedDatesLocal` (dates the user chose **Skip today**, stored as
+plain dates with no time-zone offset; pruned to the last 14 days whenever a
+skip is added).
 
 A schedule has a start time only. The template's length decides when the
 sprint ends, which avoids the midnight-spanning bugs LeechBlock users report.
-Deleting a template deletes its schedules, after a confirmation that names
-them.
+Deleting a template deletes its schedules, after a confirmation that says how
+many go with it.
 
 ### 3.2 Matching
 
-`ScheduleMatcher` is pure (no timers, no UI) and answers:
+`ScheduleMatcher` is pure (no timers, no UI) and answers in UTC, so no
+comparison depends on what the wall clock is doing:
 
-- `NextOccurrence(schedule, nowLocal)` — the next local start at or after now,
-  for the schedule's days.
-- `Due(schedule, nowLocal, lastCheckedLocal)` — whether a start fell in the
-  interval since the last check.
+- `NextStartUtc(schedule, afterUtc, zone)` — the first start strictly after
+  `afterUtc`, for the schedule's days, or null when no day is chosen.
+- `StartsBetweenUtc(schedule, fromUtcExclusive, toUtcInclusive, zone)` — every
+  start in the window `(from, to]`, oldest first. The window is clamped to
+  the last 8 days: nothing more than a week late is ever acted on, so an
+  unset last check (`DateTime.MinValue`) is safe.
 
 Daylight saving:
 
@@ -160,18 +170,20 @@ Top to bottom:
 
 1. **Next up** — one line: "Next: tonight 17:00 · Homework evening", or "No
    schedules yet".
-2. **Your schedules** — one row each: template name, days, time, an **Ask
-   first** switch, an on/off switch, **Edit**, **Delete**. **Add schedule**
-   opens an inline editor: template picker, Mon–Sun day chips, a time field,
-   **Ask first**. Save is disabled until a template and at least one day are
-   chosen.
+2. **Your schedules** — one row each: template name, days, time and "asks
+   first" when it does (changed through **Edit**, not a switch on the row),
+   an on/off switch, **Edit**, **Delete**. **Add schedule** opens an inline
+   editor: template picker, Mon–Sun day chips, a time field, **Ask first**.
+   Save is disabled until a template and at least one day are chosen.
 3. **Templates** — one row each with **Edit** (name, sprint length, shield,
    sprints in the cycle, break length, blocklist profile) and **Delete**;
    **New template** and **Restore built-ins** below the list.
 4. **Sleep window** — the existing section, unchanged. Miles's Roadmap 3.7
    reworks this part later.
 
-During a Sealed sprint the page is read-only, like the blocklist.
+During a Sealed sprint the schedules and templates are read-only, like the
+blocklist: every change is refused in the view model, not only greyed out.
+The embedded sleep window is unchanged (it keeps its own trial lock only).
 
 ### 3.5 Templates on Today
 
@@ -270,7 +282,10 @@ heading) and ticks what it ships in `LAUNCH_FEATURE_CHECKLIST.md`.
 | E | Jump List (§5) | After 1.0.9 and A | tier 1, tier 3, tier 5 |
 
 The models and the page are one PR because a page PR stacked on an unmerged
-models PR is the stacked-PR problem `CLAUDE.md` warns about. Tier 1 gains a
+models PR is the stacked-PR problem `CLAUDE.md` warns about. PR A (the page)
+and PR C (the scheduler) merge the same night, and no release is cut from
+`main` between them: the page's copy describes starts that only C performs,
+and a build with A but not C would claim a feature it lacks (ruling R7). Tier 1 gains a
 small probe (`automation/csharp/ModelProbe`) that compiles
 `DesktopApp/Models` as it is, so the date, time-zone and Soft rules are tested
 in .NET rather than only in Python mirrors.

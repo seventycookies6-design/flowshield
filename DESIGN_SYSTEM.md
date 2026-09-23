@@ -172,7 +172,7 @@ All roles are Inter.
   - **App:** a 240 px navigation rail and a content area that every page uses at full width, aligned with its page title. No page sits in a fixed-width column in the middle of the window.
   - **The app adapts to its window.** Each breakpoint reads the width the element actually has, not the window's, so a view responds to its own space:
     - **Rail:** below a 1000 px window client width it compacts to 72 px of icons, with the names as tooltips (`MainWindow.CompactRailBelow`).
-    - **Settings-like pages** (Settings, Sleep Blocking) flow their cards into as many columns as fit at 400 px or more each, up to three, in order, balancing the heights (`inf:AdaptiveColumns`). Put the gaps in the panel's `Spacing`, not in the cards' margins.
+    - **Settings-like pages** (Settings, Schedule) flow their cards into as many columns as fit at 400 px or more each, up to three, in order, balancing the heights (`inf:AdaptiveColumns`). Put the gaps in the panel's `Spacing`, not in the cards' margins.
     - **Two-pane pages** give the side pane a proportional width with a minimum and maximum, never a fixed one: Today's stats (`0.4*`, 300–420 px) and Blocked Apps' picker (`0.65*`, 260–460 px). Below a view width of 700 px (Today) or 780 px (Blocked Apps), the side pane stacks under the main one and the page scrolls.
     - **Fully round shapes** use `inf:Pill.IsRound`, never a huge `CornerRadius` (WPF draws that as an ellipse).
     - Settings is six labelled groups with a section rail; below 900px the rail becomes a chip row.
