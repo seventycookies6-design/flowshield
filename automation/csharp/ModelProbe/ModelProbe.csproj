@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Tier 1's window into the real C# rules (1.0.10). Compiles
+       DesktopApp/Models as it is, so a rule is tested in .NET rather than
+       in a Python copy of it. Models must stay free of views, view models
+       and services for this to build; Services.Log is stubbed. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>FlowShield.ModelProbe</RootNamespace>
+    <AssemblyName>ModelProbe</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="..\..\..\DesktopApp\Models\**\*.cs" LinkBase="Models" />
+  </ItemGroup>
+</Project>
