@@ -20,6 +20,10 @@ namespace ThemeProbe;
 /// exactly the dictionaries App.xaml merges, in exactly the way it spells them
 /// — which is the part a hand-built probe gets wrong and a source test cannot
 /// see at all.
+///
+/// With the same real resources it also measures the break captions in the
+/// app's Caption style and embedded Inter (#301), because whether a line fits
+/// inside the timer ring is a question about pixels, not about source text.
 /// </summary>
 internal static class Program
 {
@@ -49,6 +53,8 @@ internal static class Program
 
             ThemeService.Apply(AppTheme.Dark);
             report["dark"] = Snapshot();
+
+            report["breakCaptions"] = BreakCaptions();
 
             Console.WriteLine(JsonSerializer.Serialize(report));
             return 0;
@@ -82,6 +88,46 @@ internal static class Program
         snapshot["heatTop"] = HeatStep(4);
 
         return snapshot;
+    }
+
+    /// <summary>
+    /// Each break caption (#301) as the app lays it out: a TextBlock in the
+    /// Caption style, measured at unlimited width. That is what the ring does
+    /// too — the state line sits in a horizontal StackPanel, which measures its
+    /// text at infinite width, so the caption never wraps. The font file is
+    /// reported so a test can tell measured Inter from a silent fallback.
+    /// </summary>
+    private static List<Dictionary<string, object?>> BreakCaptions()
+    {
+        var style = Application.Current.TryFindResource("Caption") as Style;
+        var captions = new List<Dictionary<string, object?>>();
+        foreach (var inSleepWindow in new[] { false, true })
+        {
+            foreach (var resumed in new[] { false, true })
+            {
+                var text = BreakCopy.Caption(inSleepWindow, resumed);
+                var block = new System.Windows.Controls.TextBlock { Text = text };
+                if (style is not null) block.Style = style;
+                block.Measure(new System.Windows.Size(double.PositiveInfinity, double.PositiveInfinity));
+
+                var typeface = new Typeface(block.FontFamily, block.FontStyle, block.FontWeight, block.FontStretch);
+                var font = typeface.TryGetGlyphTypeface(out var glyphs)
+                    ? glyphs.FontUri.Segments.LastOrDefault()
+                    : null;
+
+                captions.Add(new Dictionary<string, object?>
+                {
+                    ["inSleepWindow"] = inSleepWindow,
+                    ["resumed"] = resumed,
+                    ["text"] = text,
+                    ["styled"] = style is not null,
+                    ["fontSize"] = block.FontSize,
+                    ["font"] = font,
+                    ["width"] = Math.Round(block.DesiredSize.Width, 1),
+                });
+            }
+        }
+        return captions;
     }
 
     private static string? GlyphColour(string key)
