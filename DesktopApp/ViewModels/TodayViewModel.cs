@@ -1319,8 +1319,10 @@ public class TodayViewModel : ViewModelBase
                     StartedUtc = saved.StartedUtc,
                     // An interrupted sprint ends where watching stopped, so its
                     // ActualMinutes (the minutes goal, History, the heatmap) is
-                    // time actually enforced, not the whole planned length.
-                    EndedUtc = completed ? saved.EndsUtc : saved.StartedUtc + TimeSpan.FromMinutes(saved.WatchedSoFar),
+                    // time actually enforced, not the whole planned length. A
+                    // completed one ends at EndsUtc: its time is already up.
+                    EndedUtc = RunningSprint.RecordedEnd(saved.StartedUtc, saved.EndsUtc,
+                        saved.WatchedSoFar, now, completed, interrupted: !completed),
                     PlannedMinutes = saved.PlannedMinutes,
                     Shield = saved.Shield,
                     MomentumAtStart = saved.MomentumAtStart,
@@ -1451,12 +1453,13 @@ public class TodayViewModel : ViewModelBase
         CloseEndPanel(keepGoing: false);
         IsRunning = false;
 
-        // An interrupted sprint "ends" where FlowShield stopped watching it, so
-        // ActualMinutes — what the minutes goal and the focus tiles add up —
-        // is the time the shield was actually up, not the hours asleep.
-        _current.EndedUtc = interrupted
-            ? _current.StartedUtc + TimeSpan.FromMinutes(S.ActiveSprint?.WatchedSoFar ?? 0)
-            : DateTime.UtcNow;
+        // An interrupted sprint "ends" where FlowShield stopped watching it, and
+        // a completed one no later than planned, so ActualMinutes — what the
+        // minutes goal and the focus tiles add up — is the time the shield was
+        // actually up, not the hours asleep (#203, #300).
+        _current.EndedUtc = RunningSprint.RecordedEnd(
+            _current.StartedUtc, _endsAtUtc, S.ActiveSprint?.WatchedSoFar ?? 0,
+            DateTime.UtcNow, completed, interrupted);
         _current.Completed = completed;
         _current.Interrupted = interrupted;
         _current.BlocksEnforced = _blocksThisSprint;

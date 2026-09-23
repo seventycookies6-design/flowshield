@@ -784,6 +784,58 @@ class TestSprintResume:
             "WatchedSoFar must prefer WatchedMinutes and fall back when it is null"
 
 
+def recorded_end(started: float, planned_end: float, watched: float, now: float,
+                 completed: bool, interrupted: bool) -> float:
+    """
+    Mirror of RunningSprint.RecordedEnd, in minutes on one timeline: when a
+    sprint that has just ended is recorded as ending, which is all
+    FocusSession.ActualMinutes measures.
+    """
+    if interrupted:
+        return started + watched
+    return planned_end if completed and now > planned_end else now
+
+
+class TestASprintIsRecordedAsEndingWhenItDid:
+    """
+    #300: a sprint finished by the first tick after the PC woke was stamped
+    with the wake time, so the whole nap counted as focused minutes.
+    """
+
+    SOURCE = TestSprintResume.SOURCE
+
+    def helper(self) -> str:
+        """
+        The C# the mirror stands for. Every case reads it first, so the mirror
+        cannot go on passing after the helper is changed or deleted.
+        """
+        source = self.SOURCE.read_text(encoding="utf-8")
+        parts = source.split("public static DateTime RecordedEnd(", 1)
+        assert len(parts) == 2, "RunningSprint.RecordedEnd is what these cases describe"
+        return parts[1].split("\n    }", 1)[0]
+
+    def test_the_helper_makes_the_same_comparison(self):
+        helper = self.helper()
+        assert re.search(
+            r"completed\s*&&\s*nowUtc\s*>\s*plannedEndUtc\s*\?\s*plannedEndUtc\s*:\s*nowUtc", helper
+        ), helper
+        assert re.search(
+            r"if\s*\(\s*interrupted\s*\)\s*return\s+startedUtc\s*\+\s*"
+            r"TimeSpan\.FromMinutes\(\s*watchedMinutes\s*\)", helper
+        ), helper
+
+    # A 60-minute sprint started at minute 100, so it was due to end at 160.
+    @pytest.mark.parametrize("now,completed,interrupted,expected", [
+        (160 + 8 * 60, True, False, 160),  # finished by the first tick after an 8-hour sleep
+        (160 + 1 / 60, True, False, 160),  # finished by a tick one second late
+        (130, False, False, 130),          # ended early: when it was ended
+        (160 + 8 * 60, False, True, 110),  # interrupted: the start plus the 10 minutes watched
+    ])
+    def test_the_recorded_end(self, now, completed, interrupted, expected):
+        self.helper()
+        assert recorded_end(100, 160, 10, now, completed, interrupted) == expected
+
+
 # ============================================== ending a sprint early (F2)
 
 GRACE_SECONDS = 120
