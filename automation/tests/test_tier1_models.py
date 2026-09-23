@@ -845,6 +845,21 @@ class TestATemplatesBreakRidesWithTheSprint:
         out = probe({"cmd": "settings-ensure-templates", "settings": settings_json(ActiveSprint=self.SPRINT)})
         assert out["saved"]["ActiveSprint"]["TemplateBreakMinutes"] is None
 
+    # A restart during a break inside a template cycle must keep the
+    # template's breaks too (PR C polish, item 8), so the break carries it.
+
+    BREAK = {"StartedUtc": "2026-09-28T21:45:00Z", "EndsUtc": "2026-09-28T21:55:00Z", "Minutes": 10,
+             "SprintsPlanned": 3, "SprintsDone": 1}
+
+    def test_the_templates_break_length_is_saved_with_the_running_break(self):
+        saved = dict(self.BREAK, TemplateBreakMinutes=10)
+        out = probe({"cmd": "settings-ensure-templates", "settings": settings_json(ActiveBreak=saved)})
+        assert out["saved"]["ActiveBreak"]["TemplateBreakMinutes"] == 10
+
+    def test_a_break_saved_before_templates_uses_the_break_settings(self):
+        out = probe({"cmd": "settings-ensure-templates", "settings": settings_json(ActiveBreak=self.BREAK)})
+        assert out["saved"]["ActiveBreak"]["TemplateBreakMinutes"] is None
+
 
 # ============================ Soft friction: tries, the wait, wording (1.0.10)
 

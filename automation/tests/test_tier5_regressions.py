@@ -8835,6 +8835,40 @@ class TestScheduledSprintsGoThroughStart:
         assert re.search(r"private bool OfferedBreakIsLong\s*=>\s*_templateBreakMinutes is null\s*&&", today), \
             "a template's break is its own length, not the fourth-in-a-row long one"
 
+    def test_the_templates_break_rides_with_the_running_break_too(self):
+        """
+        PR C polish, item 8: a restart during a break inside a template cycle
+        resumed the break but not the template's break length, so the cycle's
+        later breaks fell back to Settings' lengths. RunningBreak carries it,
+        written where the break starts and restored where it resumes.
+        """
+        today = self.code(self.TODAY)
+        assert "TemplateBreakMinutes = _templateBreakMinutes," in self.member(today, "private void StartBreak()")
+        resume = self.member(today, "public void ResumeInterruptedBreak(")
+        assert "_templateBreakMinutes = saved.TemplateBreakMinutes;" in resume
+        assert resume.index("_templateBreakMinutes = saved.TemplateBreakMinutes;") < resume.index("BeginBreakClock(")
+        cycle_state = self.code(Path(DESKTOP_DIR) / "Models" / "CycleState.cs")
+        assert "public int? TemplateBreakMinutes { get; set; }" in self.member(cycle_state, "public class RunningBreak")
+
+    def test_a_chip_carries_the_templates_break_to_the_next_start(self):
+        """
+        PR C polish, item 9: a chip on Today fills in length, shield, cycle
+        and profile, and now the template's break length with them, taken up
+        by the next Start. A hand change of length, shield or cycle
+        afterwards keeps it (the chip is a preset, and the rest of the preset
+        survives such a change too); only another chip, or the start itself,
+        replaces it.
+        """
+        today = self.code(self.TODAY)
+        assert "_startingTemplateBreak = template.BreakMinutes;" in self.member(today, "public void ApplyTemplate(")
+        assert "_startingTemplateBreak = template.BreakMinutes;" not in \
+            self.member(today, "public bool StartTemplate("), "set once, where the chip and the schedule both go"
+        # Set by the chip, consumed by the start, cleared by a refused template start; nowhere else.
+        assert len(re.findall(r"_startingTemplateBreak = ", today)) == 3
+        for setter in ("public int PresetMinutes", "public string CustomMinutesText", "public bool IsCustomSelected",
+                       "public ShieldLevel SelectedShield", "public int CycleSprints"):
+            assert "_startingTemplateBreak" not in self.member(today, setter), f"{setter} must keep the chip's break"
+
     def test_only_a_run_begun_from_a_template_takes_its_breaks(self):
         """
         A cycle's later sprints keep what the run began with; a run begun any

@@ -185,6 +185,15 @@ public class RunningBreak
     public int SprintsPlanned { get; set; }
     public int SprintsDone { get; set; }
 
+    /// <summary>
+    /// The break length of the template this cycle was started from (F6), or
+    /// null for a run begun by hand, which uses the global break settings.
+    /// Carried by the break as <see cref="RunningSprint.TemplateBreakMinutes"/>
+    /// is by the sprint, so a restart during a break keeps the template's
+    /// later breaks too.
+    /// </summary>
+    public int? TemplateBreakMinutes { get; set; }
+
     public BreakResume Decide(DateTime nowUtc) =>
         EndsUtc <= nowUtc ? BreakResume.EndQuietly : BreakResume.Resume;
 

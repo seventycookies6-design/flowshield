@@ -707,6 +707,7 @@ public class TodayViewModel : ViewModelBase
             Minutes = minutes,
             SprintsPlanned = _cycle.SprintsPlanned,
             SprintsDone = _cycle.SprintsDone,
+            TemplateBreakMinutes = _templateBreakMinutes,
         };
         _main.SaveSettings();
 
@@ -833,6 +834,9 @@ public class TodayViewModel : ViewModelBase
 
         _cycle = saved.ToCycle();
         _breakEndsUtc = saved.EndsUtc;
+        // And its template's break length, if the run was begun from one
+        // (F6), so the cycle's later breaks stay the template's.
+        _templateBreakMinutes = saved.TemplateBreakMinutes;
         Raise(nameof(CycleProgressText));
         Raise(nameof(CycleProgressVisible));
         BeginBreakClock(resumed: true);
@@ -1054,9 +1058,11 @@ public class TodayViewModel : ViewModelBase
     private int? _templateBreakMinutes;
 
     /// <summary>
-    /// The break length of a template whose start is under way, taken up by
-    /// <see cref="StartSprint"/> when the start happens: at once, or after
-    /// F7's question is answered.
+    /// The break length of the template last applied to Today (a chip, or a
+    /// schedule's start), taken up by <see cref="StartSprint"/> when the
+    /// start happens: at once, or after F7's question is answered. A hand
+    /// change of length, shield or cycle in between keeps it, as it keeps
+    /// the rest of the preset; another chip replaces it.
     /// </summary>
     private int? _startingTemplateBreak;
 
@@ -1068,14 +1074,16 @@ public class TodayViewModel : ViewModelBase
     private string? _startingAnnouncedName;
 
     /// <summary>
-    /// A chip on Today: fills in length, shield, cycle and profile. Each can
-    /// still be changed (a preset, not a lock), and a sprint started by hand
-    /// afterwards keeps Settings' break lengths.
+    /// A chip on Today: fills in length, shield, cycle and profile, and the
+    /// template's break length for the next start. Each can still be changed
+    /// (a preset, not a lock); the break stays with the preset until another
+    /// chip or the start takes it.
     /// </summary>
     public void ApplyTemplate(StudyTemplate template)
     {
         if (IsRunning || IsOnBreak || _main.IsLocked) return;
 
+        _startingTemplateBreak = template.BreakMinutes;
         if (SprintLengths.Contains(template.SprintMinutes))
         {
             PresetMinutes = template.SprintMinutes;
@@ -1107,8 +1115,7 @@ public class TodayViewModel : ViewModelBase
     public bool StartTemplate(StudyTemplate template, bool skipOpenAppsPanel, bool announceByName = false)
     {
         if (IsRunning || IsOnBreak) return false;
-        ApplyTemplate(template);
-        _startingTemplateBreak = template.BreakMinutes;
+        ApplyTemplate(template);   // length, shield, cycle, profile and the break for this start
         _startingAnnouncedName = announceByName ? template.Name : null;
         if (skipOpenAppsPanel) _runningAppsAnswered = true;
         StartSprint();

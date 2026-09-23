@@ -3218,6 +3218,21 @@ class TestScheduledSprints:
         settings = verify.wait_for_settings(lambda st: st["CycleSprints"] == 3, what="the template's cycle")
         assert settings["CycleSprints"] == 3
 
+    def test_a_chip_carries_the_templates_break_to_a_hand_start(self, fresh_app):
+        """
+        PR C polish, item 9: the chip's preset includes the template's break
+        length, and a hand change of length afterwards keeps it, so the
+        sprint started by Start takes the template's breaks (Light study: 5).
+        """
+        fresh_app.click("TemplateChip_Light study")
+        assert fresh_app.is_selected("SprintLength_25")
+        fresh_app.click("SprintLength_15")
+        fresh_app.start_sprint()
+        sprint = verify.wait_for_settings(lambda st: st.get("ActiveSprint") is not None,
+                                          what="the sprint")["ActiveSprint"]
+        assert sprint["PlannedMinutes"] == 15, "the hand change of length stands"
+        assert sprint["TemplateBreakMinutes"] == 5, "the chip's break rides with the sprint"
+
     def test_a_template_between_the_preset_lengths_uses_custom(self, fresh_app):
         """Also shows a new template reaching Today's chips (TemplatesChanged)."""
         fresh_app.navigate_to_tab("Schedule")
