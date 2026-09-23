@@ -3004,6 +3004,29 @@ class TestScheduledSprints:
             time.sleep(0.5)
         return False
 
+    START_NOTICES = ("SprintStarted", "ScheduledSprint")
+
+    @staticmethod
+    def _log_lines(app) -> list[str]:
+        path = app.app_log_path()
+        return path.read_text(encoding="utf-8", errors="replace").splitlines() if path else []
+
+    def _start_notices_since(self, app, seen: int, expected: str, timeout: float = 5) -> list[str]:
+        """
+        The start notifications the app logged ("notification: <kind>") after
+        its first `seen` log lines, once `expected` is among them or the
+        timeout passes. Call it once the sprint shows as running: a start's
+        notices go out in the same dispatcher turn, so all of them are logged.
+        """
+        deadline = time.time() + timeout
+        while True:
+            kinds = [line.rsplit("notification: ", 1)[1].strip()
+                     for line in self._log_lines(app)[seen:] if "notification: " in line]
+            kinds = [kind for kind in kinds if kind in self.START_NOTICES]
+            if expected in kinds or time.time() >= deadline:
+                return kinds
+            time.sleep(0.25)
+
     def test_heads_up_then_it_starts(self, schedule_app):
         self._schedule_in(schedule_app)
         schedule_app.navigate_to_tab("Today")
@@ -3074,14 +3097,29 @@ class TestScheduledSprints:
             assert process.poll() is None, "nothing may be closed before the answer"
             assert verify.read_settings().get("ActiveSprint") is None
 
+            seen = len(self._log_lines(schedule_app))
             schedule_app.click("StartAnywayButton")
             assert schedule_app.exists("StopSprintButton", timeout=5), "the answer starts the template"
             sprint = verify.wait_for_settings(lambda st: st.get("ActiveSprint") is not None,
                                               what="the sprint")["ActiveSprint"]
             assert sprint["PlannedMinutes"] == 45 and sprint["TemplateBreakMinutes"] == 10
+            assert self._start_notices_since(schedule_app, seen, "ScheduledSprint") == ["ScheduledSprint"], \
+                "the answered start is still the schedule's, named once"
         finally:
             if process.poll() is None:
                 process.kill()
+
+    def test_a_start_without_asking_sends_one_notification(self, schedule_app):
+        """
+        Review of PR C: "Sprint started" is on by default, so a start with Ask
+        first off sent it and "Light study started" back to back. The named
+        one (spec 3.3) stands in for it: one start, one notification.
+        """
+        self._schedule_in(schedule_app, ask=False)
+        schedule_app.navigate_to_tab("Today")
+        seen = len(self._log_lines(schedule_app))
+        assert self._wait_for_sprint(schedule_app, timeout=100), "the sprint started by itself"
+        assert self._start_notices_since(schedule_app, seen, "ScheduledSprint") == ["ScheduledSprint"]
 
     def test_a_template_chip_fills_in_today(self, fresh_app):
         fresh_app.select_shield("Soft")

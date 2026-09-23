@@ -521,15 +521,14 @@ public class MainViewModel : ViewModelBase
                 // named every open app the sprint will close. Otherwise (Ask
                 // first off, or an app opened since) it is asked as quick start
                 // asks it, and nothing starts or closes until it is answered.
+                // With Ask first off, the start's one notification names the
+                // template; Today sends it when the sprint starts, in place of
+                // "Sprint started", so an answered question gets it too.
                 var named = Today.HeadsUpNamedWhatWillClose(action.Schedule, template);
                 Today.HideHeadsUp();
-                if (Today.StartTemplate(template, skipOpenAppsPanel: named))
-                {
-                    if (!action.Schedule.AskFirst)
-                        Notify(NotificationKind.ScheduledSprint, $"{template.Name} started",
-                            $"{template.SprintMinutes} minutes at {template.Shield}.");
-                }
-                else if (Today.RunningAppsPanelVisible)
+                if (!Today.StartTemplate(template, skipOpenAppsPanel: named,
+                                         announceByName: !action.Schedule.AskFirst)
+                    && Today.RunningAppsPanelVisible)
                 {
                     CurrentPage = AppPage.Today;
                     OpenAppsQuestionRaised?.Invoke(this, EventArgs.Empty);

@@ -1061,6 +1061,13 @@ public class TodayViewModel : ViewModelBase
     private int? _startingTemplateBreak;
 
     /// <summary>
+    /// The template's name when a schedule starts it without asking (Ask
+    /// first off). Taken up by <see cref="StartSprint"/> with the break, so
+    /// that start's one notification names it (spec 3.3); null otherwise.
+    /// </summary>
+    private string? _startingAnnouncedName;
+
+    /// <summary>
     /// A chip on Today: fills in length, shield, cycle and profile. Each can
     /// still be changed (a preset, not a lock), and a sprint started by hand
     /// afterwards keeps Settings' break lengths.
@@ -1093,12 +1100,16 @@ public class TodayViewModel : ViewModelBase
     /// through <see cref="StartSprint"/>. <paramref name="skipOpenAppsPanel"/>
     /// is true only when the heads-up already named every open app this
     /// template will close (<see cref="HeadsUpNamedWhatWillClose"/>).
+    /// <paramref name="announceByName"/> is true for a schedule that starts
+    /// without asking: its "Light study started" stands in for "Sprint
+    /// started", so one start sends one notification.
     /// </summary>
-    public bool StartTemplate(StudyTemplate template, bool skipOpenAppsPanel)
+    public bool StartTemplate(StudyTemplate template, bool skipOpenAppsPanel, bool announceByName = false)
     {
         if (IsRunning || IsOnBreak) return false;
         ApplyTemplate(template);
         _startingTemplateBreak = template.BreakMinutes;
+        _startingAnnouncedName = announceByName ? template.Name : null;
         if (skipOpenAppsPanel) _runningAppsAnswered = true;
         StartSprint();
 
@@ -1109,6 +1120,7 @@ public class TodayViewModel : ViewModelBase
         {
             _runningAppsAnswered = false;
             _startingTemplateBreak = null;
+            _startingAnnouncedName = null;
         }
         return IsRunning;
     }
@@ -1349,6 +1361,8 @@ public class TodayViewModel : ViewModelBase
         // later sprint of the same cycle keeps what the run began with.
         if (_cycle.SprintsDone == 0) _templateBreakMinutes = _startingTemplateBreak;
         _startingTemplateBreak = null;
+        var announcedName = _startingAnnouncedName;
+        _startingAnnouncedName = null;
 
         var now = DateTime.UtcNow;
         var intention = (IntentionText ?? "").Trim();
@@ -1387,8 +1401,15 @@ public class TodayViewModel : ViewModelBase
         Log.Info($"sprint started: {SelectedMinutes}m at shield {SelectedShield}, "
                  + $"blocklist \"{S.ActiveProfile.Name}\"");
 
-        _main.Notify(NotificationKind.SprintStarted, "Sprint started",
-            $"{SelectedShield} shield on for {SelectedMinutes} minutes.");
+        // F6: a schedule that starts without asking says so by name, and that
+        // notice stands in for this one, so one start sends one notification.
+        // With the scheduled-sprint switch off, this one still comes.
+        var announced = announcedName is not null
+            && _main.Notify(NotificationKind.ScheduledSprint, $"{announcedName} started",
+                            $"{SelectedMinutes} minutes at {SelectedShield}.");
+        if (!announced)
+            _main.Notify(NotificationKind.SprintStarted, "Sprint started",
+                $"{SelectedShield} shield on for {SelectedMinutes} minutes.");
     }
 
     private void BeginRunning(string stateText)

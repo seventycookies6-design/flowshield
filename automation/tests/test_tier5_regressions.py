@@ -8575,6 +8575,8 @@ class TestScheduledSprintsGoThroughStart:
         refused = start.split("if (!IsRunning && !RunningAppsPanelVisible)", 1)[1]
         assert "_runningAppsAnswered = false;" in refused
         assert "_startingTemplateBreak = null;" in refused
+        assert "_startingAnnouncedName = null;" in refused, \
+            "a hand Start afterwards would be announced as the template"
 
     def test_a_schedule_does_nothing_while_busy_or_behind_a_gate(self):
         on_action = self.member(self.code(self.MAIN), "private void OnScheduleAction(")
@@ -8601,16 +8603,44 @@ class TestScheduledSprintsGoThroughStart:
         """
         start = self.case("private void OnScheduleAction(", "Start")
         assert re.search(r"var named = Today\.HeadsUpNamedWhatWillClose\(action\.Schedule, template\);", start)
-        assert "Today.StartTemplate(template, skipOpenAppsPanel: named)" in start
+        assert "Today.StartTemplate(template, skipOpenAppsPanel: named," in start
         assert start.index("HeadsUpNamedWhatWillClose(") < start.index("Today.HideHeadsUp();"), \
             "read what the card named before the card goes"
-        asked = start.split("else if (Today.RunningAppsPanelVisible)", 1)[1]
+        asked = start.split("&& Today.RunningAppsPanelVisible)", 1)[1]
         assert "CurrentPage = AppPage.Today;" in asked
         assert "OpenAppsQuestionRaised?.Invoke(this, EventArgs.Empty);" in asked
         window = self.code(self.WINDOW)
         assert "newVm.OpenAppsQuestionRaised += OnOpenAppsQuestionRaised;" in window
         assert "oldVm.OpenAppsQuestionRaised -= OnOpenAppsQuestionRaised;" in window
         assert "BringToFront()" in self.member(window, "private void OnOpenAppsQuestionRaised(")
+
+    def test_a_scheduled_start_sends_one_notification(self):
+        """
+        Review of PR C: "Sprint started" is on by default, so a schedule with
+        Ask first off sent it and then "Light study started", back to back.
+        The named notice (spec 3.3) now stands in for the generic one, sent
+        where the sprint starts, so a start that waited on F7's question and
+        was answered names the template too. With the scheduled-sprint switch
+        off, "Sprint started" still comes: Notify says whether it showed.
+        """
+        start_case = self.case("private void OnScheduleAction(", "Start")
+        assert "Notify(" not in start_case, "a start's notice is sent once, where the sprint starts"
+        assert "announceByName: !action.Schedule.AskFirst" in start_case
+
+        today = self.code(self.TODAY)
+        assert "_startingAnnouncedName = announceByName ? template.Name : null;" in \
+            self.member(today, "public bool StartTemplate(")
+
+        start = self.member(today, "private void StartSprint()")
+        taken = start.index("var announcedName = _startingAnnouncedName;")
+        assert start.index("if (!_runningAppsAnswered)") < taken, \
+            "kept while F7's question waits, so answering it names the template"
+        assert "_startingAnnouncedName = null;" in start[taken:]
+        assert re.search(r"var announced = announcedName is not null\s*&&\s*"
+                         r"_main\.Notify\(NotificationKind\.ScheduledSprint, \$\"\{announcedName\} started\",",
+                         start)
+        assert re.search(r"if \(!announced\)\s*_main\.Notify\(NotificationKind\.SprintStarted,", start)
+        assert start.count("_main.Notify(") == 2
 
     def test_the_heads_up_names_what_the_templates_own_shield_and_list_will_close(self):
         today = self.code(self.TODAY)
@@ -8701,7 +8731,9 @@ class TestScheduledSprintsGoThroughStart:
         today = self.TODAY.read_text(encoding="utf-8")
         region = today.split("templates and schedules (F6)", 1)[1].split("what is already running (F7)", 1)[0]
         on_action = self.member(self.MAIN.read_text(encoding="utf-8"), "private void OnScheduleAction(")
-        for text in (region, on_action):
+        # StartSprint sends a scheduled start's "Light study started".
+        start = self.member(today, "private void StartSprint()")
+        for text in (region, on_action, start):
             for literal in re.findall(r'"[^"\n]*"', text):
                 assert "!" not in literal, literal
                 assert literal.isascii(), literal
