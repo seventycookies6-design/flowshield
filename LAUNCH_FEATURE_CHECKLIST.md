@@ -349,9 +349,14 @@ A summary of the research, to explain the choices below.
       the sprint saying what is already open. Hard kill still closes instantly,
       by design. 1.7's Soft notice shipped in #224: a topmost full-screen window
       on the blocked app's own monitor, naming the app and the time left, with
-      *Back to work* and *Allow 5 minutes*. It closes nothing, shows once per
-      sighting, never over a FlowShield panel, and never at Firm or Sealed.
-      A Settings switch turns it off
+      *Back to work* and *Allow 5 minutes*. It never closes anything on its
+      own, shows once per sighting, never over a FlowShield panel, and never
+      at Firm or Sealed. A Settings switch turns it off.
+      1.0.10 (#278): the notice gained *Close ‹app›*, first and primary (it
+      asks the app to close and never kills it); *Back to work* is the default
+      and keyboard action (Enter, Esc), so a keystroke meant for the blocked
+      app can never close it; *Allow 5 minutes* waits 5, 10, 20, then 30 s
+      with a text countdown; the sprint's intention and a try count show
 
 **Assigned:** Miles (milessmart6-pixel), built with Codex and Cursor
 

@@ -679,6 +679,18 @@ class TestSoftShieldWording:
         assert "Firm and Sealed close it" in legal
         assert "Any unsaved work in an application FlowShield closes may be lost" in legal
 
+    def test_the_site_and_the_legal_page_name_every_button_on_the_notice(self):
+        """
+        Both pages told the reader to "choose Close" after listing only Back
+        to work and Allow 5 minutes -- a button the sentence never named. The
+        notice has three, and the one that can close something comes first.
+        """
+        for name in ("index.html", "legal.html"):
+            page = " ".join((Path(WEBSITE_DIR) / name).read_text(encoding="utf-8").split())
+            assert "with Close, Back to work and Allow 5 minutes" in page, (
+                f"{name} must list the notice's three buttons, Close first"
+            )
+
     def test_project_docs_describe_soft_and_sealed_accurately(self):
         """
         Ending a sprint early also unlocks a Sealed blocklist, so "until the timer
@@ -697,6 +709,17 @@ class TestSoftShieldWording:
                 f"{name} says Sealed locks until the timer ends"
             assert "full-screen nudge" not in prose, \
                 f"{name} still describes Soft as a full-screen nudge"
+
+        # 1.0.10: the notice has Close, so the template that regenerates
+        # FINAL_REPORT.md carries README's qualifier. The checked-in
+        # FINAL_REPORT.md itself is a record of a past run and is left alone.
+        template = (root / "automation" / "make_report.py").read_text(encoding="utf-8")
+        assert "the blocked app keeps running unless you choose to close it" in template
+        checklist = (root / "LAUNCH_FEATURE_CHECKLIST.md").read_text(encoding="utf-8")
+        f7 = " ".join(checklist.split("### F7", 1)[1].split("\n### ", 1)[0].split())
+        assert "It closes nothing" not in f7, "F7 still makes the pre-1.0.10 promise"
+        assert "never closes anything on its own" in f7
+        assert "1.0.10" in f7 and "Close" in f7, "F7 must record what 1.0.10 added to the notice"
 
 
 # ============================ one shield wording, everywhere (F1, #93)
