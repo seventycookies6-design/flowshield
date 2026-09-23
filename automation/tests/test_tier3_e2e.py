@@ -3299,3 +3299,61 @@ class TestScheduledSprints:
         finally:
             fresh_app.cancel_sprint()
         assert fresh_app.exists("TemplateChip_Light study", timeout=3), "back once the sprint is over"
+
+
+# ===================================================== the taskbar Jump List (1.0.10)
+
+class TestJumpList:
+    """
+    Spec 5: right-clicking FlowShield on the taskbar offers Start sprint and
+    Start <template>, which run FlowShield.exe --start-sprint and
+    --start-sprint=<templateId>. An entry does nothing but run its command
+    line, so these run the command lines rather than the shell's menu. A cold
+    launch handles the argument after startup; a launch while FlowShield runs
+    hands it over the single-instance pipe.
+    """
+
+    MISSING = "That template isn't here any more. Pick one on Today."
+
+    @staticmethod
+    def _template_id(name: str) -> str:
+        return next(t["Id"] for t in verify.read_settings()["Templates"] if t["Name"] == name)
+
+    @staticmethod
+    def _running_sprint(app) -> dict:
+        # A blocked app already open on this PC is asked about first (F7).
+        app.answer_open_apps_question(timeout=5)
+        assert app.exists("StopSprintButton", timeout=10), "no sprint started"
+        return verify.wait_for_settings(lambda st: st.get("ActiveSprint") is not None,
+                                        what="the sprint")["ActiveSprint"]
+
+    def test_a_template_starts_from_a_cold_launch_and_a_deleted_one_starts_nothing(self, fresh_app):
+        light = self._template_id("Light study")
+        fresh_app.close_app()
+        fresh_app.launch_app(clean_state=False, extra_args=[f"--start-sprint={light}"])
+        fresh_app.connect_window()
+
+        sprint = self._running_sprint(fresh_app)
+        assert sprint["Shield"] == 1, "Soft, from Light study"
+        assert sprint["PlannedMinutes"] == 25 and sprint["TemplateBreakMinutes"] == 5
+
+        # A pinned list can outlive a template (review focus 5).
+        launch_again("--start-sprint=missing")
+        assert flowshield_pids() == [fresh_app.pid], "the second launch kept running"
+        deadline, toast = time.time() + 6, ""
+        while toast != self.MISSING and time.time() < deadline:
+            toast = fresh_app.toast_text(timeout=1)
+        assert toast == self.MISSING, toast
+        assert verify.read_settings()["ActiveSprint"]["StartedUtc"] == sprint["StartedUtc"], \
+            "the running sprint was replaced"
+
+    def test_start_sprint_reaches_a_running_copy_as_the_trays_quick_start(self, fresh_app):
+        """No template: Today's last settings, exactly as the tray's Start sprint takes them."""
+        fresh_app.select_shield("Soft")
+        fresh_app.select_sprint_length(15)
+
+        launch_again("--start-sprint")
+        assert flowshield_pids() == [fresh_app.pid], "the second launch kept running"
+        sprint = self._running_sprint(fresh_app)
+        assert sprint["Shield"] == 1 and sprint["PlannedMinutes"] == 15
+        assert sprint.get("TemplateBreakMinutes") is None, "no template was involved"

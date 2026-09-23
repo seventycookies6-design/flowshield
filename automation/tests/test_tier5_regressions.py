@@ -9097,3 +9097,139 @@ class TestTodayGrewARowAndItsControlsStayReachable:
         time.sleep(0.8)
         assert "cancelled" in fresh_app.session_state().lower(), \
             "Cancel sprint could not be clicked where it was left"
+
+
+# ============================ the taskbar Jump List starts like the tray (1.0.10, 5)
+
+class TestTheJumpListStartsLikeTheTray:
+    """
+    Spec 5: the Jump List runs FlowShield.exe --start-sprint or
+    --start-sprint=<templateId>, handed over at startup or through the
+    single-instance pipe. It is a Start nobody pressed on Today, so it must
+    reach the same gates as the tray's start (F2, the trial, terms, first run,
+    F7's open-apps question), and a template deleted since the list was built
+    must start nothing. Comments are stripped, so a call left only in a
+    comment can't satisfy these.
+    """
+
+    MAIN = Path(DESKTOP_DIR) / "ViewModels" / "MainViewModel.cs"
+    WINDOW = Path(DESKTOP_DIR) / "MainWindow.xaml.cs"
+    APP = Path(DESKTOP_DIR) / "App.xaml.cs"
+    PROGRAM = Path(DESKTOP_DIR) / "Program.cs"
+    SERVICE = Path(DESKTOP_DIR) / "Services" / "JumpListService.cs"
+    ARG = Path(DESKTOP_DIR) / "Models" / "StartSprintArg.cs"
+
+    @staticmethod
+    def code(path: Path) -> str:
+        return "\n".join(line.split("//")[0] for line in path.read_text(encoding="utf-8").splitlines())
+
+    @staticmethod
+    def member(code: str, signature: str) -> str:
+        """One member's body, from its signature to the brace that closes it."""
+        start = code.index(signature)
+        depth = 0
+        for index in range(code.index("{", start), len(code)):
+            depth += {"{": 1, "}": -1}.get(code[index], 0)
+            if depth == 0:
+                return code[start:index + 1]
+        raise AssertionError(f"no end to {signature}")
+
+    def handler(self) -> str:
+        return self.member(self.code(self.MAIN), "public void HandleStartSprintArg(IEnumerable<string> args)")
+
+    def test_it_starts_only_through_quick_start_or_start_template(self):
+        """
+        No template: exactly the tray's "Start sprint (last settings)", which
+        is MainWindow's QuickStart() since #270. A template: StartTemplate,
+        which goes through StartSprint. Never a start of its own.
+        """
+        handler = self.handler()
+        assert "StartSprintArg.TryFind(args, out var templateId)" in handler
+        plain = handler.split("if (templateId is null)", 1)[1].split("return;", 1)[0]
+        assert "QuickStartRequested?.Invoke(this, EventArgs.Empty);" in plain
+        assert "Today.StartTemplate(template, skipOpenAppsPanel: false)" in handler
+        for copied in ("StartCommand", "StartSprint(", "BeginRunning(", "ActiveSprint", "ApplyTemplate("):
+            assert copied not in handler, f"HandleStartSprintArg uses {copied}; it must start like the tray"
+
+        window = self.code(self.WINDOW)
+        assert "newVm.QuickStartRequested += OnQuickStartRequested;" in window
+        assert "oldVm.QuickStartRequested -= OnQuickStartRequested;" in window
+        assert re.search(r"private void OnQuickStartRequested\(object\? sender, EventArgs e\)\s*=>\s*QuickStart\(\);",
+                         window), "the Jump List's plain start is the tray's QuickStart(), not a copy"
+        tray = self.member(window, "private void BuildTrayMenu(")
+        assert "(_, _) => QuickStart());" in tray, "the tray's start item is the same QuickStart()"
+
+    def test_a_template_waits_for_the_terms_and_the_welcome_and_brings_f7s_question_forward(self):
+        """
+        StartTemplate fills in Today (length, shield, profile) before Start's
+        gates are asked, so under the terms gate or the welcome it would change
+        what they are setting up. And a start waiting on F7's question is
+        brought forward the way quick start and a schedule bring it (#270).
+        """
+        handler = self.handler()
+        guard = handler.index("if (TermsGateVisible || FirstRun.IsVisible)")
+        assert guard < handler.index("Today.StartTemplate(")
+        assert "return;" in handler[guard:handler.index("Today.StartTemplate(")]
+        asked = handler.split("&& Today.RunningAppsPanelVisible)", 1)[1]
+        assert "CurrentPage = AppPage.Today;" in asked
+        assert "OpenAppsQuestionRaised?.Invoke(this, EventArgs.Empty);" in asked
+
+    def test_a_template_that_is_gone_toasts_and_starts_nothing(self):
+        """Review focus 5: a dangling Jump List entry falls back to Today with a calm toast."""
+        handler = self.handler()
+        assert "var template = Settings.FindTemplate(templateId);" in handler
+        missing = handler.split("if (template is null)", 1)[1].split("return;", 1)[0]
+        assert "CurrentPage = AppPage.Today;" in missing
+        assert 'Toast("That template isn\'t here any more. Pick one on Today.");' in missing
+        assert "StartTemplate(" not in missing and "QuickStart" not in missing
+
+    def test_app_hands_the_argument_over_at_startup_and_from_a_second_launch(self):
+        app = self.code(self.APP)
+        start = app.index("Instance?.Listen(") + len("Instance?.Listen")
+        depth = 0
+        for end in range(start, len(app)):
+            depth += {"(": 1, ")": -1}.get(app[end], 0)
+            if depth == 0:
+                break
+        listen, after = app[start:end], app[end:]
+        assert "ViewModel.HandleStartSprintArg(launchArgs);" in listen, "a launch while FlowShield runs"
+        assert "ViewModel.HandleStartSprintArg(args);" in after, "a cold launch from the Jump List"
+        assert app.index("window.Show();") < app.index("ViewModel.RebuildJumpList();")
+        # #275's retry is for --reset; every other argument, --start-sprint
+        # included, goes down the pipe exactly as it came.
+        program = self.code(self.PROGRAM)
+        assert "SingleInstance.SendToRunningInstance(args)" in program
+
+    def test_the_list_follows_the_templates(self):
+        main = self.code(self.MAIN)
+        ctor = self.member(main, "public MainViewModel(")
+        assert "Schedule.TemplatesChanged += (_, _) => RebuildJumpList();" in ctor
+        rebuild = self.member(main, "public void RebuildJumpList()")
+        assert "JumpListService.Rebuild(Settings.Templates, exe);" in rebuild
+
+    def test_the_list_is_wpfs_jump_list_and_never_the_registry(self):
+        """
+        A per-user shell feature: no registry, no admin, and a machine without
+        a taskbar (or a shell that refuses) costs the shortcut, never the app.
+        """
+        service = self.SERVICE.read_text(encoding="utf-8")
+        code = self.code(self.SERVICE)
+        assert "using System.Windows.Shell;" in code
+        assert "new JumpList" in code and "new JumpTask" in code
+        assert "JumpList.SetJumpList(Application.Current, list);" in code and "list.Apply();" in code
+        for registry in ("Registry", "Microsoft.Win32"):
+            assert registry not in service, f"the Jump List must never touch {registry}"
+        rebuild = self.member(code, "public static void Rebuild(")
+        assert rebuild.index("try") < rebuild.index("new JumpList")
+        assert "catch (Exception ex)" in rebuild and "Log.Warn(" in rebuild
+        # The argument is written by the class that reads it back.
+        assert "Arguments = StartSprintArg.Flag," in code
+        assert "StartSprintArg.For(t.Id)" in code
+
+    def test_the_new_copy_keeps_to_the_house_voice(self):
+        """DESIGN_SYSTEM 9: no exclamation marks, and ASCII-only C# literals."""
+        texts = [self.handler(), self.SERVICE.read_text(encoding="utf-8"), self.ARG.read_text(encoding="utf-8")]
+        for text in texts:
+            for literal in re.findall(r'"[^"\n]*"', text):
+                assert "!" not in literal, literal
+                assert literal.isascii(), literal

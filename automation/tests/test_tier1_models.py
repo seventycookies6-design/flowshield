@@ -1033,3 +1033,41 @@ class TestTurnedBack:
     def test_the_wording(self, n, text):
         """Empty at zero, so the card and History hide the line rather than say 'Turned back 0 times'."""
         assert probe({"cmd": "turned-back-text", "n": n})["text"] == text
+
+
+# =========================================== the taskbar Jump List (1.0.10, 5)
+
+class TestStartSprintArg:
+    """
+    Spec 5: the Jump List runs FlowShield.exe --start-sprint (the tray's quick
+    start) or --start-sprint=<templateId>. StartSprintArg reads that from a
+    command line, and writes the one each template's entry carries.
+    """
+
+    @pytest.mark.parametrize("args,found,template_id", [
+        (["--tray"], False, None),
+        ([], False, None),
+        (["--start-sprint"], True, None),
+        (["--START-SPRINT=abc"], True, "abc"),
+        (["--start-sprint="], True, None),
+        (["--start-sprint=  "], True, None),
+        (["--reset", "--start-sprint=abc"], True, "abc"),
+        (["--start-sprinter"], False, None),
+    ])
+    def test_it_reads_the_argument(self, args, found, template_id):
+        assert probe({"cmd": "start-arg", "args": args}) == {"found": found, "id": template_id}
+
+    def test_a_templates_entry_carries_an_argument_that_reads_back_as_its_id(self):
+        template_id = "0f8fad5bd9cb469fa16570867728950e"   # StudyTemplate.NewId's shape
+        arg = probe({"cmd": "start-arg-for", "id": template_id})["arg"]
+        assert arg == f"--start-sprint={template_id}"
+        assert probe({"cmd": "start-arg", "args": [arg]}) == {"found": True, "id": template_id}
+
+    @pytest.mark.parametrize("template_id", ["", "abc --reset", 'a"b', "a\tb"])
+    def test_an_id_that_would_not_survive_a_command_line_gets_no_entry(self, template_id):
+        """
+        The id goes into a command line. One with a space or a quote would
+        split into extra arguments (--reset among them), so it gets no entry
+        rather than a broken one. Every id FlowShield makes is 32 hex digits.
+        """
+        assert probe({"cmd": "start-arg-for", "id": template_id})["arg"] is None

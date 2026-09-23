@@ -57,6 +57,8 @@ internal static class Commands
             {
                 ["text"] = HistoryStats.TurnedBackText((int)request["n"]!),
             },
+            "start-arg" => StartArg(request),
+            "start-arg-for" => new JsonObject { ["arg"] = StartSprintArg.For((string?)request["id"]) },
             _ => throw new ArgumentException($"unknown command '{cmd}'"),
         };
     }
@@ -384,6 +386,14 @@ internal static class Commands
         JsonSerializer.SerializeToNode(HistoryStats.ForWeek(
             request["sessions"].Deserialize<List<FocusSession>>()!,
             DateTime.Parse((string)request["now"]!, CultureInfo.InvariantCulture)))!;
+
+    /// <summary>{"args": [...]} -> {"found", "id"}: what StartSprintArg.TryFind reads from a command line.</summary>
+    private static JsonNode StartArg(JsonObject request)
+    {
+        var args = request["args"]!.AsArray().Select(a => (string)a!).ToArray();
+        var found = StartSprintArg.TryFind(args, out var id);
+        return new JsonObject { ["found"] = found, ["id"] = id };
+    }
 
     private static JsonNode? Do(Action action)
     {

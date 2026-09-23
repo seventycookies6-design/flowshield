@@ -188,6 +188,9 @@ public partial class App : Application
             window.Show();
         }
 
+        // The taskbar Jump List (1.0.10); the templates' entries follow the Schedule page.
+        ViewModel.RebuildJumpList();
+
         // A later launch brings this copy forward instead of starting another.
         Instance?.Listen(launchArgs =>
         {
@@ -196,11 +199,14 @@ public partial class App : Application
             {
                 window.BringToFront();
                 ViewModel.HandleLink(DeepLink.FindLink(launchArgs));
+                ViewModel.HandleStartSprintArg(launchArgs);
             });
         });
 
         // Opened by a flowshield:// link while FlowShield wasn't running.
         ViewModel.HandleLink(DeepLink.FindLink(args));
+        // Or by the Jump List, with the window already up.
+        ViewModel.HandleStartSprintArg(args);
 
         // Re-confirm an existing license in the background; never blocks the UI.
         _ = licenseService.RefreshAsync(ViewModel.Settings).ContinueWith(_ =>

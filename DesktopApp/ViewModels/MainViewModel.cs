@@ -81,6 +81,7 @@ public class MainViewModel : ViewModelBase
         Scheduler.Ticked += (_, now) => Today.DropStaleHeadsUp(now);
         Scheduler.Start();
         Schedule.TemplatesChanged += (_, _) => Today.RefreshTemplates();
+        Schedule.TemplatesChanged += (_, _) => RebuildJumpList();
     }
 
     public SettingsService SettingsService { get; }
@@ -235,6 +236,61 @@ public class MainViewModel : ViewModelBase
         PendingActivationKey = null;
         SettingsPage.LicenseKeyInput = key;
         SettingsPage.ActivateCommand.Execute(null);
+    }
+
+    // --------------------------------------------- the taskbar Jump List (1.0.10)
+
+    /// <summary>
+    /// The Jump List's plain "Start sprint": the tray's quick start (#270),
+    /// which MainWindow owns. Raised rather than copied, so the tray, Ctrl+Alt+F
+    /// and the taskbar are one path through one set of gates.
+    /// </summary>
+    public event EventHandler? QuickStartRequested;
+
+    /// <summary>
+    /// A --start-sprint launch from the taskbar Jump List (spec 5): at startup,
+    /// or handed over by a second launch. The same gates as the tray's start.
+    /// </summary>
+    public void HandleStartSprintArg(IEnumerable<string> args)
+    {
+        if (!StartSprintArg.TryFind(args, out var templateId)) return;
+        if (templateId is null)
+        {
+            QuickStartRequested?.Invoke(this, EventArgs.Empty);
+            return;
+        }
+
+        var template = Settings.FindTemplate(templateId);
+        if (template is null)
+        {
+            // Gone since the list was built: the shell keeps the list while
+            // FlowShield is closed, and a settings file can be reset under it.
+            CurrentPage = AppPage.Today;
+            Toast("That template isn't here any more. Pick one on Today.");
+            return;
+        }
+
+        // StartTemplate fills in Today before Start's gates are asked, so under
+        // the terms or the welcome it would change what they are setting up.
+        // The tray's start is refused there too, inside StartSprint.
+        if (TermsGateVisible || FirstRun.IsVisible)
+        {
+            Log.Info($"jump list start of {template.Name} refused: the terms or the welcome are showing");
+            return;
+        }
+
+        if (!Today.StartTemplate(template, skipOpenAppsPanel: false) && Today.RunningAppsPanelVisible)
+        {
+            // F7's question, brought forward as quick start brings it (#270).
+            CurrentPage = AppPage.Today;
+            OpenAppsQuestionRaised?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
+    /// <summary>The taskbar Jump List, built at startup and again whenever the templates change.</summary>
+    public void RebuildJumpList()
+    {
+        if (Environment.ProcessPath is { } exe) JumpListService.Rebuild(Settings.Templates, exe);
     }
 
     // ------------------------------------------------------------ navigation
