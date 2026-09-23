@@ -1,15 +1,20 @@
 """
 Tier 1 -- the real C# model code (1.0.10).
 
-Every test here runs DesktopApp/Models through `core.model_probe`, so the
-answer comes from .NET rather than from a Python copy of the rule. Kept apart
-from test_tier1_unit.py so the two files can change independently.
+The tests here run DesktopApp/Models through `core.model_probe`, so the
+answer comes from .NET rather than from a Python copy of the rule; only the
+house-voice check reads the source instead. Kept apart from
+test_tier1_unit.py so the two files can change independently.
 """
 
 from __future__ import annotations
 
+import re
+from pathlib import Path
+
 import pytest
 
+from config import SERVER_DIR
 from core.model_probe import ProbeError, probe
 
 
@@ -93,3 +98,139 @@ class TestStudyTemplates:
     def test_normalize_gives_a_missing_id_a_new_one(self):
         out = probe({"cmd": "template-normalize", "template": {"Id": "", "Name": "A"}})
         assert len(out["template"]["Id"]) == 32 and out["changed"] is True
+
+
+# ================================= F6: schedules and when they start (1.0.10)
+
+EASTERN = "Eastern Standard Time"   # Windows id; UTC-5 in winter, UTC-4 in summer
+MON_THU = [1, 2, 3, 4]              # DayOfWeek: Sunday = 0 ... Saturday = 6
+
+
+def schedule(days=MON_THU, minute=17 * 60, **extra) -> dict:
+    return {"Id": "s1", "TemplateId": "t1", "Days": days, "StartMinuteOfDay": minute,
+            "AskFirst": True, "Enabled": True, "SkippedDatesLocal": [], **extra}
+
+
+class TestScheduleMatcher:
+    """
+    F6: when a schedule starts, computed by .NET's own time-zone rules.
+    The dates are real: in 2026 US clocks go forward on Sunday 8 March and
+    back on Sunday 1 November, and 28 September is a Monday.
+    """
+
+    def test_a_weeknight_schedule_starts_at_its_local_time(self):
+        out = probe({"cmd": "schedule-start-on", "schedule": schedule(),
+                     "date": "2026-09-28", "zone": EASTERN})
+        assert out["utc"] == "2026-09-28T21:00:00Z"      # 17:00 EDT
+
+    def test_a_day_that_is_not_chosen_has_no_start(self):
+        out = probe({"cmd": "schedule-start-on", "schedule": schedule(),
+                     "date": "2026-09-26", "zone": EASTERN})  # Saturday
+        assert out["utc"] is None
+
+    def test_the_day_is_the_local_one_even_when_utc_is_already_tomorrow(self):
+        """Spec 3.2: a day-of-week change across midnight. 21:30 EDT Monday is 01:30 UTC Tuesday."""
+        s = schedule(days=[1], minute=21 * 60 + 30)      # Mondays only
+        out = probe({"cmd": "schedule-next", "schedule": s,
+                     "after": "2026-09-28T12:00:00Z", "zone": EASTERN})
+        assert out["utc"] == "2026-09-29T01:30:00Z"
+
+    def test_spring_forward_starts_at_the_first_minute_that_exists(self):
+        s = schedule(days=[0], minute=2 * 60 + 30)       # Sunday 02:30 never happens on 8 March
+        out = probe({"cmd": "schedule-start-on", "schedule": s, "date": "2026-03-08", "zone": EASTERN})
+        assert out["utc"] == "2026-03-08T07:00:00Z"      # 03:00 EDT
+
+    def test_fall_back_starts_once_at_the_first_of_the_two(self):
+        s = schedule(days=[0], minute=60 + 30)           # Sunday 01:30 happens twice on 1 November
+        out = probe({"cmd": "schedule-start-on", "schedule": s, "date": "2026-11-01", "zone": EASTERN})
+        assert out["utc"] == "2026-11-01T05:30:00Z"      # the EDT 01:30
+        between = probe({"cmd": "schedule-between", "schedule": s, "zone": EASTERN,
+                         "from": "2026-10-31T12:00:00Z", "to": "2026-11-02T12:00:00Z"})
+        assert between["utc"] == ["2026-11-01T05:30:00Z"], "one start, not two"
+
+    def test_next_start_skips_the_weekend(self):
+        out = probe({"cmd": "schedule-next", "schedule": schedule(),
+                     "after": "2026-09-25T12:00:00Z", "zone": EASTERN})  # Friday
+        assert out["utc"] == "2026-09-28T21:00:00Z"
+
+    def test_next_start_is_strictly_after_now(self):
+        out = probe({"cmd": "schedule-next", "schedule": schedule(),
+                     "after": "2026-09-28T21:00:00Z", "zone": EASTERN})
+        assert out["utc"] == "2026-09-29T21:00:00Z"
+
+    def test_starts_in_a_window_cover_every_chosen_day_once(self):
+        out = probe({"cmd": "schedule-between", "schedule": schedule(), "zone": EASTERN,
+                     "from": "2026-09-27T00:00:00Z", "to": "2026-10-01T00:00:00Z"})
+        assert out["utc"] == ["2026-09-28T21:00:00Z", "2026-09-29T21:00:00Z",
+                              "2026-09-30T21:00:00Z"]
+
+    def test_no_days_means_never(self):
+        out = probe({"cmd": "schedule-next", "schedule": schedule(days=[]),
+                     "after": "2026-09-25T12:00:00Z", "zone": EASTERN})
+        assert out["utc"] is None
+
+
+class TestSprintScheduleSkips:
+    """F6: Skip today, and a schedule can't hold nonsense."""
+
+    def test_skip_today_is_remembered_for_that_date_only(self):
+        out = probe({"cmd": "schedule-skip", "schedule": schedule(),
+                     "skip": ["2026-09-28"], "query": ["2026-09-28", "2026-09-29"]})
+        assert out["is_skipped"] == [True, False]
+
+    def test_old_skips_are_pruned_after_fourteen_days(self):
+        out = probe({"cmd": "schedule-skip", "schedule": schedule(),
+                     "skip": ["2026-09-01", "2026-09-28"], "query": []})
+        assert out["skipped"] == ["2026-09-28"]
+
+    @pytest.mark.parametrize("minute,expected", [(-5, 0), (24 * 60, 24 * 60 - 1), (600, 600)])
+    def test_normalize_keeps_the_start_inside_the_day(self, minute, expected):
+        out = probe({"cmd": "schedule-normalize", "schedule": schedule(minute=minute)})
+        assert out["schedule"]["StartMinuteOfDay"] == expected
+        assert out["changed"] is (minute != expected)
+
+    def test_normalize_sorts_and_dedupes_days(self):
+        out = probe({"cmd": "schedule-normalize", "schedule": schedule(days=[4, 1, 1, 9])})
+        assert out["schedule"]["Days"] == [1, 4]
+        assert out["changed"] is True
+
+    @pytest.mark.parametrize("field,filled", [("TemplateId", ""), ("Days", []), ("SkippedDatesLocal", [])])
+    def test_normalize_fills_in_a_null_from_a_hand_edited_file(self, field, filled):
+        """The loader saves only when Normalize says something changed, so a null counts as a change."""
+        out = probe({"cmd": "schedule-normalize", "schedule": schedule(**{field: None})})
+        assert out["schedule"][field] == filled
+        assert out["changed"] is True
+
+
+class TestScheduleText:
+    """F6: how a schedule reads on the Schedule page."""
+
+    @pytest.mark.parametrize("days,expected", [
+        ([1, 2, 3, 4, 5], "Weekdays"),
+        ([0, 1, 2, 3, 4, 5, 6], "Every day"),
+        ([6, 0], "Weekends"),
+        ([1, 2, 3, 4], "Mon–Thu"),
+        ([1, 3, 5], "Mon, Wed, Fri"),
+        ([0], "Sun"),
+        ([], "No days"),
+    ])
+    def test_days(self, days, expected):
+        assert probe({"cmd": "text-days", "days": days})["text"] == expected
+
+    @pytest.mark.parametrize("start,now,expected", [
+        ("2026-09-28T17:00:00", "2026-09-28T09:00:00", "Next: tonight 17:00 · Homework evening"),
+        ("2026-09-28T09:00:00", "2026-09-28T07:00:00", "Next: today 09:00 · Homework evening"),
+        ("2026-09-29T17:00:00", "2026-09-28T20:00:00", "Next: tomorrow 17:00 · Homework evening"),
+        ("2026-10-01T17:00:00", "2026-09-28T20:00:00", "Next: Thu 17:00 · Homework evening"),
+    ])
+    def test_next_up(self, start, now, expected):
+        out = probe({"cmd": "text-next-up", "name": "Homework evening", "start": start, "now": now})
+        assert out["text"] == expected
+
+    def test_the_copy_keeps_to_the_house_voice(self):
+        """DESIGN_SYSTEM.md §9: no exclamation marks; ASCII only in C# literals (escape the rest)."""
+        for name in ("ScheduleText.cs", "SprintSchedule.cs", "ScheduleMatcher.cs", "StudyTemplate.cs"):
+            source = (Path(SERVER_DIR).parent / "DesktopApp" / "Models" / name).read_text(encoding="utf-8")
+            for text in re.findall(r'"([^"]*)"', source):
+                assert "!" not in text, f"exclamation mark in {name}: {text!r}"
+                assert text.isascii(), f"non-ascii in {name}: {text!r}"
