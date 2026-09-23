@@ -5998,27 +5998,39 @@ class TestTimeUpAfterSleepUsesWatchedTime:
             "before LastSeenUtc advances, preserving 1.0.8 legacy time"
         )
 
+    def _helper_ends_an_interruption_at_watched_time(self):
+        """Since #300 both ends are worked out by RunningSprint.RecordedEnd."""
+        helper = self._block(self.SETTINGS.read_text(encoding="utf-8"),
+                             "public static DateTime RecordedEnd(")
+        assert re.search(
+            r"if\s*\(\s*interrupted\s*\)\s*return\s+startedUtc\s*\+\s*"
+            r"TimeSpan\.FromMinutes\s*\(\s*watchedMinutes\s*\)",
+            helper,
+        ), "an interrupted sprint must end at its start plus the minutes watched"
+
     def test_startup_interruption_ends_at_watched_time(self):
         source = self.VM.read_text(encoding="utf-8")
         resume = self._block(source, "public void ResumeInterruptedSprint(")
         branch = resume.split("case SprintResume.RecordCompleted:", 1)[1]
         assert re.search(
-            r"EndedUtc\s*=\s*completed\s*\?\s*saved\.EndsUtc\s*:\s*"
-            r"saved\.StartedUtc\s*\+\s*TimeSpan\.FromMinutes\s*\(\s*saved\.WatchedSoFar\s*\)",
+            r"EndedUtc\s*=\s*RunningSprint\.RecordedEnd\(\s*saved\.StartedUtc\s*,\s*saved\.EndsUtc\s*,\s*"
+            r"saved\.WatchedSoFar\s*,\s*now\s*,\s*completed\s*,\s*interrupted:\s*!completed\s*\)",
             branch,
         ), (
             "startup recovery must use EndsUtc only for completed sprints and "
             "StartedUtc + WatchedSoFar for interrupted sprints"
         )
+        self._helper_ends_an_interruption_at_watched_time()
 
     def test_interrupted_end_uses_clamped_time_and_notifies_cycle_clear(self):
         source = self.VM.read_text(encoding="utf-8")
         end = self._block(source, "private void EndSprint(")
         assert re.search(
-            r"interrupted\s*\?\s*_current\.StartedUtc\s*\+\s*"
-            r"TimeSpan\.FromMinutes\s*\(\s*S\.ActiveSprint\?\.WatchedSoFar\s*\?\?\s*0\s*\)",
+            r"_current\.EndedUtc\s*=\s*RunningSprint\.RecordedEnd\(\s*_current\.StartedUtc\s*,\s*"
+            r"_endsAtUtc\s*,\s*S\.ActiveSprint\?\.WatchedSoFar\s*\?\?\s*0\s*,[^;]*,\s*interrupted\s*\)",
             end,
         ), "EndSprint must timestamp an interruption from clamped ActiveSprint.WatchedSoFar"
+        self._helper_ends_an_interruption_at_watched_time()
         cleared = end.find("_cycle = interrupted ? CycleState.Nothing")
         text_raise = end.find("Raise(nameof(CycleProgressText))", cleared)
         visible_raise = end.find("Raise(nameof(CycleProgressVisible))", cleared)
@@ -7955,3 +7967,94 @@ class TestCycleTextFollowsTheSprintLength:
         source = self.VM.read_text(encoding="utf-8")
         restore = source.index("Raise(nameof(SelectedMinutes));\n                Raise(nameof(PresetMinutes));")
         assert "Raise(nameof(CycleDescription))" in source[restore:restore + 400]
+
+
+class TestACompletedSprintDoesNotCountTheSleep300:
+    """
+    #300. A DispatcherTimer does not tick while the PC sleeps, so the first
+    tick after waking reaches OnTick's time-up branch with the nap behind it.
+    Since #203 a sprint FlowShield watched at least half of still finishes
+    there, which is right -- but EndSprint stamped its end with DateTime.UtcNow,
+    the moment of waking, and FocusSession.ActualMinutes is EndedUtc minus
+    StartedUtc. Eight hours asleep became eight hours focused: on the summary
+    card, the minutes goal and today's tile, History, the heatmap and the
+    journal export. F3's startup path already ended a completed sprint at its
+    planned end; both now go through RunningSprint.RecordedEnd.
+
+    The cap is not tied to finishing. Input is dispatched ahead of the
+    Background-priority timer, so an End click handled after waking but
+    before that first tick ends the sprint early with now hours past its
+    planned end; it is still recorded as ended early, momentum and all, but
+    its minutes are capped the same way.
+    """
+
+    SETTINGS = DESKTOP / "Models" / "AppSettings.cs"
+    VM = DESKTOP / "ViewModels" / "TodayViewModel.cs"
+
+    # EndSprint's assignment as 1.0.9 shipped it, verbatim: proves the checker
+    # below rejects it rather than passing by construction.
+    PRE_FIX_END_SPRINT = (
+        "        _current.EndedUtc = interrupted\n"
+        "            ? _current.StartedUtc + TimeSpan.FromMinutes(S.ActiveSprint?.WatchedSoFar ?? 0)\n"
+        "            : DateTime.UtcNow;\n"
+    )
+
+    @staticmethod
+    def _code(source: str) -> str:
+        """The source without its // comments, which describe the old behaviour."""
+        return re.sub(r"(^|\s)//[^\n]*", r"\1", source)
+
+    @staticmethod
+    def _block(source: str, marker: str) -> str:
+        start = source.find(marker)
+        assert start >= 0, f"{marker!r} was not found; update this test"
+        opening = source.find("{", start)
+        depth = 0
+        for index in range(opening, len(source)):
+            depth += source[index] == "{"
+            depth -= source[index] == "}"
+            if depth == 0:
+                return source[opening + 1:index]
+        raise AssertionError(f"unbalanced braces after {marker!r}")
+
+    def _problems(self, end_sprint: str) -> list[str]:
+        """What is wrong with the end EndSprint records; empty when nothing is."""
+        match = re.search(r"_current\.EndedUtc\s*=(.*?);", end_sprint, re.S)
+        assert match, "EndSprint's EndedUtc assignment was not found; update this test"
+        value = " ".join(match.group(1).split())
+        call = re.search(r"RunningSprint\.RecordedEnd\(([^)]*)\)", value)
+        outside = value.replace(call.group(0), "") if call else value
+
+        problems = []
+        if "DateTime.UtcNow" in outside:
+            problems.append("the end is the bare DateTime.UtcNow, which after a sleep is the wake time")
+        if call is None:
+            problems.append("the end must come from RunningSprint.RecordedEnd")
+        else:
+            args = [arg.strip() for arg in call.group(1).split(",")]
+            if args[1:2] != ["_endsAtUtc"]:
+                problems.append(f"the planned end passed must be _endsAtUtc, not {args[1:2]}")
+            if args[3:5] != ["DateTime.UtcNow", "completed"]:
+                problems.append(f"now and completed must be passed as such, not {args[3:5]}")
+        return problems
+
+    def test_the_helper_caps_any_uninterrupted_end_at_the_planned_end(self):
+        source = self._code(self.SETTINGS.read_text(encoding="utf-8"))
+        assert re.search(
+            r"public static DateTime RecordedEnd\(\s*DateTime startedUtc,\s*DateTime plannedEndUtc,\s*"
+            r"double watchedMinutes,\s*DateTime nowUtc,\s*bool completed,\s*bool interrupted\)",
+            source,
+        ), "the call sites below are checked against this parameter order"
+        helper = self._block(source, "public static DateTime RecordedEnd(")
+        assert re.search(
+            r"return\s+nowUtc\s*>\s*plannedEndUtc\s*\?\s*plannedEndUtc\s*:\s*nowUtc\s*;",
+            helper,
+        ), "any end but an interruption is now, and never after the planned end"
+
+    def test_end_sprint_records_its_end_through_the_helper(self):
+        end = self._block(self._code(self.VM.read_text(encoding="utf-8")), "private void EndSprint(")
+        assert self._problems(end) == []
+
+    def test_the_shipped_assignment_is_rejected(self):
+        problems = self._problems(self.PRE_FIX_END_SPRINT)
+        assert any("bare DateTime.UtcNow" in problem for problem in problems), problems

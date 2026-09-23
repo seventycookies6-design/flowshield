@@ -246,6 +246,31 @@ public class RunningSprint
     /// <summary>Share of a sprint FlowShield must have been running for it to count as finished.</summary>
     public const double CompletedIfWatchedFraction = 0.5;
 
+    /// <summary>
+    /// When a sprint that has just ended is recorded as ending, which is all
+    /// <see cref="FocusSession.ActualMinutes"/> — the summary card, the minutes
+    /// goal, History, the heatmap and the journal export — measures.
+    ///
+    /// An interrupted sprint ends where FlowShield stopped watching it (#203).
+    /// Any other end is now, but never after the planned end: a
+    /// DispatcherTimer doesn't tick while the PC sleeps, so the tick that
+    /// finishes a sprint can come hours late, and the nap would count as focus
+    /// (#300). The cap doesn't ask whether the sprint finished, because input
+    /// is dispatched ahead of that Background-priority tick: an End click
+    /// handled after waking ends the sprint early with now hours past the
+    /// planned end too. The caller still records that as ended early, momentum
+    /// and all; only the minutes are capped. A real early end is before the
+    /// planned end, so now is already right. Sessions saved before #300 keep
+    /// the end they were saved with.
+    /// </summary>
+    public static DateTime RecordedEnd(DateTime startedUtc, DateTime plannedEndUtc,
+                                       double watchedMinutes, DateTime nowUtc,
+                                       bool completed, bool interrupted)
+    {
+        if (interrupted) return startedUtc + TimeSpan.FromMinutes(watchedMinutes);
+        return nowUtc > plannedEndUtc ? plannedEndUtc : nowUtc;
+    }
+
     private static DateTime Min(DateTime a, DateTime b) => a < b ? a : b;
 
     private static TimeSpan Min(TimeSpan a, TimeSpan b) => a < b ? a : b;

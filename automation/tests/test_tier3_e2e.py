@@ -791,6 +791,10 @@ class TestSprints:
         assert fresh_app.text_of("SummaryTitle") == "Sprint complete"
         started = datetime.fromisoformat(session["StartedUtc"].replace("Z", "+00:00"))
         ended = datetime.fromisoformat(session["EndedUtc"].replace("Z", "+00:00"))
+        # #300: it ends at its planned end, not whenever the tick that noticed
+        # ran -- after a sleep, that tick is hours late.
+        assert (ended - started).total_seconds() == session["PlannedMinutes"] * 60, \
+            f"a {session['PlannedMinutes']}-minute sprint was recorded as {ended - started}"
         actual_minutes = round((ended - started).total_seconds() / 60)
         assert fresh_app.text_of("SummaryMinutesValue") == \
             f"{actual_minutes} minutes focused"
