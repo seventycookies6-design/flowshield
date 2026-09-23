@@ -527,6 +527,39 @@ class TestSoftShowsTheNotice:
             time.sleep(0.4)
         return None
 
+    def _first_sight_of(self, auto_id, timeout=15):
+        """
+        A control on the notice, looked for in a tight loop so it is sampled
+        the moment the notice is up: under --short-timers Allow's wait is only
+        a second, and _overlay's slower polling can spend most of it.
+        """
+        from pywinauto import Desktop
+
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            try:
+                control = Desktop(backend="uia").window(auto_id=self.OVERLAY) \
+                    .child_window(auto_id=auto_id)
+                if control.exists(timeout=0):
+                    return control.wrapper_object()
+            except Exception:
+                pass
+            time.sleep(0.05)
+        return None
+
+    @staticmethod
+    def _wait_until_enabled(control, timeout):
+        """Raced against a deadline rather than slept on (#146)."""
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            try:
+                if control.is_enabled():
+                    return True
+            except Exception:
+                pass
+            time.sleep(0.1)
+        return False
+
     def _arm_and_start(self, app, process=None):
         app.navigate_to_tab("Blocked Apps")
         assert app.add_blocked_app(self.TARGET)
@@ -583,7 +616,11 @@ class TestSoftShowsTheNotice:
 
             overlay = self._overlay()
             assert overlay is not None
-            overlay.child_window(auto_id="SoftOverlayAllowButton").click_input()
+            # 1.0.10: Allow waits before it can be pressed (one second under
+            # --short-timers), so a click before then would do nothing.
+            allow = overlay.child_window(auto_id="SoftOverlayAllowButton")
+            assert self._wait_until_enabled(allow, timeout=5), "Allow never became pressable"
+            allow.click_input()
             time.sleep(1.0)
 
             # Back to the decoy: inside the five minutes, nothing appears.
@@ -599,6 +636,61 @@ class TestSoftShowsTheNotice:
                 "Allow 5 minutes has to mean five minutes"
             )
             assert process.poll() is None
+        finally:
+            if process.poll() is None:
+                process.kill()
+
+    def test_allow_is_disabled_until_the_wait_runs_out(self, fresh_app, tmp_path):
+        """
+        1.0.10: Allow 5 minutes waits (5, 10, 20, then 30 s), and --short-timers
+        makes the wait one second. Close works at once; the try count shows.
+        """
+        process = self._decoy(tmp_path)
+        try:
+            self._arm_and_start(fresh_app, process)
+
+            allow = self._first_sight_of("SoftOverlayAllowButton")
+            assert allow is not None, (
+                "a blocked app was the foreground window at Soft and nothing said so"
+            )
+            assert not allow.is_enabled(), "Allow must wait before it can be pressed"
+            assert self._wait_until_enabled(allow, timeout=5), "Allow's wait never ran out"
+
+            overlay = self._overlay(timeout=2)
+            assert overlay is not None
+            try_line = overlay.child_window(auto_id="SoftOverlayTryLine").window_text()
+            assert "1st try this sprint" in try_line, try_line
+            close = overlay.child_window(auto_id="SoftOverlayCloseButton")
+            assert close.is_enabled(), "Close works at once, with no wait"
+            assert self.TARGET.lower() in close.window_text().lower(), close.window_text()
+        finally:
+            if process.poll() is None:
+                process.kill()
+
+    def test_close_asks_the_app_to_close_and_never_kills_it(self, fresh_app, tmp_path):
+        """
+        1.0.10: Close is the user's choice. The blocker asks the app to close
+        (CloseMainWindow, so its own save prompt can appear) and never kills
+        it, and the notice goes down.
+        """
+        process = self._decoy(tmp_path)
+        try:
+            self._arm_and_start(fresh_app, process)
+
+            overlay = self._overlay()
+            assert overlay is not None
+            overlay.child_window(auto_id="SoftOverlayCloseButton").click_input()
+
+            asked = f"(pid {process.pid}) to close, as the user chose"
+            deadline = time.time() + 10
+            while time.time() < deadline and not fresh_app.app_log_contains(asked):
+                time.sleep(0.25)
+            assert fresh_app.app_log_contains(asked), "Close must ask the blocked app to close"
+            assert fresh_app.app_log_contains(f"soft notice: close {self.TARGET} chosen")
+            assert not fresh_app.app_log_contains(f"(pid {process.pid}) at shield"), (
+                "Soft must never kill the app, even when the user chose Close"
+            )
+            assert self._overlay(timeout=2) is None, "Close must take the notice down"
         finally:
             if process.poll() is None:
                 process.kill()

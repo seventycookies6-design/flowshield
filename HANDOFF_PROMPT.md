@@ -25,10 +25,10 @@ A Windows 10/11 x64 app. Pick a sprint length and a shield level, start the
 timer, and apps on your blocklist are dealt with until it ends.
 
 - **Shield levels:** Soft (a full-screen notice on the blocked app's screen,
-  with Back to work and Allow 5 minutes; the app keeps running), Firm (blocked
-  apps are warned to save their work, then closed), Sealed (warned then
-  closed, and the blocklist locks for the rest of the sprint — ending the
-  sprint early unlocks it).
+  with Close ‹app›, Back to work and Allow 5 minutes; the app keeps running,
+  unless you choose Close), Firm (blocked apps are warned to save their work,
+  then closed), Sealed (warned then closed, and the blocklist locks for the
+  rest of the sprint — ending the sprint early unlocks it).
 - **Momentum score:** a finished sprint adds to it; an abandoned one decays it
   (×0.85 − 2) rather than resetting it. A day streak is shown too.
 - **Journal:** a one-line "What moved?" entry after each sprint.

@@ -666,12 +666,16 @@ class TestSoftShieldWording:
         assert "Full-screen nudge overlay" not in model
         assert "blocked app keeps running" in readme
         assert "blocked app keeps running" in model
+        # 1.0.10: the notice has a Close button, so the promise says who decides.
+        assert "unless you choose to close it" in readme
+        assert "unless you choose to close it" in model
 
     def test_legal_page_distinguishes_soft_from_closing_modes(self):
         source = (Path(WEBSITE_DIR) / "legal.html").read_text(encoding="utf-8")
         legal = " ".join(source.split())
 
         assert "Soft records the" in legal and "leaves the application running" in legal
+        assert "unless you choose Close on its notice" in legal
         assert "Firm and Sealed close it" in legal
         assert "Any unsaved work in an application FlowShield closes may be lost" in legal
 
@@ -6784,7 +6788,9 @@ class TestSoftOverlayNeverCloses:
     def test_its_controls_carry_automation_ids_on_real_controls(self):
         xaml = self.OVERLAY_XAML.read_text(encoding="utf-8")
         for automation_id in ("SoftOverlayText", "SoftOverlayTimeLeft",
-                              "SoftOverlayBackToWorkButton", "SoftOverlayAllowButton"):
+                              "SoftOverlayBackToWorkButton", "SoftOverlayAllowButton",
+                              "SoftOverlayCloseButton", "SoftOverlayIntention",
+                              "SoftOverlayTryLine"):
             assert f'AutomationProperties.AutomationId="{automation_id}"' in xaml
 
         # #134: an id on a layout panel is never surfaced, so it can never be found.
@@ -6867,7 +6873,6 @@ class TestSoftCloseNeverKills:
     def test_it_never_touches_a_critical_process(self):
         assert "CriticalProcesses.Contains(" in self._ask_to_close()
 
-    @pytest.mark.xfail(strict=True, reason="wired in Task 7")
     def test_it_is_only_reached_from_the_close_button(self):
         callers = [p for p in Path(DESKTOP_DIR).rglob("*.cs")
                    if "AskToClose(" in p.read_text(encoding="utf-8")]
@@ -6878,6 +6883,85 @@ class TestSoftCloseNeverKills:
         source = self.BLOCKER.read_text(encoding="utf-8")
         soft = source.split("if (!terminate)", 1)[1].split("continue;", 1)[0]
         assert "AskToClose" not in soft
+
+
+class TestSoftNoticeFriction:
+    """
+    1.0.10's notice (spec 4.1): Close first and focused, Back to work on
+    Escape, and Allow only after a wait that grows with each try. The wait is
+    enforced where the click lands, not only by how the button looks.
+    """
+
+    MAIN_VM = Path(DESKTOP_DIR) / "ViewModels" / "MainViewModel.cs"
+    MAIN_WINDOW = Path(DESKTOP_DIR) / "MainWindow.xaml.cs"
+    OVERLAY_XAML = Path(DESKTOP_DIR) / "Views" / "SoftOverlayWindow.xaml"
+    OVERLAY_CS = Path(DESKTOP_DIR) / "Views" / "SoftOverlayWindow.xaml.cs"
+    POLICY = Path(DESKTOP_DIR) / "Models" / "SoftOverlayPolicy.cs"
+
+    def test_close_is_the_primary_focused_button(self):
+        xaml = self.OVERLAY_XAML.read_text(encoding="utf-8")
+        close = xaml.split('AutomationProperties.AutomationId="SoftOverlayCloseButton"')[0].rsplit("<Button", 1)[1]
+        assert "BtnPrimary" in close and 'IsDefault="True"' in close
+        back = xaml.split('AutomationProperties.AutomationId="SoftOverlayBackToWorkButton"')[0].rsplit("<Button", 1)[1]
+        assert "BtnPrimary" not in back and 'IsCancel="True"' in back, "Escape is still Back to work"
+        opened = self.OVERLAY_CS.read_text(encoding="utf-8") \
+            .split("protected override void OnSourceInitialized", 1)[1].split("\n    }", 1)[0]
+        assert "CloseButton.Focus();" in opened
+
+    def test_allow_waits_before_it_can_be_pressed(self):
+        code = self.OVERLAY_CS.read_text(encoding="utf-8")
+        assert "AllowButton.IsEnabled = false" in code
+        assert "SoftOverlayCopy.AllowLabel(" in code
+        assert "DispatcherTimer" in code
+        # A gate refuses where the click lands, not only by how the button
+        # looks (CLAUDE.md, "covered controls"), so the handler checks too.
+        handler = code.split("private void OnAllowFiveMinutes", 1)[1].split("\n    }", 1)[0]
+        assert handler.index("if (!AllowButton.IsEnabled) return;") < handler.index("Answer(AllowFiveMinutes)")
+
+    def test_the_countdown_moves_nothing(self):
+        """
+        Sharing a WrapPanel with Close and Back to work, Allow jumped up a row
+        (and the sentence re-wrapped) the moment its countdown ended and the
+        label got shorter -- a button moving just as it becomes pressable.
+        """
+        xaml = self.OVERLAY_XAML.read_text(encoding="utf-8")
+        row = xaml.split("<WrapPanel", 1)[1].split("</WrapPanel>", 1)[0]
+        assert 'AutomationId="SoftOverlayCloseButton"' in row
+        assert 'AutomationId="SoftOverlayBackToWorkButton"' in row
+        assert 'AutomationId="SoftOverlayAllowButton"' not in row, "Allow sits on a line of its own"
+
+    def test_the_note_is_softs_promise_from_one_place(self):
+        xaml = self.OVERLAY_XAML.read_text(encoding="utf-8")
+        assert "{x:Static models:SoftOverlayCopy.CloseNote}" in xaml
+        assert "Nothing has been closed" not in xaml, "the note from before Close existed"
+        policy = self.POLICY.read_text(encoding="utf-8")
+        assert 'CloseNote = "Nothing is closed unless you choose to.";' in policy
+
+    def test_the_settings_switch_makes_the_same_promise(self):
+        """The switch's caption said "Nothing is closed." -- untrue once the notice has Close."""
+        view = (Path(DESKTOP_DIR) / "Views" / "SettingsView.xaml").read_text(encoding="utf-8")
+        caption = view.split('AutomationProperties.AutomationId="SoftOverlayToggle"', 1)[1] \
+            .split("</CheckBox>", 1)[0]
+        assert "Nothing is closed unless you choose to." in caption
+
+    def test_the_close_handler_asks_through_the_view_model_only(self):
+        block = self.MAIN_WINDOW.read_text(encoding="utf-8").split("overlay.CloseIt +=", 1)[1].split("};", 1)[0]
+        assert "SoftOverlayCloseIt" in block
+        for forbidden in ("Kill", "CloseMainWindow", "Process"):
+            assert forbidden not in block
+
+    def test_the_view_model_counts_it_and_asks_the_blocker(self):
+        source = self.MAIN_VM.read_text(encoding="utf-8")
+        body = source.split("public void SoftOverlayCloseIt(string displayName)", 1)[1].split("\n    }", 1)[0]
+        assert "_softOverlay.CloseIt(displayName, DateTime.UtcNow);" in body
+        assert "Blocker.AskToClose(displayName, Settings)" in body
+
+    def test_the_request_carries_intention_try_and_wait(self):
+        handler = self.MAIN_VM.read_text(encoding="utf-8").split("private void OnSoftForeground", 1)[1].split("\n    }", 1)[0]
+        for piece in ("SoftOverlayCopy.Intention(", "SoftOverlayCopy.TryLine(_softOverlay.Tries)",
+                      "SoftOverlayPolicy.AllowWait(_softOverlay.Tries)",
+                      "SoftOverlayCopy.Sentence(e.DisplayName, Today.EndsAtUtc.ToLocalTime(), _softOverlay.Tries)"):
+            assert piece in handler, piece
 
 
 # ================================== blocklist profiles must not break anything

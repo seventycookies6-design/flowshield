@@ -1,7 +1,10 @@
 using System.Runtime.InteropServices;
 using System.Windows;
+using System.Windows.Automation;
 using System.Windows.Input;
 using System.Windows.Interop;
+using System.Windows.Threading;
+using FlowShield.Models;
 using FlowShield.Services;
 using Forms = System.Windows.Forms;
 
@@ -14,44 +17,84 @@ namespace FlowShield.Views;
 /// point is that it appears over the distraction, on the monitor the
 /// distraction is on, when FlowShield's own window is behind everything.
 ///
-/// It notices; it never closes anything. The blocked app is still running when
-/// this window goes away, at either button — Soft's promise is that it only
-/// notes distractions, and this screen must not quietly break it.
+/// It never closes anything on its own. Back to work and Allow leave the
+/// blocked app running. Close (1.0.10) is the user's choice: this window only
+/// raises <see cref="CloseIt"/>, and MainWindow hands it to the view model,
+/// which asks the app to close and never kills it. Soft's promise is that
+/// nothing is closed unless you choose to, and this screen must not quietly
+/// break it.
 /// </summary>
 public partial class SoftOverlayWindow : Window
 {
     /// <summary>Back to work, or Escape, which is the same thing.</summary>
     public event EventHandler? BackToWork;
 
-    /// <summary>Allow 5 minutes.</summary>
+    /// <summary>Allow 5 minutes, once its wait has run out.</summary>
     public event EventHandler? AllowFiveMinutes;
+
+    /// <summary>"Close Discord": the user's choice. MainWindow passes it to the view model, which asks the blocker.</summary>
+    public event EventHandler? CloseIt;
 
     /// <summary>The blocked app's window, so the notice opens on its monitor.</summary>
     private IntPtr _anchor;
 
-    /// <summary>Set once either button has been answered, so neither fires twice.</summary>
+    /// <summary>Set once any button has been answered, so none fires twice.</summary>
     private bool _answered;
+
+    /// <summary>Counts down the wait before Allow can be pressed.</summary>
+    private DispatcherTimer? _allowTimer;
+
+    /// <summary>When Allow becomes pressable.</summary>
+    private DateTime _allowAtUtc;
 
     public SoftOverlayWindow()
     {
         InitializeComponent();
     }
 
-    /// <summary>Fills in the one sentence and the time left. Called before Show.</summary>
-    public void Configure(string sentence, string timeLeft, IntPtr anchor)
+    /// <summary>Fills in the notice. Called before Show.</summary>
+    public void Configure(string displayName, string sentence, string timeLeft, IntPtr anchor,
+                          string intention, string tryLine, TimeSpan allowWait)
     {
         SentenceText.Text = sentence;
         TimeLeftText.Text = timeLeft;
+        IntentionText.Text = intention;
+        IntentionText.Visibility = intention.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+        TryLineText.Text = tryLine;
+        CloseButton.Content = $"Close {displayName}";
+        AutomationProperties.SetName(CloseButton, $"Close {displayName}");
         _anchor = anchor;
+
+        // The wait before Allow (1.0.10). Text only, so reduced motion changes nothing.
+        _allowAtUtc = DateTime.UtcNow + allowWait;
+        AllowButton.IsEnabled = false;
+        AllowButton.Content = SoftOverlayCopy.AllowLabel(allowWait);
+        _allowTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
+        _allowTimer.Tick += (_, _) => UpdateAllow();
+        _allowTimer.Start();
+    }
+
+    private void UpdateAllow()
+    {
+        var left = _allowAtUtc - DateTime.UtcNow;
+        AllowButton.Content = SoftOverlayCopy.AllowLabel(left);
+        if (left > TimeSpan.Zero) return;
+        AllowButton.IsEnabled = true;
+        _allowTimer?.Stop();
+    }
+
+    protected override void OnClosed(EventArgs e)
+    {
+        _allowTimer?.Stop();
+        base.OnClosed(e);
     }
 
     protected override void OnSourceInitialized(EventArgs e)
     {
         base.OnSourceInitialized(e);
         PlaceOverTheDistraction();
-        // The primary action has focus, so Space or Enter is Back to work and
-        // nothing else on this screen can be reached by mistake.
-        BackToWorkButton.Focus();
+        // The primary action has focus, so Enter is Close; Escape is Back to work.
+        CloseButton.Focus();
     }
 
     [DllImport("user32.dll", SetLastError = true)]
@@ -99,9 +142,20 @@ public partial class SoftOverlayWindow : Window
         }
     }
 
+    private void OnCloseIt(object sender, RoutedEventArgs e) => Answer(CloseIt);
+
     private void OnBackToWork(object sender, RoutedEventArgs e) => Answer(BackToWork);
 
-    private void OnAllowFiveMinutes(object sender, RoutedEventArgs e) => Answer(AllowFiveMinutes);
+    /// <summary>
+    /// Refuses until the wait has run out. The disabled button already can't be
+    /// clicked; the gate also sits where the click lands, not only in how the
+    /// button looks (CLAUDE.md, "covered controls").
+    /// </summary>
+    private void OnAllowFiveMinutes(object sender, RoutedEventArgs e)
+    {
+        if (!AllowButton.IsEnabled) return;
+        Answer(AllowFiveMinutes);
+    }
 
     /// <summary>
     /// Escape is Back to work. Button.IsCancel already does this for a dialog;
