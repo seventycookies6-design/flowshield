@@ -6979,6 +6979,58 @@ class TestABreakStandsTheShieldDown:
             "only a cycle continues by itself; a single sprint's break ends quietly"
 
 
+class TestBreakCopyTracksScheduledSleepWindow:
+    """#272: during an F5 break in scheduled sleep hours, the sprint shield is
+    down but the nightly shield still closes blocked apps; Today must say so."""
+
+    TODAY_VM = Path(DESKTOP_DIR) / "ViewModels" / "TodayViewModel.cs"
+
+    def vm(self) -> str:
+        return self.TODAY_VM.read_text(encoding="utf-8")
+
+    def test_break_text_distinguishes_the_nightly_shield_from_an_open_break(self):
+        source = self.vm()
+        getter = re.search(
+            r"public\s+string\s+BreakPanelText\s*=>\s*(.*?);",
+            source,
+            re.DOTALL,
+        )
+        assert getter, "could not find the BreakPanelText getter in TodayViewModel.cs"
+        expression = " ".join(getter.group(1).split())
+
+        assert "IsWithinSleepWindow" in expression, (
+            "#272: BreakPanelText must check the scheduled sleep window because "
+            "blocked apps are still closed during a break then"
+        )
+        assert re.search(
+            r"IsWithinSleepWindow\s*\([^)]*\)\s*\?\s*"
+            r"(?:\$?\"[^\"]*sleep[^\"]*\"|'[^']*sleep[^']*')\s*:\s*"
+            r"\"The shield is down\. Blocked apps are allowed until the break ends\.\"",
+            expression,
+            re.IGNORECASE,
+        ), (
+            "#272: the sleep-window branch must say the nightly shield is still "
+            "up and blocked apps will be closed; only its outside branch may say "
+            "they are allowed until the break ends"
+        )
+
+    def test_each_break_tick_raises_the_sleep_aware_text(self):
+        source = self.vm()
+        tick = source.split("private void OnBreakTick()")[1].split("\n    }")[0]
+        assert "Raise(nameof(BreakPanelText))" in tick, (
+            "#272: a break that crosses into scheduled sleep hours must refresh "
+            "BreakPanelText on that tick"
+        )
+
+    def test_starting_a_break_raises_the_sleep_aware_text(self):
+        source = self.vm()
+        state = source.split("public bool IsOnBreak")[1].split("\n    }")[0]
+        assert "Raise(nameof(BreakPanelText))" in state, (
+            "#272: starting a break must refresh BreakPanelText for the current "
+            "scheduled sleep window"
+        )
+
+
 class TestNothingSellsOrLocksDuringABreak:
     """
     F20: the trial lock and anything about money wait for a sprint to end. A
