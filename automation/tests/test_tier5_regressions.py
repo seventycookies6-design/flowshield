@@ -1799,6 +1799,80 @@ class TestNoOneClickEscape:
         assert not psutil.pid_exists(fresh_app.pid), "FlowShield didn't quit after the sprint ended"
 
 
+class TestQuitEndsAnyRunningSprint:
+    """
+    #204: closing FlowShield during a Soft sprint skipped RequestEnd and left
+    the saved sprint active, so the next launch resumed it.
+    """
+
+    @staticmethod
+    def read(*parts) -> str:
+        return (Path(DESKTOP_DIR).joinpath(*parts)).read_text(encoding="utf-8")
+
+    def test_quit_end_flow_does_not_depend_on_shield_level(self):
+        """A Soft sprint must reach RequestEnd when the user quits too."""
+        window = self.read("MainWindow.xaml.cs")
+        needs_end_flow = window.split("private static bool NeedsEndFlowToQuit", 1)[1].split(";", 1)[0]
+        assert "ShieldLevel" not in needs_end_flow, \
+            "NeedsEndFlowToQuit must not gate the end flow on ShieldLevel"
+
+        quit_ = window.split("private void Quit()", 1)[1].split("\n    }", 1)[0]
+        assert "RequestEnd()" in quit_, "tray Quit must still go through RequestEnd"
+
+    @pytest.mark.ui
+    def test_closing_soft_sprint_after_grace_records_it_and_quits(self, fresh_app):
+        """A Soft sprint past grace should end early instead of resuming on next launch."""
+        fresh_app.navigate_to_tab("Settings")
+        fresh_app.set_toggle("MinimizeToTrayToggle", False)   # close really exits
+        fresh_app.navigate_to_tab("Today")
+        fresh_app.select_shield("Soft")
+        time.sleep(0.4)
+        fresh_app.start_sprint()
+        # --short-timers uses EndSprintPolicy.GracePeriod (15 s); the driver's
+        # wait includes its five-second margin, so the close is safely past it.
+        fresh_app.wait_out_grace_period()
+
+        fresh_app.window.close()                      # WM_CLOSE, like clicking X
+        deadline = time.time() + 10
+        while time.time() < deadline and psutil.pid_exists(fresh_app.pid):
+            time.sleep(0.2)
+        assert not psutil.pid_exists(fresh_app.pid), "closing a Soft sprint didn't quit"
+        assert not fresh_app.exists("KeepGoingButton", timeout=0.5), \
+            "Soft should end immediately without showing the end panel"
+
+        saved = verify.read_settings()
+        assert not saved.get("ActiveSprint"), "the ended Soft sprint remained active on disk"
+        sessions = saved.get("Sessions", [])
+        assert sessions, "the ended Soft sprint was not recorded"
+        newest = sessions[-1]
+        assert newest.get("Completed") is False, "quitting early must not mark the sprint complete"
+        assert newest.get("Interrupted") is False, "a deliberate quit is not an interrupted sprint"
+        assert newest.get("EndedUtc"), "the ended-early session needs an EndedUtc timestamp"
+
+    @pytest.mark.ui
+    def test_closing_soft_sprint_inside_grace_cancels_and_quits(self, fresh_app):
+        """A Soft sprint closed during grace should leave no session to resume or review."""
+        fresh_app.navigate_to_tab("Settings")
+        fresh_app.set_toggle("MinimizeToTrayToggle", False)   # close really exits
+        before = verify.read_settings()
+        before_sessions = before.get("Sessions", [])
+        fresh_app.navigate_to_tab("Today")
+        fresh_app.select_shield("Soft")
+        time.sleep(0.4)
+        fresh_app.start_sprint()
+
+        fresh_app.window.close()                      # WM_CLOSE, like clicking X
+        deadline = time.time() + 10
+        while time.time() < deadline and psutil.pid_exists(fresh_app.pid):
+            time.sleep(0.2)
+        assert not psutil.pid_exists(fresh_app.pid), "closing a Soft sprint inside grace didn't quit"
+
+        saved = verify.read_settings()
+        assert not saved.get("ActiveSprint"), "the cancelled Soft sprint remained active on disk"
+        assert saved.get("Sessions", []) == before_sessions, \
+            "cancelling inside grace must not add a session"
+
+
 # ============ the success page's Activate button did nothing (roadmap 1.4, #51)
 
 class TestActivationLinkWorks:
