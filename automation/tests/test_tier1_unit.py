@@ -793,13 +793,16 @@ def recorded_end(started: float, planned_end: float, watched: float, now: float,
     """
     if interrupted:
         return started + watched
-    return planned_end if completed and now > planned_end else now
+    return min(now, planned_end)
 
 
 class TestASprintIsRecordedAsEndingWhenItDid:
     """
     #300: a sprint finished by the first tick after the PC woke was stamped
-    with the wake time, so the whole nap counted as focused minutes.
+    with the wake time, so the whole nap counted as focused minutes. So was
+    one ended by a click handled after waking but before that tick: input is
+    dispatched ahead of the Background-priority timer, and the end was now.
+    Any end but an interruption is now capped at the planned end.
     """
 
     SOURCE = TestSprintResume.SOURCE
@@ -816,8 +819,10 @@ class TestASprintIsRecordedAsEndingWhenItDid:
 
     def test_the_helper_makes_the_same_comparison(self):
         helper = self.helper()
+        # The cap reads nothing but the two times: not whether the sprint
+        # completed, so an End click after waking is capped too.
         assert re.search(
-            r"completed\s*&&\s*nowUtc\s*>\s*plannedEndUtc\s*\?\s*plannedEndUtc\s*:\s*nowUtc", helper
+            r"return\s+nowUtc\s*>\s*plannedEndUtc\s*\?\s*plannedEndUtc\s*:\s*nowUtc", helper
         ), helper
         assert re.search(
             r"if\s*\(\s*interrupted\s*\)\s*return\s+startedUtc\s*\+\s*"
@@ -826,10 +831,11 @@ class TestASprintIsRecordedAsEndingWhenItDid:
 
     # A 60-minute sprint started at minute 100, so it was due to end at 160.
     @pytest.mark.parametrize("now,completed,interrupted,expected", [
-        (160 + 8 * 60, True, False, 160),  # finished by the first tick after an 8-hour sleep
-        (160 + 1 / 60, True, False, 160),  # finished by a tick one second late
-        (130, False, False, 130),          # ended early: when it was ended
-        (160 + 8 * 60, False, True, 110),  # interrupted: the start plus the 10 minutes watched
+        (160 + 8 * 60, True, False, 160),   # finished by the first tick after an 8-hour sleep
+        (160 + 1 / 60, True, False, 160),   # finished by a tick one second late
+        (130, False, False, 130),           # ended early: when it was ended
+        (160 + 8 * 60, False, False, 160),  # ended early by a click after waking, before that tick
+        (160 + 8 * 60, False, True, 110),   # interrupted: the start plus the 10 minutes watched
     ])
     def test_the_recorded_end(self, now, completed, interrupted, expected):
         self.helper()

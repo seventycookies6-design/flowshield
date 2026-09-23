@@ -1454,9 +1454,11 @@ public class TodayViewModel : ViewModelBase
         IsRunning = false;
 
         // An interrupted sprint "ends" where FlowShield stopped watching it, and
-        // a completed one no later than planned, so ActualMinutes — what the
+        // any other end no later than planned, so ActualMinutes — what the
         // minutes goal and the focus tiles add up — is the time the shield was
-        // actually up, not the hours asleep (#203, #300).
+        // actually up, not the hours asleep (#203, #300). An End click handled
+        // after waking, before the first tick, is capped the same way but is
+        // still recorded as ended early below, momentum and all.
         _current.EndedUtc = RunningSprint.RecordedEnd(
             _current.StartedUtc, _endsAtUtc, S.ActiveSprint?.WatchedSoFar ?? 0,
             DateTime.UtcNow, completed, interrupted);

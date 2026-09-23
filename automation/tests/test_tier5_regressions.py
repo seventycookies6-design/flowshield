@@ -7980,6 +7980,12 @@ class TestACompletedSprintDoesNotCountTheSleep300:
     card, the minutes goal and today's tile, History, the heatmap and the
     journal export. F3's startup path already ended a completed sprint at its
     planned end; both now go through RunningSprint.RecordedEnd.
+
+    The cap is not tied to finishing. Input is dispatched ahead of the
+    Background-priority timer, so an End click handled after waking but
+    before that first tick ends the sprint early with now hours past its
+    planned end; it is still recorded as ended early, momentum and all, but
+    its minutes are capped the same way.
     """
 
     SETTINGS = DESKTOP / "Models" / "AppSettings.cs"
@@ -8032,7 +8038,7 @@ class TestACompletedSprintDoesNotCountTheSleep300:
                 problems.append(f"now and completed must be passed as such, not {args[3:5]}")
         return problems
 
-    def test_the_helper_caps_a_completed_end_at_the_planned_end(self):
+    def test_the_helper_caps_any_uninterrupted_end_at_the_planned_end(self):
         source = self._code(self.SETTINGS.read_text(encoding="utf-8"))
         assert re.search(
             r"public static DateTime RecordedEnd\(\s*DateTime startedUtc,\s*DateTime plannedEndUtc,\s*"
@@ -8041,9 +8047,9 @@ class TestACompletedSprintDoesNotCountTheSleep300:
         ), "the call sites below are checked against this parameter order"
         helper = self._block(source, "public static DateTime RecordedEnd(")
         assert re.search(
-            r"return\s+completed\s*&&\s*nowUtc\s*>\s*plannedEndUtc\s*\?\s*plannedEndUtc\s*:\s*nowUtc\s*;",
+            r"return\s+nowUtc\s*>\s*plannedEndUtc\s*\?\s*plannedEndUtc\s*:\s*nowUtc\s*;",
             helper,
-        ), "a completed sprint must end at its planned end at the latest; any other end is now"
+        ), "any end but an interruption is now, and never after the planned end"
 
     def test_end_sprint_records_its_end_through_the_helper(self):
         end = self._block(self._code(self.VM.read_text(encoding="utf-8")), "private void EndSprint(")
