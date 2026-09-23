@@ -211,10 +211,14 @@ public class AppBlockerService : IDisposable
 
     /// <summary>
     /// The Soft notice's "Close Discord" button (1.0.10). The user chose it;
-    /// Soft itself still closes nothing. Asks every running process of that
-    /// app to close, the way its own close button would, so unsaved work gets
-    /// its "save changes?" prompt. Never kills, and never touches a critical
-    /// process. Returns how many processes were asked.
+    /// Soft never closes anything on its own. Asks every running process of
+    /// that app to close, the way its own close button would, so unsaved work
+    /// gets its "save changes?" prompt. Never kills, and never touches a
+    /// critical process. Returns how many processes accepted the close
+    /// request: 0 when none has a main window to close (an app hidden in the
+    /// tray, or one whose main window is disabled behind its own prompt), when
+    /// the app is not running, or when it is no longer on the active
+    /// blocklist. 0 is not a failure; the caller says so in the log.
     /// </summary>
     public int AskToClose(string displayName, AppSettings settings)
     {
@@ -238,7 +242,7 @@ public class AppBlockerService : IDisposable
             }
             catch (Exception ex)
             {
-                Log.Warn($"soft: could not ask a process to close: {ex.Message}");
+                Log.Warn($"soft: could not ask pid {Safe(() => process.Id)} to close: {ex.Message}");
             }
             finally
             {

@@ -6884,6 +6884,20 @@ class TestSoftCloseNeverKills:
         soft = source.split("if (!terminate)", 1)[1].split("continue;", 1)[0]
         assert "AskToClose" not in soft
 
+    def test_zero_asked_is_explained_not_treated_as_a_failure(self):
+        """
+        AskToClose counts processes whose CloseMainWindow accepted the ask. An
+        app hidden in the tray, or sitting behind its own save prompt, has no
+        main window to close and gives 0, which is not a failure; the log says
+        what it means, and a warning names the pid like the sibling lines do.
+        """
+        body = self._ask_to_close()
+        assert "Safe(() => process.Id)" in body.split("catch (Exception ex)", 1)[1]
+        caller = (Path(DESKTOP_DIR) / "ViewModels" / "MainViewModel.cs").read_text(encoding="utf-8") \
+            .split("public void SoftOverlayCloseIt(string displayName)", 1)[1].split("\n    }", 1)[0]
+        assert "asked == 0" in caller
+        assert "nothing to ask" in caller
+
 
 class TestSoftNoticeFriction:
     """

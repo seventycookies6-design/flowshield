@@ -558,7 +558,7 @@ public class MainViewModel : ViewModelBase
 
     /// <summary>
     /// "Back to work" on the Soft notice. The blocked app is left running — Soft
-    /// closes nothing on its own, and that promise is the whole shield.
+    /// never closes anything on its own, and that promise is the whole shield.
     /// </summary>
     public void SoftOverlayBackToWork(string displayName)
     {
@@ -574,7 +574,11 @@ public class MainViewModel : ViewModelBase
     {
         _softOverlay.CloseIt(displayName, DateTime.UtcNow);
         var asked = Blocker.AskToClose(displayName, Settings);
-        Log.Info($"soft notice: close {displayName} chosen; asked {asked} process(es)");
+        // 0 is not a failure: the app is hidden in the tray, sits behind its own
+        // prompt, has already gone, or left the blocklist since the notice.
+        Log.Info(asked == 0
+            ? $"soft notice: close {displayName} chosen; nothing to ask (not running, or no main window to close)"
+            : $"soft notice: close {displayName} chosen; asked {asked} process(es)");
     }
 
     /// <summary>
