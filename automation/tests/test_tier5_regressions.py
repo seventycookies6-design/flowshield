@@ -6268,9 +6268,13 @@ class TestTrayAndKeyboardNeverBypassTheEndFlow:
         """The hotkey's one job is F4's 'start the last sprint' — it must never reach End."""
         window = self.WINDOW.read_text(encoding="utf-8")
         wnd_proc = window.split("private IntPtr WndProc(")[1].split("\n    }")[0]
-        assert "StartCommand.Execute(null)" in wnd_proc
-        assert "StopCommand" not in wnd_proc
-        assert "RequestEnd" not in wnd_proc
+        # Since #270 the hotkey goes through QuickStart(), which only starts.
+        quick_start = window.split("private void QuickStart()")[1].split("\n    }")[0]
+        assert "QuickStart()" in wnd_proc
+        assert "StartCommand.Execute(null)" in quick_start
+        for path in (wnd_proc, quick_start):
+            assert "StopCommand" not in path
+            assert "RequestEnd" not in path
 
     def test_page_ctrl_shortcuts_and_shield_shift_shortcuts_stay_disjoint(self):
         """
@@ -7073,12 +7077,67 @@ class TestTheTrayFollowsTheBreak:
     def test_it_is_still_the_same_start_command(self):
         """
         The label changed, not the action: starting a sprint cuts the break
-        short through the same StartCommand the Today button and Space use.
+        short through the same start flow as the Today button and Space use.
         """
         build = self.WINDOW.read_text(encoding="utf-8").split(
             "private void BuildTrayMenu(")[1].split("\n    /// <summary>")[0]
-        assert "Vm?.Today.StartCommand.Execute(null)" in build
+        assert "QuickStart()" in build
         assert "StartBreak" not in build, "the tray never reaches into the break itself"
+
+
+class TestQuickStartBringsOpenAppQuestionForward:
+    """
+    Issue #270: when a blocked app is already open, StartSprint shows F7's
+    open-apps question and returns. Starting from the tray or global hotkey
+    must bring that question into view instead of silently leaving it hidden.
+    """
+
+    WINDOW = Path(DESKTOP_DIR) / "MainWindow.xaml.cs"
+
+    def source(self) -> str:
+        return self.WINDOW.read_text(encoding="utf-8")
+
+    def method(self, source: str, name: str) -> str:
+        match = re.search(
+            rf"\bprivate\s+(?:void|IntPtr)\s+{re.escape(name)}\s*\([^)]*\)\s*\{{",
+            source,
+        )
+        assert match, f"MainWindow must define {name}() for issue #270 quick start handling"
+        depth = 1
+        for index in range(match.end(), len(source)):
+            if source[index] == "{":
+                depth += 1
+            elif source[index] == "}":
+                depth -= 1
+                if depth == 0:
+                    return source[match.end():index]
+        assert False, f"could not find the end of MainWindow.{name}()"
+
+    def test_the_tray_start_item_uses_quickstart(self):
+        source = self.source()
+        tray = self.method(source, "BuildTrayMenu")
+        assert re.search(r"QuickStart\s*\(\s*\)", tray), \
+            "the tray start item must use QuickStart() so F7's open-apps question is shown"
+
+    def test_the_global_hotkey_uses_quickstart(self):
+        source = self.source()
+        hotkey = self.method(source, "WndProc")
+        assert re.search(r"QuickStart\s*\(\s*\)", hotkey), \
+            "the global hotkey must use QuickStart() so F7's open-apps question is shown"
+
+    def test_quickstart_restores_and_selects_today_for_the_open_apps_question(self):
+        source = self.source()
+        quick_start = self.method(source, "QuickStart")
+        assert re.search(r"StartCommand\s*\.\s*Execute\s*\(\s*null\s*\)", quick_start), \
+            "QuickStart() must still execute Today.StartCommand"
+        assert re.search(r"if\s*\([^)]*Today\.RunningAppsPanelVisible", quick_start), \
+            "QuickStart() must detect when StartSprint shows F7's open-apps question"
+        assert re.search(r"\.CurrentPage\s*=\s*AppPage\.Today", quick_start), \
+            "QuickStart() must select Today when the open-apps question appears"
+        assert re.search(r"\b(?:RestoreFromTray|BringToFront)\s*\(\s*\)", quick_start), \
+            "QuickStart() must restore or bring the window forward for the open-apps question"
+
+
 # ================================= the light theme and the keyboard (F21, #236)
 
 class TestLightThemeSwitchF21:

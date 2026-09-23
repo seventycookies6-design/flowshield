@@ -198,7 +198,7 @@ public partial class MainWindow : Window
         {
             // The same command the tray's "Start sprint (last settings)" and
             // the Today button use — never a shortcut around CanStart's gates.
-            Vm?.Today.StartCommand.Execute(null);
+            QuickStart();
             handled = true;
         }
         return IntPtr.Zero;
@@ -264,7 +264,7 @@ public partial class MainWindow : Window
             // The label is the only difference — the action is unchanged.
             var onBreak = Vm?.Today.IsOnBreak == true;
             menu.Items.Add(onBreak ? "Start next sprint" : "Start sprint (last settings)", null,
-                           (_, _) => Vm?.Today.StartCommand.Execute(null));
+                           (_, _) => QuickStart());
             menu.Items.Add("Start…", null, (_, _) => OpenToStartSprint());
             menu.Items.Add(new Forms.ToolStripSeparator());
             menu.Items.Add("Open FlowShield", null, (_, _) => RestoreFromTray());
@@ -272,6 +272,16 @@ public partial class MainWindow : Window
 
         menu.Items.Add(new Forms.ToolStripSeparator());
         menu.Items.Add("Quit", null, (_, _) => Quit());
+    }
+
+    private void QuickStart()
+    {
+        if (Vm is not { } vm) return;
+        vm.Today.StartCommand.Execute(null);
+        // F7 pauses here to ask about open apps; surface that question (#270).
+        if (!vm.Today.RunningAppsPanelVisible) return;
+        BringToFront();
+        vm.CurrentPage = AppPage.Today;
     }
 
     /// <summary>Tray's "Start…": opens the window on Today without starting anything (F4).</summary>
