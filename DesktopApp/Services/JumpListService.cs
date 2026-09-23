@@ -61,4 +61,26 @@ public static class JumpListService
             Log.Warn($"could not build the jump list: {ex.Message}");
         }
     }
+
+    /// <summary>
+    /// Settings, Your data, Delete everything (#311). The list holds template
+    /// names and lengths in a file Windows keeps in the user profile, outside
+    /// settings.json, so it goes with the rest. An empty list, applied: no
+    /// entries at all until the next start builds one from what is there then.
+    /// Needs the Application, so it runs on the UI thread.
+    /// </summary>
+    public static void Clear()
+    {
+        try
+        {
+            JumpList.SetJumpList(Application.Current,
+                new JumpList { ShowRecentCategory = false, ShowFrequentCategory = false });
+            Log.Info("jump list: cleared");
+        }
+        catch (Exception ex)
+        {
+            // As with Rebuild: a list left behind costs a shortcut, never the delete.
+            Log.Warn($"could not clear the jump list: {ex.Message}");
+        }
+    }
 }

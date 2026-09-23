@@ -313,6 +313,10 @@ public class MainViewModel : ViewModelBase
     /// <summary>The taskbar Jump List, built at startup and again whenever the templates change.</summary>
     public void RebuildJumpList()
     {
+        // After Delete everything (#311) the list has been emptied, but
+        // Settings still holds what was deleted until this process ends.
+        // Nothing may put those names back; the relaunch builds a fresh list.
+        if (SkipSaveOnExit) return;
         if (Environment.ProcessPath is { } exe) JumpListService.Rebuild(Settings.Templates, exe);
     }
 
@@ -443,7 +447,8 @@ public class MainViewModel : ViewModelBase
     /// <summary>
     /// Set once local data has been deleted (F23), so App.OnExit's normal
     /// save-on-shutdown does not write the in-memory settings straight back to
-    /// disk and undo the delete.
+    /// disk and undo the delete. <see cref="RebuildJumpList"/> reads it too,
+    /// so the emptied taskbar list stays empty (#311).
     /// </summary>
     public bool SkipSaveOnExit { get; private set; }
 
