@@ -115,6 +115,14 @@ public class HistoryViewModel : ViewModelBase
         private set => Set(ref _weekDistractionsText, value);
     }
 
+    private string _weekTurnedBackText = "";
+    /// <summary>"Turned back 11 times" this week (1.0.10), or empty at zero, which hides the line.</summary>
+    public string WeekTurnedBackText
+    {
+        get => _weekTurnedBackText;
+        private set => Set(ref _weekTurnedBackText, value);
+    }
+
     private string _mostBlockedText = "";
     public string MostBlockedText { get => _mostBlockedText; private set => Set(ref _mostBlockedText, value); }
 
@@ -180,6 +188,7 @@ public class HistoryViewModel : ViewModelBase
         WeekFocusText = (week.FocusMinutes / 60).ToString("0.0");
         WeekSprintsText = week.SprintsCompleted.ToString("0");
         WeekDistractionsText = week.Distractions.ToString("0");
+        WeekTurnedBackText = HistoryStats.TurnedBackText(week.TurnedBack);
         // Every profile, not only the active one: "all the time you have been
         // blocking" would otherwise change its answer when a profile is
         // switched, which is the scope-mixing the note below warns against.

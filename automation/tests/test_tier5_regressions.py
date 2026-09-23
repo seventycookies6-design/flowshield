@@ -7041,6 +7041,114 @@ class TestSoftNoticeFriction:
             assert piece in handler, piece
 
 
+# ============================ turned back, recorded and shown (1.0.10, spec 4.3)
+
+class TestTurnedBackIsRecordedAndShown:
+    """
+    Close and Back to work on the Soft notice each count as one turned back
+    (SoftOverlayPolicy.TurnedBack). The count is saved with the sprint, shown
+    on its summary card and summed on History. It is a count and nothing else:
+    which app was turned back from is never stored.
+    """
+
+    TODAY_VM = Path(DESKTOP_DIR) / "ViewModels" / "TodayViewModel.cs"
+    HISTORY_VM = Path(DESKTOP_DIR) / "ViewModels" / "HistoryViewModel.cs"
+    MAIN_VM = Path(DESKTOP_DIR) / "ViewModels" / "MainViewModel.cs"
+    SETTINGS = Path(DESKTOP_DIR) / "Models" / "AppSettings.cs"
+    STATS = Path(DESKTOP_DIR) / "Models" / "HistoryStats.cs"
+    TODAY_XAML = Path(DESKTOP_DIR) / "Views" / "TodayView.xaml"
+    HISTORY_XAML = Path(DESKTOP_DIR) / "Views" / "HistoryView.xaml"
+
+    RECORD = "_current.TurnedBack = _main.SoftTurnedBackThisSprint;"
+
+    def _end_sprint(self) -> str:
+        return self.TODAY_VM.read_text(encoding="utf-8") \
+            .split("private void EndSprint(bool completed, bool interrupted = false)", 1)[1] \
+            .split("\n    /// <summary>", 1)[0]
+
+    def test_the_count_is_read_before_the_sprint_state_resets_it(self):
+        """
+        OnSprintStateChanged resets the Soft policy, count and all, so a read
+        after it would save 0 for every sprint. Read before StopEnforcing too,
+        with the other per-sprint counts, while the sprint is still the one
+        that was running.
+        """
+        assert "_softOverlay.Reset();" in self.MAIN_VM.read_text(encoding="utf-8") \
+            .split("public void OnSprintStateChanged()", 1)[1].split("\n    }", 1)[0], \
+            "the reason for the order below has moved; re-check it"
+
+        body = self._end_sprint()
+        assert body.count(self.RECORD) == 1, "EndSprint must record TurnedBack exactly once"
+        at = body.index(self.RECORD)
+        assert at < body.index("_main.Blocker.StopEnforcing();")
+        assert at < body.index("_main.OnSprintStateChanged();")
+        assert at < body.index("S.Sessions.Add(_current);"), "read before the sprint is saved"
+
+    def test_every_path_that_records_a_sprint_records_the_count(self):
+        """
+        Finished, ended early, and judged interrupted after a sleep (#203) all
+        go through EndSprint; the count sits with the other per-sprint counts,
+        before any branch, so none of them can skip it.
+        """
+        body = self._end_sprint()
+        start = body.index("_current.Completed = completed;")
+        between = body[start:body.index(self.RECORD)]
+        assert "if (" not in between and "return" not in between, \
+            "TurnedBack must be recorded unconditionally, on every path through EndSprint"
+
+    def test_the_card_shows_the_line_only_above_zero(self):
+        card = self.TODAY_VM.read_text(encoding="utf-8") \
+            .split("private void UpdateSummaryCard(", 1)[1].split("\n    }", 1)[0]
+        assert "SummaryTurnedBackText = HistoryStats.TurnedBackText(session.TurnedBack);" in card
+        assert "SummaryTurnedBackVisible = session.TurnedBack > 0;" in card
+
+    def test_history_sums_it_from_the_sessions_in_one_wording(self):
+        stats = self.STATS.read_text(encoding="utf-8")
+        week = stats.split("public static Week ForWeek", 1)[1].split("\n    }", 1)[0]
+        assert "inWeek.Sum(s => s.TurnedBack)" in week
+        vm = self.HISTORY_VM.read_text(encoding="utf-8")
+        assert "WeekTurnedBackText = HistoryStats.TurnedBackText(week.TurnedBack);" in vm
+
+    def test_only_a_count_is_stored_never_which_app(self):
+        """
+        The existing design choice in HistoryStats.MostBlocked: a sprint
+        records how many, never which app. So TurnedBack is an int, and
+        FocusSession gains no text or list that could hold an app's name.
+        """
+        model = self.SETTINGS.read_text(encoding="utf-8")
+        session = model.split("public class FocusSession", 1)[1].split("\n}", 1)[0]
+        assert "public int TurnedBack { get; set; }" in session
+        stored = re.findall(r"public\s+([\w<>?,\[\] ]+?)\s+(\w+)\s*\{\s*get;", session)
+        text_or_lists = {name for type_, name in stored
+                         if re.search(r"string|List|\[\]|IEnumerable|Dictionary|Set<", type_)}
+        assert text_or_lists == {"Intention", "Journal"}, (
+            f"FocusSession stores text or a list beyond the intention and journal: {sorted(text_or_lists)}"
+        )
+
+    def test_both_lines_are_ids_on_real_text_blocks_and_hidden_at_zero(self):
+        today = self.TODAY_XAML.read_text(encoding="utf-8")
+        card = today[today.find("sprint summary"):]
+        card = card[:card.find("journal prompt")]
+        assert 'AutomationProperties.AutomationId="SummaryTurnedBackText"' in card, \
+            "the summary card has no turned-back line"
+        line = card.split('AutomationProperties.AutomationId="SummaryTurnedBackText"', 1)[0].rsplit("<", 1)[1]
+        assert line.startswith("TextBlock"), "the id must sit on the TextBlock itself (#134)"
+        assert 'Text="{Binding SummaryTurnedBackText}"' in line
+        assert 'Visibility="{Binding SummaryTurnedBackVisible, Converter={StaticResource BoolVis}}"' in line
+        assert card.index("SummaryDistractionsValue") < card.index("SummaryTurnedBackText"), \
+            "the line sits under the distractions line"
+
+        history = self.HISTORY_XAML.read_text(encoding="utf-8")
+        distractions = history.split('Text="DISTRACTIONS CAUGHT"', 1)[1].split("</Border>", 1)[0]
+        assert 'AutomationProperties.AutomationId="HistoryTurnedBackText"' in distractions, \
+            "History's distractions card has no turned-back line"
+        line = distractions.split('AutomationProperties.AutomationId="HistoryTurnedBackText"', 1)[0] \
+            .rsplit("<", 1)[1]
+        assert line.startswith("TextBlock"), "the id must sit on the TextBlock itself (#134)"
+        assert 'Text="{Binding WeekTurnedBackText}"' in line
+        assert 'Visibility="{Binding WeekTurnedBackText, Converter={StaticResource NonEmptyVis}}"' in line
+
+
 # ================================== blocklist profiles must not break anything
 
 class TestBlocklistProfilesKeepTheirPromises:

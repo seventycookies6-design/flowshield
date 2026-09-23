@@ -810,6 +810,47 @@ class TestSoftShowsTheNotice:
             if process.poll() is None:
                 process.kill()
 
+    def test_back_to_work_is_counted_on_the_card_and_in_the_saved_sprint(self, fresh_app):
+        """
+        1.0.10 (spec 4.3): Back to work counts as turned back, and the count
+        is saved with the sprint and shown on its summary card.
+
+        The sprint is ended early once its grace period is over, rather than
+        shortened with --short-sprints: a shortened sprint is never saved
+        (CycleState.SprintCountsAsProgress), so there would be no saved sprint
+        to read the count from. Ending early records it and shows the same card.
+        """
+        process = self._decoy()
+        try:
+            self._arm_and_start(fresh_app, process)
+
+            overlay = self._overlay()
+            assert overlay is not None, (
+                "a blocked app was the foreground window at Soft and nothing said so"
+            )
+            overlay.child_window(auto_id="SoftOverlayBackToWorkButton").click_input()
+
+            # Wait for what happens (#146): Back to work is logged by name.
+            went_back = f"back to work from {self.TARGET}"
+            deadline = time.time() + 10
+            while time.time() < deadline and not fresh_app.app_log_contains(went_back):
+                time.sleep(0.25)
+            assert fresh_app.app_log_contains(went_back), "Back to work was never answered"
+        finally:
+            # Gone before the sprint is ended, so no second notice can come up
+            # over the end button (a full-screen window takes the click).
+            if process.poll() is None:
+                process.kill()
+
+        fresh_app.focus(force=True)
+        fresh_app.stop_sprint()                    # Soft past its grace ends at once
+        assert fresh_app.exists("SummaryTitle", timeout=10), "the summary card never appeared"
+        assert fresh_app.text_of("SummaryTurnedBackText") == "Turned back 1 time"
+
+        session = verify.read_settings()["Sessions"][-1]
+        assert session["Shield"] in (1, "Soft")
+        assert session["TurnedBack"] == 1
+
     def test_firm_closes_the_app_instead_of_covering_it(self, fresh_app):
         """The notice is Soft's. Firm has seconds to save in, and a panel over
         the window being saved would be the worst possible moment for one."""
@@ -976,6 +1017,8 @@ class TestSprints:
         assert "it'll recover" in title.lower()
         assert "−0" not in title, "no momentum was lost, so the card must not say 'momentum −0'"
         assert fresh_app.text_of("SummaryDistractionsValue") == "No distractions caught"
+        # 1.0.10: nothing was turned back, so there is no "Turned back 0 times".
+        assert not fresh_app.exists("SummaryTurnedBackText", timeout=1)
 
         settings = verify.read_settings()
         assert fresh_app.text_of("SummaryMomentumText").endswith(f"→ {int(settings['MomentumScore'])}")

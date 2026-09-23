@@ -563,6 +563,13 @@ public class TodayViewModel : ViewModelBase
     private bool _summaryIntentionVisible;
     public bool SummaryIntentionVisible { get => _summaryIntentionVisible; private set => Set(ref _summaryIntentionVisible, value); }
 
+    private string _summaryTurnedBackText = "";
+    /// <summary>"Turned back 4 times": Close or Back to work on the Soft notice (1.0.10).</summary>
+    public string SummaryTurnedBackText { get => _summaryTurnedBackText; private set => Set(ref _summaryTurnedBackText, value); }
+
+    private bool _summaryTurnedBackVisible;
+    public bool SummaryTurnedBackVisible { get => _summaryTurnedBackVisible; private set => Set(ref _summaryTurnedBackVisible, value); }
+
     // ------------------------------------------ breaks and cycles (F5)
 
     /// <summary>
@@ -1635,6 +1642,8 @@ public class TodayViewModel : ViewModelBase
                     Intention = saved.Intention,
                     Completed = completed,
                     Interrupted = !completed,
+                    // TurnedBack stays 0: that count lived in memory, in the
+                    // FlowShield that was closed.
                 };
                 // Added first, for the same reason as in EndSprint: the goal
                 // rules count S.Sessions. And skipped under --short-sprints for
@@ -1783,6 +1792,13 @@ public class TodayViewModel : ViewModelBase
         _current.BlocksEnforced = _blocksThisSprint;
         _current.AppsClosed = _closedThisSprint;
         _current.NudgesSent = _nudgesThisSprint;
+        // 1.0.10. Read here, before any branch, so a finished, ended-early and
+        // interrupted sprint all keep it; and before StopEnforcing and
+        // OnSprintStateChanged below, because the latter resets the Soft
+        // policy that holds the count. The count lives in memory only, so a
+        // sprint resumed after a restart starts again from 0 (BeginRunning
+        // resets it too); that is accepted, and it can only under-count.
+        _current.TurnedBack = _main.SoftTurnedBackThisSprint;
 
         _main.Blocker.StopEnforcing();
 
@@ -1938,6 +1954,10 @@ public class TodayViewModel : ViewModelBase
         var intention = session.Intention?.Trim() ?? "";
         SummaryIntentionText = intention.Length == 0 ? "" : $"You planned: {intention}";
         SummaryIntentionVisible = intention.Length > 0;
+
+        // Above zero only at Soft, the one shield with the notice that counts it.
+        SummaryTurnedBackText = HistoryStats.TurnedBackText(session.TurnedBack);
+        SummaryTurnedBackVisible = session.TurnedBack > 0;
     }
 
     private static string DistractionSummary(FocusSession session)

@@ -431,6 +431,12 @@
                             <TextBlock Text="{Binding SummaryDistractionsText}" Style="{StaticResource Body}"
                                        Margin="0,4,0,0"
                                        AutomationProperties.AutomationId="SummaryDistractionsValue"/>
+                            <!-- 1.0.10: Close or Back to work on the Soft notice.
+                                 Hidden at zero, so only a Soft sprint shows it. -->
+                            <TextBlock Text="{Binding SummaryTurnedBackText}" Style="{StaticResource Caption}"
+                                       Margin="0,2,0,0"
+                                       Visibility="{Binding SummaryTurnedBackVisible, Converter={StaticResource BoolVis}}"
+                                       AutomationProperties.AutomationId="SummaryTurnedBackText"/>
                             <TextBlock Text="{Binding SummaryMomentumText}" Style="{StaticResource Body}"
                                        Margin="0,4,0,0"
                                        AutomationProperties.AutomationId="SummaryMomentumText"/>
