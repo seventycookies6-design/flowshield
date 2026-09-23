@@ -179,12 +179,15 @@ internal static class Commands
     /// date in "query", with the remembered dates as they came out. With
     /// "roundtrip": true the schedule goes through JSON between the two, as it
     /// would through the settings file; "stored" is what the file would hold.
+    /// With "kind": "local" each date is handed over as Kind=Local, the way
+    /// Today's Skip today (and DateTime.Today) hands it over.
     /// </summary>
     private static JsonNode ScheduleSkip(JsonObject request)
     {
         var schedule = ScheduleOf(request);
+        var kind = (string?)request["kind"] == "local" ? DateTimeKind.Local : DateTimeKind.Unspecified;
         foreach (var d in request["skip"]!.AsArray())
-            schedule.Skip(DateTime.Parse((string)d!, CultureInfo.InvariantCulture));
+            schedule.Skip(DateTime.SpecifyKind(DateTime.Parse((string)d!, CultureInfo.InvariantCulture), kind));
 
         var stored = JsonSerializer.SerializeToNode(schedule)!["SkippedDatesLocal"]!.AsArray()
             .Select(d => (JsonNode)(string)d!).ToArray();

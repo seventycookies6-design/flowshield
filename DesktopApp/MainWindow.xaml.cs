@@ -325,6 +325,7 @@ public partial class MainWindow : Window
             oldVm.SettingsPage.PropertyChanged -= OnSettingsPageChanged;
             oldVm.SoftOverlayRequested -= OnSoftOverlayRequested;
             oldVm.SoftOverlayDismissRequested -= OnSoftOverlayDismissRequested;
+            oldVm.OpenAppsQuestionRaised -= OnOpenAppsQuestionRaised;
         }
 
         if (e.NewValue is MainViewModel newVm)
@@ -335,11 +336,18 @@ public partial class MainWindow : Window
             newVm.SettingsPage.PropertyChanged += OnSettingsPageChanged;
             newVm.SoftOverlayRequested += OnSoftOverlayRequested;
             newVm.SoftOverlayDismissRequested += OnSoftOverlayDismissRequested;
+            newVm.OpenAppsQuestionRaised += OnOpenAppsQuestionRaised;
         }
 
         UpdateTrayIcon();
         SetUpGlobalHotkey();
     }
+
+    /// <summary>
+    /// A scheduled start waits on F7's open-apps question (F6): in front, the
+    /// way QuickStart puts it there (#270). The view model has already chosen Today.
+    /// </summary>
+    private void OnOpenAppsQuestionRaised(object? sender, EventArgs e) => BringToFront();
 
     /// <summary>Turning the F4 hotkey setting on or off takes effect immediately.</summary>
     private void OnSettingsPageChanged(object? sender, PropertyChangedEventArgs e)

@@ -283,6 +283,18 @@ class TestSprintScheduleSkips:
         assert out["is_skipped"] == [True]
         assert out["stored"] == ["2026-09-28T00:00:00"], "no offset, no Z: a plain local date"
 
+    def test_skip_today_from_the_card_stores_a_plain_date_too(self):
+        """
+        Today's Skip today passes the start's local date, which carries
+        Kind=Local (TimeZoneInfo.ConvertTimeFromUtc(..., Local), as
+        DateTime.Today does). Stored as it came, the file would hold
+        "2026-09-28T00:00:00-04:00": an instant, not a date.
+        """
+        out = probe({"cmd": "schedule-skip", "schedule": schedule(), "roundtrip": True,
+                     "kind": "local", "skip": ["2026-09-28"], "query": ["2026-09-28"]})
+        assert out["stored"] == ["2026-09-28T00:00:00"], "a Local date must lose its offset in the file"
+        assert out["is_skipped"] == [True]
+
     def test_normalize_gives_a_schedule_without_an_id_key_one_and_says_so(self):
         s = schedule()
         del s["Id"]
@@ -681,6 +693,20 @@ class TestTemplatesInSettings:
         assert out["added"] == 3
         assert out["templates"] == ["Mine", "Homework evening", "Exam prep", "Light study"]
 
+    def test_a_restored_built_in_takes_a_number_when_its_name_is_taken(self):
+        """
+        Delete Exam prep, save your own "Exam prep", then Restore: the user's
+        keeps its name and the built-in comes back as "Exam prep 2", so the
+        names Today's chips and the page's ids are built from stay unique.
+        """
+        first = probe({"cmd": "settings-ensure-templates", "settings": settings_json()})
+        kept = [t for t in first["raw_templates"] if t["BuiltInKey"] != "exam"]
+        mine = {"Id": "t1", "Name": "Exam prep", "SprintMinutes": 60, "Shield": 2}
+        out = probe({"cmd": "settings-restore-builtins",
+                     "settings": settings_json(Templates=kept + [mine], TemplatesSeeded=True)})
+        assert out["added"] == 1
+        assert out["templates"] == ["Homework evening", "Light study", "Exam prep", "Exam prep 2"]
+
     @pytest.mark.parametrize("profile_id,expected", [("p2", "Everything"), ("", "School"),
                                                      ("deleted", "School")])
     def test_a_template_uses_its_profile_or_the_active_one(self, profile_id, expected):
@@ -695,6 +721,26 @@ class TestTemplatesInSettings:
         profiles, templates = "if (Settings.EnsureProfiles())", "if (Settings.EnsureTemplates())"
         assert profiles in source and templates in source
         assert source.index(profiles) < source.index(templates)
+
+
+class TestATemplatesBreakRidesWithTheSprint:
+    """
+    F6: a sprint started from a template takes its breaks at the template's
+    length, and a restart mid-cycle must not lose that. It is saved with the
+    running sprint; a sprint saved by 1.0.9 has none and uses Settings.
+    """
+
+    SPRINT = {"StartedUtc": "2026-09-28T21:00:00Z", "PlannedMinutes": 45, "Shield": 2,
+              "LastSeenUtc": "2026-09-28T21:00:00Z"}
+
+    def test_the_templates_break_length_is_saved_with_the_running_sprint(self):
+        sprint = dict(self.SPRINT, TemplateBreakMinutes=10)
+        out = probe({"cmd": "settings-ensure-templates", "settings": settings_json(ActiveSprint=sprint)})
+        assert out["saved"]["ActiveSprint"]["TemplateBreakMinutes"] == 10
+
+    def test_a_sprint_saved_before_templates_uses_the_break_settings(self):
+        out = probe({"cmd": "settings-ensure-templates", "settings": settings_json(ActiveSprint=self.SPRINT)})
+        assert out["saved"]["ActiveSprint"]["TemplateBreakMinutes"] is None
 
 
 # ============================ Soft friction: tries, the wait, wording (1.0.10)

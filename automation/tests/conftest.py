@@ -111,6 +111,26 @@ def fresh_app(logger):
 
 
 @pytest.fixture
+def schedule_app(logger):
+    """
+    `fresh_app` with --short-schedules (F6): the heads-up comes 5 seconds
+    before a scheduled start instead of 5 minutes, and a start up to 10
+    seconds late is offered instead of 30 minutes. Added here rather than to
+    every launch, so no other test runs with a shrunken scheduler.
+    """
+    if not Path(APP_EXE).exists():
+        pytest.skip(f"{APP_EXE} not built")
+
+    ctrl = DesktopController(logger)
+    ctrl.launch_app(clean_state=True, extra_args=["--short-schedules"])
+    ctrl.connect_window()
+    time.sleep(1.0)
+    ctrl.focus(force=True)
+    yield ctrl
+    ctrl.close_app()
+
+
+@pytest.fixture
 def expired_app(logger):
     """A fresh FlowShield whose 7-day trial has already run out, with no licence."""
     if not Path(APP_EXE).exists():

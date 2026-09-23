@@ -420,6 +420,11 @@ public class SettingsViewModel : ViewModelBase
         }
     }
 
+    /// <summary>The switch's caption, ending in the notice's own note so the two can't drift apart.</summary>
+    public string SoftOverlayCaption =>
+        "When a blocked app comes to the front during a Soft sprint, FlowShield says so over it. "
+        + SoftOverlayCopy.CloseNote;
+
     public bool MinimizeToTrayOnClose
     {
         get => _main.Settings.MinimizeToTrayOnClose;
@@ -788,6 +793,7 @@ public class SettingsViewModel : ViewModelBase
             Raise(nameof(NotifyTrialEnding));
             Raise(nameof(NotifyAppClosing));
             Raise(nameof(NotifyBreakOver));
+            Raise(nameof(NotifyScheduledSprint));
         }
     }
 
@@ -831,6 +837,13 @@ public class SettingsViewModel : ViewModelBase
     {
         get => IsOn(NotificationKind.BreakOver);
         set => SetNotification(NotificationKind.BreakOver, value);
+    }
+
+    /// <summary>A schedule's heads-up, a start without asking, and a missed start (F6).</summary>
+    public bool NotifyScheduledSprint
+    {
+        get => IsOn(NotificationKind.ScheduledSprint);
+        set => SetNotification(NotificationKind.ScheduledSprint, value);
     }
 
     // ------------------------------------------------------------ breaks (F5)

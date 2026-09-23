@@ -458,7 +458,10 @@ public class ScheduleRow : ViewModelBase
     public void RaiseEnabled() => Raise(nameof(Enabled));
 }
 
-/// <summary>One template on the Schedule page, rebuilt on every refresh like <see cref="ScheduleRow"/>.</summary>
+/// <summary>
+/// One template on the Schedule page or one of Today's chips, rebuilt on every
+/// refresh like <see cref="ScheduleRow"/>.
+/// </summary>
 public class TemplateRow : ViewModelBase
 {
     public TemplateRow(StudyTemplate template) => Template = template;

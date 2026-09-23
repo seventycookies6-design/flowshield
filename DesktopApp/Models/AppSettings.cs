@@ -178,6 +178,13 @@ public class RunningSprint
     /// <summary>Sprints of that cycle already finished when this one started (F5).</summary>
     public int CycleSprintsDone { get; set; }
 
+    /// <summary>
+    /// The break length of the template this cycle was started from (F6), or
+    /// null for a hand-started sprint, which uses the global break settings.
+    /// Saved with the sprint so a restart mid-cycle keeps the template's breaks.
+    /// </summary>
+    public int? TemplateBreakMinutes { get; set; }
+
     /// <summary>Last time FlowShield confirmed it was still running this sprint.</summary>
     public DateTime LastSeenUtc { get; set; }
 
@@ -582,12 +589,20 @@ public class AppSettings
         return wanted;
     }
 
-    /// <summary>Re-adds any built-in that is missing; never touches the user's own. Returns how many came back.</summary>
+    /// <summary>
+    /// Re-adds any built-in that is missing; never touches the user's own. A
+    /// built-in whose name the user has since taken comes back with a number,
+    /// as in <see cref="EnsureTemplates"/>. Returns how many came back.
+    /// </summary>
     public int RestoreBuiltInTemplates()
     {
         var have = Templates.Select(t => t.BuiltInKey).ToHashSet(StringComparer.Ordinal);
         var missing = StudyTemplate.BuiltIns().Where(b => !have.Contains(b.BuiltInKey)).ToList();
-        Templates.AddRange(missing);
+        foreach (var template in missing)
+        {
+            template.Name = UniqueTemplateName(template.Name);
+            Templates.Add(template);
+        }
         return missing.Count;
     }
 

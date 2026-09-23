@@ -84,7 +84,7 @@ public partial class TodayView : UserControl
             Grid.SetRow(StatsRail, 1);
             Grid.SetColumn(StatsRail, 0);
             Grid.SetColumnSpan(StatsRail, 2);
-            TimerCard.Margin = new Thickness(0, 0, 0, 16);
+            MainColumn.Margin = new Thickness(0, 0, 0, 16);
         }
         else
         {
@@ -97,7 +97,7 @@ public partial class TodayView : UserControl
             Grid.SetRow(StatsRail, 0);
             Grid.SetColumn(StatsRail, 1);
             Grid.SetColumnSpan(StatsRail, 1);
-            TimerCard.Margin = new Thickness(0, 0, 16, 0);
+            MainColumn.Margin = new Thickness(0, 0, 16, 0);
         }
     }
 }

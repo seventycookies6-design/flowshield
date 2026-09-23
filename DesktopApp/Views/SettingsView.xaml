@@ -338,7 +338,7 @@
                                       AutomationProperties.Name="Show a full-screen notice at Soft">
                                 <StackPanel>
                                     <TextBlock Text="Show a full-screen notice at Soft" Style="{StaticResource Label}"/>
-                                    <TextBlock Text="When a blocked app comes to the front during a Soft sprint, FlowShield says so over it. Nothing is closed unless you choose to."
+                                    <TextBlock Text="{Binding SoftOverlayCaption}"
                                                Style="{StaticResource Caption}" Margin="0,4,0,0" TextWrapping="Wrap"/>
                                 </StackPanel>
                             </CheckBox>
@@ -491,6 +491,17 @@
                                           AutomationProperties.AutomationId="NotifyBreakOverToggle"
                                           AutomationProperties.Name="Break over">
                                     <TextBlock Text="Break over" Style="{StaticResource Label}"/>
+                                </CheckBox>
+
+                                <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding NotifyScheduledSprint}"
+                                          Margin="0,16,0,0"
+                                          AutomationProperties.AutomationId="NotifyScheduledSprintToggle"
+                                          AutomationProperties.Name="Scheduled sprint">
+                                    <StackPanel>
+                                        <TextBlock Text="Scheduled sprint" Style="{StaticResource Label}"/>
+                                        <TextBlock Text="Five minutes before a schedule starts, when one starts without asking, and when one was missed."
+                                                   Style="{StaticResource Caption}" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                                    </StackPanel>
                                 </CheckBox>
 
                                 <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding NotifyAppClosing}"

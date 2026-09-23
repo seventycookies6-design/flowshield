@@ -73,6 +73,13 @@ public class MainViewModel : ViewModelBase
         // Last, so a resumed sprint's length and shield aren't overwritten by
         // the defaults above.
         Today.ResumeInterruptedSprint();
+
+        // F6: the schedules run from here, after the sprint that may be
+        // resuming, so nothing is decided about one before that is settled.
+        Scheduler = new ScheduleService(() => Settings.Schedules);
+        Scheduler.Action += (_, action) => OnScheduleAction(action);
+        Scheduler.Start();
+        Schedule.TemplatesChanged += (_, _) => Today.RefreshTemplates();
     }
 
     public SettingsService SettingsService { get; }
@@ -86,6 +93,9 @@ public class MainViewModel : ViewModelBase
 
     /// <summary>The Schedule page (F6), which holds the sleep window as well.</summary>
     public ScheduleViewModel Schedule { get; }
+
+    /// <summary>Runs the schedules (F6); what it raises arrives in <see cref="OnScheduleAction"/>.</summary>
+    public ScheduleService Scheduler { get; }
 
     public SettingsViewModel SettingsPage { get; }
     public FirstRunViewModel FirstRun { get; }
@@ -461,6 +471,72 @@ public class MainViewModel : ViewModelBase
 
         Settings.TrialEndingNotifiedLocal = today;
         SaveSettings();
+    }
+
+    // ------------------------------------------------------------ schedules (F6)
+
+    /// <summary>
+    /// A scheduled start is waiting on F7's open-apps question. MainWindow
+    /// brings itself forward, as quick start does (#270), so the question is
+    /// seen rather than left behind whatever the user is doing.
+    /// </summary>
+    public event EventHandler? OpenAppsQuestionRaised;
+
+    /// <summary>
+    /// A schedule's moment (F6). Refused, quietly and with a log line, when a
+    /// sprint or break is running, the trial has ended, or a gate is up. A
+    /// missed start is only ever offered.
+    /// </summary>
+    private void OnScheduleAction(ScheduleAction action)
+    {
+        var template = Settings.FindTemplate(action.Schedule.TemplateId);
+        if (template is null) return;
+
+        // Also while F7's question is up for a Start pressed by hand: the
+        // person is answering it, and a template would change what they asked for.
+        if (IsSprintRunning || Today.IsOnBreak || IsLocked || TermsGateVisible || FirstRun.IsVisible
+            || Today.RunningAppsPanelVisible)
+        {
+            Log.Info($"schedule {action.Kind} for {template.Name} skipped: busy or gated");
+            return;
+        }
+
+        switch (action.Kind)
+        {
+            case ScheduleActionKind.HeadsUp:
+                Today.ShowHeadsUp(action, template);
+                Notify(NotificationKind.ScheduledSprint, $"{template.Name} in 5 minutes",
+                    "Start now or skip it on Today.");
+                break;
+
+            case ScheduleActionKind.OfferMissed:
+                // Nobody was here when it was due, so it is asked, never started.
+                Today.ShowHeadsUp(action, template);
+                Notify(NotificationKind.ScheduledSprint, $"You missed {template.Name}",
+                    "Start it now or skip it on Today.");
+                break;
+
+            case ScheduleActionKind.Start:
+                // F7's question is skipped only when the heads-up for this start
+                // named every open app the sprint will close. Otherwise (Ask
+                // first off, or an app opened since) it is asked as quick start
+                // asks it, and nothing starts or closes until it is answered.
+                var named = Today.HeadsUpNamedWhatWillClose(action.Schedule, template);
+                Today.HideHeadsUp();
+                if (Today.StartTemplate(template, skipOpenAppsPanel: named))
+                {
+                    if (!action.Schedule.AskFirst)
+                        Notify(NotificationKind.ScheduledSprint, $"{template.Name} started",
+                            $"{template.SprintMinutes} minutes at {template.Shield}.");
+                }
+                else if (Today.RunningAppsPanelVisible)
+                {
+                    CurrentPage = AppPage.Today;
+                    OpenAppsQuestionRaised?.Invoke(this, EventArgs.Empty);
+                    Log.Info($"schedule start for {template.Name} waits on the open-apps question");
+                }
+                break;
+        }
     }
 
     public void OnSprintStateChanged()

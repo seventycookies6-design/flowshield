@@ -7009,11 +7009,17 @@ class TestSoftNoticeFriction:
         assert 'CloseNote = "Nothing is closed unless you choose to.";' in policy
 
     def test_the_settings_switch_makes_the_same_promise(self):
-        """The switch's caption said "Nothing is closed." -- untrue once the notice has Close."""
+        """
+        The switch's caption said "Nothing is closed." -- untrue once the notice
+        has Close. It now reads the notice's own note, so the two can't drift.
+        """
         view = (Path(DESKTOP_DIR) / "Views" / "SettingsView.xaml").read_text(encoding="utf-8")
         caption = view.split('AutomationProperties.AutomationId="SoftOverlayToggle"', 1)[1] \
             .split("</CheckBox>", 1)[0]
-        assert "Nothing is closed unless you choose to." in caption
+        assert 'Text="{Binding SoftOverlayCaption}"' in caption
+        assert "Nothing is closed" not in caption, "a typed copy of the note can drift from it"
+        vm = (Path(DESKTOP_DIR) / "ViewModels" / "SettingsViewModel.cs").read_text(encoding="utf-8")
+        assert re.search(r"public string SoftOverlayCaption\s*=>[^;]*SoftOverlayCopy\.CloseNote;", vm)
 
     def test_the_close_handler_asks_through_the_view_model_only(self):
         block = self.MAIN_WINDOW.read_text(encoding="utf-8").split("overlay.CloseIt +=", 1)[1].split("};", 1)[0]
@@ -7123,7 +7129,11 @@ class TestBlocklistProfilesKeepTheirPromises:
 
     def test_the_blocker_enforces_the_active_profile_and_nothing_else(self):
         assert "_targets = settings.ActiveProfile.Apps.ToList();" in self.BLOCKER
-        assert "foreach (var app in settings.ActiveProfile.Apps)" in self.BLOCKER
+        # The pre-sprint look reads one profile: the active one before Start
+        # (F7), or a scheduled template's own list for its heads-up (F6),
+        # which is the one that becomes active when the template starts.
+        assert "RunningBlockedApps(settings.ActiveProfile);" in self.BLOCKER
+        assert "foreach (var app in profile.Apps)" in self.BLOCKER
         assert "settings.Profiles" not in self.BLOCKER, \
             "the shield must never walk every profile — only the active one is enforced"
 
@@ -7849,6 +7859,11 @@ class TestKeyboardAndFocusF21:
             # The same legend's own list: not hit-testable either, and every
             # cell it explains is focusable in its place (HeatCellItem).
             "HeatmapLegend",
+            # The Schedule page's ScrollViewer: a container. Focusable, it took
+            # a Tab stop of its own and drew a dashed rectangle round the whole
+            # page. Every control inside keeps its tab stop, and Page Up/Down
+            # from any of them still scrolls it.
+            "SchedulePageScroll",
         }
 
         offenders = []
@@ -8505,3 +8520,188 @@ class TestSchedulePageNamesAndLabels:
         report = (root / "automation" / "make_report.py").read_text(encoding="utf-8")
         for path in sorted((root / "automation" / "tests").glob("test_tier*.py")):
             assert f'"{path.name}":' in report, f"{path.name} has no tier row in make_report.py"
+
+
+# ===================== scheduled sprints start through Start's gates (F6, PR C)
+
+class TestScheduledSprintsGoThroughStart:
+    """
+    F6: a schedule starts a template by itself. That is a Start nobody pressed,
+    so every rule a pressed Start obeys must hold for it too: terms, first run,
+    the trial, one sprint at a time, and F7's open-apps question unless the
+    heads-up already named the apps. Comments are stripped, so a call left only
+    in a comment can't satisfy these.
+    """
+
+    TODAY = Path(DESKTOP_DIR) / "ViewModels" / "TodayViewModel.cs"
+    MAIN = Path(DESKTOP_DIR) / "ViewModels" / "MainViewModel.cs"
+    WINDOW = Path(DESKTOP_DIR) / "MainWindow.xaml.cs"
+    APP = Path(DESKTOP_DIR) / "App.xaml.cs"
+    TODAY_XAML = Path(DESKTOP_DIR) / "Views" / "TodayView.xaml"
+
+    @staticmethod
+    def code(path: Path) -> str:
+        return "\n".join(line.split("//")[0] for line in path.read_text(encoding="utf-8").splitlines())
+
+    @staticmethod
+    def member(code: str, signature: str) -> str:
+        """One member's body, from its signature to the brace that closes it."""
+        start = code.index(signature)
+        depth = 0
+        for index in range(code.index("{", start), len(code)):
+            depth += {"{": 1, "}": -1}.get(code[index], 0)
+            if depth == 0:
+                return code[start:index + 1]
+        raise AssertionError(f"no end to {signature}")
+
+    def case(self, signature: str, kind: str) -> str:
+        switch = self.member(self.code(self.MAIN), signature)
+        return switch.split(f"case ScheduleActionKind.{kind}:", 1)[1].split("break;", 1)[0]
+
+    def test_a_template_starts_through_start_sprint_not_a_copy_of_it(self):
+        start = self.member(self.code(self.TODAY), "public bool StartTemplate(")
+        assert "StartSprint();" in start
+        for copied in ("TermsGateVisible", "FirstRun.IsVisible", "IsLocked", "S.ActiveSprint =",
+                       "BeginRunning("):
+            assert copied not in start, f"StartTemplate copies {copied}; it must go through StartSprint"
+
+    def test_a_refused_template_start_leaves_nothing_for_the_next_start(self):
+        """
+        A gate can refuse inside StartSprint before F7's latch is spent. Left
+        set, the next Start pressed by hand would skip the question and take
+        the template's breaks.
+        """
+        start = self.member(self.code(self.TODAY), "public bool StartTemplate(")
+        refused = start.split("if (!IsRunning && !RunningAppsPanelVisible)", 1)[1]
+        assert "_runningAppsAnswered = false;" in refused
+        assert "_startingTemplateBreak = null;" in refused
+
+    def test_a_schedule_does_nothing_while_busy_or_behind_a_gate(self):
+        on_action = self.member(self.code(self.MAIN), "private void OnScheduleAction(")
+        guard = on_action.split("switch (action.Kind)", 1)[0]
+        assert "if (IsSprintRunning" in guard, "OnScheduleAction must refuse before its switch"
+        condition, block = guard[guard.index("if (IsSprintRunning"):].split("{", 1)
+        assert "return;" in block
+        for gate in ("IsSprintRunning", "Today.IsOnBreak", "IsLocked", "TermsGateVisible",
+                     "FirstRun.IsVisible"):
+            assert gate in condition, f"a schedule must do nothing while {gate}"
+
+    def test_a_missed_start_is_only_ever_offered(self):
+        """Spec 3.3: never start automatically after waking or launching."""
+        missed = self.case("private void OnScheduleAction(", "OfferMissed")
+        assert "Today.ShowHeadsUp(action, template);" in missed
+        assert "StartTemplate(" not in missed
+
+    def test_a_scheduled_start_asks_about_open_apps_unless_the_heads_up_named_them(self):
+        """
+        The heads-up names the open apps a Firm or Sealed template will close,
+        so it stands in for F7's question. With no heads-up (Ask first off), or
+        an app opened since, the question is asked as quick start asks it
+        (#270): Today, brought to the front.
+        """
+        start = self.case("private void OnScheduleAction(", "Start")
+        assert re.search(r"var named = Today\.HeadsUpNamedWhatWillClose\(action\.Schedule, template\);", start)
+        assert "Today.StartTemplate(template, skipOpenAppsPanel: named)" in start
+        assert start.index("HeadsUpNamedWhatWillClose(") < start.index("Today.HideHeadsUp();"), \
+            "read what the card named before the card goes"
+        asked = start.split("else if (Today.RunningAppsPanelVisible)", 1)[1]
+        assert "CurrentPage = AppPage.Today;" in asked
+        assert "OpenAppsQuestionRaised?.Invoke(this, EventArgs.Empty);" in asked
+        window = self.code(self.WINDOW)
+        assert "newVm.OpenAppsQuestionRaised += OnOpenAppsQuestionRaised;" in window
+        assert "oldVm.OpenAppsQuestionRaised -= OnOpenAppsQuestionRaised;" in window
+        assert "BringToFront()" in self.member(window, "private void OnOpenAppsQuestionRaised(")
+
+    def test_the_heads_up_names_what_the_templates_own_shield_and_list_will_close(self):
+        today = self.code(self.TODAY)
+        would_close = self.member(today, "private IReadOnlyList<string> AppsItWouldClose(")
+        assert "_main.Blocker.RunningBlockedApps(S.ProfileFor(template))" in would_close
+        assert "template.Shield >= ShieldLevel.Firm || S.HardKillModeEnabled" in would_close, \
+            "the blocker's own rule for closing, so the card never promises less than happens"
+        assert "AppsItWouldClose(template)" in self.member(today, "public void ShowHeadsUp(")
+
+    def test_the_card_never_outlives_a_start(self):
+        assert "HideHeadsUp();" in self.member(self.code(self.TODAY), "private void BeginRunning(")
+
+    def test_skip_today_saves_the_starts_own_date(self):
+        skip = self.member(self.code(self.TODAY), "private void SkipToday(")
+        assert re.search(r"\.Skip\(TimeZoneInfo\.ConvertTimeFromUtc\(headsUp\.StartUtc, TimeZoneInfo\.Local\)\.Date\)", skip)
+        assert "_main.SaveSettings();" in skip
+
+    def test_short_schedules_is_a_launch_flag(self):
+        app = self.code(self.APP)
+        flag = app.split('"--short-schedules"', 1)[1].split("}", 1)[0]
+        assert "Models.SchedulePlanner.UseShortSchedules = true;" in flag
+
+    def test_the_scheduler_starts_after_the_resumed_sprint(self):
+        ctor = self.member(self.code(self.MAIN), "public MainViewModel(")
+        assert "Scheduler = new ScheduleService(() => Settings.Schedules);" in ctor
+        assert "Scheduler.Action += (_, action) => OnScheduleAction(action);" in ctor
+        assert ctor.index("Today.ResumeInterruptedSprint();") < ctor.index("Scheduler.Start();")
+        assert "Schedule.TemplatesChanged += (_, _) => Today.RefreshTemplates();" in ctor
+
+    def test_the_templates_break_is_saved_restored_and_offered(self):
+        today = self.code(self.TODAY)
+        assert "TemplateBreakMinutes = _templateBreakMinutes," in self.member(today, "private void StartSprint()")
+        resume = self.member(today, "public void ResumeInterruptedSprint(")
+        assert "_templateBreakMinutes = saved.TemplateBreakMinutes;" in resume.split(
+            "case SprintResume.Resume:", 1)[1].split("case SprintResume.RecordCompleted:", 1)[0]
+        assert re.search(r"private int OfferedBreakMinutes\s*=>\s*_templateBreakMinutes\s*\?\?\s*"
+                         r"CycleState\.BreakMinutes\(", today)
+        assert today.count("CycleState.BreakMinutes(") == 1, "every break length goes through OfferedBreakMinutes"
+        assert "var minutes = OfferedBreakMinutes;" in self.member(today, "private void StartBreak()")
+        assert re.search(r"private bool OfferedBreakIsLong\s*=>\s*_templateBreakMinutes is null\s*&&", today), \
+            "a template's break is its own length, not the fourth-in-a-row long one"
+
+    def test_only_a_run_begun_from_a_template_takes_its_breaks(self):
+        """
+        A cycle's later sprints keep what the run began with; a run begun any
+        other way (Start, Space, the tray) takes Settings' break lengths.
+        """
+        start = self.member(self.code(self.TODAY), "private void StartSprint()")
+        after_cycle = start.split("_cycle = _cycle.OnSprintStarted(CycleSprints);", 1)[1]
+        assert re.search(r"if \(_cycle\.SprintsDone == 0\)\s*_templateBreakMinutes = _startingTemplateBreak;",
+                         after_cycle)
+        assert "_startingTemplateBreak = null;" in after_cycle
+
+    def test_the_card_and_the_chips_carry_ids_on_real_controls(self):
+        xaml = self.TODAY_XAML.read_text(encoding="utf-8")
+        for control, automation_id in (("TextBlock", "HeadsUpCard"), ("TextBlock", "HeadsUpText"),
+                                       ("Button", "HeadsUpStartNowButton"), ("Button", "HeadsUpSkipButton")):
+            assert re.search(rf'<{control}\b[^>]*AutomationProperties\.AutomationId="{automation_id}"', xaml), \
+                f"{automation_id} must sit on a {control} (#134)"
+        assert re.search(r'<Button\b[^>]*AutomationProperties\.AutomationId="\{Binding Name, '
+                         r'StringFormat=TemplateChip_\{0\}\}"', xaml)
+
+    def test_the_chips_hide_while_a_sprint_or_break_runs(self):
+        """Spec 3.5, and the card's twin: a chip mid-sprint would change a running sprint's settings."""
+        today = self.code(self.TODAY)
+        assert re.search(r"public bool TemplatesVisible\s*=>\s*!IsRunning && !IsOnBreak", today)
+        assert "if (IsRunning || IsOnBreak || _main.IsLocked) return;" in \
+            self.member(today, "public void ApplyTemplate(")
+        assert 'Visibility="{Binding TemplatesVisible, Converter={StaticResource BoolVis}}"' in \
+            self.TODAY_XAML.read_text(encoding="utf-8")
+
+    def test_the_scheduled_sprint_notice_is_switchable_like_the_others(self):
+        settings_vm = self.code(Path(DESKTOP_DIR) / "ViewModels" / "SettingsViewModel.cs")
+        assert "NotificationKind.ScheduledSprint" in self.member(settings_vm, "public bool NotifyScheduledSprint")
+        assert "Raise(nameof(NotifyScheduledSprint));" in self.member(settings_vm, "public bool NotificationsEnabled")
+        xaml = (Path(DESKTOP_DIR) / "Views" / "SettingsView.xaml").read_text(encoding="utf-8")
+        assert 'AutomationProperties.AutomationId="NotifyScheduledSprintToggle"' in xaml
+
+    def test_the_schedule_page_scroller_is_not_a_tab_stop(self):
+        """Controller note (PR A): it drew a dashed focus rectangle round the whole page."""
+        xaml = (Path(DESKTOP_DIR) / "Views" / "ScheduleView.xaml").read_text(encoding="utf-8")
+        scroller = xaml.split("<ScrollViewer", 1)[1].split(">", 1)[0]
+        assert 'AutomationProperties.AutomationId="SchedulePageScroll"' in scroller
+        assert 'Focusable="False"' in scroller
+
+    def test_the_new_copy_keeps_to_the_house_voice(self):
+        """DESIGN_SYSTEM 9: no exclamation marks, and ASCII-only C# literals."""
+        today = self.TODAY.read_text(encoding="utf-8")
+        region = today.split("templates and schedules (F6)", 1)[1].split("what is already running (F7)", 1)[0]
+        on_action = self.member(self.MAIN.read_text(encoding="utf-8"), "private void OnScheduleAction(")
+        for text in (region, on_action):
+            for literal in re.findall(r'"[^"\n]*"', text):
+                assert "!" not in literal, literal
+                assert literal.isascii(), literal

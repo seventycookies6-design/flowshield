@@ -57,11 +57,18 @@ public class TodayViewModel : ViewModelBase
         SkipBreakCommand = new RelayCommand(SkipBreak, () => BreakOfferVisible || IsOnBreak);
         StartNextSprintCommand = new RelayCommand(StartNextSprint, () => BreakOfferVisible || IsOnBreak);
 
+        // F6: the template chips, and the heads-up card a schedule puts up.
+        ApplyTemplateCommand = new RelayCommand(p => { if (p is TemplateRow row) ApplyTemplate(row.Template); },
+                                                _ => !IsRunning && !IsOnBreak);
+        StartNowCommand = new RelayCommand(StartNow);
+        SkipTodayCommand = new RelayCommand(SkipToday);
+
         _customMinutesText = S.LastCustomSprintMinutes.ToString();
         _customMinutes = S.LastCustomSprintMinutes;
         _cycleSprints = S.CycleSprints;
 
         RefreshStats();
+        RefreshTemplates();
     }
 
     private AppSettings S => _main.Settings;
@@ -270,6 +277,7 @@ public class TodayViewModel : ViewModelBase
             Raise(nameof(EndButtonVisible));
             Raise(nameof(EndButtonLabel));
             Raise(nameof(CanSwitchProfile));
+            Raise(nameof(TemplatesVisible));
         }
     }
 
@@ -594,6 +602,7 @@ public class TodayViewModel : ViewModelBase
             Raise(nameof(StartBreakVisible));
             Raise(nameof(SprintRingVisible));
             Raise(nameof(BreakRingVisible));
+            Raise(nameof(TemplatesVisible));
         }
     }
 
@@ -625,11 +634,16 @@ public class TodayViewModel : ViewModelBase
     public string BreakPanelText => BreakCopy.PanelText(AppBlockerService.IsWithinSleepWindow(S),
         IsOnBreak, OfferedBreakIsLong, OfferedBreakMinutes, SleepBlockingViewModel.Format(S.SleepBlockEndTime));
 
-    /// <summary>The break the last completed sprint earned, short or long.</summary>
+    /// <summary>
+    /// The break the last completed sprint earned: the template's own length
+    /// in a run begun from one (F6), otherwise short or long from Settings.
+    /// </summary>
     private int OfferedBreakMinutes =>
-        CycleState.BreakMinutes(S.CompletedSprintsInARow, S.ShortBreakMinutes, S.LongBreakMinutes);
+        _templateBreakMinutes
+        ?? CycleState.BreakMinutes(S.CompletedSprintsInARow, S.ShortBreakMinutes, S.LongBreakMinutes);
 
-    private bool OfferedBreakIsLong =>
+    /// <summary>A template's break is its own length, never Settings' fourth-in-a-row long one.</summary>
+    private bool OfferedBreakIsLong => _templateBreakMinutes is null &&
         S.CompletedSprintsInARow > 0 && S.CompletedSprintsInARow % CycleState.LongBreakEvery == 0;
 
     /// <summary>
@@ -1010,6 +1024,188 @@ public class TodayViewModel : ViewModelBase
     private bool CanChangeShield() =>
         _main.CurrentPage == AppPage.Today && !_main.FirstRun.IsVisible && !IsRunning;
 
+    // ------------------------------------------------ templates and schedules (F6)
+
+    /// <summary>
+    /// Today's chips, one per template in list order. Fresh rows on every
+    /// refresh: refilled with the same objects, UI Automation loses the chips
+    /// (see <see cref="TemplateRow"/>).
+    /// </summary>
+    public System.Collections.ObjectModel.ObservableCollection<TemplateRow> Templates { get; } = new();
+
+    public RelayCommand ApplyTemplateCommand { get; }
+
+    /// <summary>Hidden while a sprint or break runs (spec 3.5): a preset is for the next start.</summary>
+    public bool TemplatesVisible => !IsRunning && !IsOnBreak && Templates.Count > 0;
+
+    /// <summary>Called when a template is added, changed or removed on the Schedule page.</summary>
+    public void RefreshTemplates()
+    {
+        Templates.Clear();
+        foreach (var template in S.Templates) Templates.Add(new TemplateRow(template));
+        Raise(nameof(TemplatesVisible));
+    }
+
+    /// <summary>
+    /// The break length of the run under way, when it was begun from a
+    /// template; null means Settings' break lengths. Saved with the sprint
+    /// (<see cref="RunningSprint.TemplateBreakMinutes"/>).
+    /// </summary>
+    private int? _templateBreakMinutes;
+
+    /// <summary>
+    /// The break length of a template whose start is under way, taken up by
+    /// <see cref="StartSprint"/> when the start happens: at once, or after
+    /// F7's question is answered.
+    /// </summary>
+    private int? _startingTemplateBreak;
+
+    /// <summary>
+    /// A chip on Today: fills in length, shield, cycle and profile. Each can
+    /// still be changed (a preset, not a lock), and a sprint started by hand
+    /// afterwards keeps Settings' break lengths.
+    /// </summary>
+    public void ApplyTemplate(StudyTemplate template)
+    {
+        if (IsRunning || IsOnBreak || _main.IsLocked) return;
+
+        if (SprintLengths.Contains(template.SprintMinutes))
+        {
+            PresetMinutes = template.SprintMinutes;
+        }
+        else
+        {
+            // Between the presets: the custom length, the same path as typing it.
+            CustomMinutesText = template.SprintMinutes.ToString();
+            IsCustomSelected = true;
+        }
+        SelectedShield = template.Shield;
+        CycleSprints = template.CycleSprints;
+
+        var profile = S.ProfileFor(template);
+        if (!ReferenceEquals(profile, S.ActiveProfile)) SelectProfileCommand.Execute(profile);
+        Log.Info($"template applied: {template.Name}");
+    }
+
+    /// <summary>
+    /// Starts a template, from a schedule or the heads-up card. The same gates
+    /// as Start (terms, first run, trial, can-start) apply, because it goes
+    /// through <see cref="StartSprint"/>. <paramref name="skipOpenAppsPanel"/>
+    /// is true only when the heads-up already named every open app this
+    /// template will close (<see cref="HeadsUpNamedWhatWillClose"/>).
+    /// </summary>
+    public bool StartTemplate(StudyTemplate template, bool skipOpenAppsPanel)
+    {
+        if (IsRunning || IsOnBreak) return false;
+        ApplyTemplate(template);
+        _startingTemplateBreak = template.BreakMinutes;
+        if (skipOpenAppsPanel) _runningAppsAnswered = true;
+        StartSprint();
+
+        // Refused at a gate: nothing of this start may carry over to the next
+        // one begun by hand. Waiting on F7's question is not a refusal, since
+        // answering it starts this template.
+        if (!IsRunning && !RunningAppsPanelVisible)
+        {
+            _runningAppsAnswered = false;
+            _startingTemplateBreak = null;
+        }
+        return IsRunning;
+    }
+
+    // ---- the heads-up card
+
+    private ScheduleAction? _headsUp;
+
+    /// <summary>The open apps the card said would be closed; empty when it named none.</summary>
+    private IReadOnlyList<string> _headsUpNamed = Array.Empty<string>();
+
+    private bool _headsUpVisible;
+    public bool HeadsUpVisible { get => _headsUpVisible; private set => Set(ref _headsUpVisible, value); }
+
+    private string _headsUpTitle = "";
+    public string HeadsUpTitle { get => _headsUpTitle; private set => Set(ref _headsUpTitle, value); }
+
+    private string _headsUpText = "";
+    public string HeadsUpText { get => _headsUpText; private set => Set(ref _headsUpText, value); }
+
+    public RelayCommand StartNowCommand { get; }
+    public RelayCommand SkipTodayCommand { get; }
+
+    /// <summary>
+    /// "Homework evening starts at 17:00", naming the open apps it will close
+    /// so it doubles as the pre-sprint warning; or "You missed Homework
+    /// evening", which is only ever an offer.
+    /// </summary>
+    public void ShowHeadsUp(ScheduleAction action, StudyTemplate template)
+    {
+        _headsUp = action;
+        var at = ScheduleText.Time((int)TimeZoneInfo.ConvertTimeFromUtc(action.StartUtc, TimeZoneInfo.Local).TimeOfDay.TotalMinutes);
+        var missed = action.Kind == ScheduleActionKind.OfferMissed;
+        _headsUpNamed = missed ? Array.Empty<string>() : AppsItWouldClose(template);
+        var closing = _headsUpNamed.Count > 0 ? $" {string.Join(", ", _headsUpNamed)} will be closed." : "";
+        var locks = template.Shield == ShieldLevel.Sealed ? " The list locks until it ends." : "";
+
+        HeadsUpTitle = missed ? $"You missed {template.Name}" : $"{template.Name} starts at {at}";
+        HeadsUpText = missed
+            ? $"It was due at {at}. Start it now, or leave it for today."
+            : $"{template.SprintMinutes} minutes at {template.Shield}.{closing}{locks}";
+        HeadsUpVisible = true;
+        Log.Info($"schedule card shown: {action.Kind} for {template.Name}, naming {_headsUpNamed.Count} open app(s)");
+    }
+
+    public void HideHeadsUp()
+    {
+        _headsUp = null;
+        _headsUpNamed = Array.Empty<string>();
+        HeadsUpVisible = false;
+    }
+
+    /// <summary>
+    /// Whether F7's pre-sprint question has nothing left to say for this
+    /// start: the template closes none of the apps that are open, or the card
+    /// up for this schedule already named every one it will close. The
+    /// question exists so nobody loses work to a close nobody mentioned.
+    /// </summary>
+    public bool HeadsUpNamedWhatWillClose(SprintSchedule schedule, StudyTemplate template)
+    {
+        var closing = AppsItWouldClose(template);
+        if (closing.Count == 0) return true;
+        return _headsUp?.Schedule.Id == schedule.Id
+            && closing.All(app => _headsUpNamed.Contains(app, StringComparer.OrdinalIgnoreCase));
+    }
+
+    /// <summary>
+    /// Blocked apps open now that this template's sprint would close: on its
+    /// own blocklist, at Firm or Sealed, or at Soft with hard kill mode on (the
+    /// blocker's own rule). Soft by itself closes nothing.
+    /// </summary>
+    private IReadOnlyList<string> AppsItWouldClose(StudyTemplate template) =>
+        template.Shield >= ShieldLevel.Firm || S.HardKillModeEnabled
+            ? _main.Blocker.RunningBlockedApps(S.ProfileFor(template))
+            : Array.Empty<string>();
+
+    private void StartNow()
+    {
+        if (_headsUp is not { } headsUp) return;
+        var template = S.FindTemplate(headsUp.Schedule.TemplateId);
+        var named = template is not null && HeadsUpNamedWhatWillClose(headsUp.Schedule, template);
+        HideHeadsUp();
+        if (template is not null) StartTemplate(template, skipOpenAppsPanel: named);
+    }
+
+    /// <summary>Free, like skipping a break: no momentum, streak or goal is touched.</summary>
+    private void SkipToday()
+    {
+        if (_headsUp is not { } headsUp) return;
+        var schedule = headsUp.Schedule;
+        schedule.Skip(TimeZoneInfo.ConvertTimeFromUtc(headsUp.StartUtc, TimeZoneInfo.Local).Date);
+        _main.SaveSettings();
+        HideHeadsUp();
+        _main.Toast("Skipped for today. Your momentum is unchanged.");
+        Log.Info($"schedule skipped for today: {schedule.Id}");
+    }
+
     // ------------------------------------------- what is already running (F7)
 
     /// <summary>
@@ -1147,6 +1343,13 @@ public class TodayViewModel : ViewModelBase
         Raise(nameof(CycleProgressText));
         Raise(nameof(CycleProgressVisible));
 
+        // F6: a run begun from a template takes every break at the template's
+        // length, including the one offered after its last sprint; a run begun
+        // any other way (Start, Space, the tray) takes Settings' lengths. A
+        // later sprint of the same cycle keeps what the run began with.
+        if (_cycle.SprintsDone == 0) _templateBreakMinutes = _startingTemplateBreak;
+        _startingTemplateBreak = null;
+
         var now = DateTime.UtcNow;
         var intention = (IntentionText ?? "").Trim();
         _current = new FocusSession
@@ -1176,6 +1379,7 @@ public class TodayViewModel : ViewModelBase
 
             CycleSprintsPlanned = _cycle.SprintsPlanned,
             CycleSprintsDone = _cycle.SprintsDone,
+            TemplateBreakMinutes = _templateBreakMinutes,
         };
         _main.SaveSettings();
 
@@ -1200,6 +1404,10 @@ public class TodayViewModel : ViewModelBase
         JournalPromptVisible = false;
         IntentionDisplayText = string.IsNullOrWhiteSpace(_current.Intention) ? "" : _current.Intention;
         IntentionDisplayVisible = IntentionDisplayText.Length > 0;
+
+        // A schedule's card is for a sprint not yet running; once one is, its
+        // start would be refused anyway (F6).
+        HideHeadsUp();
 
         _main.Blocker.BeginEnforcing(_current.Shield);
         _main.OnSprintStateChanged();
@@ -1294,6 +1502,9 @@ public class TodayViewModel : ViewModelBase
                 Raise(nameof(CycleSprints));
                 Raise(nameof(CycleProgressText));
                 Raise(nameof(CycleProgressVisible));
+
+                // And its template's break length, if it was begun from one (F6).
+                _templateBreakMinutes = saved.TemplateBreakMinutes;
 
                 // A sprint saved by a build without WatchedMinutes (1.0.8 and
                 // earlier) takes its watched time from the old estimate first,

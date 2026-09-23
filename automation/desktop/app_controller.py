@@ -150,8 +150,11 @@ class DesktopController:
 
         `short_timers=False` keeps the localhost endpoints but drops
         --short-timers, for a test that has to observe a wait the shortened
-        one is too brief to see (#242): the Soft notice's Allow wait is one
-        second shortened and five real.
+        one is too brief to see (#242): the Soft notice's Allow wait is three
+        seconds shortened (SoftOverlayPolicy.AllowWait) and five real.
+
+        Other test-only flags (--short-sprints, --short-schedules) go in
+        `extra_args`, per test, so no other test runs with them.
 
         `dev_fields=True` passes --dev so Settings shows the developer-only
         controls (the licence-server URL box, the settings path) that several
