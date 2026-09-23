@@ -38,3 +38,58 @@ class TestModelProbe:
     def test_an_unknown_command_is_an_error_not_a_silent_pass(self):
         with pytest.raises(ProbeError):
             probe({"cmd": "no-such-command"})
+
+
+# ============================================ F6: study templates (1.0.10)
+
+class TestStudyTemplates:
+    """F6: the three built-ins from the launch checklist, and a template can't hold nonsense."""
+
+    def _builtins(self) -> dict:
+        return {t["BuiltInKey"]: t for t in probe({"cmd": "template-builtins"})["templates"]}
+
+    def test_three_built_ins_ship_with_the_checklist_values(self):
+        b = self._builtins()
+        assert set(b) == {"homework", "exam", "light"}
+        hw, ex, li = b["homework"], b["exam"], b["light"]
+        assert (hw["Name"], hw["SprintMinutes"], hw["Shield"], hw["CycleSprints"], hw["BreakMinutes"]) \
+            == ("Homework evening", 45, 2, 3, 10)
+        assert (ex["Name"], ex["SprintMinutes"], ex["Shield"], ex["CycleSprints"]) \
+            == ("Exam prep", 90, 3, 0)
+        assert (li["Name"], li["SprintMinutes"], li["Shield"], li["CycleSprints"], li["BreakMinutes"]) \
+            == ("Light study", 25, 1, 0, 5)
+
+    def test_built_ins_use_whichever_profile_is_active(self):
+        assert all(t["ProfileId"] == "" for t in self._builtins().values())
+
+    def test_each_call_hands_out_fresh_ids(self):
+        first = {t["Id"] for t in self._builtins().values()}
+        second = {t["Id"] for t in self._builtins().values()}
+        assert len(first) == 3 and not first & second
+
+    @pytest.mark.parametrize("field,given,expected", [
+        ("SprintMinutes", 2, 5),
+        ("SprintMinutes", 500, 240),
+        ("CycleSprints", 1, 0),
+        ("CycleSprints", 7, 0),
+        ("CycleSprints", 3, 3),
+        ("BreakMinutes", 0, 1),
+        ("BreakMinutes", 99, 60),
+        ("Shield", 9, 2),
+        ("Name", "   ", "Untitled template"),
+        ("Name", "x" * 60, "x" * 40),
+        ("Name", "  Mock exam  ", "Mock exam"),
+        ("ProfileId", None, ""),
+        ("BuiltInKey", None, ""),
+    ])
+    def test_normalize_clamps_every_field(self, field, given, expected):
+        template = {"Id": "t1", "Name": "Mine", "SprintMinutes": 30, "Shield": 2,
+                    "CycleSprints": 0, "BreakMinutes": 5, "ProfileId": "", "BuiltInKey": ""}
+        template[field] = given
+        out = probe({"cmd": "template-normalize", "template": template})
+        assert out["template"][field] == expected
+        assert out["changed"] is (given != expected)
+
+    def test_normalize_gives_a_missing_id_a_new_one(self):
+        out = probe({"cmd": "template-normalize", "template": {"Id": "", "Name": "A"}})
+        assert len(out["template"]["Id"]) == 32 and out["changed"] is True

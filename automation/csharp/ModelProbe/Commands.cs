@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using FlowShield.Models;
 
@@ -15,6 +16,11 @@ internal static class Commands
         {
             "ping" => new JsonObject { ["ok"] = true },
             "soft-sequence" => SoftSequence(request),
+            "template-builtins" => new JsonObject
+            {
+                ["templates"] = JsonSerializer.SerializeToNode(StudyTemplate.BuiltIns()),
+            },
+            "template-normalize" => TemplateNormalize(request),
             _ => throw new ArgumentException($"unknown command '{cmd}'"),
         };
     }
@@ -45,6 +51,21 @@ internal static class Commands
             results.Add(result);
         }
         return new JsonObject { ["results"] = results };
+    }
+
+    /// <summary>
+    /// Runs StudyTemplate.Normalize on {"template": {...}} and returns the
+    /// template as it came out, with whether anything changed.
+    /// </summary>
+    private static JsonNode TemplateNormalize(JsonObject request)
+    {
+        var template = request["template"].Deserialize<StudyTemplate>()!;
+        var changed = template.Normalize();
+        return new JsonObject
+        {
+            ["template"] = JsonSerializer.SerializeToNode(template),
+            ["changed"] = changed,
+        };
     }
 
     private static JsonNode? Do(Action action)
