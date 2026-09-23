@@ -342,8 +342,9 @@ class TestScheduleText:
     def test_the_copy_keeps_to_the_house_voice(self):
         """DESIGN_SYSTEM.md §9: no exclamation marks; ASCII only in C# literals (escape the rest)."""
         sources = [DESKTOP / "Models" / name
-                   for name in ("ScheduleText.cs", "SprintSchedule.cs", "ScheduleMatcher.cs", "StudyTemplate.cs")]
-        sources.append(DESKTOP / "ViewModels" / "ScheduleViewModel.cs")
+                   for name in ("ScheduleText.cs", "SprintSchedule.cs", "ScheduleMatcher.cs", "StudyTemplate.cs",
+                                "SchedulePlanner.cs")]
+        sources += [DESKTOP / "ViewModels" / "ScheduleViewModel.cs", DESKTOP / "Services" / "ScheduleService.cs"]
         for path in sources:
             source = path.read_text(encoding="utf-8")
             for text in re.findall(r'"([^"]*)"', source):
@@ -355,6 +356,121 @@ class TestScheduleText:
         xaml = (DESKTOP / "Views" / "ScheduleView.xaml").read_text(encoding="utf-8")
         for text in re.findall(r'\b(?:Text|Content)="([^"]*)"', xaml):
             assert "!" not in text, f"exclamation mark in ScheduleView.xaml: {text!r}"
+
+
+class TestSchedulePlanner:
+    """F6: what the scheduler does on each tick. Pure, so the gaps can be tested."""
+
+    Z = EASTERN
+
+    def decide(self, schedules, last, now, shown=()):
+        return probe({"cmd": "schedule-decide", "schedules": schedules, "zone": self.Z,
+                      "last": last, "now": now, "shown": list(shown)})
+
+    def test_heads_up_five_minutes_before(self):
+        out = self.decide([schedule()], "2026-09-28T20:54:50Z", "2026-09-28T20:55:05Z")
+        assert out["actions"] == [{"kind": "HeadsUp", "id": "s1", "start": "2026-09-28T21:00:00Z"}]
+
+    def test_heads_up_only_once(self):
+        out = self.decide([schedule()], "2026-09-28T20:55:05Z", "2026-09-28T20:55:20Z",
+                          shown=["s1@2026-09-28T21:00:00Z"])
+        assert out["actions"] == []
+
+    def test_no_heads_up_when_ask_first_is_off(self):
+        out = self.decide([schedule(AskFirst=False)], "2026-09-28T20:54:50Z", "2026-09-28T20:55:05Z")
+        assert out["actions"] == []
+
+    def test_start_at_the_time(self):
+        out = self.decide([schedule()], "2026-09-28T20:59:50Z", "2026-09-28T21:00:05Z")
+        assert [a["kind"] for a in out["actions"]] == ["Start"]
+
+    def test_a_skipped_day_does_nothing(self):
+        s = schedule(SkippedDatesLocal=["2026-09-28T00:00:00"])
+        out = self.decide([s], "2026-09-28T20:54:50Z", "2026-09-28T21:00:05Z")
+        assert out["actions"] == []
+
+    def test_a_skipped_day_has_no_heads_up_either(self):
+        s = schedule(SkippedDatesLocal=["2026-09-28T00:00:00"])
+        out = self.decide([s], "2026-09-28T20:54:50Z", "2026-09-28T20:55:05Z")
+        assert out["actions"] == []
+
+    def test_a_disabled_schedule_does_nothing(self):
+        out = self.decide([schedule(Enabled=False)], "2026-09-28T20:59:50Z", "2026-09-28T21:00:05Z")
+        assert out["actions"] == []
+
+    def test_waking_twenty_minutes_late_offers_never_starts(self):
+        out = self.decide([schedule()], "2026-09-28T20:30:00Z", "2026-09-28T21:20:00Z")
+        assert [a["kind"] for a in out["actions"]] == ["OfferMissed"]
+
+    def test_waking_an_hour_late_does_nothing(self):
+        out = self.decide([schedule()], "2026-09-28T20:30:00Z", "2026-09-28T22:00:00Z")
+        assert out["actions"] == []
+
+    def test_a_long_gap_offers_at_most_one_start(self):
+        """Review focus 2: asleep over several scheduled starts is one offer, not a burst."""
+        daily = schedule(days=[0, 1, 2, 3, 4, 5, 6], minute=21 * 60)  # 21:00 every day
+        out = self.decide([daily], "2026-09-25T12:00:00Z", "2026-09-29T01:10:00Z")  # 21:10 EDT on the 28th
+        assert [a["kind"] for a in out["actions"]] == ["OfferMissed"]
+        assert out["actions"][0]["start"] == "2026-09-29T01:00:00Z"
+
+    def test_one_offer_per_tick_across_schedules_the_latest_start(self):
+        """Review focus 2 again, with two schedules missed in one gap."""
+        early = schedule(Id="a", minute=17 * 60)          # 21:00Z
+        later = schedule(Id="b", minute=17 * 60 + 10)     # 21:10Z
+        out = self.decide([later, early], "2026-09-28T20:30:00Z", "2026-09-28T21:25:00Z")
+        assert out["actions"] == [{"kind": "OfferMissed", "id": "b", "start": "2026-09-28T21:10:00Z"}]
+
+    def test_two_schedules_at_the_same_minute_come_out_in_a_stable_order(self):
+        """Review focus 3: the service starts the first and skips the second."""
+        a = schedule(Id="a", TemplateId="t1")
+        b = schedule(Id="b", TemplateId="t2")
+        out = self.decide([b, a], "2026-09-28T20:59:50Z", "2026-09-28T21:00:05Z")
+        assert [x["id"] for x in out["actions"]] == ["a", "b"]
+
+    def test_a_clock_or_zone_change_counts_from_the_change(self):
+        """
+        ScheduleService restarts its count when Windows says the clock or the
+        time zone changed. Set forward from 16:50 to 17:10 EDT, the jump would
+        otherwise read as twenty minutes that passed and bring 17:00 back as a
+        missed start; counted from the change, a start already passed is
+        neither started nor offered.
+        """
+        before, change, tick = "2026-09-28T20:50:00Z", "2026-09-28T21:10:00Z", "2026-09-28T21:10:15Z"
+        assert [a["kind"] for a in self.decide([schedule()], before, tick)["actions"]] == ["OfferMissed"]
+        assert self.decide([schedule()], change, tick)["actions"] == []
+
+    def test_short_schedules_shrink_the_lead_and_late_window(self):
+        out = probe({"cmd": "schedule-windows", "short": True})
+        assert out == {"lead": 5, "late": 10}
+        assert probe({"cmd": "schedule-windows", "short": False}) == {"lead": 300, "late": 1800}
+
+
+class TestScheduleService:
+    """
+    F6: the timer around the planner. It runs on WPF's dispatcher, which the
+    probe doesn't host, so these read its source, with comments stripped so a
+    call left only in a comment can't satisfy them.
+    """
+
+    def code(self) -> str:
+        source = (DESKTOP / "Services" / "ScheduleService.cs").read_text(encoding="utf-8")
+        return "\n".join(line.split("//")[0] for line in source.splitlines())
+
+    def test_it_follows_a_clock_or_time_zone_change(self):
+        """.NET caches the local zone: without this the schedules keep the old zone's clock until a restart."""
+        code = self.code()
+        assert "SystemEvents.TimeChanged += OnTimeChanged;" in code
+        assert "SystemEvents.TimeChanged -= OnTimeChanged;" in code, "Stop() lets go of the event"
+        changed = code[code.index("private void ClockChanged()"):]
+        changed = changed[:changed.index("\n    }")]
+        assert "TimeZoneInfo.ClearCachedData();" in changed
+        assert "_lastTickUtc = DateTime.UtcNow;" in changed
+
+    def test_every_tick_reads_the_zone_afresh(self):
+        assert re.search(r"SchedulePlanner\.Decide\([^;]*TimeZoneInfo\.Local", self.code())
+
+    def test_a_clock_set_back_never_replays_a_start(self):
+        assert "if (nowUtc < _lastTickUtc) _lastTickUtc = nowUtc;" in self.code()
 
 
 # ================== F6: templates and schedules in the settings file (1.0.10)

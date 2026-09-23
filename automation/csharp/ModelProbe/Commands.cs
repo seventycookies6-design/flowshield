@@ -29,6 +29,8 @@ internal static class Commands
             "schedule-between" => ScheduleBetween(request),
             "schedule-skip" => ScheduleSkip(request),
             "schedule-normalize" => ScheduleNormalize(request),
+            "schedule-decide" => ScheduleDecide(request),
+            "schedule-windows" => ScheduleWindows(request),
             "text-days" => new JsonObject
             {
                 ["text"] = ScheduleText.Days(request["days"]!.AsArray().Select(d => (DayOfWeek)(int)d!)),
@@ -211,6 +213,44 @@ internal static class Commands
             ["schedule"] = JsonSerializer.SerializeToNode(schedule),
             ["changed"] = changed,
         };
+    }
+
+    /// <summary>
+    /// {"schedules": [...], "zone", "last": UTC, "now": UTC, "shown": ["id@start", ...]}
+    /// -> {"actions": [{"kind", "id", "start"}]}: one scheduler tick, oldest first.
+    /// </summary>
+    private static JsonNode ScheduleDecide(JsonObject request)
+    {
+        var schedules = request["schedules"].Deserialize<List<SprintSchedule>>()!;
+        var shown = request["shown"]!.AsArray().Select(x => (string)x!).ToHashSet(StringComparer.Ordinal);
+        var actions = SchedulePlanner.Decide(schedules, Utc((string)request["last"]!),
+            Utc((string)request["now"]!), ZoneOf(request), shown);
+        return new JsonObject
+        {
+            ["actions"] = new JsonArray(actions.Select(a => (JsonNode)new JsonObject
+            {
+                ["kind"] = a.Kind.ToString(), ["id"] = a.Schedule.Id, ["start"] = Iso(a.StartUtc),
+            }).ToArray()),
+        };
+    }
+
+    /// <summary>{"short": bool} -> {"lead", "late"}: the heads-up lead and the late window, in seconds.</summary>
+    private static JsonNode ScheduleWindows(JsonObject request)
+    {
+        // Static, like SoftWait's flag: reset even when the request is malformed.
+        SchedulePlanner.UseShortSchedules = (bool?)request["short"] ?? false;
+        try
+        {
+            return new JsonObject
+            {
+                ["lead"] = (int)SchedulePlanner.HeadsUpLead.TotalSeconds,
+                ["late"] = (int)SchedulePlanner.LateWindow.TotalSeconds,
+            };
+        }
+        finally
+        {
+            SchedulePlanner.UseShortSchedules = false;
+        }
     }
 
     /// <summary>{"settings": {...}} as the settings file holds it, with profiles settled as startup does first.</summary>
