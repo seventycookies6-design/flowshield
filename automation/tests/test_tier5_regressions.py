@@ -1840,6 +1840,53 @@ class TestActivationLinkWorks:
         assert "ViewModel.HandleLink(DeepLink.FindLink(launchArgs))" in app, "already running"
 
 
+# ============ flowshield:// registration must recover after a slow install (#294)
+
+class TestDeepLinkRegistrationRecovery:
+    """
+    Velopack kills an install hook after 30 seconds. On a slow first cold start
+    the hook can miss flowshield:// registration, and nothing retries it. The
+    velopack.log line is '[ERROR] Process timed out after 30s and was killed.'.
+    """
+
+    @staticmethod
+    def read(*parts) -> str:
+        return (Path(DESKTOP_DIR).joinpath(*parts)).read_text(encoding="utf-8")
+
+    def test_refresh_registers_only_when_installed(self):
+        link = self.read("Services", "DeepLink.cs")
+        match = re.search(
+            r"public static void RefreshIfInstalled\(bool isInstalled\)\s*\{(?P<body>.*?)\n    \}",
+            link,
+            re.DOTALL,
+        )
+        assert match is not None, "DeepLink must define RefreshIfInstalled(bool isInstalled)"
+        body = match.group("body")
+        assert re.search(r"if\s*\(\s*!isInstalled\b[^)]*\)\s*return\s*;", body), \
+            "RefreshIfInstalled must leave the link registration alone for dev builds"
+        assert "Environment.ProcessPath" in body and re.search(r"\bRegister\(", body), \
+            "an installed launch must register the current process path"
+        # Every start runs this, so a link already pointing here is left as it is:
+        # no registry write and no log line on every launch.
+        assert "shell\\open\\command" in body and "return;" in body.split("Register(")[0], \
+            "RefreshIfInstalled must skip re-registering a link that already points here"
+
+    def test_app_startup_retries_registration_for_installed_copies(self):
+        app = self.read("App.xaml.cs")
+        startup = app.split("protected override void OnStartup(", 1)[1]
+        assert re.search(
+            r"DeepLink\.RefreshIfInstalled\(\s*(?:new UpdateService\(\)\.IsSupported|isInstalled)\s*\)",
+            startup,
+        ), "App.OnStartup must refresh the link registration using the installed-copy check"
+        assert "new UpdateService().IsSupported" in startup, \
+            "App.OnStartup must use the Velopack installed-copy check"
+
+    def test_velopack_install_and_update_hooks_still_register(self):
+        program = self.read("Program.cs")
+        assert ".OnAfterInstallFastCallback(_ => RegisterLink())" in program
+        assert ".OnAfterUpdateFastCallback(_ => RegisterLink())" in program
+
+
 # ============ FlowShield never nagged, and never told you anything either (F19, #95)
 
 class TestNotificationsStayQuiet:

@@ -74,9 +74,11 @@ public partial class App : Application
         ThemeService.Initialise(ViewModel.Settings);
         // Repair an enabled Run value only from an installed copy. A dev build
         // shares these settings and must not redirect sign-in into bin/.
-        StartupEntry.RefreshIfEnabled(
-            ViewModel.Settings.StartWithWindows,
-            new UpdateService().IsSupported);
+        var isInstalled = new UpdateService().IsSupported;
+        StartupEntry.RefreshIfEnabled(ViewModel.Settings.StartWithWindows, isInstalled);
+        // The same for flowshield://, which the install hook may not have had
+        // time to register (#294).
+        DeepLink.RefreshIfInstalled(isInstalled);
 
         // --server=http://host:port lets tests point at a throwaway server.
         var serverArg = args.FirstOrDefault(a => a.StartsWith("--server=", StringComparison.OrdinalIgnoreCase));
