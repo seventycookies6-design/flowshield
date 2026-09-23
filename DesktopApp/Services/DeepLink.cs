@@ -65,6 +65,30 @@ public static partial class DeepLink
         }
     }
 
+    /// <summary>
+    /// Makes sure flowshield:// points at this installed copy, on every start
+    /// (#294). Velopack's install hook is the only other place it's registered,
+    /// and Velopack kills that hook after 30 s. A first cold start slower than
+    /// that (Defender scanning the whole runtime) left the link unregistered
+    /// until the next update. A dev build run from bin/ never takes it over.
+    /// </summary>
+    public static void RefreshIfInstalled(bool isInstalled)
+    {
+        if (!isInstalled || Environment.ProcessPath is not { } exe) return;
+
+        try
+        {
+            using var command = Registry.CurrentUser.OpenSubKey(ClassesKey + @"\shell\open\command");
+            if (command?.GetValue("") as string == $"\"{exe}\" \"%1\"") return;   // already ours
+        }
+        catch (Exception ex)
+        {
+            Log.Warn($"could not read the flowshield:// registration: {ex.Message}");
+        }
+
+        Register(exe);
+    }
+
     /// <summary>Removes the registration. Called from Velopack's uninstall hook.</summary>
     public static void Unregister()
     {
