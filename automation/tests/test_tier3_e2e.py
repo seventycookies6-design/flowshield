@@ -676,6 +676,40 @@ class TestSoftShowsTheNotice:
             if process.poll() is None:
                 process.kill()
 
+    def test_enter_is_back_to_work_and_never_closes_the_app(self, fresh_app):
+        """
+        The notice lands up to one blocker sweep after the blocked app came to
+        the front, while the user may still be typing in it. A keystroke meant
+        for that app -- Enter to send a chat line, say -- must never become
+        "the user chose to close it". Enter on the fresh notice is Back to
+        work: nothing was asked to close, the app is still running, and the
+        notice is down.
+        """
+        process = self._decoy()
+        try:
+            self._arm_and_start(fresh_app, process)
+
+            overlay = self._overlay()
+            assert overlay is not None, (
+                "a blocked app was the foreground window at Soft and nothing said so"
+            )
+            overlay.type_keys("{ENTER}", set_foreground=True)
+
+            # Wait for what happens (#146): Back to work is logged by name.
+            went_back = f"back to work from {self.TARGET}"
+            deadline = time.time() + 10
+            while time.time() < deadline and not fresh_app.app_log_contains(went_back):
+                time.sleep(0.25)
+            assert fresh_app.app_log_contains(went_back), "Enter on the notice must be Back to work"
+            assert not fresh_app.app_log_contains(f"(pid {process.pid}) to close, as the user chose"), (
+                "Enter must never ask the blocked app to close"
+            )
+            assert process.poll() is None, "Enter must never close the blocked app"
+            assert self._overlay(timeout=2) is None, "Back to work takes the notice down"
+        finally:
+            if process.poll() is None:
+                process.kill()
+
     def test_allow_five_minutes_keeps_it_quiet(self, fresh_app):
         process = self._decoy()
         try:
@@ -683,10 +717,10 @@ class TestSoftShowsTheNotice:
 
             overlay = self._overlay()
             assert overlay is not None
-            # 1.0.10: Allow waits before it can be pressed (one second under
+            # 1.0.10: Allow waits before it can be pressed (three seconds under
             # --short-timers), so a click before then would do nothing.
             allow = overlay.child_window(auto_id="SoftOverlayAllowButton")
-            assert self._wait_until_enabled(allow, timeout=5), "Allow never became pressable"
+            assert self._wait_until_enabled(allow, timeout=8), "Allow never became pressable"
             allow.click_input()
             time.sleep(1.0)
 

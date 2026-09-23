@@ -75,17 +75,24 @@
                            Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,4,0,0"
                            AutomationProperties.AutomationId="SoftOverlayNote"/>
 
-                <!-- 1.0.10 (spec 4.1): Close first, focused and at once; Back to
-                     work second; Allow last, disabled until its wait runs out. -->
+                <!-- 1.0.10 (spec 4.1): Close first and primary in colour, but never
+                     the keyboard's default. The notice lands up to one blocker
+                     sweep after the blocked app came to the front, while the user
+                     may still be typing in it, so an Enter or Space meant for that
+                     app must never become "the user chose to close it". Back to
+                     work takes focus and is both the default (Enter) and the
+                     cancel (Escape) action; Close is reached by mouse or by Tab.
+                     Allow is last, disabled until its wait runs out. -->
                 <WrapPanel Orientation="Horizontal" Margin="0,24,0,0">
                     <!-- Configure names the app: "Close Discord". -->
                     <Button x:Name="CloseButton" Style="{StaticResource BtnPrimary}" Content="Close"
-                            Padding="24,12" IsDefault="True" Margin="0,0,12,8"
+                            Padding="24,12" Margin="0,0,12,8"
                             Click="OnCloseIt"
                             AutomationProperties.AutomationId="SoftOverlayCloseButton"/>
-                    <!-- IsCancel so Escape is the same as Back to work. -->
+                    <!-- Enter and Escape are both Back to work: the app is left running. -->
                     <Button x:Name="BackToWorkButton" Style="{StaticResource BtnGhost}"
-                            Content="Back to work" Padding="24,12" IsCancel="True" Margin="0,0,12,8"
+                            Content="Back to work" Padding="24,12" IsDefault="True" IsCancel="True"
+                            Margin="0,0,12,8"
                             Click="OnBackToWork"
                             AutomationProperties.AutomationId="SoftOverlayBackToWorkButton"
                             AutomationProperties.Name="Back to work"/>

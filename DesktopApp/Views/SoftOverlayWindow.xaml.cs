@@ -26,7 +26,7 @@ namespace FlowShield.Views;
 /// </summary>
 public partial class SoftOverlayWindow : Window
 {
-    /// <summary>Back to work, or Escape, which is the same thing.</summary>
+    /// <summary>Back to work, or Enter or Escape, which are the same thing.</summary>
     public event EventHandler? BackToWork;
 
     /// <summary>Allow 5 minutes, once its wait has run out.</summary>
@@ -44,8 +44,11 @@ public partial class SoftOverlayWindow : Window
     /// <summary>Counts down the wait before Allow can be pressed.</summary>
     private DispatcherTimer? _allowTimer;
 
-    /// <summary>When Allow becomes pressable.</summary>
-    private DateTime _allowAtUtc;
+    /// <summary>
+    /// When Allow becomes pressable, as a tick count: the monotonic clock, so a
+    /// wall-clock change during the wait (an hour back) cannot stretch it.
+    /// </summary>
+    private long _allowAtTick;
 
     public SoftOverlayWindow()
     {
@@ -66,7 +69,7 @@ public partial class SoftOverlayWindow : Window
         _anchor = anchor;
 
         // The wait before Allow (1.0.10). Text only, so reduced motion changes nothing.
-        _allowAtUtc = DateTime.UtcNow + allowWait;
+        _allowAtTick = Environment.TickCount64 + (long)allowWait.TotalMilliseconds;
         AllowButton.IsEnabled = false;
         AllowButton.Content = SoftOverlayCopy.AllowLabel(allowWait);
         _allowTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
@@ -76,7 +79,7 @@ public partial class SoftOverlayWindow : Window
 
     private void UpdateAllow()
     {
-        var left = _allowAtUtc - DateTime.UtcNow;
+        var left = TimeSpan.FromMilliseconds(_allowAtTick - Environment.TickCount64);
         AllowButton.Content = SoftOverlayCopy.AllowLabel(left);
         if (left > TimeSpan.Zero) return;
         AllowButton.IsEnabled = true;
@@ -93,8 +96,12 @@ public partial class SoftOverlayWindow : Window
     {
         base.OnSourceInitialized(e);
         PlaceOverTheDistraction();
-        // The primary action has focus, so Enter is Close; Escape is Back to work.
-        CloseButton.Focus();
+        // Back to work has focus and is the default and cancel action, so Enter,
+        // Space and Escape all leave the blocked app running. The notice lands
+        // up to one blocker sweep after that app came to the front, while the
+        // user may still be typing in it: a key meant for the app must never
+        // close it. Close is reached by mouse or by Tab.
+        BackToWorkButton.Focus();
     }
 
     [DllImport("user32.dll", SetLastError = true)]
@@ -160,7 +167,9 @@ public partial class SoftOverlayWindow : Window
     /// <summary>
     /// Escape is Back to work. Button.IsCancel already does this for a dialog;
     /// this window is shown, not dialogued, so the key is handled here too — and
-    /// <see cref="_answered"/> makes the duplicate harmless.
+    /// <see cref="_answered"/> makes the duplicate harmless. Enter needs no such
+    /// handler: it lands on the focused Back to work button, which is also
+    /// IsDefault.
     /// </summary>
     protected override void OnPreviewKeyDown(KeyEventArgs e)
     {

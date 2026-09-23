@@ -6796,7 +6796,7 @@ class TestSoftOverlayNeverCloses:
         # #134: an id on a layout panel is never surfaced, so it can never be found.
         for tag in re.finditer(r'<(\w+)\b((?:(?!/?>).)*?)/?>', xaml, re.S):
             element, attrs = tag.group(1), tag.group(2)
-            if element in ("Grid", "StackPanel", "Border", "DockPanel", "Image") \
+            if element in ("Grid", "StackPanel", "WrapPanel", "Border", "DockPanel", "Image") \
                     and 'AutomationId="' in attrs:
                 raise AssertionError(
                     f"<{element}> has an AutomationId -- never surfaced to UI Automation")
@@ -6887,9 +6887,10 @@ class TestSoftCloseNeverKills:
 
 class TestSoftNoticeFriction:
     """
-    1.0.10's notice (spec 4.1): Close first and focused, Back to work on
-    Escape, and Allow only after a wait that grows with each try. The wait is
-    enforced where the click lands, not only by how the button looks.
+    1.0.10's notice (spec 4.1): Close first and primary, Back to work the
+    default and keyboard action, and Allow only after a wait that grows with
+    each try. The wait is enforced where the click lands, not only by how the
+    button looks.
     """
 
     MAIN_VM = Path(DESKTOP_DIR) / "ViewModels" / "MainViewModel.cs"
@@ -6898,15 +6899,36 @@ class TestSoftNoticeFriction:
     OVERLAY_CS = Path(DESKTOP_DIR) / "Views" / "SoftOverlayWindow.xaml.cs"
     POLICY = Path(DESKTOP_DIR) / "Models" / "SoftOverlayPolicy.cs"
 
-    def test_close_is_the_primary_focused_button(self):
+    def _button(self, automation_id: str) -> str:
+        """The attributes of one button on the notice, up to its AutomationId."""
         xaml = self.OVERLAY_XAML.read_text(encoding="utf-8")
-        close = xaml.split('AutomationProperties.AutomationId="SoftOverlayCloseButton"')[0].rsplit("<Button", 1)[1]
-        assert "BtnPrimary" in close and 'IsDefault="True"' in close
-        back = xaml.split('AutomationProperties.AutomationId="SoftOverlayBackToWorkButton"')[0].rsplit("<Button", 1)[1]
-        assert "BtnPrimary" not in back and 'IsCancel="True"' in back, "Escape is still Back to work"
+        return xaml.split(f'AutomationProperties.AutomationId="{automation_id}"')[0].rsplit("<Button", 1)[1]
+
+    def test_close_is_first_and_primary_but_never_the_keyboards_default(self):
+        """
+        The notice lands up to one blocker sweep (about 2 s) after the blocked
+        app came to the front, while the user may still be typing in it. An
+        Enter or Space meant for a game or a chat line must never become "the
+        user chose to close it", so Close is reached by mouse or by Tab only.
+        """
+        row = self.OVERLAY_XAML.read_text(encoding="utf-8").split("<WrapPanel", 1)[1].split("</WrapPanel>", 1)[0]
+        assert row.index('AutomationId="SoftOverlayCloseButton"') \
+            < row.index('AutomationId="SoftOverlayBackToWorkButton"'), "Close stays first in the row"
+        close = self._button("SoftOverlayCloseButton")
+        assert "BtnPrimary" in close, "Close stays the primary action in colour"
+        assert "IsDefault" not in close, "Enter must never be Close"
+        assert "IsCancel" not in close
+
+    def test_back_to_work_is_the_default_the_cancel_and_the_focused_button(self):
+        """Enter, Space on the focused button and Escape all mean Back to work."""
+        back = self._button("SoftOverlayBackToWorkButton")
+        assert "BtnPrimary" not in back
+        assert 'IsDefault="True"' in back, "Enter is Back to work"
+        assert 'IsCancel="True"' in back, "Escape is still Back to work"
         opened = self.OVERLAY_CS.read_text(encoding="utf-8") \
             .split("protected override void OnSourceInitialized", 1)[1].split("\n    }", 1)[0]
-        assert "CloseButton.Focus();" in opened
+        assert "BackToWorkButton.Focus();" in opened, "Back to work takes the initial focus"
+        assert "CloseButton.Focus()" not in opened, "a focused Close would make Space close the app"
 
     def test_allow_waits_before_it_can_be_pressed(self):
         code = self.OVERLAY_CS.read_text(encoding="utf-8")
@@ -6917,6 +6939,18 @@ class TestSoftNoticeFriction:
         # looks (CLAUDE.md, "covered controls"), so the handler checks too.
         handler = code.split("private void OnAllowFiveMinutes", 1)[1].split("\n    }", 1)[0]
         assert handler.index("if (!AllowButton.IsEnabled) return;") < handler.index("Answer(AllowFiveMinutes)")
+
+    def test_the_countdown_runs_on_the_monotonic_clock(self):
+        """
+        A deadline on DateTime.UtcNow moves with the wall clock: set back an
+        hour during the wait and Allow stays disabled for an hour. The tick
+        count only ever goes forward.
+        """
+        code = self.OVERLAY_CS.read_text(encoding="utf-8")
+        countdown = code.split("public void Configure(", 1)[1].split("protected override void OnClosed", 1)[0]
+        assert "Environment.TickCount64" in countdown
+        for wall_clock in ("DateTime.UtcNow", "DateTime.Now"):
+            assert wall_clock not in countdown, f"the Allow deadline must not follow {wall_clock}"
 
     def test_the_countdown_moves_nothing(self):
         """

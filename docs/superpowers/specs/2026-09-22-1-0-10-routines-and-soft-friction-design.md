@@ -211,12 +211,20 @@ sighting rule and "never over a FlowShield panel". Its content becomes:
   `DESIGN_SYSTEM.md` §7 and §9: no telling off, no exclamation marks.
 - **Intention**, when set: "You planned: finish chapter 3".
 - **Try count**: "3rd try this sprint".
-- **Close Discord** — primary, focused, works at once. It asks the app to
-  close with `CloseMainWindow` only; it never kills, so the app's own "save
-  your work?" prompt still appears. Never offered for a critical process
-  (they can't be on a blocklist anyway).
-- **Back to work** — secondary; leaves the app running and brings FlowShield
-  forward. `Esc` does the same.
+- **Close Discord** — first in the row and primary in colour; works at once
+  by mouse, or by Tab and then Enter or Space. It asks the app to close with
+  `CloseMainWindow` only; it never kills, so the app's own "save your work?"
+  prompt still appears. Never offered for a critical process (they can't be
+  on a blocklist anyway). It is never the keyboard's default and never takes
+  the initial focus: the notice lands up to one blocker sweep after the app
+  came to the front, while the user may still be typing in it, so a keystroke
+  meant for the blocked app can never close it.
+- **Back to work** — secondary; the default and keyboard action. It has
+  focus when the notice opens, and `Enter`, `Space` and `Esc` all mean Back
+  to work. Leaves the app running and brings FlowShield forward.
+- After Close the notice stays down while the app is still in front (its own
+  "save changes?" prompt, or an app that ignores the ask); it can show again
+  only once the app has left the foreground and come back.
 - **Allow 5 minutes** — last; disabled until the wait runs out, with the
   countdown in its label ("Allow 5 minutes · 0:08"). The countdown is text, so
   it respects reduced motion.
