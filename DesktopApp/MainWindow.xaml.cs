@@ -326,6 +326,7 @@ public partial class MainWindow : Window
             oldVm.SoftOverlayRequested -= OnSoftOverlayRequested;
             oldVm.SoftOverlayDismissRequested -= OnSoftOverlayDismissRequested;
             oldVm.OpenAppsQuestionRaised -= OnOpenAppsQuestionRaised;
+            oldVm.WindowVisibility = null;
         }
 
         if (e.NewValue is MainViewModel newVm)
@@ -337,6 +338,10 @@ public partial class MainWindow : Window
             newVm.SoftOverlayRequested += OnSoftOverlayRequested;
             newVm.SoftOverlayDismissRequested += OnSoftOverlayDismissRequested;
             newVm.OpenAppsQuestionRaised += OnOpenAppsQuestionRaised;
+            // Whether anyone could see a card on Today right now (F6): not
+            // from the tray (Hide) and not minimised. Read when a card is
+            // shown, never stored, so it cannot go stale.
+            newVm.WindowVisibility = () => IsVisible && WindowState != WindowState.Minimized;
         }
 
         UpdateTrayIcon();
@@ -388,6 +393,9 @@ public partial class MainWindow : Window
         switch (notification.Action)
         {
             case NotificationAction.OpenJournal:
+                Vm.CurrentPage = AppPage.Today;
+                break;
+            case NotificationAction.OpenToday:
                 Vm.CurrentPage = AppPage.Today;
                 break;
             case NotificationAction.OpenSettingsLicense:

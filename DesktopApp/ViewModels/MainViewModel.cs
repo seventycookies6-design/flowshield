@@ -78,6 +78,7 @@ public class MainViewModel : ViewModelBase
         // resuming, so nothing is decided about one before that is settled.
         Scheduler = new ScheduleService(Settings);
         Scheduler.Action += (_, action) => OnScheduleAction(action);
+        Scheduler.Ticked += (_, now) => Today.DropStaleHeadsUp(now);
         Scheduler.Start();
         Schedule.TemplatesChanged += (_, _) => Today.RefreshTemplates();
     }
@@ -483,6 +484,15 @@ public class MainViewModel : ViewModelBase
     public event EventHandler? OpenAppsQuestionRaised;
 
     /// <summary>
+    /// Whether the window is up right now (not hidden in the tray, not
+    /// minimised), answered by MainWindow. A card shown on Today counts as
+    /// seen only when it was (see <see cref="TodayViewModel.HeadsUpNamedWhatWillClose"/>).
+    /// </summary>
+    public Func<bool>? WindowVisibility { get; set; }
+
+    public bool IsWindowVisible => WindowVisibility?.Invoke() ?? false;
+
+    /// <summary>
     /// A schedule's moment (F6). Refused, quietly and with a log line, when a
     /// sprint or break is running, the trial has ended, or a gate is up. A
     /// missed start is only ever offered.
@@ -497,6 +507,8 @@ public class MainViewModel : ViewModelBase
         if (IsSprintRunning || Today.IsOnBreak || IsLocked || TermsGateVisible || FirstRun.IsVisible
             || Today.RunningAppsPanelVisible)
         {
+            // A card for this start has nothing left to offer once its start is refused.
+            if (action.Kind == ScheduleActionKind.Start && Today.HeadsUpIsFor(action)) Today.HideHeadsUp();
             Log.Info($"schedule {action.Kind} for {template.Name} skipped: busy or gated");
             return;
         }
@@ -505,41 +517,40 @@ public class MainViewModel : ViewModelBase
         {
             case ScheduleActionKind.HeadsUp:
                 Today.ShowHeadsUp(action, template);
-                Notify(NotificationKind.ScheduledSprint, $"{template.Name} in 5 minutes",
-                    "Start now or skip it on Today.");
+                NotifyHeadsUp($"{template.Name} starts at {Today.HeadsUpTimeText}", "Start now or skip it on Today.");
                 break;
 
             case ScheduleActionKind.OfferMissed:
                 // Nobody was here when it was due, so it is asked, never started.
                 Today.ShowHeadsUp(action, template);
-                Notify(NotificationKind.ScheduledSprint, $"You missed {template.Name}",
-                    "Start it now or skip it on Today.");
+                NotifyHeadsUp($"You missed {template.Name}",
+                    $"It was due at {Today.HeadsUpTimeText}. Start it now or skip it on Today.");
                 break;
 
             case ScheduleActionKind.Start:
                 // Ask first promises a question before the start. With no card
-                // up for this schedule at its time, nobody was asked: the
-                // heads-up tick landed while a sprint or break was running
-                // (refused, and remembered as shown), a hand sprint since hid
-                // the card, or the clock was moved past the heads-up. The
-                // start is then offered, never taken.
-                if (action.Schedule.AskFirst && !Today.HeadsUpIsFor(action.Schedule))
+                // up for this start, nobody was asked: the heads-up tick
+                // landed while a sprint or break was running (refused, and
+                // remembered as shown), a hand sprint since hid the card, or
+                // the clock was moved past the heads-up. The start is then
+                // offered, never taken.
+                if (action.Schedule.AskFirst && !Today.HeadsUpIsFor(action))
                 {
                     Today.ShowHeadsUp(action, template);
-                    Notify(NotificationKind.ScheduledSprint, $"{template.Name} is due now",
-                        "Start it now or skip it on Today.");
+                    NotifyHeadsUp($"{template.Name} is due now", "Start it now or skip it on Today.");
                     Log.Info($"schedule start for {template.Name} offered, not started: nothing asked first");
                     return;
                 }
 
                 // F7's question is skipped only when the heads-up for this start
-                // named every open app the sprint will close. Otherwise (Ask
-                // first off, or an app opened since) it is asked as quick start
-                // asks it, and nothing starts or closes until it is answered.
-                // With Ask first off, the start's one notification names the
-                // template; Today sends it when the sprint starts, in place of
-                // "Sprint started", so an answered question gets it too.
-                var named = Today.HeadsUpNamedWhatWillClose(action.Schedule, template);
+                // named every open app the sprint will close, where the person
+                // could see it. Otherwise (Ask first off, an app opened since,
+                // or a card nobody saw) it is asked as quick start asks it, and
+                // nothing starts or closes until it is answered. With Ask first
+                // off, the start's one notification names the template; Today
+                // sends it when the sprint starts, in place of "Sprint
+                // started", so an answered question gets it too.
+                var named = Today.HeadsUpNamedWhatWillClose(action, template);
                 Today.HideHeadsUp();
                 if (!Today.StartTemplate(template, skipOpenAppsPanel: named,
                                          announceByName: !action.Schedule.AskFirst)
@@ -551,6 +562,21 @@ public class MainViewModel : ViewModelBase
                 }
                 break;
         }
+    }
+
+    /// <summary>
+    /// The notification that goes with a card on Today. Its body carries the
+    /// card's "Discord, Steam will be closed." whenever there is one, so a
+    /// window in the tray is not the only place the apps were named; when
+    /// that notice was actually sent, the card counts as having named them.
+    /// Clicking it opens Today, where the card is.
+    /// </summary>
+    private void NotifyHeadsUp(string title, string ask)
+    {
+        var closing = Today.HeadsUpClosingText;
+        var body = closing.Length > 0 ? $"{closing} {ask}" : ask;
+        if (Notify(NotificationKind.ScheduledSprint, title, body, NotificationAction.OpenToday) && closing.Length > 0)
+            Today.HeadsUpNamesWereNotified();
     }
 
     public void OnSprintStateChanged()

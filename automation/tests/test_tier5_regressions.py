@@ -8602,7 +8602,7 @@ class TestScheduledSprintsGoThroughStart:
         (#270): Today, brought to the front.
         """
         start = self.case("private void OnScheduleAction(", "Start")
-        assert re.search(r"var named = Today\.HeadsUpNamedWhatWillClose\(action\.Schedule, template\);", start)
+        assert re.search(r"var named = Today\.HeadsUpNamedWhatWillClose\(action, template\);", start)
         assert "Today.StartTemplate(template, skipOpenAppsPanel: named," in start
         assert start.index("HeadsUpNamedWhatWillClose(") < start.index("Today.HideHeadsUp();"), \
             "read what the card named before the card goes"
@@ -8657,22 +8657,142 @@ class TestScheduledSprintsGoThroughStart:
         card ("X is due now", Start now / Skip today), never taken.
         """
         start = self.case("private void OnScheduleAction(", "Start")
-        assert "if (action.Schedule.AskFirst && !Today.HeadsUpIsFor(action.Schedule))" in start
+        assert "if (action.Schedule.AskFirst && !Today.HeadsUpIsFor(action))" in start
         assert "return;" in start, "the offer is the whole of that tick's work"
         offer, starting = start.split("return;", 1)
         assert offer.index("HeadsUpIsFor(") < offer.index("Today.ShowHeadsUp(action, template);")
-        assert "Notify(NotificationKind.ScheduledSprint," in offer
+        assert "NotifyHeadsUp($\"{template.Name} is due now\"," in offer
         assert "StartTemplate(" not in offer, "an unasked start is offered, never taken"
         assert "HideHeadsUp(" not in offer, "read whether a card is up before anything hides one"
         assert "Today.StartTemplate(template, skipOpenAppsPanel: named," in starting, \
             "a start whose card is up still starts as before"
 
         today = self.code(self.TODAY)
-        assert re.search(r"public bool HeadsUpIsFor\(SprintSchedule schedule\)\s*=>\s*"
-                         r"_headsUp\?\.Schedule\.Id == schedule\.Id;", today)
+        # R23: the schedule and the start instant, so a card left up from an
+        # earlier start of the same schedule never counts as asked.
+        is_for = self.member(today, "public bool HeadsUpIsFor(ScheduleAction action)")
+        assert "card.Schedule.Id == action.Schedule.Id" in is_for
+        assert "card.StartUtc == action.StartUtc" in is_for
         show = self.member(today, "public void ShowHeadsUp(")
         assert "ScheduleActionKind.Start => $\"{template.Name} is due now\"" in show, \
             "the card says the start is due, not that it is coming"
+
+    def test_the_heads_up_notification_names_what_will_close_and_opens_today(self):
+        """
+        Polish of PR C (R22a, item 7): with the window in the tray the card
+        is the only place the apps were named and nobody saw it, so the
+        notification's body carries the card's sentence ("Discord, Steam
+        will be closed.") whenever there is one. Its title is the card's own
+        time, not "in 5 minutes", which was untrue for a schedule saved two
+        minutes ahead. Clicking any of the three opens Today, where the card
+        is; the missed one says it was missed.
+        """
+        main = self.code(self.MAIN)
+        assert "in 5 minutes" not in main
+        notify = self.member(main, "private void NotifyHeadsUp(")
+        assert "var closing = Today.HeadsUpClosingText;" in notify
+        assert re.search(r"closing\.Length > 0 \? \$\"\{closing\} \{ask\}\" : ask", notify)
+        assert "Notify(NotificationKind.ScheduledSprint, title, body, NotificationAction.OpenToday)" in notify
+        assert re.search(r"if \(Notify\([^;]*\) && closing\.Length > 0\)\s*Today\.HeadsUpNamesWereNotified\(\);",
+                         notify), "the names count as seen only when the notice with them was sent"
+
+        heads_up = self.case("private void OnScheduleAction(", "HeadsUp")
+        assert "NotifyHeadsUp($\"{template.Name} starts at {Today.HeadsUpTimeText}\"," in heads_up
+        missed = self.case("private void OnScheduleAction(", "OfferMissed")
+        assert "NotifyHeadsUp($\"You missed {template.Name}\"," in missed
+        assert "It was due at {Today.HeadsUpTimeText}." in missed
+        on_action = self.member(main, "private void OnScheduleAction(")
+        assert on_action.count("NotifyHeadsUp(") == 3 and "Notify(NotificationKind" not in on_action, \
+            "every card's notice goes through the one helper"
+
+        notifications = Path(DESKTOP_DIR) / "Models" / "Notifications.cs"
+        assert "OpenToday" in notifications.read_text(encoding="utf-8")
+        clicked = self.member(self.code(self.WINDOW), "private void OnNotificationClicked(")
+        assert re.search(r"case NotificationAction\.OpenToday:\s*Vm\.CurrentPage = AppPage\.Today;", clicked)
+
+    def test_the_card_counts_as_having_named_the_apps_only_where_someone_could_see_it(self):
+        """
+        Polish of PR C (R22b): HeadsUpNamedWhatWillClose credited the card
+        with naming the apps even when the window was in the tray and the
+        notification named none, so an Ask-first Firm start could close an
+        app the user never saw named. The card counts only if the window was
+        up (not minimised or in the tray) when it was shown, or the
+        notification with the names was actually sent; otherwise the start
+        goes through F7's question as an unasked one does.
+        """
+        today = self.code(self.TODAY)
+        show = self.member(today, "public void ShowHeadsUp(")
+        assert "_headsUpNamesSeen = _main.IsWindowVisible;" in show
+        named = self.member(today, "public bool HeadsUpNamedWhatWillClose(ScheduleAction action, StudyTemplate template)")
+        assert "if (closing.Count == 0) return true;" in named
+        assert re.search(r"return HeadsUpIsFor\(action\)\s*&&\s*_headsUpNamesSeen\s*&&", named)
+        assert re.search(r"public void HeadsUpNamesWereNotified\(\)\s*=>\s*_headsUpNamesSeen = true;", today)
+        hide = self.member(today, "public void HideHeadsUp(")
+        assert "_headsUpNamesSeen = false;" in hide
+        start_now = self.member(today, "private void StartNow(")
+        assert start_now.index("_headsUpNamesSeen = true;") < start_now.index("HeadsUpNamedWhatWillClose("), \
+            "Start now is pressed on the card itself, so what it names has been seen"
+
+        main = self.code(self.MAIN)
+        assert re.search(r"public bool IsWindowVisible\s*=>\s*WindowVisibility\?\.Invoke\(\) \?\? false;", main), \
+            "with no window wired, nobody could have seen the card"
+        window = self.code(self.WINDOW)
+        assert "newVm.WindowVisibility = () => IsVisible && WindowState != WindowState.Minimized;" in window
+        assert "oldVm.WindowVisibility = null;" in window
+
+    def test_a_card_goes_when_its_start_is_handled_or_it_goes_stale(self):
+        """
+        Polish of PR C (R23): a heads-up card whose start was refused at the
+        busy or gated guard stayed up saying "starts at 17:00"; a missed
+        card never expired although a missed start is offered for 30
+        minutes. Now a card is removed when its start is handled (started:
+        BeginRunning; refused: the guard; skipped; its schedule switched off
+        or deleted) and expires once LateWindow has passed since its start,
+        checked on every scheduler tick.
+        """
+        on_action = self.member(self.code(self.MAIN), "private void OnScheduleAction(")
+        guard = on_action.split("switch (action.Kind)", 1)[0]
+        refused = guard[guard.index("if (IsSprintRunning"):]
+        assert "if (action.Kind == ScheduleActionKind.Start && Today.HeadsUpIsFor(action)) Today.HideHeadsUp();" \
+            in refused
+        assert refused.index("Today.HideHeadsUp();") < refused.index("return;")
+
+        ctor = self.member(self.code(self.MAIN), "public MainViewModel(")
+        assert "Scheduler.Ticked += (_, now) => Today.DropStaleHeadsUp(now);" in ctor
+
+        today = self.code(self.TODAY)
+        drop = self.member(today, "public void DropStaleHeadsUp(DateTime nowUtc)")
+        assert "SchedulePlanner.CardHasExpired(headsUp.StartUtc, nowUtc)" in drop
+        assert "!headsUp.Schedule.Enabled" in drop and "!S.Schedules.Contains(headsUp.Schedule)" in drop
+        assert "HideHeadsUp();" in drop
+
+        schedule_vm = self.code(Path(DESKTOP_DIR) / "ViewModels" / "ScheduleViewModel.cs")
+        for signature in ("private void DeleteSchedule(", "private void SetScheduleEnabled(",
+                          "private void DeleteTemplate("):
+            assert "_main.Today.DropStaleHeadsUp(DateTime.UtcNow);" in self.member(schedule_vm, signature), \
+                f"{signature} must drop a card for a schedule that is off or gone"
+
+    def test_the_missed_card_says_skip_like_its_button(self):
+        """DESIGN_SYSTEM 9: one word for one thing. The button is Skip today; the toast and the page say skipped."""
+        show = self.member(self.code(self.TODAY), "public void ShowHeadsUp(")
+        assert "$\"It was due at {at}. Start it now, or skip it for today.\"" in show
+        assert "leave it for today" not in show
+        xaml = self.TODAY_XAML.read_text(encoding="utf-8")
+        assert re.search(r'<Button\b[^>]*Content="Skip today"[^>]*AutomationId="HeadsUpSkipButton"', xaml)
+
+    def test_start_now_is_secondary_so_start_sprint_stays_the_one_primary(self):
+        """
+        DESIGN_SYSTEM 7 allows one Primary per view (Start sprint on Today).
+        The card's Start now is Secondary (BtnGhost) and Skip today Quiet,
+        mirroring the end panel's Keep going / End anyway pair.
+        """
+        xaml = self.TODAY_XAML.read_text(encoding="utf-8")
+        card = xaml.split("heads-up (F6)", 1)[1].split("timer card", 1)[0]
+        assert "BtnPrimary" not in card
+        assert re.search(r'<Button\b[^>]*Style="\{StaticResource BtnGhost\}"[^>]*AutomationId="HeadsUpStartNowButton"',
+                         card)
+        assert re.search(r'<Button\b[^>]*Style="\{StaticResource BtnQuiet\}"[^>]*AutomationId="HeadsUpSkipButton"',
+                         card)
 
     def test_the_heads_up_names_what_the_templates_own_shield_and_list_will_close(self):
         today = self.code(self.TODAY)

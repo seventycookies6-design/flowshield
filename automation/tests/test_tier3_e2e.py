@@ -1623,6 +1623,9 @@ class TestNotificationSettings:
         ("NotifyFiveMinutesLeftToggle", "FiveMinutesLeft"),
         ("NotifySprintCompleteToggle", "SprintComplete"),
         ("NotifySprintInterruptedToggle", "SprintInterrupted"),
+        ("NotifyBreakOverToggle", "BreakOver"),
+        ("NotifyScheduledSprintToggle", "ScheduledSprint"),
+        ("NotifyAppClosingToggle", "AppClosing"),
         ("NotifyTrialEndingToggle", "TrialEnding"),
     ]
 

@@ -246,6 +246,8 @@ public class ScheduleViewModel : ViewModelBase
         S.Schedules.Remove(row.Schedule);
         _main.SaveSettings();
         Refresh();
+        // A card on Today for this schedule has nothing left to offer (F6).
+        _main.Today.DropStaleHeadsUp(DateTime.UtcNow);
         Log.Info($"schedule deleted: {row.TemplateName}");
     }
 
@@ -258,6 +260,7 @@ public class ScheduleViewModel : ViewModelBase
         row.Schedule.Enabled = enabled;
         _main.SaveSettings();
         NextUpText = BuildNextUp(DateTime.UtcNow, TimeZoneInfo.Local);
+        _main.Today.DropStaleHeadsUp(DateTime.UtcNow);
         Log.Info($"schedule {(enabled ? "on" : "off")}: {row.TemplateName}");
     }
 
@@ -399,6 +402,7 @@ public class ScheduleViewModel : ViewModelBase
         _main.SaveSettings();
         Refresh();
         TemplatesChanged?.Invoke(this, EventArgs.Empty);
+        _main.Today.DropStaleHeadsUp(DateTime.UtcNow);
         Log.Info($"template deleted: {template.Name}, with {count} schedule(s)");
     }
 

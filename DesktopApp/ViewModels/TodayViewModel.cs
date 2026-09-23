@@ -1132,6 +1132,14 @@ public class TodayViewModel : ViewModelBase
     /// <summary>The open apps the card said would be closed; empty when it named none.</summary>
     private IReadOnlyList<string> _headsUpNamed = Array.Empty<string>();
 
+    /// <summary>
+    /// Whether the apps the card named were named where the person could see
+    /// them: the window was up (not minimised, not in the tray) when the card
+    /// was shown, or the notification carrying the names was sent, or Start
+    /// now was pressed on the card itself.
+    /// </summary>
+    private bool _headsUpNamesSeen;
+
     private bool _headsUpVisible;
     public bool HeadsUpVisible { get => _headsUpVisible; private set => Set(ref _headsUpVisible, value); }
 
@@ -1140,6 +1148,12 @@ public class TodayViewModel : ViewModelBase
 
     private string _headsUpText = "";
     public string HeadsUpText { get => _headsUpText; private set => Set(ref _headsUpText, value); }
+
+    /// <summary>"17:00": the card's start, for the notification's title.</summary>
+    public string HeadsUpTimeText { get; private set; } = "";
+
+    /// <summary>"Discord, Steam will be closed." as the card says it, or empty; for the notification's body.</summary>
+    public string HeadsUpClosingText { get; private set; } = "";
 
     public RelayCommand StartNowCommand { get; }
     public RelayCommand SkipTodayCommand { get; }
@@ -1155,9 +1169,11 @@ public class TodayViewModel : ViewModelBase
     {
         _headsUp = action;
         var at = ScheduleText.Time((int)TimeZoneInfo.ConvertTimeFromUtc(action.StartUtc, TimeZoneInfo.Local).TimeOfDay.TotalMinutes);
+        HeadsUpTimeText = at;
         var missed = action.Kind == ScheduleActionKind.OfferMissed;
         _headsUpNamed = missed ? Array.Empty<string>() : AppsItWouldClose(template);
-        var closing = _headsUpNamed.Count > 0 ? $" {string.Join(", ", _headsUpNamed)} will be closed." : "";
+        HeadsUpClosingText = _headsUpNamed.Count > 0 ? $"{string.Join(", ", _headsUpNamed)} will be closed." : "";
+        var closing = HeadsUpClosingText.Length > 0 ? $" {HeadsUpClosingText}" : "";
         var locks = template.Shield == ShieldLevel.Sealed ? " The list locks until it ends." : "";
 
         HeadsUpTitle = action.Kind switch
@@ -1167,38 +1183,69 @@ public class TodayViewModel : ViewModelBase
             _ => $"{template.Name} starts at {at}",
         };
         HeadsUpText = missed
-            ? $"It was due at {at}. Start it now, or leave it for today."
+            ? $"It was due at {at}. Start it now, or skip it for today."
             : $"{template.SprintMinutes} minutes at {template.Shield}.{closing}{locks}";
+        // Named where someone could see it only if the window is up now; the
+        // notification with the names, if it goes out, counts too.
+        _headsUpNamesSeen = _main.IsWindowVisible;
         HeadsUpVisible = true;
-        Log.Info($"schedule card shown: {action.Kind} for {template.Name}, naming {_headsUpNamed.Count} open app(s)");
+        Log.Info($"schedule card shown: {action.Kind} for {template.Name}, naming {_headsUpNamed.Count} open app(s), "
+                 + $"window {(_headsUpNamesSeen ? "up" : "hidden")}");
     }
 
     public void HideHeadsUp()
     {
         _headsUp = null;
         _headsUpNamed = Array.Empty<string>();
+        _headsUpNamesSeen = false;
+        HeadsUpClosingText = "";
         HeadsUpVisible = false;
     }
 
+    /// <summary>The notification carrying the card's names went out, so they were named where the person could see them.</summary>
+    public void HeadsUpNamesWereNotified() => _headsUpNamesSeen = true;
+
     /// <summary>
-    /// Whether the card up is this schedule's, so its start has been asked
-    /// about. False when nothing asked: the heads-up tick landed while a
-    /// sprint or break was running, a hand sprint since hid the card, or the
-    /// clock was moved past the heads-up.
+    /// Drops a card that has nothing left to offer: its schedule was switched
+    /// off or deleted, or the late window has passed since its start (a
+    /// missed start is offered for 30 minutes, no longer, and a card whose
+    /// start never came is stale by the same clock). Run on every scheduler
+    /// tick and whenever the Schedule page changes a schedule.
     /// </summary>
-    public bool HeadsUpIsFor(SprintSchedule schedule) => _headsUp?.Schedule.Id == schedule.Id;
+    public void DropStaleHeadsUp(DateTime nowUtc)
+    {
+        if (_headsUp is not { } headsUp) return;
+        var reason = !headsUp.Schedule.Enabled || !S.Schedules.Contains(headsUp.Schedule)
+            ? "its schedule is off or gone"
+            : SchedulePlanner.CardHasExpired(headsUp.StartUtc, nowUtc) ? "its start is past the late window" : null;
+        if (reason is null) return;
+        HideHeadsUp();
+        Log.Info($"schedule card dropped: {reason}");
+    }
+
+    /// <summary>
+    /// Whether the card up is for this start (the schedule and the instant),
+    /// so it has been asked about. False when nothing asked: the heads-up
+    /// tick landed while a sprint or break was running, a hand sprint since
+    /// hid the card, or the clock was moved past the heads-up.
+    /// </summary>
+    public bool HeadsUpIsFor(ScheduleAction action)
+    {
+        return _headsUp is { } card && card.Schedule.Id == action.Schedule.Id && card.StartUtc == action.StartUtc;
+    }
 
     /// <summary>
     /// Whether F7's pre-sprint question has nothing left to say for this
     /// start: the template closes none of the apps that are open, or the card
-    /// up for this schedule already named every one it will close. The
-    /// question exists so nobody loses work to a close nobody mentioned.
+    /// up for this start already named every one it will close, where the
+    /// person could see it. The question exists so nobody loses work to a
+    /// close nobody mentioned.
     /// </summary>
-    public bool HeadsUpNamedWhatWillClose(SprintSchedule schedule, StudyTemplate template)
+    public bool HeadsUpNamedWhatWillClose(ScheduleAction action, StudyTemplate template)
     {
         var closing = AppsItWouldClose(template);
         if (closing.Count == 0) return true;
-        return _headsUp?.Schedule.Id == schedule.Id
+        return HeadsUpIsFor(action) && _headsUpNamesSeen
             && closing.All(app => _headsUpNamed.Contains(app, StringComparer.OrdinalIgnoreCase));
     }
 
@@ -1216,7 +1263,9 @@ public class TodayViewModel : ViewModelBase
     {
         if (_headsUp is not { } headsUp) return;
         var template = S.FindTemplate(headsUp.Schedule.TemplateId);
-        var named = template is not null && HeadsUpNamedWhatWillClose(headsUp.Schedule, template);
+        // Pressed on the card itself, so whatever it names has been seen.
+        _headsUpNamesSeen = true;
+        var named = template is not null && HeadsUpNamedWhatWillClose(headsUp, template);
         HideHeadsUp();
         if (template is not null) StartTemplate(template, skipOpenAppsPanel: named);
     }

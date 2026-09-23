@@ -24,7 +24,9 @@
             <!-- ============================================= heads-up (F6) -->
             <!-- "Homework evening starts at 17:00", or "You missed ...". No
                  AutomationId on the Border (#134): the title, the line and the
-                 two buttons are the real controls. -->
+                 two buttons are the real controls. Start now is Secondary and
+                 Skip today Quiet: Start sprint below stays the view's one
+                 Primary (DESIGN_SYSTEM section 7). -->
             <Border Style="{StaticResource Card}" Padding="20" Margin="0,0,0,16"
                     Background="{DynamicResource PrimarySoft}" BorderBrush="{DynamicResource Primary}"
                     Visibility="{Binding HeadsUpVisible, Converter={StaticResource BoolVis}}">
@@ -34,11 +36,11 @@
                     <TextBlock Text="{Binding HeadsUpText}" Style="{StaticResource Body}" TextWrapping="Wrap"
                                Margin="0,4,0,0" AutomationProperties.AutomationId="HeadsUpText"/>
                     <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
-                        <Button Style="{StaticResource BtnPrimary}" Content="Start now" Padding="24,8"
+                        <Button Style="{StaticResource BtnGhost}" Content="Start now" Padding="24,8"
                                 Command="{Binding StartNowCommand}"
                                 AutomationProperties.AutomationId="HeadsUpStartNowButton"
                                 AutomationProperties.Name="Start now"/>
-                        <Button Style="{StaticResource BtnGhost}" Content="Skip today" Padding="24,8" Margin="12,0,0,0"
+                        <Button Style="{StaticResource BtnQuiet}" Content="Skip today" Padding="24,8" Margin="12,0,0,0"
                                 Command="{Binding SkipTodayCommand}"
                                 AutomationProperties.AutomationId="HeadsUpSkipButton"
                                 AutomationProperties.Name="Skip today"/>
