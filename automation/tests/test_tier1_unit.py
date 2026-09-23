@@ -4032,9 +4032,15 @@ def break_panel_text(in_window: bool, on_break: bool, is_long: bool, minutes, en
 
 
 def break_caption(in_window: bool, resumed: bool) -> str:
-    """Mirror of BreakCopy.Caption: the state line under the ring while a break runs."""
-    start = "Break resumed" if resumed else "Break"
-    return f"{start} — the sleep shield is still up" if in_window else f"{start} — the shield is down"
+    """
+    Mirror of BreakCopy.Caption: the state line under the ring while a break
+    runs. It never wraps, so the sleep-window pair is short enough to sit
+    inside the ring (tier 5 measures it); outside the window the lines are
+    the ones main always showed.
+    """
+    if in_window:
+        return "Resumed — sleep shield up" if resumed else "Break — sleep shield still up"
+    return "Break resumed — the shield is down" if resumed else "Break — the shield is down"
 
 
 #: Inside or outside the window × running or offered × long or short.
@@ -4088,12 +4094,19 @@ class TestBreakCopyInTheSleepWindow:
     @pytest.mark.parametrize("in_window,resumed,expected", [
         (False, False, "Break — the shield is down"),
         (False, True, "Break resumed — the shield is down"),
-        (True, False, "Break — the sleep shield is still up"),
-        (True, True, "Break resumed — the sleep shield is still up"),
+        (True, False, "Break — sleep shield still up"),
+        (True, True, "Resumed — sleep shield up"),
     ])
     def test_the_caption(self, in_window, resumed, expected):
         self.source()
         assert break_caption(in_window, resumed) == expected
+
+    @pytest.mark.parametrize("resumed", [True, False])
+    def test_inside_the_window_the_caption_says_the_sleep_shield_is_up(self, resumed):
+        self.source()
+        caption = break_caption(True, resumed)
+        assert "sleep shield" in caption and caption.endswith(" up"), caption
+        assert "down" not in caption, "inside the window only the sprint's shield is down"
 
     @pytest.mark.parametrize("in_window,on_break,is_long", BREAK_COPY_CASES)
     def test_the_source_has_each_line_word_for_word(self, in_window, on_break, is_long):

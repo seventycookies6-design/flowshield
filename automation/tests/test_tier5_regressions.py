@@ -7126,9 +7126,42 @@ class TestBreakCopyTracksScheduledSleepWindow:
             "tick, because the window can open or close mid-break"
         )
         caption = self.copy().split("public static string Caption(")[1]
-        for line in ('"Break — the sleep shield is still up"',
-                     '"Break resumed — the sleep shield is still up"'):
+        for line in ('"Break — sleep shield still up"',
+                     '"Resumed — sleep shield up"'):
             assert line in caption, f"#301: the caption needs {line} for the sleep window"
+
+    def test_the_sleep_window_captions_fit_inside_the_ring(self, theme_probe):
+        """
+        The caption under the ring sits in a horizontal StackPanel, which
+        measures it at unlimited width, so it never wraps. A line wider than
+        the ring at that height paints across the stroke, and one wider than
+        the whole ring is clipped at both ends: #301's first wording did both.
+        "Break resumed — the sleep shield is still up" is 246 px and showed
+        as "eak resumed — the sleep shield is still u".
+
+        With nothing below it the caption sits lowest in the ring, where the
+        ring is narrowest. The centred stack is a 64 px timer line, an 8 px gap
+        and a 17 px caption line, so the caption's lower edge is
+        (64 + 8 + 17) / 2 = 44.5 px below the centre. There the 198 px inner
+        circle is about 176.9 px wide.
+
+        The probe measures each caption in the app's own Caption style and
+        embedded Inter. The outside-window captions keep the words they had
+        before #301; the resumed one (206.5 px) overlaps the stroke too, which
+        predates this fix and is not changed here.
+        """
+        inner_radius = (222 - 2 * 12) / 2
+        below_centre = (64 + 8 + 17) / 2
+        room = 2 * (inner_radius ** 2 - below_centre ** 2) ** 0.5
+        inside = [c for c in theme_probe["breakCaptions"] if c["inSleepWindow"]]
+        assert len(inside) == 2, theme_probe["breakCaptions"]
+        for caption in inside:
+            assert caption["styled"] and caption["fontSize"] == 12, caption
+            assert (caption["font"] or "").lower() == "inter-regular.ttf", (
+                f"measured in {caption['font']}, not the embedded Inter")
+            assert caption["width"] <= room, (
+                f"#301: \"{caption['text']}\" is {caption['width']} px wide, but the ring "
+                f"has {room:.1f} px at the caption line, so it would run across the stroke")
 
     def test_the_view_model_hard_codes_no_line_about_the_shield_being_down(self):
         """Every break line comes from BreakCopy, which knows about the window."""

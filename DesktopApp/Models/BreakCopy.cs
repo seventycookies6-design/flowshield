@@ -30,13 +30,17 @@ public static class BreakCopy
             : $"{minutes} minutes with the shield down. It changes nothing about your momentum.";
     }
 
-    /// <summary>The state line under the ring while a break runs.</summary>
+    /// <summary>
+    /// The state line under the ring while a break runs. It never wraps, and at
+    /// its line the ring has about 177 px, so the sleep-window pair is kept
+    /// short (tier 5 measures both in the app's Caption style).
+    /// </summary>
     /// <param name="resumed">The break was picked up again after FlowShield restarted (F5).</param>
     public static string Caption(bool inSleepWindow, bool resumed) => (resumed, inSleepWindow) switch
     {
         (false, false) => "Break — the shield is down",
         (true, false) => "Break resumed — the shield is down",
-        (false, true) => "Break — the sleep shield is still up",
-        (true, true) => "Break resumed — the sleep shield is still up",
+        (false, true) => "Break — sleep shield still up",
+        (true, true) => "Resumed — sleep shield up",
     };
 }
