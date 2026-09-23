@@ -3314,7 +3314,9 @@ class TestTrayMenuSource:
         source = self.source()
         build = source.split("private void BuildTrayMenu(")[1].split("\n    private ")[0]
         assert '"Start sprint (last settings)"' in build
-        assert "Vm?.Today.StartCommand.Execute(null)" in build
+        # Since #270 the item goes through QuickStart(), which executes
+        # StartCommand and brings F7's open-apps question forward if it appears.
+        assert "QuickStart()" in build
         assert '"Start…"' in build
 
     def test_running_shows_time_left_and_end_sprint(self):
