@@ -683,6 +683,15 @@ public class AppSettings
     /// <summary>The day the "trial ends tomorrow" notice was shown, so it only happens once.</summary>
     public DateTime? TrialEndingNotifiedLocal { get; set; }
 
+    /// <summary>
+    /// When the scheduler last looked (F6), stamped on every tick and kept by
+    /// whatever save follows. The next launch counts from it, so a start
+    /// missed while FlowShield was closed is offered, never started. Not user
+    /// data: it is not part of the Your data export. Null before the first
+    /// run of a build that has it.
+    /// </summary>
+    public DateTime? ScheduleLastCheckUtc { get; set; }
+
     public bool IsNotificationOn(NotificationKind kind) =>
         NotificationsEnabled && (!NotificationKinds.TryGetValue(kind.ToString(), out var on) || on);
 

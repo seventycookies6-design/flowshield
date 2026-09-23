@@ -8697,7 +8697,7 @@ class TestScheduledSprintsGoThroughStart:
 
     def test_the_scheduler_starts_after_the_resumed_sprint(self):
         ctor = self.member(self.code(self.MAIN), "public MainViewModel(")
-        assert "Scheduler = new ScheduleService(() => Settings.Schedules);" in ctor
+        assert "Scheduler = new ScheduleService(Settings);" in ctor
         assert "Scheduler.Action += (_, action) => OnScheduleAction(action);" in ctor
         assert ctor.index("Today.ResumeInterruptedSprint();") < ctor.index("Scheduler.Start();")
         assert "Schedule.TemplatesChanged += (_, _) => Today.RefreshTemplates();" in ctor

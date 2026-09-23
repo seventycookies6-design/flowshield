@@ -2967,23 +2967,36 @@ class TestScheduledSprints:
     # the start has to be further off than that or it passes before Save.
     SETUP_SECONDS = 30
 
+    # --short-schedules: the heads-up lead, the late window and how late a
+    # tick may be and still start (SchedulePlanner; pinned in tier 1).
+    LEAD_SECONDS = 15
+    ON_TIME_SECONDS = 3
+
     TARGET = "flowshield-test-target"
 
-    def _schedule_in(self, app, seconds: int = 70, template="Light study", ask=True) -> datetime:
+    def _schedule_in(self, app, seconds: int = 70, template="Light study", ask=True,
+                     setup_seconds: int | None = None) -> datetime:
         """
         A schedule for the whole minute `seconds` from now. The editor takes
         HH:MM, so the start rounds down to the minute; one that would land
-        inside SETUP_SECONDS moves on a minute. Returns the start.
+        inside `setup_seconds` (SETUP_SECONDS by default) moves on a minute.
+        Returns the start, which is still more than a lead and a tick away.
         """
         now = datetime.now()
         at = (now + timedelta(seconds=seconds)).replace(second=0, microsecond=0)
-        if (at - now).total_seconds() < self.SETUP_SECONDS:
+        if (at - now).total_seconds() < (setup_seconds or self.SETUP_SECONDS):
             at += timedelta(minutes=1)
         app.navigate_to_tab("Schedule")
         app.add_schedule(template, [at.strftime("%a")], at.strftime("%H:%M"), ask_first=ask)
         verify.wait_for_settings(lambda st: len(st.get("Schedules") or []) == 1, what="the schedule")
-        assert datetime.now() < at - timedelta(seconds=6), "the editor took so long the heads-up was missed"
+        assert datetime.now() < at - timedelta(seconds=self.LEAD_SECONDS + 1), \
+            "the editor took so long the heads-up was missed"
         return at
+
+    def _wait_past_the_start(self, at: datetime) -> None:
+        """Until the start and its on-time window are behind us, plus a tick or two, so a start would show."""
+        while datetime.now() < at + timedelta(seconds=self.ON_TIME_SECONDS + 5):
+            time.sleep(0.5)
 
     def _decoy(self, tmp_path):
         """A blocked app that is open: a renamed ping, as TestPreSprintWarning uses."""
@@ -3031,7 +3044,7 @@ class TestScheduledSprints:
         self._schedule_in(schedule_app)
         schedule_app.navigate_to_tab("Today")
         schedule_app.wait_until_control_enabled("HeadsUpStartNowButton", timeout=100)
-        # Read straight away: under --short-schedules the card is up for five seconds.
+        # Read straight away: under --short-schedules the card is up for fifteen seconds.
         title = schedule_app.text_of("HeadsUpCard")
         text = schedule_app.text_of("HeadsUpText")
         assert title.startswith("Light study starts at "), title
@@ -3048,14 +3061,15 @@ class TestScheduledSprints:
         schedule_app.navigate_to_tab("Today")
         schedule_app.wait_until_control_enabled("HeadsUpSkipButton", timeout=100)
         schedule_app.click("HeadsUpSkipButton")
+        # A click that lands after the start would read as Skip not working.
+        assert datetime.now() < at, f"Skip was clicked after the start; too slow for the {self.LEAD_SECONDS}-second lead"
         settings = verify.wait_for_settings(
             lambda st: bool(st["Schedules"][0]["SkippedDatesLocal"]), what="the skip")
         assert settings["Schedules"][0]["SkippedDatesLocal"] == [at.strftime("%Y-%m-%dT00:00:00")], \
             "the start's own date, with no offset"
 
-        # Past the start and its three-second on-time window: nothing started.
-        while datetime.now() < at + timedelta(seconds=8):
-            time.sleep(0.5)
+        # Past the start and its on-time window: nothing started.
+        self._wait_past_the_start(at)
         assert verify.read_settings().get("ActiveSprint") is None
         assert "Shield" not in schedule_app.session_state()
 
@@ -3137,15 +3151,16 @@ class TestScheduledSprints:
         A sprint running when the heads-up is due swallows it (the scheduler
         refuses while busy, and remembers the heads-up as shown), so at the
         time nobody had been asked. The start is then offered on the card,
-        never taken. A 25-minute hand sprint ending between T-5 and T is
+        never taken. A 25-minute hand sprint ending between T-15 and T is
         enough; here one is stopped by hand inside that window.
         """
         since = len(self._log_lines(schedule_app))     # this launch's lines only
-        at = self._schedule_in(schedule_app)
+        # Room for the editor and a hand Start before the heads-up is due.
+        at = self._schedule_in(schedule_app, setup_seconds=self.SETUP_SECONDS + self.LEAD_SECONDS)
         schedule_app.navigate_to_tab("Today")
         schedule_app.select_shield("Soft")             # a fresh state starts at Firm, whose Stop asks first
         schedule_app.start_sprint()
-        assert datetime.now() < at - timedelta(seconds=6), \
+        assert datetime.now() < at - timedelta(seconds=self.LEAD_SECONDS + 1), \
             "Start landed too late for the heads-up to fall inside the sprint"
 
         # The heads-up tick lands while the sprint runs: refused, and remembered
@@ -3162,7 +3177,7 @@ class TestScheduledSprints:
             stop.click_input()
         stopped_at = datetime.now()
         seen = len(self._log_lines(schedule_app))
-        assert stopped_at < at, "the sprint ended after the start; too slow for the 5-second lead"
+        assert stopped_at < at, f"the sprint ended after the start; too slow for the {self.LEAD_SECONDS}-second lead"
         ended_by = time.time() + 5
         while "Shield" in schedule_app.session_state():
             assert time.time() < ended_by, "the Stop press did not end the sprint"
@@ -3175,9 +3190,8 @@ class TestScheduledSprints:
                        for line in self._log_lines(schedule_app)[since:]), \
             "no heads-up card was ever up: this offer is the first question"
 
-        # Past the start and its three-second on-time window: offered, not started.
-        while datetime.now() < at + timedelta(seconds=8):
-            time.sleep(0.5)
+        # Past the start and its on-time window: offered, not started.
+        self._wait_past_the_start(at)
         assert verify.read_settings().get("ActiveSprint") is None
         assert "Shield" not in schedule_app.session_state()
         assert schedule_app.exists("HeadsUpStartNowButton", timeout=0.5), "the offer stays up"

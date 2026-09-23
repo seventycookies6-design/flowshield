@@ -31,6 +31,12 @@ internal static class Commands
             "schedule-normalize" => ScheduleNormalize(request),
             "schedule-decide" => ScheduleDecide(request),
             "schedule-windows" => ScheduleWindows(request),
+            "schedule-seed" => new JsonObject
+            {
+                ["seed"] = Iso(SchedulePlanner.SeedLastTick(
+                    request["last"] is { } last ? Utc((string)last!) : null, Utc((string)request["now"]!))),
+            },
+            "schedule-card-expired" => ScheduleCardExpired(request),
             "text-days" => new JsonObject
             {
                 ["text"] = ScheduleText.Days(request["days"]!.AsArray().Select(d => (DayOfWeek)(int)d!)),
@@ -262,6 +268,24 @@ internal static class Commands
                 ["late"] = (int)SchedulePlanner.LateWindow.TotalSeconds,
                 ["on_time"] = (int)SchedulePlanner.OnTime.TotalSeconds,
                 ["tick"] = (int)SchedulePlanner.TickInterval.TotalSeconds,
+            };
+        }
+        finally
+        {
+            SchedulePlanner.UseShortSchedules = false;
+        }
+    }
+
+    /// <summary>{"start": UTC, "now": UTC, "short": bool} -> {"expired"}: whether a card for that start has gone stale.</summary>
+    private static JsonNode ScheduleCardExpired(JsonObject request)
+    {
+        // Static, like SoftWait's flag: reset even when the request is malformed.
+        SchedulePlanner.UseShortSchedules = (bool?)request["short"] ?? false;
+        try
+        {
+            return new JsonObject
+            {
+                ["expired"] = SchedulePlanner.CardHasExpired(Utc((string)request["start"]!), Utc((string)request["now"]!)),
             };
         }
         finally

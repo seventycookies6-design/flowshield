@@ -464,9 +464,35 @@ class TestSchedulePlanner:
         out = self.decide([schedule()], before, tick)
         assert out["actions"] == [{"kind": "OfferMissed", "id": "s1", "start": "2026-09-28T21:00:00Z"}]
 
+    def test_a_start_seen_seconds_after_an_hour_asleep_is_offered_never_started(self):
+        """
+        Final review of PR C (R20): the PC slept from 16:00 and woke at
+        17:00:30 with a 17:00 schedule. The start is 30 seconds old, which
+        would count as on time on an ordinary tick, but nobody was here for
+        the heads-up and the spec says never start after waking. A gap since
+        the last tick makes every start inside it a miss.
+        """
+        out = self.decide([schedule()], "2026-09-28T20:00:00Z", "2026-09-28T21:00:30Z")
+        assert out["actions"] == [{"kind": "OfferMissed", "id": "s1", "start": "2026-09-28T21:00:00Z"}]
+
+    def test_an_ordinary_tick_starts_a_start_seconds_old(self):
+        """The rule above must not touch a normal tick: 10 s since the last one, start 5 s old."""
+        out = self.decide([schedule()], "2026-09-28T20:59:55Z", "2026-09-28T21:00:05Z")
+        assert [a["kind"] for a in out["actions"]] == ["Start"]
+
+    def test_short_mode_a_gap_offers_a_start_seconds_old(self):
+        """The same rule at --short-schedules' scale: 12 s since the last 1 s tick is a gap."""
+        out = self.decide([schedule()], "2026-09-28T20:59:50Z", "2026-09-28T21:00:02Z", short=True)
+        assert [a["kind"] for a in out["actions"]] == ["OfferMissed"]
+
     def test_short_schedules_shrink_every_window_and_the_tick(self):
+        """
+        Roomy enough for the UI suite to act (R20 polish): the heads-up card
+        is up for 15 seconds, a missed start is offered for 30, and a tick
+        that lands two seconds late on a busy UI thread still starts.
+        """
         out = probe({"cmd": "schedule-windows", "short": True})
-        assert out == {"lead": 5, "late": 10, "on_time": 3, "tick": 1}
+        assert out == {"lead": 15, "late": 30, "on_time": 3, "tick": 1}
         assert probe({"cmd": "schedule-windows", "short": False}) == \
             {"lead": 300, "late": 1800, "on_time": 60, "tick": 15}
 
@@ -474,8 +500,8 @@ class TestSchedulePlanner:
     def test_every_rule_can_happen_in_both_modes(self, short):
         """
         With 15-second ticks and a 1-minute on-time window, --short-schedules'
-        10-second late window could never offer (anything within a minute
-        started) and a 5-second lead was hit by one tick in three.
+        late window could never offer (anything within a minute started) and
+        a lead shorter than a tick could be stepped over.
         """
         w = probe({"cmd": "schedule-windows", "short": short})
         assert w["tick"] < w["lead"], "some tick always lands inside the heads-up lead"
@@ -483,15 +509,59 @@ class TestSchedulePlanner:
         assert w["on_time"] < w["late"], "a start seen late can be offered"
 
     @pytest.mark.parametrize("last,now,kinds", [
-        ("2026-09-28T20:59:53Z", "2026-09-28T20:59:55Z", ["HeadsUp"]),      # 5 s ahead
-        ("2026-09-28T20:59:50Z", "2026-09-28T20:59:54Z", []),               # 6 s ahead: not yet
+        ("2026-09-28T20:59:44Z", "2026-09-28T20:59:45Z", ["HeadsUp"]),      # 15 s ahead
+        ("2026-09-28T20:59:43Z", "2026-09-28T20:59:44Z", []),               # 16 s ahead: not yet
         ("2026-09-28T20:59:59Z", "2026-09-28T21:00:01Z", ["Start"]),
-        ("2026-09-28T20:59:59Z", "2026-09-28T21:00:05Z", ["OfferMissed"]),  # 5 s late
-        ("2026-09-28T20:59:59Z", "2026-09-28T21:00:11Z", []),               # past the 10 s window
+        ("2026-09-28T20:59:59Z", "2026-09-28T21:00:05Z", ["OfferMissed"]),  # a 6 s gap: 5 s late
+        ("2026-09-28T20:59:59Z", "2026-09-28T21:00:31Z", []),               # past the 30 s window
     ])
     def test_short_schedules_run_every_rule_in_seconds(self, last, now, kinds):
         out = self.decide([schedule()], last, now, shown=[], short=True)
         assert [a["kind"] for a in out["actions"]] == kinds
+
+    # R21: a start missed while FlowShield was closed. The service saves the
+    # time of its last check and counts from it on the next launch.
+
+    def seed(self, last, now="2026-09-28T21:00:00Z"):
+        return probe({"cmd": "schedule-seed", "last": last, "now": now})["seed"]
+
+    def test_a_launch_counts_from_the_last_check_it_saved(self):
+        assert self.seed("2026-09-28T20:50:00Z") == "2026-09-28T20:50:00Z"
+
+    def test_a_first_launch_counts_from_now(self):
+        assert self.seed(None) == "2026-09-28T21:00:00Z"
+
+    def test_a_check_weeks_ago_is_clamped_to_the_look_back_limit(self):
+        """StartsBetweenUtc clamps too; the seed says so in one place rather than walking a month."""
+        assert self.seed("2026-08-01T12:00:00Z") == "2026-09-20T21:00:00Z"
+
+    def test_a_check_in_the_future_counts_from_now(self):
+        """A clock set back between launches: nothing between the two is passed time."""
+        assert self.seed("2026-09-28T21:05:00Z") == "2026-09-28T21:00:00Z"
+
+    def test_a_start_missed_while_closed_is_offered_on_launch(self):
+        """The seed feeds Decide: closed at 16:50, launched at 17:10 EDT, the 17:00 start is one offer."""
+        seed = self.seed("2026-09-28T20:50:00Z", now="2026-09-28T21:10:15Z")
+        out = self.decide([schedule()], seed, "2026-09-28T21:10:15Z")
+        assert out["actions"] == [{"kind": "OfferMissed", "id": "s1", "start": "2026-09-28T21:00:00Z"}]
+
+    def test_a_start_handled_before_exit_is_not_offered_again(self):
+        """The stamp is taken at the start of the tick that handled it, so the start is at or before it."""
+        out = self.decide([schedule()], self.seed("2026-09-28T21:00:05Z", now="2026-09-28T21:10:00Z"),
+                          "2026-09-28T21:10:00Z")
+        assert out["actions"] == []
+
+    # R23: a card does not go stale.
+
+    @pytest.mark.parametrize("now,short,expired", [
+        ("2026-09-28T21:29:59Z", False, False),
+        ("2026-09-28T21:30:01Z", False, True),
+        ("2026-09-28T21:00:29Z", True, False),
+        ("2026-09-28T21:00:31Z", True, True),
+    ])
+    def test_a_card_expires_once_the_late_window_has_passed_its_start(self, now, short, expired):
+        out = probe({"cmd": "schedule-card-expired", "start": "2026-09-28T21:00:00Z", "now": now, "short": short})
+        assert out["expired"] is expired
 
 
 class TestScheduleService:
@@ -547,6 +617,39 @@ class TestScheduleService:
     def test_a_clock_set_back_counts_from_the_new_time(self):
         """Nothing between the new time and the last tick is read as passed time at once."""
         assert "if (nowUtc < _lastTickUtc) _lastTickUtc = nowUtc;" in self.code()
+
+    def test_the_last_check_is_stamped_before_anything_is_raised(self):
+        """
+        R21: a start missed while FlowShield was closed is offered on launch.
+        Every tick stamps its time on the settings first, so any save that
+        follows (a scheduled start saves; exit saves) keeps it, and Start()
+        counts from the stamp, clamped, instead of from now.
+        """
+        code = self.code()
+        tick = self.body(code, "public void Tick(DateTime nowUtc)")
+        assert "_settings.ScheduleLastCheckUtc = nowUtc;" in tick
+        assert tick.index("_settings.ScheduleLastCheckUtc = nowUtc;") < tick.index("Action?.Invoke(this, action);")
+        start = self.body(code, "public void Start()")
+        assert "_lastTickUtc = SchedulePlanner.SeedLastTick(_settings.ScheduleLastCheckUtc, " in start
+
+    def test_one_failing_handler_cannot_eat_a_tick(self):
+        """
+        _lastTickUtc has already moved on, so an action a throwing handler
+        dropped would never be raised again, and the exception would reach
+        the dispatcher's error dialog from a background tick.
+        """
+        tick = self.body(self.code(), "public void Tick(DateTime nowUtc)")
+        guarded = tick[tick.index("try"):]
+        assert "Action?.Invoke(this, action);" in guarded.split("catch", 1)[0]
+        assert re.search(r"catch \(Exception ex\)\s*\{\s*Log\.Warn\(", guarded)
+        warning = guarded.split("Log.Warn(", 1)[1].split(";", 1)[0]
+        assert "action.Kind" in warning and "action.Schedule.Id" in warning, "name the schedule and the kind"
+
+    def test_every_tick_is_announced_before_it_decides(self):
+        """R23: the card's expiry is checked on each tick, whether or not anything is due."""
+        tick = self.body(self.code(), "public void Tick(DateTime nowUtc)")
+        assert "Ticked?.Invoke(this, nowUtc);" in tick
+        assert tick.index("Ticked?.Invoke(this, nowUtc);") < tick.index("SchedulePlanner.Decide(")
 
 
 # ================== F6: templates and schedules in the settings file (1.0.10)

@@ -76,7 +76,7 @@ public class MainViewModel : ViewModelBase
 
         // F6: the schedules run from here, after the sprint that may be
         // resuming, so nothing is decided about one before that is settled.
-        Scheduler = new ScheduleService(() => Settings.Schedules);
+        Scheduler = new ScheduleService(Settings);
         Scheduler.Action += (_, action) => OnScheduleAction(action);
         Scheduler.Start();
         Schedule.TemplatesChanged += (_, _) => Today.RefreshTemplates();

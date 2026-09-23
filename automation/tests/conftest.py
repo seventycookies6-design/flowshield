@@ -113,10 +113,11 @@ def fresh_app(logger):
 @pytest.fixture
 def schedule_app(logger):
     """
-    `fresh_app` with --short-schedules (F6): the heads-up comes 5 seconds
-    before a scheduled start instead of 5 minutes, and a start up to 10
-    seconds late is offered instead of 30 minutes. Added here rather than to
-    every launch, so no other test runs with a shrunken scheduler.
+    `fresh_app` with --short-schedules (F6): the heads-up comes 15 seconds
+    before a scheduled start instead of 5 minutes, a start up to 30 seconds
+    late is offered instead of 30 minutes, and the tick is 1 second. Added
+    here rather than to every launch, so no other test runs with a shrunken
+    scheduler.
     """
     if not Path(APP_EXE).exists():
         pytest.skip(f"{APP_EXE} not built")
