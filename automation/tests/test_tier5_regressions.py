@@ -7435,48 +7435,74 @@ class TestBreakCopyTracksScheduledSleepWindow:
             "tick, because the window can open or close mid-break"
         )
         caption = self.copy().split("public static string Caption(")[1]
+        # #304: the resumed one is parallel again, on two lines.
         for line in ('"Break — sleep shield still up"',
-                     '"Resumed — sleep shield up"'):
+                     '"Break resumed —\\nsleep shield still up"'):
             assert line in caption, f"#301: the caption needs {line} for the sleep window"
 
-    def test_the_sleep_window_captions_fit_inside_the_ring(self, theme_probe):
+    def test_every_ring_caption_fits_inside_the_ring(self, theme_probe):
         """
-        The caption under the ring sits in a horizontal StackPanel, which
-        measures it at unlimited width, so it never wraps. A line wider than
-        the ring at that height paints across the stroke, and one wider than
-        the whole ring is clipped at both ends: #301's first wording did both.
-        "Break resumed — the sleep shield is still up" is 246 px and showed
-        as "eak resumed — the sleep shield is still u".
+        #301 and #304. The caption under the ring sat in a horizontal
+        StackPanel, which measures it at unlimited width, so it never wrapped.
+        A line wider than the ring at that height painted across the stroke,
+        and one wider than the whole ring was clipped at both ends: #301's
+        first wording showed as "eak resumed — the sleep shield is still u",
+        and "Sprint finished while FlowShield was closed" (247.6 px) and
+        "Break resumed — the shield is down" (206.5 px) still overran the
+        ring's ~177 px at the caption line.
 
-        With nothing below it the caption sits lowest in the ring, where the
-        ring is narrowest. The centred stack is a 64 px timer line, an 8 px gap
-        and a 17 px caption line, so the caption's lower edge is
-        (64 + 8 + 17) / 2 = 44.5 px below the centre. There the 198 px inner
-        circle is about 176.9 px wide.
-
-        The probe measures each caption in the app's own Caption style and
-        embedded Inter. The outside-window captions keep the words they had
-        before #301; the resumed one (206.5 px) overlaps the stroke too, which
-        predates this fix and is not changed here.
+        Since #304 the caption wraps, centred, inside a MaxWidth. Whether that
+        fits is a question about pixels, so the probe lays out the real
+        TodayView with the app's own resources and embedded Inter: every
+        caption RingCaption lists, with the shield glyph beside it when a
+        sprint runs, and with nothing below it (the caption at its lowest,
+        where the ring is narrowest) or with "Sprint 4 of 4" below it. Every
+        box it reports must sit inside the ring's inner circle, corners
+        included, and no caption may take more than two lines. (The timer's
+        own box is not checked: its corners are empty line padding.)
         """
-        inner_radius = (222 - 2 * 12) / 2
-        below_centre = (64 + 8 + 17) / 2
-        room = 2 * (inner_radius ** 2 - below_centre ** 2) ** 0.5
-        inside = [c for c in theme_probe["breakCaptions"] if c["inSleepWindow"]]
-        assert len(inside) == 2, theme_probe["breakCaptions"]
-        for caption in inside:
-            assert caption["styled"] and caption["fontSize"] == 12, caption
-            assert (caption["font"] or "").lower() == "inter-regular.ttf", (
-                f"measured in {caption['font']}, not the embedded Inter")
-            assert caption["width"] <= room, (
-                f"#301: \"{caption['text']}\" is {caption['width']} px wide, but the ring "
-                f"has {room:.1f} px at the caption line, so it would run across the stroke")
+        entries = theme_probe["ringCaptions"]
+        assert entries, "the probe measured no ring captions"
+        for entry in entries:
+            where = f"\"{entry['text']}\" ({entry['below']} below)"
+            assert entry["styled"] and entry["fontSize"] == 12, entry
+            assert (entry["font"] or "").lower() == "inter-regular.ttf", (
+                f"{where} was measured in {entry['font']}, not the embedded Inter")
+            # MM:SS in tabular digits is the widest the timer gets without
+            # shrinking further, so it is also the tallest: the worst case.
+            assert re.fullmatch(r"\d\d:\d\d", entry["timerText"]), entry["timerText"]
+            assert entry["timer"][3] > 55, f"{where}: the timer line was not laid out: {entry['timer']}"
+            assert entry["lines"] <= 2, f"#304: {where} takes {entry['lines']} lines"
+
+            radius = entry["ringDiameter"] / 2 - entry["ringStroke"]
+            centre = entry["ringDiameter"] / 2
+            for name in ("caption", "glyph", "cycle"):
+                box = entry[name]
+                if box is None:
+                    continue
+                x, y, w, h = box
+                for cx, cy in ((x, y), (x + w, y), (x, y + h), (x + w, y + h)):
+                    reach = ((cx - centre) ** 2 + (cy - centre) ** 2) ** 0.5
+                    assert reach <= radius, (
+                        f"#304: {where}: the {name} box {box} reaches {reach:.1f} px from the "
+                        f"centre, past the ring's {radius:.1f} px inner edge")
+
+    def test_the_layout_probe_covers_both_sleep_states_and_the_glyph(self, theme_probe):
+        entries = theme_probe["ringCaptions"]
+        texts = {" ".join(e["text"].split()) for e in entries}
+        for text in ("Break — the shield is down", "Break resumed — the shield is down",
+                     "Break — sleep shield still up", "Break resumed — sleep shield still up",
+                     "Sprint finished while FlowShield was closed", "Sprint resumed — shield III"):
+            assert text in texts, f"#304: {text!r} was not laid out"
+        assert {e["below"] for e in entries} == {"none", "cycle"}
+        assert all((e["glyph"] is not None) == e["running"] for e in entries), (
+            "the glyph shows beside a running sprint's caption and nowhere else")
 
     def test_the_view_model_hard_codes_no_line_about_the_shield_being_down(self):
         """Every break line comes from BreakCopy, which knows about the window."""
         code = re.sub(r"//.*", "", self.vm())
         literals = re.findall(r'"(?:[^"\\\n]|\\.)*"', code)
-        claims = [s for s in literals if re.search(r"shield (is|stays) down|shield down", s, re.I)]
+        claims = [s for s in literals if re.search(r"shield (is|stays|comes) down|shield down", s, re.I)]
         assert not claims, (
             f"#301: {claims} would promise the shield is down inside the sleep "
             "window too; take the line from BreakCopy instead"
@@ -7515,6 +7541,85 @@ class TestBreakCopyTracksScheduledSleepWindow:
         )
         assert ("The sprint's shield is down while one runs (a nightly sleep window "
                 "still applies)") in xaml
+
+    # ------------------------------------------------------------------ #304
+    # #301's follow-up: the five-minutes-left notification still promised the
+    # shield comes down, the ring's older captions overran the ring, and the
+    # checklist and the site said the shield is down with no condition.
+
+    RING_CAPTION = Path(DESKTOP_DIR) / "Models" / "RingCaption.cs"
+
+    def code(self) -> str:
+        """The view model with comments stripped, so a line left in a comment can't pass."""
+        return re.sub(r"//.*", "", self.vm())
+
+    def test_the_five_minutes_left_notification_asks_the_sleep_window(self):
+        """
+        The notification speaks about the moment the time is up, so the window
+        is asked about that moment: a window opening or closing inside the
+        last five minutes changes which shield is up then.
+        """
+        code = self.code()
+        call = code.split("NotificationKind.FiveMinutesLeft", 1)[1].split(";", 1)[0]
+        call = " ".join(call.split())
+        assert re.search(
+            r"BreakCopy\.EndingSoon\(\s*AppBlockerService\.IsWithinSleepWindow\(\s*S\s*,\s*"
+            r"_endsAtUtc\.ToLocalTime\(\)\s*\)\s*,\s*"
+            r"SleepBlockingViewModel\.Format\(\s*S\.SleepBlockEndTime\s*\)\s*\)",
+            call,
+        ), f"#304: the notification's words must come from BreakCopy.EndingSoon; got {call!r}"
+        assert "comes down" not in call, "#304: no hand-typed copy of the line beside it"
+
+    def test_every_ring_caption_comes_from_ring_caption_or_break_copy(self):
+        """
+        Tier 5's layout probe measures RingCaption's list. A caption typed
+        straight into the view model would never be measured.
+        """
+        code = self.code()
+        assignments = re.findall(r"SessionStateText\s*=(?!=)\s*([^;]*);", code)
+        assignments += re.findall(r"(?<!void )BeginRunning\(([^;]*)\);", code)
+        assignments += re.findall(r"_sessionStateText\s*=\s*([^;]*);", code)
+        assert len(assignments) >= 9, assignments
+        for rhs in assignments:
+            rhs = " ".join(rhs.split())
+            if rhs == "stateText":  # BeginRunning's own parameter
+                continue
+            assert '"' not in rhs, f"#304: {rhs!r} is typed into the view model; add it to RingCaption"
+            assert "RingCaption." in rhs or "BreakCopy.Caption(" in rhs, rhs
+
+    def test_ring_caption_lists_every_line_it_defines(self):
+        assert self.RING_CAPTION.exists(), "#304: the ring's captions live in Models/RingCaption.cs"
+        source = self.RING_CAPTION.read_text(encoding="utf-8")
+        every = source.split("public static IReadOnlyList<(string Text, bool Running)> Every()")[1]
+        members = re.findall(r"public const string (\w+)", source)
+        members += re.findall(r"public static string (\w+)\(ShieldLevel", source)
+        assert len(members) >= 9, members
+        for member in members:
+            assert re.search(rf"\b{member}\b", every), f"#304: RingCaption.Every() leaves out {member}"
+        assert "BreakCopy.Caption(" in every, "and the four break captions"
+
+    def test_the_caption_wraps_centred_inside_the_ring(self):
+        xaml = (Path(DESKTOP_DIR) / "Views" / "TodayView.xaml").read_text(encoding="utf-8")
+        block = xaml.split('AutomationProperties.AutomationId="SessionStateText"')[0]
+        block = block[block.rindex("<TextBlock"):]
+        assert 'TextWrapping="Wrap"' in block and 'TextAlignment="Center"' in block, block
+        assert re.search(r'MaxWidth="\d+"', block), block
+
+    def test_the_checklist_qualifies_the_shield_being_down_during_breaks(self):
+        checklist = (Path(DESKTOP_DIR).parent / "LAUNCH_FEATURE_CHECKLIST.md").read_text(encoding="utf-8")
+        line = next(l for l in checklist.splitlines() if "During breaks" in l)
+        assert "sleep" in line, f"#304: F5 promises the shield is down with no condition: {line}"
+        assert "Blocked apps are allowed and" not in line, line
+
+    def test_the_site_never_says_the_shield_is_down_without_the_sleep_window(self):
+        for page in sorted((Path(DESKTOP_DIR).parent / "Website").glob("*.html")):
+            if page.name == "changelog.html":
+                continue  # it describes the fixes to these claims
+            for number, line in enumerate(page.read_text(encoding="utf-8").splitlines(), 1):
+                if re.search(r"shield (is |comes |stays )?down", line, re.I):
+                    assert "sleep" in line.lower(), (
+                        f"#304: {page.name}:{number} says the shield is down with no word "
+                        f"about a sleep window: {line.strip()}")
 
 
 class TestNothingSellsOrLocksDuringABreak:

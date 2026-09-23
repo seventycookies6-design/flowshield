@@ -244,7 +244,7 @@ public class TodayViewModel : ViewModelBase
         S.ActiveSprint = null;
         _main.SaveSettings();
 
-        SessionStateText = "Sprint cancelled";
+        SessionStateText = RingCaption.Cancelled;
         Raise(nameof(CycleProgressText));
         Raise(nameof(CycleProgressVisible));
         JournalPromptVisible = false;
@@ -312,7 +312,9 @@ public class TodayViewModel : ViewModelBase
 
     public string PrimaryActionLabel => IsRunning ? "End sprint" : "Start sprint";
 
-    private string _sessionStateText = "Ready when you are";
+    // Every line comes from RingCaption (the break's from BreakCopy.Caption), whose
+    // list tier 5 lays out inside the ring (#304).
+    private string _sessionStateText = RingCaption.Ready;
     public string SessionStateText { get => _sessionStateText; private set => Set(ref _sessionStateText, value); }
 
     private string _intentionDisplayText = "";
@@ -775,7 +777,7 @@ public class TodayViewModel : ViewModelBase
         S.ActiveBreak = null;
         _main.SaveSettings();
 
-        SessionStateText = "Break over";
+        SessionStateText = RingCaption.BreakOver;
         UpdateIdleDisplay();
         _main.OnSprintStateChanged();
         CommandManager.InvalidateRequerySuggested();
@@ -1475,7 +1477,7 @@ public class TodayViewModel : ViewModelBase
         };
         _main.SaveSettings();
 
-        BeginRunning($"Shield {Roman(SelectedShield)} engaged");
+        BeginRunning(RingCaption.Engaged(SelectedShield));
         Log.Info($"sprint started: {SelectedMinutes}m at shield {SelectedShield}, "
                  + $"blocklist \"{S.ActiveProfile.Name}\"");
 
@@ -1620,7 +1622,7 @@ public class TodayViewModel : ViewModelBase
                 _main.SaveSettings();
 
                 var left = (int)Math.Ceiling((saved.EndsUtc - now).TotalMinutes);
-                BeginRunning($"Sprint resumed — shield {Roman(saved.Shield)}");
+                BeginRunning(RingCaption.Resumed(saved.Shield));
                 _main.Toast($"Sprint resumed — {left} minute{(left == 1 ? "" : "s")} left.");
                 break;
 
@@ -1665,7 +1667,7 @@ public class TodayViewModel : ViewModelBase
                 _main.SaveSettings();
                 RefreshStats();
 
-                SessionStateText = completed ? "Sprint finished while FlowShield was closed" : "Sprint interrupted";
+                SessionStateText = completed ? RingCaption.FinishedWhileClosed : RingCaption.Interrupted;
                 _main.Toast(completed
                     ? "Your last sprint finished while FlowShield was closed."
                     : "Your last sprint was interrupted — FlowShield wasn't running for most of it.");
@@ -1749,8 +1751,12 @@ public class TodayViewModel : ViewModelBase
             && !NotificationPolicy.TooShortForEndingSoon(_current?.PlannedMinutes ?? SelectedMinutes))
         {
             _endingSoonNotified = true;
+            // Asked about the moment the time is up, which is what the line
+            // promises: inside the sleep window only the sprint's shield comes
+            // down (#304).
             _main.Notify(NotificationKind.FiveMinutesLeft, "5 minutes left",
-                "Nearly there — the shield comes down when the time is up.");
+                BreakCopy.EndingSoon(AppBlockerService.IsWithinSleepWindow(S, _endsAtUtc.ToLocalTime()),
+                    SleepBlockingViewModel.Format(S.SleepBlockEndTime)));
         }
 
         Remaining = remaining;
@@ -1852,9 +1858,9 @@ public class TodayViewModel : ViewModelBase
         // earned it.
         RefreshStats();
 
-        SessionStateText = completed ? "Sprint complete"
-            : interrupted ? "Sprint interrupted"
-            : "Sprint ended early";
+        SessionStateText = completed ? RingCaption.Complete
+            : interrupted ? RingCaption.Interrupted
+            : RingCaption.EndedEarly;
         // No card or "what moved?" for an interrupted sprint: there is nothing
         // to sum up, and F3's startup path doesn't show one either.
         if (!interrupted)
@@ -2085,11 +2091,4 @@ public class TodayViewModel : ViewModelBase
         Raise(nameof(ShieldDescription));
         Raise(nameof(ShieldBestFor));
     }
-
-    private static string Roman(ShieldLevel level) => level switch
-    {
-        ShieldLevel.Soft => "I",
-        ShieldLevel.Firm => "II",
-        _ => "III",
-    };
 }

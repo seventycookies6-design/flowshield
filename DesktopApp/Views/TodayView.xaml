@@ -57,7 +57,7 @@
                          it drains from full; RingRemaining (code-behind) glides
                          between the once-a-second ticks unless Windows'
                          animation effects are off (§7). The digits never ease. -->
-                    <Grid Width="222" Height="222" HorizontalAlignment="Center" Margin="0,8,0,0">
+                    <Grid Width="222" Height="222" x:Name="TimerRing" HorizontalAlignment="Center" Margin="0,8,0,0">
                         <Ellipse Width="222" Height="222" Stroke="{DynamicResource Track}" StrokeThickness="12"/>
                         <Grid Visibility="{Binding SprintRingVisible, Converter={StaticResource BoolVis}}">
                             <Ellipse Width="222" Height="222" Stroke="{DynamicResource Primary}" StrokeThickness="12"
@@ -107,7 +107,14 @@
                                        Width="14" Height="14" Stretch="Uniform" Margin="0,0,8,0"
                                        VerticalAlignment="Center"
                                        Visibility="{Binding IsRunning, Converter={StaticResource BoolVis}}"/>
+                                <!-- A horizontal StackPanel measures at unlimited width, so
+                                     without a MaxWidth the line never wrapped and a long one
+                                     ran across the stroke (#304). One line has about 177 px
+                                     here; two lines sit lower, where the ring has about 168.
+                                     164 keeps every one-line caption on one line and every
+                                     wrapped one inside the ring; tier 5 lays out each one. -->
                                 <TextBlock Text="{Binding SessionStateText}" Style="{StaticResource Caption}"
+                                           MaxWidth="164" TextWrapping="Wrap" TextAlignment="Center"
                                            AutomationProperties.AutomationId="SessionStateText"/>
                             </StackPanel>
                             <!-- NoWrap so the trimming applies: the caption style wraps by
