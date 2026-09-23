@@ -5646,6 +5646,53 @@ class TestEnforcementBookkeepingIsForgottenWhenTheWindowCloses:
         assert "TimeSpan.FromSeconds(10)" in grace
 
 
+class TestEmptyProfileForgetsEnforcementBookkeeping:
+    """
+    #269. During a sprint, switching to a profile with no enabled apps made
+    Tick return before it forgot the old warning deadline and presence.
+    Switching back after the grace period then killed a blocked app on its
+    first sweep without a fresh warning.
+    """
+
+    SERVICE = DESKTOP / "Services" / "AppBlockerService.cs"
+
+    def _empty_targets_branch(self, source: str) -> str:
+        tick = source.split("private void Tick()", 1)
+        assert len(tick) == 2, "AppBlockerService.Tick was not found; update this extraction"
+        head = re.search(r"if\s*\(\s*targets\.Count\s*==\s*0\s*\)\s*", tick[1])
+        assert head, "Tick's empty-targets return was not found; update this extraction"
+        rest = tick[1][head.end():]
+        if not rest.startswith("{"):
+            return rest.split(";", 1)[0] + ";"          # the old one-line early return
+        # Brace-match the block: it holds a nested lock (_gate) { ... }.
+        depth = 0
+        for i, ch in enumerate(rest):
+            depth += ch == "{"
+            depth -= ch == "}"
+            if depth == 0:
+                return rest[1:i]
+        raise AssertionError("unbalanced braces after the empty-targets check")
+
+    def test_empty_targets_clear_both_collections_under_the_lock(self):
+        branch = self._empty_targets_branch(self.SERVICE.read_text(encoding="utf-8"))
+        lock = re.search(r"lock\s*\(\s*_gate\s*\)\s*\{(?P<body>[^{}]*)\}", branch, re.S)
+        assert lock, (
+            "when the active profile has no enabled apps, Tick must clear its pending"
+            " enforcement state under _gate before returning"
+        )
+        locked = lock.group("body")
+        assert re.search(r"_present\s*\.\s*Clear\s*\(\s*\)", locked), (
+            "an empty profile must forget which blocked apps were present"
+        )
+        assert re.search(r"_closingAt\s*\.\s*Clear\s*\(\s*\)", locked), (
+            "an empty profile must forget old close deadlines so returning to it"
+            " cannot kill an app without a fresh warning"
+        )
+        assert re.search(r"return\s*;", branch[lock.end():]), (
+            "Tick must return after clearing pending enforcement state for an empty profile"
+        )
+
+
 class TestTheSleepWindowNeverDropsBelowFirm:
     """
     #197. The sleep window forced Firm only when no sprint was running
