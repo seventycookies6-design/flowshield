@@ -2330,6 +2330,9 @@ class TestYourDataCard:
             "an irreversible local wipe must not happen on a single click"
         assert fresh_app.exists("ConfirmDeleteConfirmButton")
         assert fresh_app.exists("ConfirmDeleteCancelButton")
+        # It says what goes, the templates and the taskbar list included (#311).
+        detail = fresh_app.text_of("ConfirmDeleteDetailText")
+        assert "templates" in detail and "taskbar Jump List" in detail, detail
 
         # Cancelling must leave everything exactly as it was.
         fresh_app.click("ConfirmDeleteCancelButton")

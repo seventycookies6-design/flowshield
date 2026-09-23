@@ -21,8 +21,9 @@
             <TextBlock x:Name="QuestionText" Text="Delete everything on this PC."
                        Style="{StaticResource H2}" TextWrapping="Wrap"
                        AutomationProperties.AutomationId="ConfirmDeleteText"/>
-            <TextBlock x:Name="DetailText" Text="This removes your sessions, journal, blocklist, momentum and licence from this computer. If FlowShield is licensed here, that seat is freed for another machine first. This cannot be undone."
-                       Style="{StaticResource Body}" Margin="0,12,0,0" TextWrapping="Wrap"/>
+            <TextBlock x:Name="DetailText" Text="This removes your sessions, journal, blocklist profiles, templates, schedules, momentum and licence from this computer, and empties FlowShield's taskbar Jump List. If FlowShield is licensed here, that seat is freed for another machine first. This cannot be undone."
+                       Style="{StaticResource Body}" Margin="0,12,0,0" TextWrapping="Wrap"
+                       AutomationProperties.AutomationId="ConfirmDeleteDetailText"/>
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,24,0,0">
                 <!-- IsCancel, rather than a Click handler: it closes the dialog
                      with DialogResult false exactly as the old handler did, and

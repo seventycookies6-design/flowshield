@@ -9484,3 +9484,21 @@ class TestDeleteEverythingClearsTheJumpList:
                    and "JumpListService.Rebuild(" in self.code(path)]
         assert callers == ["MainViewModel.cs"], callers
         assert main.count("JumpListService.Rebuild(") == 1
+
+    def test_the_confirmation_names_everything_it_removes(self):
+        """
+        The dialog listed sessions, journal, blocklist, momentum and licence,
+        and left out the templates, schedules and profiles that go too, and
+        now the taskbar list (owner ruling on #311). One calm sentence for
+        what goes, no exclamation marks, and an id tier 3 can read it by.
+        """
+        xaml = (Path(DESKTOP_DIR) / "Views" / "ConfirmDeleteDialog.xaml").read_text(encoding="utf-8")
+        detail = re.search(r'<TextBlock x:Name="DetailText" Text="([^"]*)"', xaml)
+        assert detail, "the dialog's detail text is missing"
+        removes = detail.group(1).split(". ")[0]
+        assert removes.startswith("This removes your "), removes
+        for what in ("sessions", "journal", "blocklist profiles", "templates", "schedules",
+                     "momentum", "licence", "taskbar Jump List"):
+            assert what in removes, f"the confirmation doesn't say {what} goes: {removes}"
+        assert "!" not in detail.group(1)
+        assert 'AutomationProperties.AutomationId="ConfirmDeleteDetailText"' in xaml
