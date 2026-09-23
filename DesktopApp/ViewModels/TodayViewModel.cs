@@ -616,7 +616,9 @@ public class TodayViewModel : ViewModelBase
     public string BreakPanelTitle => IsOnBreak ? "On a break" : "Take a break";
 
     public string BreakPanelText => IsOnBreak
-        ? "The shield is down. Blocked apps are allowed until the break ends."
+        ? AppBlockerService.IsWithinSleepWindow(S)
+            ? $"The sprint's shield is down, but your nightly sleep shield is still up — blocked apps are still closed until it ends at {SleepBlockingViewModel.Format(S.SleepBlockEndTime)}."
+            : "The shield is down. Blocked apps are allowed until the break ends."
         : OfferedBreakIsLong
             ? $"{CycleState.LongBreakEvery} sprints in a row, so this break is "
               + $"{OfferedBreakMinutes} minutes. The shield stays down while it runs."
@@ -781,6 +783,9 @@ public class TodayViewModel : ViewModelBase
 
         Remaining = remaining;
         RemainingText = $"{(int)remaining.TotalMinutes:00}:{remaining.Seconds:00}";
+
+        // #272: the nightly sleep window can begin during this break.
+        Raise(nameof(BreakPanelText));
 
         var total = (_breakEndsUtc - (S.ActiveBreak?.StartedUtc ?? _breakEndsUtc)).TotalSeconds;
         Progress = total <= 0 ? 0 : Math.Clamp(1 - remaining.TotalSeconds / total, 0, 1);
