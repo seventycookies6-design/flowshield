@@ -216,6 +216,18 @@ public class RunningSprint
         LastSeenUtc = nowUtc;
     }
 
+    /// <summary>
+    /// Minutes FlowShield has watched this sprint, as every judgement of it
+    /// should read them. Falls back to the old LastSeenUtc estimate for a
+    /// sprint saved before <see cref="WatchedMinutes"/> existed, and is clamped
+    /// to 0..PlannedMinutes so a hand-edited or damaged file can't produce a
+    /// sprint that ended before it started or watched longer than it ran.
+    /// </summary>
+    [JsonIgnore]
+    public double WatchedSoFar => Math.Clamp(
+        WatchedMinutes ?? (Min(LastSeenUtc, EndsUtc) - StartedUtc).TotalMinutes,
+        0, Math.Max(PlannedMinutes, 0));
+
     /// <summary>What to do with this sprint when FlowShield starts again.</summary>
     public SprintResume Decide(DateTime nowUtc)
     {
@@ -225,7 +237,7 @@ public class RunningSprint
         // The time ran out while FlowShield was closed. It counts as finished
         // only if FlowShield was watching for at least half of it; otherwise
         // nothing was actually enforced, so it's recorded as interrupted.
-        var watched = WatchedMinutes ?? (Min(LastSeenUtc, EndsUtc) - StartedUtc).TotalMinutes;
+        var watched = WatchedSoFar;
         return watched >= PlannedMinutes * CompletedIfWatchedFraction
             ? SprintResume.RecordCompleted
             : SprintResume.RecordInterrupted;

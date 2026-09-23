@@ -1287,6 +1287,13 @@ public class TodayViewModel : ViewModelBase
                 Raise(nameof(CycleProgressText));
                 Raise(nameof(CycleProgressVisible));
 
+                // A sprint saved by a build without WatchedMinutes (1.0.8 and
+                // earlier) takes its watched time from the old estimate first,
+                // while LastSeenUtc still says when it was last seen. Otherwise
+                // the count would restart at zero here and the half-watched
+                // rule would call a sprint watched all along interrupted.
+                saved.WatchedMinutes ??= saved.WatchedSoFar;
+
                 // LastSeenUtc moves up, but the gap it spans is deliberately
                 // not added to WatchedMinutes: FlowShield was closed for it.
                 saved.LastSeenUtc = now;
@@ -1305,7 +1312,10 @@ public class TodayViewModel : ViewModelBase
                 var session = new FocusSession
                 {
                     StartedUtc = saved.StartedUtc,
-                    EndedUtc = saved.EndsUtc,
+                    // An interrupted sprint ends where watching stopped, so its
+                    // ActualMinutes (the minutes goal, History, the heatmap) is
+                    // time actually enforced, not the whole planned length.
+                    EndedUtc = completed ? saved.EndsUtc : saved.StartedUtc + TimeSpan.FromMinutes(saved.WatchedSoFar),
                     PlannedMinutes = saved.PlannedMinutes,
                     Shield = saved.Shield,
                     MomentumAtStart = saved.MomentumAtStart,
@@ -1366,6 +1376,24 @@ public class TodayViewModel : ViewModelBase
         var remaining = _endsAtUtc - now;
         if (remaining <= TimeSpan.Zero)
         {
+            // Time being up is not the same as the sprint having happened
+            // (#203). A DispatcherTimer doesn't tick while the PC sleeps, so the
+            // first tick after waking lands here with the whole nap behind it,
+            // and so does winding the clock forward. Judge it the way F3 judges
+            // a sprint that ran out while FlowShield was closed: finished only
+            // if FlowShield was watching for at least half of it. The final
+            // stretch goes through the same cap as every heartbeat, which is
+            // what stops the gap itself from counting as watched.
+            if (S.ActiveSprint is { } saved && CycleState.SprintCountsAsProgress)
+            {
+                saved.NoteStillWatching(now < saved.EndsUtc ? now : saved.EndsUtc, WatchedStretchCap);
+                if (saved.Decide(now) == SprintResume.RecordInterrupted)
+                {
+                    EndSprint(completed: false, interrupted: true);
+                    return;
+                }
+            }
+
             EndSprint(completed: true);
             return;
         }
@@ -1402,7 +1430,15 @@ public class TodayViewModel : ViewModelBase
         Progress = total <= 0 ? 0 : Math.Clamp(1 - remaining.TotalSeconds / total, 0, 1);
     }
 
-    private void EndSprint(bool completed)
+    /// <param name="interrupted">
+    /// The time ran out but FlowShield wasn't watching for most of it (#203):
+    /// the PC slept, the clock jumped, or FlowShield was closed for most of a
+    /// sprint it later resumed. Recorded exactly as F3 records the same thing on
+    /// startup — neither finished nor given up, so no momentum either way, no
+    /// break and no summary card — and only the minutes actually watched count
+    /// towards the day.
+    /// </param>
+    private void EndSprint(bool completed, bool interrupted = false)
     {
         if (!IsRunning || _current is null) return;
 
@@ -1410,8 +1446,14 @@ public class TodayViewModel : ViewModelBase
         CloseEndPanel(keepGoing: false);
         IsRunning = false;
 
-        _current.EndedUtc = DateTime.UtcNow;
+        // An interrupted sprint "ends" where FlowShield stopped watching it, so
+        // ActualMinutes — what the minutes goal and the focus tiles add up —
+        // is the time the shield was actually up, not the hours asleep.
+        _current.EndedUtc = interrupted
+            ? _current.StartedUtc + TimeSpan.FromMinutes(S.ActiveSprint?.WatchedSoFar ?? 0)
+            : DateTime.UtcNow;
         _current.Completed = completed;
+        _current.Interrupted = interrupted;
         _current.BlocksEnforced = _blocksThisSprint;
         _current.AppsClosed = _closedThisSprint;
         _current.NudgesSent = _nudgesThisSprint;
@@ -1432,12 +1474,15 @@ public class TodayViewModel : ViewModelBase
         if (CycleState.SprintCountsAsProgress)
         {
             S.Sessions.Add(_current);
-            ApplyMomentum(completed, _current);
+            // Interrupted moves momentum neither way, as on F3's startup path.
+            if (!interrupted) ApplyMomentum(completed, _current);
         }
 
         // F5: the cycle moves on, and the run of completed sprints that earns a
         // long break grows or resets. Neither is momentum, a streak or a goal —
         // those are ApplyMomentum's business and a break never reaches them.
+        // An interrupted sprint clears the cycle, as F3's startup path does:
+        // nobody was there to carry it on.
         if (completed)
         {
             S.CompletedSprintsInARow++;
@@ -1446,7 +1491,12 @@ public class TodayViewModel : ViewModelBase
         else
         {
             S.CompletedSprintsInARow = 0;
-            _cycle = _cycle.OnSprintAbandoned();
+            _cycle = interrupted ? CycleState.Nothing : _cycle.OnSprintAbandoned();
+            // OfferBreakIfEarned normally announces the cycle's new state, and
+            // an interrupted sprint skips it, so say here that "Sprint 2 of 3"
+            // is gone.
+            Raise(nameof(CycleProgressText));
+            Raise(nameof(CycleProgressVisible));
         }
 
         S.ActiveSprint = null;
@@ -1460,9 +1510,16 @@ public class TodayViewModel : ViewModelBase
         // earned it.
         RefreshStats();
 
-        SessionStateText = completed ? "Sprint complete" : "Sprint ended early";
-        UpdateSummaryCard(completed, _current);
-        JournalPromptVisible = true;
+        SessionStateText = completed ? "Sprint complete"
+            : interrupted ? "Sprint interrupted"
+            : "Sprint ended early";
+        // No card or "what moved?" for an interrupted sprint: there is nothing
+        // to sum up, and F3's startup path doesn't show one either.
+        if (!interrupted)
+        {
+            UpdateSummaryCard(completed, _current);
+            JournalPromptVisible = true;
+        }
         JournalText = "";
         IntentionDisplayText = "";
         IntentionDisplayVisible = false;
@@ -1472,7 +1529,7 @@ public class TodayViewModel : ViewModelBase
         UpdateIdleDisplay();
         _main.OnSprintStateChanged();
 
-        Log.Info($"sprint ended: completed={completed} momentum={S.MomentumScore:0.0}");
+        Log.Info($"sprint ended: completed={completed} interrupted={interrupted} momentum={S.MomentumScore:0.0}");
 
         if (completed)
         {
@@ -1480,8 +1537,14 @@ public class TodayViewModel : ViewModelBase
                 $"{_current.PlannedMinutes} minutes done. Momentum {S.MomentumScore:0.0}.",
                 NotificationAction.OpenJournal);
         }
+        else if (interrupted)
+        {
+            _main.Toast("Sprint interrupted — FlowShield wasn't watching for most of it.");
+            _main.Notify(NotificationKind.SprintInterrupted, "Sprint interrupted",
+                "The PC was asleep or FlowShield was closed for most of it, so it doesn't count as finished.");
+        }
 
-        OfferBreakIfEarned(completed);
+        if (!interrupted) OfferBreakIfEarned(completed);
     }
 
     /// <summary>

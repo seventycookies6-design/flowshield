@@ -701,10 +701,35 @@ def resume_decision(started_min_ago: float, planned: int, last_seen_min_ago: flo
     return "RecordCompleted" if watched >= planned * 0.5 else "RecordInterrupted"
 
 
+def watched_so_far(planned: float, started: float, last_seen: float,
+                   ends: float, watched: float | None) -> float:
+    """Mirror of RunningSprint.WatchedSoFar, with timestamps on one timeline."""
+    estimate = watched if watched is not None else (min(last_seen, ends) - started)
+    return max(0, min(planned, estimate))
+
+
 class TestSprintResume:
     """F3: what happens to a sprint that was running when FlowShield closed."""
 
     SOURCE = Path(SERVER_DIR).parent / "DesktopApp" / "Models" / "AppSettings.cs"
+
+    @pytest.mark.parametrize("planned,started,last_seen,ends,watched,expected", [
+        (60, 0, 23, 60, None, 23),  # old settings use the capped legacy estimate
+        (60, 0, 23, 60, -4, 0),
+        (60, 0, 75, 60, 75, 60),
+    ])
+    def test_watched_so_far_uses_legacy_value_and_clamps(
+            self, planned, started, last_seen, ends, watched, expected):
+        assert watched_so_far(planned, started, last_seen, ends, watched) == expected
+
+    def test_app_settings_defines_clamped_watched_so_far(self):
+        source = self.SOURCE.read_text(encoding="utf-8")
+        assert "public double WatchedSoFar" in source, \
+            "RunningSprint must expose the shared WatchedSoFar estimate"
+        prop = source.split("WatchedSoFar", 1)[1].split("}", 1)[0]
+        assert "PlannedMinutes" in prop and (
+            "Math.Clamp" in prop or ("Math.Max" in prop and "Math.Min" in prop)
+        ), "RunningSprint.WatchedSoFar must clamp watched minutes to 0..PlannedMinutes"
 
     def test_the_threshold_matches_the_app(self):
         source = self.SOURCE.read_text(encoding="utf-8")
@@ -738,13 +763,25 @@ class TestSprintResume:
         assert resume_decision(started, planned, last_seen) == "RecordCompleted", \
             "the old estimate cannot tell these apart; that is the bug"
 
+    @pytest.mark.parametrize("watched,expected", [
+        (2, "RecordInterrupted"),
+        (29.9, "RecordInterrupted"),
+        (30, "RecordCompleted"),
+        (59.5, "RecordCompleted"),  # the last heartbeat was 30 seconds before time was up
+    ])
+    def test_time_up_uses_the_watched_fraction(self, watched, expected):
+        assert resume_decision(60, 60, 0.5, watched) == expected
+
     def test_a_settings_file_without_the_field_falls_back_to_the_old_estimate(self):
         source = self.SOURCE.read_text(encoding="utf-8")
         assert "public double? WatchedMinutes" in source, \
             "WatchedMinutes must be nullable so pre-existing settings files still load"
         decide = source.split("public SprintResume Decide(")[1].split("}", 1)[0]
-        assert "WatchedMinutes ??" in decide, \
-            "Decide must prefer WatchedMinutes and fall back when it is null"
+        assert "WatchedSoFar" in decide, "Decide must read watched time through WatchedSoFar"
+        # The preference itself lives in the shared helper since #203.
+        so_far = source.split("public double WatchedSoFar", 1)[1].split(";", 1)[0]
+        assert "WatchedMinutes ??" in so_far, \
+            "WatchedSoFar must prefer WatchedMinutes and fall back when it is null"
 
 
 # ============================================== ending a sprint early (F2)

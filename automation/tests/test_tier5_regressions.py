@@ -1680,7 +1680,7 @@ class TestSprintSurvivesRestart:
             "a crash between starting and saving would lose the sprint"
 
     def test_ending_a_sprint_clears_it(self):
-        end = self.today().split("private void EndSprint(bool completed)")[1].split("\n    }")[0]
+        end = self.today().split("private void EndSprint(bool completed, bool interrupted = false)")[1].split("\n    }")[0]
         assert "S.ActiveSprint = null" in end
 
     def test_startup_resumes_after_the_defaults_are_applied(self):
@@ -5463,7 +5463,7 @@ class TestTheGoalSeesTheSprintThatJustFinished:
 
     def test_end_sprint_records_before_it_judges(self):
         source = self.VM.read_text(encoding="utf-8")
-        body = source.split("private void EndSprint(bool completed)", 1)[1].split("\n    }", 1)[0]
+        body = source.split("private void EndSprint(bool completed, bool interrupted = false)", 1)[1].split("\n    }", 1)[0]
         add, momentum = self._order(body)
         assert add < momentum, (
             "S.Sessions.Add must come before ApplyMomentum, or the daily goal and "
@@ -5629,8 +5629,12 @@ class TestResumingDoesNotCreditTimeFlowShieldWasClosed:
         return source.split("public SprintResume Decide(", 1)[1].split("\n    }", 1)[0]
 
     def test_the_decision_reads_an_accumulated_total(self):
-        decide = self._decide(self.SETTINGS.read_text(encoding="utf-8"))
-        assert "WatchedMinutes ??" in decide, (
+        source = self.SETTINGS.read_text(encoding="utf-8")
+        decide = self._decide(source)
+        # Since #203 the preference lives in WatchedSoFar, which every
+        # judgement of watched time reads; Decide must go through it.
+        so_far = source.split("public double WatchedSoFar", 1)[1].split(";", 1)[0]
+        assert "WatchedSoFar" in decide and "WatchedMinutes ??" in so_far, (
             "Decide must prefer the accumulated watched time over the two-timestamp "
             "estimate a resume invalidates"
         )
@@ -5678,6 +5682,119 @@ class TestResumingDoesNotCreditTimeFlowShieldWasClosed:
         )
         vm = self.VM.read_text(encoding="utf-8")
         assert "WatchedStretchCap = HeartbeatInterval * 2" in vm
+
+
+class TestTimeUpAfterSleepUsesWatchedTime:
+    """A lid-closed gap must not turn an expired sprint into full credit."""
+
+    VM = DESKTOP / "ViewModels" / "TodayViewModel.cs"
+    SETTINGS = DESKTOP / "Models" / "AppSettings.cs"
+
+    def _block(self, source: str, marker: str) -> str:
+        start = source.find(marker)
+        assert start >= 0, f"could not find C# block starting at {marker!r}"
+        opening = source.find("{", start)
+        assert opening >= 0, f"could not find the opening brace for {marker!r}"
+        depth = 0
+        for index in range(opening, len(source)):
+            if source[index] == "{":
+                depth += 1
+            elif source[index] == "}":
+                depth -= 1
+                if depth == 0:
+                    return source[opening + 1:index]
+        assert False, f"could not find the closing brace for {marker!r}"
+
+    def test_time_up_notes_the_final_stretch_and_uses_the_active_sprint_decision(self):
+        source = self.VM.read_text(encoding="utf-8")
+        tick = self._block(source, "private void OnTick()")
+        time_up = self._block(tick, "if (remaining <= TimeSpan.Zero)")
+        note = time_up.find("NoteStillWatching(")
+        decide = time_up.find(".Decide(now)")
+        end = time_up.find("EndSprint(")
+        assert note >= 0 and decide >= 0 and end >= 0 and note < decide < end, (
+            "when time is up, OnTick must first cap and record the final watched "
+            "stretch, then consult ActiveSprint.Decide(now), before ending the "
+            "sprint; a sleeping PC or clock jump must not count the gap"
+        )
+        assert "WatchedStretchCap" in time_up[note:decide], (
+            "the final stretch after the lid-closed gap must use the same watched-time cap"
+        )
+        assert "RecordInterrupted" in time_up and "interrupted: true" in time_up, (
+            "a time-up decision below the watched fraction must end as interrupted"
+        )
+        assert "EndSprint(completed: true)" in time_up, (
+            "a time-up decision at or above the watched fraction must still complete normally"
+        )
+
+    def test_interrupted_end_records_interruption_without_credit_or_break(self):
+        source = self.VM.read_text(encoding="utf-8")
+        signature = "private void EndSprint("
+        assert signature in source, "EndSprint was not found"
+        end = self._block(source, signature)
+        header = source[source.find(signature):source.find("{", source.find(signature))]
+        assert "interrupted" in header, (
+            "EndSprint must accept an interrupted flag so time-up under-watching "
+            "can be recorded separately from a user ending early"
+        )
+        assert "_current.Interrupted = interrupted" in end, (
+            "the session saved after the lid-closed case must carry Interrupted = true"
+        )
+        assert "ApplyMomentum" in end and re.search(
+            r"if\s*\(\s*!interrupted\s*\)[^{;]*ApplyMomentum\s*\(", end
+        ), "an under-watched sprint must skip momentum gain and ended-early decay"
+        assert re.search(r"if\s*\(\s*!interrupted\s*\)[^{;]*OfferBreakIfEarned\s*\(", end), (
+            "an interrupted sprint after sleep must not offer or start a break"
+        )
+
+    def test_running_sprint_decide_uses_watched_so_far_helper(self):
+        source = self.SETTINGS.read_text(encoding="utf-8")
+        decide = self._block(source, "public SprintResume Decide(")
+        assert "WatchedSoFar" in decide and "WatchedMinutes ??" not in decide, (
+            "RunningSprint.Decide must use the shared clamped WatchedSoFar helper"
+        )
+
+    def test_resume_seeds_legacy_watched_minutes_before_advancing_last_seen(self):
+        source = self.VM.read_text(encoding="utf-8")
+        resume = self._block(source, "public void ResumeInterruptedSprint(")
+        branch = resume.split("case SprintResume.Resume:", 1)[1].split(
+            "case SprintResume.RecordCompleted:", 1
+        )[0]
+        advance = branch.find("saved.LastSeenUtc = now")
+        seed_region = branch[:advance] if advance >= 0 else ""
+        assert advance >= 0 and "WatchedMinutes" in seed_region and "WatchedSoFar" in seed_region, (
+            "the Resume branch must seed missing WatchedMinutes from WatchedSoFar "
+            "before LastSeenUtc advances, preserving 1.0.8 legacy time"
+        )
+
+    def test_startup_interruption_ends_at_watched_time(self):
+        source = self.VM.read_text(encoding="utf-8")
+        resume = self._block(source, "public void ResumeInterruptedSprint(")
+        branch = resume.split("case SprintResume.RecordCompleted:", 1)[1]
+        assert re.search(
+            r"EndedUtc\s*=\s*completed\s*\?\s*saved\.EndsUtc\s*:\s*"
+            r"saved\.StartedUtc\s*\+\s*TimeSpan\.FromMinutes\s*\(\s*saved\.WatchedSoFar\s*\)",
+            branch,
+        ), (
+            "startup recovery must use EndsUtc only for completed sprints and "
+            "StartedUtc + WatchedSoFar for interrupted sprints"
+        )
+
+    def test_interrupted_end_uses_clamped_time_and_notifies_cycle_clear(self):
+        source = self.VM.read_text(encoding="utf-8")
+        end = self._block(source, "private void EndSprint(")
+        assert re.search(
+            r"interrupted\s*\?\s*_current\.StartedUtc\s*\+\s*"
+            r"TimeSpan\.FromMinutes\s*\(\s*S\.ActiveSprint\?\.WatchedSoFar\s*\?\?\s*0\s*\)",
+            end,
+        ), "EndSprint must timestamp an interruption from clamped ActiveSprint.WatchedSoFar"
+        cleared = end.find("_cycle = interrupted ? CycleState.Nothing")
+        text_raise = end.find("Raise(nameof(CycleProgressText))", cleared)
+        visible_raise = end.find("Raise(nameof(CycleProgressVisible))", cleared)
+        assert cleared >= 0 and text_raise > cleared and visible_raise > cleared, (
+            "clearing the cycle on an interrupted EndSprint must notify both cycle "
+            "progress bindings because OfferBreakIfEarned is skipped"
+        )
 
 
 # ================================= History is wired up and stays read-only (F16)
@@ -6642,7 +6759,7 @@ class TestABreakStandsTheShieldDown:
 
     def test_ending_a_sprint_stops_enforcing_before_any_break_can_start(self):
         source = self.vm()
-        end = source.split("private void EndSprint(bool completed)")[1].split("\n    /// <summary>")[0]
+        end = source.split("private void EndSprint(bool completed, bool interrupted = false)")[1].split("\n    /// <summary>")[0]
         assert "_main.Blocker.StopEnforcing();" in end
 
     def test_nothing_in_the_break_path_starts_the_blocker(self):
@@ -6765,7 +6882,7 @@ class TestShortSprintsCannotBuyCredit:
             "the rule must be one readable line, not a condition spread through the view model"
 
     def test_a_shortened_sprint_is_never_recorded(self):
-        end = self.vm().split("private void EndSprint(bool completed)")[1].split(
+        end = self.vm().split("private void EndSprint(bool completed, bool interrupted = false)")[1].split(
             "\n    /// <summary>")[0]
         guard = end.split("if (CycleState.SprintCountsAsProgress)")
         assert len(guard) == 2, "EndSprint must gate the record on the flag's invariant"
