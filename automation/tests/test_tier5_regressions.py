@@ -2190,7 +2190,9 @@ class TestOneInstanceOnly:
             "Velopack's install and update runs must never be turned away"
         assert main.index("SingleInstance.TryAcquire()") < main.index("new App"), \
             "a second copy must exit before settings load or the blocker starts"
-        acquire = main.split("SingleInstance.TryAcquire()")[1].split("new App")[0]
+        # maxsplit=1: since #271 a --reset launch retries TryAcquire, so the
+        # region runs from the first attempt to the app starting.
+        acquire = main.split("SingleInstance.TryAcquire()", 1)[1].split("new App")[0]
         assert "return;" in acquire
 
     def test_the_lock_is_per_user_and_survives_a_crash(self):
@@ -2229,6 +2231,67 @@ class TestOneInstanceOnly:
             for k in ("StartedUtc", "PlannedMinutes", "Shield")
         ), "the second launch touched the sprint"
         assert fresh_app.exists("StopSprintButton", timeout=3), "the sprint stopped"
+
+
+# ============================ deleting data survives the shutdown race (#271)
+
+class TestDeleteEverythingRestartRegressions:
+    """
+    #271: deleting everything cleared the settings file and restarted FlowShield,
+    but shutdown could save the old in-memory settings back over the deletion,
+    and the new --reset process could lose the mutex race with the old process.
+    """
+
+    @staticmethod
+    def main_method() -> str:
+        source = (Path(DESKTOP_DIR) / "Program.cs").read_text(encoding="utf-8")
+        return source.split("public static void Main(string[] args)", 1)[1].split(
+            "private static void RegisterLink()", 1
+        )[0]
+
+    @staticmethod
+    def closing_method() -> str:
+        source = (Path(DESKTOP_DIR) / "MainWindow.xaml.cs").read_text(encoding="utf-8")
+        return source.split("protected override void OnClosing(CancelEventArgs e)", 1)[1].split(
+            "base.OnClosing(e);", 1
+        )[0]
+
+    def test_delete_restart_does_not_save_the_old_settings_on_close(self):
+        """
+        In #271, Delete everything removed the settings file and set
+        SkipSaveOnExit, but with minimise-to-tray off OnClosing still saved the
+        old in-memory settings over the deletion before the reset launch.
+        """
+        closing = self.closing_method()
+        assert re.search(
+            r"if\s*\([^)]*SkipSaveOnExit[^)]*\)\s*(?:\{\s*)?"
+            r"(?:\w+\??\.)?SaveSettings\s*\(",
+            closing,
+            re.DOTALL,
+        ), "OnClosing must guard its settings save with SkipSaveOnExit after Delete everything"
+
+    def test_reset_launch_retries_the_mutex_before_forwarding_args(self):
+        """
+        In #271, Delete everything started a fresh --reset process just before
+        the old process released its mutex. A single failed attempt forwarded
+        --reset to the still-running app and exited, so the reset never ran.
+        """
+        main = self.main_method()
+        reset_index = main.find('"--reset"')
+        assert reset_index >= 0, "Program.Main must recognize --reset as a fresh-install launch"
+
+        send_index = main.find("SingleInstance.SendToRunningInstance(args)")
+        assert send_index >= 0, "Program.Main must keep forwarding normal second-launch arguments"
+
+        retry_loop = re.search(r"\b(?:for|while)\s*\(", main)
+        retry_acquire = (main.find("SingleInstance.TryAcquire()", retry_loop.end())
+                         if retry_loop else -1)
+        assert retry_loop and retry_acquire >= 0, (
+            "Program.Main must retry SingleInstance.TryAcquire in a bounded loop for --reset "
+            "while the exiting copy releases its mutex"
+        )
+        assert reset_index < retry_loop.start() < retry_acquire < send_index, \
+            "the --reset mutex retry must run before forwarding arguments to the old instance"
 
 
 # ============ footer links point at pages that exist (roadmap 6.6)

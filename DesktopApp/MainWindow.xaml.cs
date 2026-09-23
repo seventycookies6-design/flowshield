@@ -733,7 +733,8 @@ public partial class MainWindow : Window
                 currentVm.SoftOverlayRequested -= OnSoftOverlayRequested;
                 currentVm.SoftOverlayDismissRequested -= OnSoftOverlayDismissRequested;
             }
-            Vm?.SaveSettings();
+            // Delete everything already removed these settings (#271).
+            if (Vm?.SkipSaveOnExit != true) Vm?.SaveSettings();
             if (_hotkeyRegistered)
             {
                 UnregisterHotKey(new WindowInteropHelper(this).Handle, GlobalHotkeyId);

@@ -37,7 +37,18 @@ public static class Program
         // One copy per user (roadmap 1.3). Checked after Velopack's hook runs,
         // which must always be allowed through, and before settings load or the
         // blocker starts, so a second launch never touches either.
-        using var instance = SingleInstance.TryAcquire();
+        var instance = SingleInstance.TryAcquire();
+        if (instance is null && args.Contains("--reset", StringComparer.OrdinalIgnoreCase))
+        {
+            // Let the deleting process release its mutex before forwarding reset (#271).
+            for (var attempt = 0; attempt < 20 && instance is null; attempt++)
+            {
+                Thread.Sleep(500);
+                instance = SingleInstance.TryAcquire();
+            }
+        }
+
+        using var instanceLease = instance;
         if (instance is null)
         {
             Log.Info(SingleInstance.SendToRunningInstance(args)
