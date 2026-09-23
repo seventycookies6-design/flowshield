@@ -138,6 +138,7 @@ class DesktopController:
         use_defaults: bool = False,
         show_first_run: bool = False,
         dev_fields: bool = True,
+        short_timers: bool = True,
     ) -> int:
         """
         Start the app.
@@ -146,6 +147,11 @@ class DesktopController:
         runs exactly as a downloaded copy would, against whatever endpoints it
         was built with. Without it every launch is pinned to localhost, which
         makes it impossible to test the shipped configuration.
+
+        `short_timers=False` keeps the localhost endpoints but drops
+        --short-timers, for a test that has to observe a wait the shortened
+        one is too brief to see (#242): the Soft notice's Allow wait is one
+        second shortened and five real.
 
         `dev_fields=True` passes --dev so Settings shows the developer-only
         controls (the licence-server URL box, the settings path) that several
@@ -172,7 +178,8 @@ class DesktopController:
             args.append(f"--server={SERVER_URL}")
             args.append(f"--website={WEBSITE_URL}")
             # Shrinks the end-sprint grace period and countdowns (F2) to seconds.
-            args.append("--short-timers")
+            if short_timers:
+                args.append("--short-timers")
         if not show_first_run:
             # A clean install opens the terms gate and then the first-run
             # welcome (F18) over every page.

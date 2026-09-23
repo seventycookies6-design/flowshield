@@ -8072,6 +8072,34 @@ class TestTheUiSuiteCanObserveWhatItAsserts:
         assert self._real("FirmConfirmDelay") == ("Seconds", 5.0)
         assert self._real("SealedCountdown") == ("Seconds", 30.0)
 
+    def test_the_soft_allow_wait_is_observed_with_real_timers(self):
+        """
+        The Soft notice's Allow wait is one second under --short-timers
+        (SoftOverlayPolicy.AllowWait; the 1.0.10 spec fixes it there), which
+        is under OBSERVABLE_SECONDS: a tier 3 test asserting "Allow is still
+        disabled" against it would be asserting on its own speed, #242's trap
+        again. So the tier 3 test that observes the wait launches the app
+        without --short-timers and watches the real five-second first try.
+        """
+        policy = (Path(DESKTOP_DIR) / "Models" / "SoftOverlayPolicy.cs").read_text(encoding="utf-8")
+        match = re.search(r"if \(UseShortTimers\) return TimeSpan\.FromSeconds\((\d+(?:\.\d+)?)\);", policy)
+        assert match, "SoftOverlayPolicy.AllowWait's --short-timers value was not found"
+        shortened = float(match.group(1))
+
+        tier3 = self.TIER3.read_text(encoding="utf-8")
+        head = re.search(r"def test_allow_is_disabled_until_the_wait_runs_out\(self, (\w+)\)", tier3)
+        assert head, "the tier 3 test that observes Allow's wait was not found"
+        if shortened < self.OBSERVABLE_SECONDS:
+            assert head.group(1) == "real_wait_app", (
+                f"Allow's wait is {shortened:g}s under --short-timers, shorter than a UIA "
+                f"round trip; the test must run on the real_wait_app fixture"
+            )
+        fixture = tier3.split("def real_wait_app(", 1)
+        assert len(fixture) == 2, "the real_wait_app fixture was not found in tier 3"
+        assert "short_timers=False" in fixture[1].split("yield", 1)[0], (
+            "real_wait_app must launch without --short-timers"
+        )
+
     def test_the_driver_agrees_with_the_shortened_grace_period(self):
         """
         #222 widened the grace period and left SHORT_GRACE_SECONDS at the old
