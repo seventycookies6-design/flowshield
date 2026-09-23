@@ -297,7 +297,7 @@ A summary of the research, to explain the choices below.
 
 ### F5 — Breaks and study cycles · **Launch+** · M · Roadmap 3.4
 
-- [x] Done (#230): a completed sprint offers a break — 5 minutes, or 15 after every fourth completed sprint in a row, both adjustable in Settings — with **Start break**, **Skip break** and **Start next sprint** on the card; a sprint ended early or interrupted offers none. An optional cycle chooser on Today runs 2, 3 or 4 sprints as sprint → break → sprint by itself, with "Sprint 2 of 3" under the timer. During a break the blocker does not enforce, the ring counts down in `text-muted` instead of `primary`, and the tray tooltip and window title read "Break · 4:59". Breaks never touch momentum, the streak or the daily goal, and nothing about the trial or the lock screen appears during one. A break survives a restart alongside the running sprint, or ends quietly if its time ran out while FlowShield was closed. The rules live in `DesktopApp/Models/CycleState.cs`; `--short-timers` gives a 3-second break and `--short-sprints` a 5-second sprint for the UI suite.
+- [x] Done (#230): a completed sprint offers a break — 5 minutes, or 15 after every fourth completed sprint in a row, both adjustable in Settings — with **Start break**, **Skip break** and **Start next sprint** on the card; a sprint ended early or interrupted offers none. An optional cycle chooser on Today runs 2, 3 or 4 sprints as sprint → break → sprint by itself, with "Sprint 2 of 3" under the timer. During a break the blocker does not enforce the sprint's shield (a nightly sleep window still enforces its own), the ring counts down in `text-muted` instead of `primary`, and the tray tooltip and window title read "Break · 4:59". Breaks never touch momentum, the streak or the daily goal, and nothing about the trial or the lock screen appears during one. A break survives a restart alongside the running sprint, or ends quietly if its time ran out while FlowShield was closed. The rules live in `DesktopApp/Models/CycleState.cs`; `--short-timers` gives a 3-second break and `--short-sprints` a 5-second sprint for the UI suite.
 
 **Assigned:** Keenan (seventycookies6-design), built with Claude Code
 
@@ -308,7 +308,7 @@ A summary of the research, to explain the choices below.
 **How to build it**
 - After a completed sprint, offer a break: 5 minutes by default, 15 after every fourth sprint, both adjustable. Buttons: **Start break**, **Skip break**, **Start next sprint**.
 - **Cycles:** optionally run a set number of sprints with breaks between them automatically, for example "3 × 45 min".
-- **During breaks the shield is down.** Blocked apps are allowed and the timer shows the break counting down.
+- **During breaks the sprint's shield is down.** Outside a nightly sleep window blocked apps are allowed; inside one the sleep shield stays up and still closes them (#272, #301, #304). The timer shows the break counting down.
 - Breaks don't affect momentum. A cycle abandoned mid-sprint follows the F2 rules for that sprint only.
 - Show a native notification when a break ends (Roadmap 2.5).
 

@@ -31,16 +31,29 @@ public static class BreakCopy
     }
 
     /// <summary>
-    /// The state line under the ring while a break runs. It never wraps, and at
-    /// its line the ring has about 177 px, so the sleep-window pair is kept
-    /// short (tier 5 measures both in the app's Caption style).
+    /// The state line under the ring while a break runs. At its line the ring
+    /// has about 177 px; since #304 the line wraps, centred, inside that. The
+    /// two resumed lines are too long for one line, so they break after the
+    /// dash themselves rather than wherever the width runs out ("the shield /
+    /// is down"). Tier 5 lays out each one in the real view.
     /// </summary>
     /// <param name="resumed">The break was picked up again after FlowShield restarted (F5).</param>
     public static string Caption(bool inSleepWindow, bool resumed) => (resumed, inSleepWindow) switch
     {
         (false, false) => "Break — the shield is down",
-        (true, false) => "Break resumed — the shield is down",
+        (true, false) => "Break resumed —\nthe shield is down",
         (false, true) => "Break — sleep shield still up",
-        (true, true) => "Resumed — sleep shield up",
+        (true, true) => "Break resumed —\nsleep shield still up",
     };
+
+    /// <summary>
+    /// The five-minutes-left notification (#304). It speaks about the moment
+    /// the time is up, so the caller asks about the sleep window at that
+    /// moment: inside it only the sprint's shield comes down.
+    /// </summary>
+    /// <param name="inSleepWindow">The nightly sleep window is open when the sprint ends.</param>
+    /// <param name="sleepEndsText">When the sleep window closes, as the Sleep Blocking page writes it.</param>
+    public static string EndingSoon(bool inSleepWindow, string sleepEndsText) => inSleepWindow
+        ? $"Nearly there — the sprint's shield comes down when the time is up, but your nightly sleep shield stays up until {sleepEndsText}."
+        : "Nearly there — the shield comes down when the time is up.";
 }

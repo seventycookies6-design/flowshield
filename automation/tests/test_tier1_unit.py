@@ -4112,13 +4112,13 @@ def break_panel_text(in_window: bool, on_break: bool, is_long: bool, minutes, en
 def break_caption(in_window: bool, resumed: bool) -> str:
     """
     Mirror of BreakCopy.Caption: the state line under the ring while a break
-    runs. It never wraps, so the sleep-window pair is short enough to sit
-    inside the ring (tier 5 measures it); outside the window the lines are
-    the ones main always showed.
+    runs. Since #304 it may take two lines inside the ring (tier 5 lays each
+    one out), so the resumed pair is parallel again, and each breaks after
+    its dash rather than wherever the width runs out.
     """
     if in_window:
-        return "Resumed — sleep shield up" if resumed else "Break — sleep shield still up"
-    return "Break resumed — the shield is down" if resumed else "Break — the shield is down"
+        return "Break resumed —\nsleep shield still up" if resumed else "Break — sleep shield still up"
+    return "Break resumed —\nthe shield is down" if resumed else "Break — the shield is down"
 
 
 #: Inside or outside the window × running or offered × long or short.
@@ -4171,9 +4171,9 @@ class TestBreakCopyInTheSleepWindow:
 
     @pytest.mark.parametrize("in_window,resumed,expected", [
         (False, False, "Break — the shield is down"),
-        (False, True, "Break resumed — the shield is down"),
+        (False, True, "Break resumed —\nthe shield is down"),
         (True, False, "Break — sleep shield still up"),
-        (True, True, "Resumed — sleep shield up"),
+        (True, True, "Break resumed —\nsleep shield still up"),
     ])
     def test_the_caption(self, in_window, resumed, expected):
         self.source()
@@ -4200,7 +4200,8 @@ class TestBreakCopyInTheSleepWindow:
     @pytest.mark.parametrize("in_window", [True, False])
     @pytest.mark.parametrize("resumed", [True, False])
     def test_the_source_has_each_caption(self, in_window, resumed):
-        assert f'"{break_caption(in_window, resumed)}"' in self.source()
+        literal = break_caption(in_window, resumed).replace("\n", "\\n")
+        assert f'"{literal}"' in self.source()
 
     def test_the_copy_has_no_exclamation_marks(self):
         """DESIGN_SYSTEM §9: no exclamation marks anywhere the customer reads."""

@@ -60,6 +60,16 @@ internal static class Commands
             "start-arg" => StartArg(request),
             "start-arg-for" => new JsonObject { ["arg"] = StartSprintArg.For((string?)request["id"]) },
             "jump-title" => new JsonObject { ["title"] = JumpListText.Title((string)request["name"]!) },
+            "ending-soon-copy" => new JsonObject
+            {
+                ["text"] = BreakCopy.EndingSoon((bool)request["in_sleep_window"]!, (string)request["ends"]!),
+            },
+            "ring-captions" => new JsonObject
+            {
+                ["captions"] = new JsonArray(RingCaption.Every()
+                    .Select(c => (JsonNode)new JsonObject { ["text"] = c.Text, ["running"] = c.Running })
+                    .ToArray()),
+            },
             _ => throw new ArgumentException($"unknown command '{cmd}'"),
         };
     }

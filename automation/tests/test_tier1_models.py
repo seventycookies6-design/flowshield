@@ -1088,3 +1088,66 @@ class TestJumpListText:
     ])
     def test_a_templates_title_escapes_the_shells_mnemonic(self, name, title):
         assert probe({"cmd": "jump-title", "name": name})["title"] == title
+
+
+# ====================== the shield and the nightly sleep window (#304, 1.0.10)
+
+class TestTheFiveMinutesLeftNotification:
+    """
+    #304: "Nearly there — the shield comes down when the time is up" was said
+    inside the nightly sleep window too, where only the sprint's shield comes
+    down and the sleep shield keeps closing blocked apps. BreakCopy.EndingSoon
+    says which shield comes down, in the voice of the break offer.
+    """
+
+    def ending_soon(self, in_window: bool, ends: str = "06:00") -> str:
+        return probe({"cmd": "ending-soon-copy", "in_sleep_window": in_window, "ends": ends})["text"]
+
+    def test_outside_the_window_it_reads_as_it_always_did(self):
+        assert self.ending_soon(False) == "Nearly there — the shield comes down when the time is up."
+
+    def test_inside_the_window_it_says_the_sleep_shield_stays_up(self):
+        assert self.ending_soon(True, "06:30") == (
+            "Nearly there — the sprint's shield comes down when the time is up, "
+            "but your nightly sleep shield stays up until 06:30.")
+
+    def test_inside_the_window_it_never_says_the_shield_comes_down_unqualified(self):
+        text = self.ending_soon(True)
+        assert not re.search(r"\bthe shield (comes|is|stays) down", text), text
+
+
+class TestRingCaptions:
+    """
+    #304: every line the view model can put under the timer ring comes from
+    RingCaption or BreakCopy.Caption, so tier 5's layout probe can measure
+    each one. This pins the list itself from .NET.
+    """
+
+    def captions(self) -> list[dict]:
+        """Line breaks folded to spaces: a long caption may set its own (tier 5 checks the layout)."""
+        captions = probe({"cmd": "ring-captions"})["captions"]
+        return [dict(c, text=" ".join(c["text"].split())) for c in captions]
+
+    def test_every_break_caption_is_listed_in_both_sleep_states(self):
+        texts = {c["text"] for c in self.captions()}
+        for expected in ("Break — the shield is down", "Break resumed — the shield is down",
+                         "Break — sleep shield still up", "Break resumed — sleep shield still up"):
+            assert expected in texts, f"{expected!r} is not measured"
+
+    def test_the_resumed_break_in_the_window_is_parallel_again(self):
+        """#301 cut it to 'Resumed — sleep shield up' to fit one line; it wraps now."""
+        texts = {c["text"] for c in self.captions()}
+        assert "Resumed — sleep shield up" not in texts
+
+    def test_every_shield_is_listed_starting_and_resuming_with_the_glyph(self):
+        running = {c["text"] for c in self.captions() if c["running"]}
+        assert running == {"Shield I engaged", "Shield II engaged", "Shield III engaged",
+                           "Sprint resumed — shield I", "Sprint resumed — shield II",
+                           "Sprint resumed — shield III"}
+
+    def test_the_idle_and_ending_lines_are_listed(self):
+        idle = {c["text"] for c in self.captions() if not c["running"]}
+        for expected in ("Ready when you are", "Sprint cancelled", "Break over", "Sprint complete",
+                         "Sprint interrupted", "Sprint ended early",
+                         "Sprint finished while FlowShield was closed"):
+            assert expected in idle, f"{expected!r} is not measured"
