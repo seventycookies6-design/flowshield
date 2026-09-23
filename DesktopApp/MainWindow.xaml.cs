@@ -777,8 +777,12 @@ public partial class MainWindow : Window
                 currentVm.SettingsPage.PropertyChanged -= OnSettingsPageChanged;
                 currentVm.SoftOverlayRequested -= OnSoftOverlayRequested;
                 currentVm.SoftOverlayDismissRequested -= OnSoftOverlayDismissRequested;
-                // A Jump List launch handed over mid-shutdown must not reach a closed window.
+                // A Jump List launch handed over mid-shutdown must not reach a
+                // closed window: not its quick start, not F7's question
+                // (BringToFront, then Show), not a notification.
                 currentVm.QuickStartRequested -= OnQuickStartRequested;
+                currentVm.OpenAppsQuestionRaised -= OnOpenAppsQuestionRaised;
+                currentVm.NotificationRequested -= OnNotificationRequested;
             }
             // Delete everything already removed these settings (#271).
             if (Vm?.SkipSaveOnExit != true) Vm?.SaveSettings();

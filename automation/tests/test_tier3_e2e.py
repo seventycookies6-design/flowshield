@@ -3314,6 +3314,7 @@ class TestJumpList:
     """
 
     MISSING = "That template isn't here any more. Pick one on Today."
+    RUNNING = "A sprint is already running."
 
     @staticmethod
     def _template_id(name: str) -> str:
@@ -3327,23 +3328,66 @@ class TestJumpList:
         return verify.wait_for_settings(lambda st: st.get("ActiveSprint") is not None,
                                         what="the sprint")["ActiveSprint"]
 
+    @staticmethod
+    def _log_lines(app) -> list[str]:
+        path = app.app_log_path()
+        return path.read_text(encoding="utf-8", errors="replace").splitlines() if path else []
+
+    def _jump_list_lines(self, app, seen: int, timeout: float = 5) -> list[str]:
+        """
+        What the app logged about the Jump List after its first `seen` log
+        lines, once there is anything or the timeout passes. The list is
+        built right after the window is shown, in the same startup turn.
+        """
+        deadline = time.time() + timeout
+        while True:
+            lines = [line for line in self._log_lines(app)[seen:] if "jump list" in line]
+            if lines or time.time() >= deadline:
+                return lines
+            time.sleep(0.25)
+
+    @staticmethod
+    def _toast(app, expected: str, timeout: float = 6) -> str:
+        deadline, toast = time.time() + timeout, ""
+        while toast != expected and time.time() < deadline:
+            toast = app.toast_text(timeout=1)
+        return toast
+
     def test_a_template_starts_from_a_cold_launch_and_a_deleted_one_starts_nothing(self, fresh_app):
         light = self._template_id("Light study")
+        entries = len(verify.read_settings()["Templates"]) + 1   # Start sprint, then one per template
         fresh_app.close_app()
+        seen = len(self._log_lines(fresh_app))
         fresh_app.launch_app(clean_state=False, extra_args=[f"--start-sprint={light}"])
         fresh_app.connect_window()
+
+        # The list itself: built at startup, and every entry accepted by the
+        # shell on this machine. Rebuild swallows a failure into a Warn, so
+        # the log is the one place that says the list is really there (review).
+        lines = self._jump_list_lines(fresh_app, seen)
+        assert any(line.endswith(f"jump list: {entries} entries") for line in lines), lines
+        assert not any("could not build the jump list" in line for line in lines), lines
 
         sprint = self._running_sprint(fresh_app)
         assert sprint["Shield"] == 1, "Soft, from Light study"
         assert sprint["PlannedMinutes"] == 25 and sprint["TemplateBreakMinutes"] == 5
 
-        # A pinned list can outlive a template (review focus 5).
+        # A pinned list can outlive a template (review focus 5); the fallback
+        # is Today, wherever the window was.
+        fresh_app.navigate_to_tab("History")
         launch_again("--start-sprint=missing")
         assert flowshield_pids() == [fresh_app.pid], "the second launch kept running"
-        deadline, toast = time.time() + 6, ""
-        while toast != self.MISSING and time.time() < deadline:
-            toast = fresh_app.toast_text(timeout=1)
+        toast = self._toast(fresh_app, self.MISSING)
         assert toast == self.MISSING, toast
+        assert fresh_app.current_page_title() == "Today", "a dangling entry falls back to Today"
+        assert verify.read_settings()["ActiveSprint"]["StartedUtc"] == sprint["StartedUtc"], \
+            "the running sprint was replaced"
+
+        # A template while a sprint runs: said, not silent (review).
+        launch_again(f"--start-sprint={light}")
+        assert flowshield_pids() == [fresh_app.pid], "the third launch kept running"
+        toast = self._toast(fresh_app, self.RUNNING)
+        assert toast == self.RUNNING, toast
         assert verify.read_settings()["ActiveSprint"]["StartedUtc"] == sprint["StartedUtc"], \
             "the running sprint was replaced"
 

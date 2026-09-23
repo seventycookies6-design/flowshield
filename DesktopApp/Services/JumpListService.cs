@@ -34,15 +34,26 @@ public static class JumpListService
                 }
                 list.JumpItems.Add(new JumpTask
                 {
-                    Title = $"Start {t.Name}",
+                    Title = JumpListText.Title(t.Name),   // menu text: & would be a mnemonic
                     Description = $"{t.SprintMinutes} minutes at {t.Shield}",
                     ApplicationPath = exePath,
                     Arguments = arguments,
                     IconResourcePath = exePath,
                 });
             }
+
+            // An entry the shell refuses (a path it can't resolve, a bad icon)
+            // is dropped, not thrown; without this it would vanish without a trace.
+            var wanted = list.JumpItems.Count;
+            list.JumpItemsRejected += (_, e) =>
+            {
+                var why = string.Join(", ", e.RejectedItems.Select((item, i) =>
+                    $"\"{(item as JumpTask)?.Title ?? item.GetType().Name}\" ({e.RejectionReasons[i]})"));
+                Log.Warn($"jump list: the shell rejected {e.RejectedItems.Count} of {wanted} entries: {why}");
+            };
+            // SetJumpList applies the list itself; JumpItems then holds what the shell kept.
             JumpList.SetJumpList(Application.Current, list);
-            list.Apply();
+            Log.Info($"jump list: {list.JumpItems.Count} entries");
         }
         catch (Exception ex)
         {

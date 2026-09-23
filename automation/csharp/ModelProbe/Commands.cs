@@ -59,6 +59,7 @@ internal static class Commands
             },
             "start-arg" => StartArg(request),
             "start-arg-for" => new JsonObject { ["arg"] = StartSprintArg.For((string?)request["id"]) },
+            "jump-title" => new JsonObject { ["title"] = JumpListText.Title((string)request["name"]!) },
             _ => throw new ArgumentException($"unknown command '{cmd}'"),
         };
     }

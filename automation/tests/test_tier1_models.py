@@ -1071,3 +1071,20 @@ class TestStartSprintArg:
         rather than a broken one. Every id FlowShield makes is 32 hex digits.
         """
         assert probe({"cmd": "start-arg-for", "id": template_id})["arg"] is None
+
+
+class TestJumpListText:
+    """
+    Spec 5: a template's entry reads "Start <template>". Entries are shell
+    menu text, where one & marks a keyboard mnemonic and is not drawn, so
+    "Maths & Physics" would show as "Maths Physics" with the P underlined.
+    JumpListText escapes it the shell's way (&&); the tooltip stays as typed.
+    """
+
+    @pytest.mark.parametrize("name,title", [
+        ("Light study", "Start Light study"),
+        ("Maths & Physics", "Start Maths && Physics"),
+        ("R&D && more", "Start R&&D &&&& more"),
+    ])
+    def test_a_templates_title_escapes_the_shells_mnemonic(self, name, title):
+        assert probe({"cmd": "jump-title", "name": name})["title"] == title

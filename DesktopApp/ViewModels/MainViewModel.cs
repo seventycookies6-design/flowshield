@@ -260,6 +260,16 @@ public class MainViewModel : ViewModelBase
             return;
         }
 
+        // StartTemplate fills in Today before Start's gates are asked, so under
+        // the terms or the welcome it would change what they are setting up;
+        // and nothing else, not even a toast for a stale entry, acts under
+        // them. The tray's start is refused there too, inside StartSprint.
+        if (TermsGateVisible || FirstRun.IsVisible)
+        {
+            Log.Info("jump list template start refused: the terms or the welcome are showing");
+            return;
+        }
+
         var template = Settings.FindTemplate(templateId);
         if (template is null)
         {
@@ -270,12 +280,25 @@ public class MainViewModel : ViewModelBase
             return;
         }
 
-        // StartTemplate fills in Today before Start's gates are asked, so under
-        // the terms or the welcome it would change what they are setting up.
-        // The tray's start is refused there too, inside StartSprint.
-        if (TermsGateVisible || FirstRun.IsVisible)
+        // StartTemplate would refuse these quietly; a click deserves a word.
+        if (IsSprintRunning)
         {
-            Log.Info($"jump list start of {template.Name} refused: the terms or the welcome are showing");
+            Toast("A sprint is already running.");
+            return;
+        }
+        if (Today.IsOnBreak)
+        {
+            CurrentPage = AppPage.Today;
+            Toast("You're on a break. Start now from Today.");
+            return;
+        }
+
+        // F7's question is already up for a Start pressed by hand: the person
+        // is answering it, and a template would change what they asked for.
+        // Refused as a schedule is (OnScheduleAction), never swapped in.
+        if (Today.RunningAppsPanelVisible)
+        {
+            Log.Info($"jump list start of {template.Name} skipped: the open-apps question is up");
             return;
         }
 
