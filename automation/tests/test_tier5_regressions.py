@@ -8176,3 +8176,51 @@ class TestACompletedSprintDoesNotCountTheSleep300:
     def test_the_shipped_assignment_is_rejected(self):
         problems = self._problems(self.PRE_FIX_END_SPRINT)
         assert any("bare DateTime.UtcNow" in problem for problem in problems), problems
+
+
+class TestSchedulePageKeepsTheSleepWindow:
+    """F6 moves Sleep Blocking inside Schedule; nothing of the sleep window may be lost."""
+
+    def test_the_sleep_view_is_embedded_not_rewritten(self):
+        page = (Path(DESKTOP_DIR) / "Views" / "ScheduleView.xaml").read_text(encoding="utf-8")
+        assert "<views:SleepBlockingView" in page and 'DataContext="{Binding Sleep}"' in page
+        sleep = (Path(DESKTOP_DIR) / "Views" / "SleepBlockingView.xaml").read_text(encoding="utf-8")
+        for automation_id in ("SleepBlockToggle", "SleepStartInput", "SleepEndInput",
+                              "SaveSleepWindowButton", "SleepStatusText", "SleepWindowText"):
+            assert f'AutomationProperties.AutomationId="{automation_id}"' in sleep
+
+    def test_the_tab_keeps_its_id_and_shortcut(self):
+        xaml = (Path(DESKTOP_DIR) / "MainWindow.xaml").read_text(encoding="utf-8")
+        assert 'AutomationProperties.AutomationId="Tab_SleepBlocking"' in xaml
+        assert 'Key="D4" Command="{Binding NavigateCommand}" CommandParameter="SleepBlocking"' in xaml
+        assert 'Text="Schedule"' in xaml
+
+    def test_every_new_id_is_on_a_real_control(self):
+        xaml = (Path(DESKTOP_DIR) / "Views" / "ScheduleView.xaml").read_text(encoding="utf-8")
+        for match in re.finditer(r"<(\w+)[^>]*AutomationProperties\.AutomationId=", xaml):
+            assert match.group(1) not in ("Border", "Grid", "StackPanel", "WrapPanel"), (
+                f"an AutomationId on a {match.group(1)} is never surfaced (#134)")
+
+
+class TestSchedulePageRefusesInTheViewModel:
+    """
+    A Sealed sprint makes the Schedule page read-only. The buttons go grey, but
+    a disabled or covered control can still be reached (CLAUDE.md, "Covered
+    controls"), so every method that changes a schedule or a template refuses
+    on its own, not only through its command's CanExecute.
+    """
+
+    VM = Path(DESKTOP_DIR) / "ViewModels" / "ScheduleViewModel.cs"
+
+    def _body(self, source: str, signature: str) -> str:
+        start = source.index(signature)
+        return source[start:source.index("\n    }\n", start)]
+
+    def test_every_change_checks_can_edit_first(self):
+        source = self.VM.read_text(encoding="utf-8")
+        for signature in ("private void OpenScheduleEditor(", "private void SaveSchedule(",
+                          "private void DeleteSchedule(", "private void SetScheduleEnabled(",
+                          "private void OpenTemplateEditor(", "private void SaveTemplate(",
+                          "private void DeleteTemplate(", "private void RestoreTemplates("):
+            assert "CanEdit" in self._body(source, signature), \
+                f"{signature.strip('(')} must refuse during a Sealed sprint by itself"

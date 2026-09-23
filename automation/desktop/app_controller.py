@@ -41,8 +41,8 @@ TAB_IDS = {
     "history": "Tab_History",
     "blocked apps": "Tab_BlockedApps",
     "blockedapps": "Tab_BlockedApps",
-    "sleep blocking": "Tab_SleepBlocking",
-    "sleepblocking": "Tab_SleepBlocking",
+    # F6 renamed Sleep Blocking to Schedule; the tab kept its AutomationId.
+    "schedule": "Tab_SleepBlocking",
     "settings": "Tab_Settings",
 }
 
@@ -920,6 +920,20 @@ class DesktopController:
     def sleep_window_text(self) -> str:
         return self.text_of("SleepWindowText")
 
+    # ------------------------------------------------------ schedules (F6)
+
+    def add_schedule(self, template: str, days: list[str], time_text: str,
+                     ask_first: bool = True) -> None:
+        """Schedule page: Add schedule, pick a template, days and time, then Save."""
+        self.click("AddScheduleButton")
+        self.choose(f"ScheduleTemplate_{template}")
+        for day in days:
+            self.set_toggle(f"ScheduleDay_{day}", True)
+        self.set_text("ScheduleTimeInput", time_text)
+        self.set_toggle("ScheduleAskFirstToggle", ask_first)
+        self.click("SaveScheduleButton")
+        time.sleep(0.8)
+
     # ------------------------------------------------------------- sprints
 
     def start_sprint(self, confirm_open_apps: bool = True) -> None:
@@ -1236,6 +1250,27 @@ class DesktopController:
                 pass
             time.sleep(0.4)
         return None
+
+    def accept_dialog(self, timeout: float = 5.0) -> str | None:
+        """
+        Say yes to FlowShield's own confirmation (ConfirmDeleteDialog) and
+        return what it asked, or None when no confirmation appeared.
+
+        dismiss_dialog() is the wrong tool for this: it presses the first of
+        OK / Close / Yes / Cancel it finds, which on this dialog is Cancel, and
+        it reads only the window title. This reads every line the dialog shows,
+        then presses the confirm button by its AutomationId, so a change of
+        wording can't make it press the other one.
+        """
+        if not self.exists("ConfirmDeleteDialog", timeout=timeout):
+            self._say("no confirmation dialog appeared")
+            return None
+        dialog = self.element("ConfirmDeleteDialog")
+        text = " ".join(line.window_text() for line in dialog.descendants(control_type="Text")
+                        if line.window_text())
+        self.click("ConfirmDeleteConfirmButton")
+        self._say(f"accepted dialog: {text[:120]}")
+        return text
 
     # --------------------------------------------------------------- teardown
 

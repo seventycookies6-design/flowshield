@@ -74,7 +74,7 @@ def main() -> int:
         log.passed(result.detail)
 
         log.begin("Pro features unlocked")
-        ctrl.navigate_to_tab("Sleep Blocking")
+        ctrl.navigate_to_tab("Schedule")
         if not ctrl.set_toggle("SleepBlockToggle", True):
             raise AssertionError("sleep blocking still gated after activation")
         ctrl.navigate_to_tab("Today")

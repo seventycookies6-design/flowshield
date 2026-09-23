@@ -173,6 +173,7 @@ python -m pytest automation/tests -v
 | Tier | File | Scope |
 | --- | --- | --- |
 | 1 | `test_tier1_unit.py` | Key checksums, sleep windows, tier limits, momentum. No app, no network. |
+| 1 | `test_tier1_models.py` | The real C# model rules, run through ModelProbe: templates, schedules, time zones. |
 | 2 | `test_tier2_integration.py` | Every server endpoint, webhook signatures, replay guard. |
 | 3 | `test_tier3_e2e.py` | The real UI via UI Automation, cross-checked against disk. |
 | 4 | `test_tier4_adversarial.py` | Forged keys, injection, concurrency, tampered storage, declined cards. |

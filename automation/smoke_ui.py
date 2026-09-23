@@ -33,7 +33,7 @@ def main() -> int:
         ctrl.focus()
         log.passed(f"hwnd {ctrl.hwnd}")
 
-        for tab in ("Today", "Blocked Apps", "Sleep Blocking", "Settings"):
+        for tab in ("Today", "Blocked Apps", "Schedule", "Settings"):
             log.begin(f"Tab: {tab}")
             title = ctrl.navigate_to_tab(tab)
             time.sleep(0.6)

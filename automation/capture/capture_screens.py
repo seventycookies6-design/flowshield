@@ -42,8 +42,8 @@ with preserve_user_settings():
 
         app.navigate_to_tab("Blocked Apps")
         grab(app, "blocked-apps")
-        app.navigate_to_tab("Sleep Blocking")
-        grab(app, "sleep-blocking")
+        app.navigate_to_tab("Schedule")
+        grab(app, "schedule")
 
         app.navigate_to_tab("Today")
         time.sleep(0.8)
