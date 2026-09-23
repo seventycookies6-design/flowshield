@@ -58,7 +58,8 @@ TEST_BLOCK_APP = "flowshield-test-target"
 
 # ------------------------------------------------------------------- timeouts
 
-WINDOW_CONNECT_TIMEOUT = 25.0
+# Defender scanning can delay the first launch of a fresh executable.
+WINDOW_CONNECT_TIMEOUT = 60.0
 UI_ACTION_TIMEOUT = 12.0
 CHECKOUT_TIMEOUT = 120_000  # Playwright milliseconds
 MAX_RETRIES = 3

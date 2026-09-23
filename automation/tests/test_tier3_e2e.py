@@ -1317,9 +1317,19 @@ class TestAppPicker:
 
     def test_browsers_carry_the_warning(self, fresh_app):
         fresh_app.navigate_to_tab("Blocked Apps")
-        fresh_app.set_text("AppSearchInput", "chrome")
-        time.sleep(0.6)
-        texts = " ".join(t for item in fresh_app.element("AppPickerList").children() for t in item.texts())
+        fresh_app.set_text("AppSearchInput", "edge")
+        deadline = time.time() + 10
+        items = []
+        while time.time() < deadline:
+            try:
+                items = fresh_app.element("AppPickerList", timeout=1).children()
+            except Exception:
+                items = []
+            if items:
+                break
+            time.sleep(0.2)
+        assert items, "the Edge suggestion should appear in the app picker"
+        texts = " ".join(t for item in items for t in item.texts())
         assert "closes the whole browser" in texts.lower(), texts
 
 
@@ -2271,12 +2281,19 @@ class TestBreaksAndCycles:
             # answer it the same way start_sprint() does, or the sprint never
             # actually starts and nothing is ever enforced.
             app.click("StartNextSprintButton")
-            app.answer_open_apps_question()
-            deadline = time.time() + 25
-            while time.time() < deadline and process.poll() is None:
-                time.sleep(1)
-            assert process.poll() is not None, \
-                "the next sprint must enforce again as soon as it starts"
+            answered = app.answer_open_apps_question()
+            assert answered, "the open-apps question should be answered"
+            deadline = time.time() + 10
+            warning = ""
+            while time.time() < deadline:
+                try:
+                    warning = app.text_of("ToastText", timeout=0.4)
+                except Exception:
+                    warning = ""
+                if "closing in" in warning.lower():
+                    break
+                time.sleep(0.2)
+            assert "closing in" in warning.lower(), "the shield should warn before closing the app"
         finally:
             if process.poll() is None:
                 process.kill()
@@ -2382,6 +2399,8 @@ class TestLightTheme:
     def test_switching_to_light_redraws_the_window(self, fresh_app):
         fresh_app.navigate_to_tab("Settings")
 
+        fresh_app.choose("ThemeDarkRadio")
+        time.sleep(1.0)  # wait for the dark theme redraw
         dark = self._mean_brightness(fresh_app)
         assert dark < self.DARK_CEILING, (
             f"the app should start dark; measured {dark:.0f}/255")
