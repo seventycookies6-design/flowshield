@@ -6,8 +6,13 @@
              xmlns:models="clr-namespace:FlowShield.Models">
     <!-- The Schedule page (F6). Schedules and templates first, then the sleep
          window embedded unchanged: SleepBlockingView keeps every one of its
-         AutomationIds, and Roadmap 3.7 reworks it in place. -->
+         AutomationIds, and Roadmap 3.7 reworks it in place.
+         Not focusable: when an inline editor closed, keyboard focus fell back
+         to this ScrollViewer and it drew a dashed rectangle round the page.
+         Every control inside keeps its tab stop, and Page Up/Down from any of
+         them still scrolls it. -->
     <ScrollViewer x:Name="PageScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                  Focusable="False"
                   AutomationProperties.AutomationId="SchedulePageScroll">
         <StackPanel Margin="0,0,8,0">
 

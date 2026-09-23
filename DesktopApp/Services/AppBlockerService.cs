@@ -169,12 +169,13 @@ public class AppBlockerService : IDisposable
     ///
     /// Used before a sprint starts, to tell the customer what is about to be
     /// closed while they can still do something about it. Read-only: it
-    /// enforces nothing and changes nothing.
+    /// enforces nothing and changes nothing. Takes the profile, because a
+    /// scheduled template's heads-up (F6) names what its own list will close.
     /// </summary>
-    public IReadOnlyList<string> RunningBlockedApps(AppSettings settings)
+    public IReadOnlyList<string> RunningBlockedApps(BlocklistProfile profile)
     {
         var targets = new Dictionary<string, BlockedApp>(StringComparer.OrdinalIgnoreCase);
-        foreach (var app in settings.ActiveProfile.Apps)
+        foreach (var app in profile.Apps)
         {
             if (!app.IsEnabled) continue;
             foreach (var processName in app.AllProcessNames) targets[processName] = app;
@@ -208,6 +209,10 @@ public class AppBlockerService : IDisposable
         found.Sort(StringComparer.CurrentCultureIgnoreCase);
         return found;
     }
+
+    /// <summary>The same, on the list the next sprint would enforce: the active profile's.</summary>
+    public IReadOnlyList<string> RunningBlockedApps(AppSettings settings) =>
+        RunningBlockedApps(settings.ActiveProfile);
 
     /// <summary>
     /// The Soft notice's "Close Discord" button (1.0.10). The user chose it;

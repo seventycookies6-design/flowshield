@@ -26,8 +26,12 @@ public enum NotificationKind
     AppClosing,
 }
 
-/// <summary>What clicking a notification does.</summary>
-public enum NotificationAction { OpenApp, OpenJournal, OpenSettingsLicense }
+/// <summary>
+/// What clicking a notification does. <see cref="OpenToday"/> is for a notice
+/// whose card is on Today (a schedule's heads-up or missed start, F6), so the
+/// click lands where the body points rather than on whatever page was open.
+/// </summary>
+public enum NotificationAction { OpenApp, OpenJournal, OpenSettingsLicense, OpenToday }
 
 public record Notification(NotificationKind Kind, string Title, string Message, NotificationAction Action);
 

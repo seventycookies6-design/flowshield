@@ -283,6 +283,18 @@ class TestSprintScheduleSkips:
         assert out["is_skipped"] == [True]
         assert out["stored"] == ["2026-09-28T00:00:00"], "no offset, no Z: a plain local date"
 
+    def test_skip_today_from_the_card_stores_a_plain_date_too(self):
+        """
+        Today's Skip today passes the start's local date, which carries
+        Kind=Local (TimeZoneInfo.ConvertTimeFromUtc(..., Local), as
+        DateTime.Today does). Stored as it came, the file would hold
+        "2026-09-28T00:00:00-04:00": an instant, not a date.
+        """
+        out = probe({"cmd": "schedule-skip", "schedule": schedule(), "roundtrip": True,
+                     "kind": "local", "skip": ["2026-09-28"], "query": ["2026-09-28"]})
+        assert out["stored"] == ["2026-09-28T00:00:00"], "a Local date must lose its offset in the file"
+        assert out["is_skipped"] == [True]
+
     def test_normalize_gives_a_schedule_without_an_id_key_one_and_says_so(self):
         s = schedule()
         del s["Id"]
@@ -342,8 +354,9 @@ class TestScheduleText:
     def test_the_copy_keeps_to_the_house_voice(self):
         """DESIGN_SYSTEM.md §9: no exclamation marks; ASCII only in C# literals (escape the rest)."""
         sources = [DESKTOP / "Models" / name
-                   for name in ("ScheduleText.cs", "SprintSchedule.cs", "ScheduleMatcher.cs", "StudyTemplate.cs")]
-        sources.append(DESKTOP / "ViewModels" / "ScheduleViewModel.cs")
+                   for name in ("ScheduleText.cs", "SprintSchedule.cs", "ScheduleMatcher.cs", "StudyTemplate.cs",
+                                "SchedulePlanner.cs")]
+        sources += [DESKTOP / "ViewModels" / "ScheduleViewModel.cs", DESKTOP / "Services" / "ScheduleService.cs"]
         for path in sources:
             source = path.read_text(encoding="utf-8")
             for text in re.findall(r'"([^"]*)"', source):
@@ -355,6 +368,288 @@ class TestScheduleText:
         xaml = (DESKTOP / "Views" / "ScheduleView.xaml").read_text(encoding="utf-8")
         for text in re.findall(r'\b(?:Text|Content)="([^"]*)"', xaml):
             assert "!" not in text, f"exclamation mark in ScheduleView.xaml: {text!r}"
+
+
+class TestSchedulePlanner:
+    """F6: what the scheduler does on each tick. Pure, so the gaps can be tested."""
+
+    Z = EASTERN
+
+    def decide(self, schedules, last, now, shown=(), zone=None, short=False):
+        return probe({"cmd": "schedule-decide", "schedules": schedules, "zone": zone or self.Z,
+                      "last": last, "now": now, "shown": list(shown), "short": short})
+
+    def test_heads_up_five_minutes_before(self):
+        out = self.decide([schedule()], "2026-09-28T20:54:50Z", "2026-09-28T20:55:05Z")
+        assert out["actions"] == [{"kind": "HeadsUp", "id": "s1", "start": "2026-09-28T21:00:00Z"}]
+
+    def test_heads_up_only_once(self):
+        out = self.decide([schedule()], "2026-09-28T20:55:05Z", "2026-09-28T20:55:20Z",
+                          shown=["s1@2026-09-28T21:00:00Z"])
+        assert out["actions"] == []
+
+    def test_no_heads_up_when_ask_first_is_off(self):
+        out = self.decide([schedule(AskFirst=False)], "2026-09-28T20:54:50Z", "2026-09-28T20:55:05Z")
+        assert out["actions"] == []
+
+    def test_start_at_the_time(self):
+        out = self.decide([schedule()], "2026-09-28T20:59:50Z", "2026-09-28T21:00:05Z")
+        assert [a["kind"] for a in out["actions"]] == ["Start"]
+
+    def test_a_skipped_day_does_nothing(self):
+        s = schedule(SkippedDatesLocal=["2026-09-28T00:00:00"])
+        out = self.decide([s], "2026-09-28T20:54:50Z", "2026-09-28T21:00:05Z")
+        assert out["actions"] == []
+
+    def test_a_skipped_day_has_no_heads_up_either(self):
+        s = schedule(SkippedDatesLocal=["2026-09-28T00:00:00"])
+        out = self.decide([s], "2026-09-28T20:54:50Z", "2026-09-28T20:55:05Z")
+        assert out["actions"] == []
+
+    def test_a_disabled_schedule_does_nothing(self):
+        out = self.decide([schedule(Enabled=False)], "2026-09-28T20:59:50Z", "2026-09-28T21:00:05Z")
+        assert out["actions"] == []
+
+    def test_waking_twenty_minutes_late_offers_never_starts(self):
+        out = self.decide([schedule()], "2026-09-28T20:30:00Z", "2026-09-28T21:20:00Z")
+        assert [a["kind"] for a in out["actions"]] == ["OfferMissed"]
+
+    def test_waking_an_hour_late_does_nothing(self):
+        out = self.decide([schedule()], "2026-09-28T20:30:00Z", "2026-09-28T22:00:00Z")
+        assert out["actions"] == []
+
+    def test_a_long_gap_offers_at_most_one_start(self):
+        """Review focus 2: asleep over several scheduled starts is one offer, not a burst."""
+        daily = schedule(days=[0, 1, 2, 3, 4, 5, 6], minute=21 * 60)  # 21:00 every day
+        out = self.decide([daily], "2026-09-25T12:00:00Z", "2026-09-29T01:10:00Z")  # 21:10 EDT on the 28th
+        assert [a["kind"] for a in out["actions"]] == ["OfferMissed"]
+        assert out["actions"][0]["start"] == "2026-09-29T01:00:00Z"
+
+    def test_one_offer_per_tick_across_schedules_the_latest_start(self):
+        """Review focus 2 again, with two schedules missed in one gap."""
+        early = schedule(Id="a", minute=17 * 60)          # 21:00Z
+        later = schedule(Id="b", minute=17 * 60 + 10)     # 21:10Z
+        out = self.decide([later, early], "2026-09-28T20:30:00Z", "2026-09-28T21:25:00Z")
+        assert out["actions"] == [{"kind": "OfferMissed", "id": "b", "start": "2026-09-28T21:10:00Z"}]
+
+    def test_two_schedules_at_the_same_minute_come_out_in_a_stable_order(self):
+        """Review focus 3: the service starts the first and skips the second."""
+        a = schedule(Id="a", TemplateId="t1")
+        b = schedule(Id="b", TemplateId="t2")
+        out = self.decide([b, a], "2026-09-28T20:59:50Z", "2026-09-28T21:00:05Z")
+        assert [x["id"] for x in out["actions"]] == ["a", "b"]
+
+    @pytest.mark.parametrize("new_zone", ["Pacific Standard Time", "GMT Standard Time"])
+    def test_a_zone_change_between_ticks_replays_nothing(self, new_zone):
+        """
+        Every interval is in UTC, so a start already passed is never inside a
+        later one, whatever the zone now says. The next tick counts from the
+        last one, with no reset: westward (17:00 PDT is 00:00Z) or eastward
+        (17:00 BST was 16:00Z), the 17:00 EDT start that just ran is not seen again.
+        """
+        ran = self.decide([schedule()], "2026-09-28T20:59:50Z", "2026-09-28T21:00:05Z")
+        assert [a["kind"] for a in ran["actions"]] == ["Start"]
+        after = self.decide([schedule()], "2026-09-28T21:00:05Z", "2026-09-28T21:00:20Z", zone=new_zone)
+        assert after["actions"] == []
+
+    def test_a_clock_set_forward_past_a_start_is_a_gap_like_sleep(self):
+        """
+        Review focus 2: a clock change is a gap, like sleep. Set forward from
+        16:50 to 17:10 EDT, the next tick still counts from 16:50, so 17:00 is
+        one missed offer, never a start. Windows also says "the clock changed"
+        on resume and on its own time sync; the service no longer restarts its
+        count then, which is what erased the sleep gap and lost starts.
+        """
+        before, tick = "2026-09-28T20:50:00Z", "2026-09-28T21:10:15Z"
+        out = self.decide([schedule()], before, tick)
+        assert out["actions"] == [{"kind": "OfferMissed", "id": "s1", "start": "2026-09-28T21:00:00Z"}]
+
+    def test_a_start_seen_seconds_after_an_hour_asleep_is_offered_never_started(self):
+        """
+        Final review of PR C (R20): the PC slept from 16:00 and woke at
+        17:00:30 with a 17:00 schedule. The start is 30 seconds old, which
+        would count as on time on an ordinary tick, but nobody was here for
+        the heads-up and the spec says never start after waking. A gap since
+        the last tick makes every start inside it a miss.
+        """
+        out = self.decide([schedule()], "2026-09-28T20:00:00Z", "2026-09-28T21:00:30Z")
+        assert out["actions"] == [{"kind": "OfferMissed", "id": "s1", "start": "2026-09-28T21:00:00Z"}]
+
+    def test_an_ordinary_tick_starts_a_start_seconds_old(self):
+        """The rule above must not touch a normal tick: 10 s since the last one, start 5 s old."""
+        out = self.decide([schedule()], "2026-09-28T20:59:55Z", "2026-09-28T21:00:05Z")
+        assert [a["kind"] for a in out["actions"]] == ["Start"]
+
+    def test_short_mode_a_gap_offers_a_start_seconds_old(self):
+        """The same rule at --short-schedules' scale: 12 s since the last 1 s tick is a gap."""
+        out = self.decide([schedule()], "2026-09-28T20:59:50Z", "2026-09-28T21:00:02Z", short=True)
+        assert [a["kind"] for a in out["actions"]] == ["OfferMissed"]
+
+    def test_short_schedules_shrink_every_window_and_the_tick(self):
+        """
+        Roomy enough for the UI suite to act (R20 polish): the heads-up card
+        is up for 15 seconds, a missed start is offered for 30, and a tick
+        that lands two seconds late on a busy UI thread still starts.
+        """
+        out = probe({"cmd": "schedule-windows", "short": True})
+        assert out == {"lead": 15, "late": 30, "on_time": 3, "tick": 1}
+        assert probe({"cmd": "schedule-windows", "short": False}) == \
+            {"lead": 300, "late": 1800, "on_time": 60, "tick": 15}
+
+    @pytest.mark.parametrize("short", [False, True])
+    def test_every_rule_can_happen_in_both_modes(self, short):
+        """
+        With 15-second ticks and a 1-minute on-time window, --short-schedules'
+        late window could never offer (anything within a minute started) and
+        a lead shorter than a tick could be stepped over.
+        """
+        w = probe({"cmd": "schedule-windows", "short": short})
+        assert w["tick"] < w["lead"], "some tick always lands inside the heads-up lead"
+        assert w["tick"] < w["on_time"], "some tick always sees a start on time"
+        assert w["on_time"] < w["late"], "a start seen late can be offered"
+
+    @pytest.mark.parametrize("last,now,kinds", [
+        ("2026-09-28T20:59:44Z", "2026-09-28T20:59:45Z", ["HeadsUp"]),      # 15 s ahead
+        ("2026-09-28T20:59:43Z", "2026-09-28T20:59:44Z", []),               # 16 s ahead: not yet
+        ("2026-09-28T20:59:59Z", "2026-09-28T21:00:01Z", ["Start"]),
+        ("2026-09-28T20:59:59Z", "2026-09-28T21:00:05Z", ["OfferMissed"]),  # a 6 s gap: 5 s late
+        ("2026-09-28T20:59:59Z", "2026-09-28T21:00:31Z", []),               # past the 30 s window
+    ])
+    def test_short_schedules_run_every_rule_in_seconds(self, last, now, kinds):
+        out = self.decide([schedule()], last, now, shown=[], short=True)
+        assert [a["kind"] for a in out["actions"]] == kinds
+
+    # R21: a start missed while FlowShield was closed. The service saves the
+    # time of its last check and counts from it on the next launch.
+
+    def seed(self, last, now="2026-09-28T21:00:00Z"):
+        return probe({"cmd": "schedule-seed", "last": last, "now": now})["seed"]
+
+    def test_a_launch_counts_from_the_last_check_it_saved(self):
+        assert self.seed("2026-09-28T20:50:00Z") == "2026-09-28T20:50:00Z"
+
+    def test_a_first_launch_counts_from_now(self):
+        assert self.seed(None) == "2026-09-28T21:00:00Z"
+
+    def test_a_check_weeks_ago_is_clamped_to_the_look_back_limit(self):
+        """StartsBetweenUtc clamps too; the seed says so in one place rather than walking a month."""
+        assert self.seed("2026-08-01T12:00:00Z") == "2026-09-20T21:00:00Z"
+
+    def test_a_check_in_the_future_counts_from_now(self):
+        """A clock set back between launches: nothing between the two is passed time."""
+        assert self.seed("2026-09-28T21:05:00Z") == "2026-09-28T21:00:00Z"
+
+    def test_a_start_missed_while_closed_is_offered_on_launch(self):
+        """The seed feeds Decide: closed at 16:50, launched at 17:10 EDT, the 17:00 start is one offer."""
+        seed = self.seed("2026-09-28T20:50:00Z", now="2026-09-28T21:10:15Z")
+        out = self.decide([schedule()], seed, "2026-09-28T21:10:15Z")
+        assert out["actions"] == [{"kind": "OfferMissed", "id": "s1", "start": "2026-09-28T21:00:00Z"}]
+
+    def test_a_start_handled_before_exit_is_not_offered_again(self):
+        """The stamp is taken at the start of the tick that handled it, so the start is at or before it."""
+        out = self.decide([schedule()], self.seed("2026-09-28T21:00:05Z", now="2026-09-28T21:10:00Z"),
+                          "2026-09-28T21:10:00Z")
+        assert out["actions"] == []
+
+    # R23: a card does not go stale.
+
+    @pytest.mark.parametrize("now,short,expired", [
+        ("2026-09-28T21:29:59Z", False, False),
+        ("2026-09-28T21:30:01Z", False, True),
+        ("2026-09-28T21:00:29Z", True, False),
+        ("2026-09-28T21:00:31Z", True, True),
+    ])
+    def test_a_card_expires_once_the_late_window_has_passed_its_start(self, now, short, expired):
+        out = probe({"cmd": "schedule-card-expired", "start": "2026-09-28T21:00:00Z", "now": now, "short": short})
+        assert out["expired"] is expired
+
+
+class TestScheduleService:
+    """
+    F6: the timer around the planner. It runs on WPF's dispatcher, which the
+    probe doesn't host, so these read its source, with comments stripped so a
+    call left only in a comment can't satisfy them.
+    """
+
+    def code(self) -> str:
+        source = (DESKTOP / "Services" / "ScheduleService.cs").read_text(encoding="utf-8")
+        return "\n".join(line.split("//")[0] for line in source.splitlines())
+
+    @staticmethod
+    def body(code: str, signature: str) -> str:
+        """One member, from its signature to the closing brace at member depth."""
+        start = code.index(signature)
+        return code[start:code.index("\n    }", start)]
+
+    def test_it_follows_a_clock_or_time_zone_change(self):
+        """.NET caches the local zone: without this the schedules keep the old zone's clock until a restart."""
+        code = self.code()
+        assert "SystemEvents.TimeChanged += OnTimeChanged;" in code
+        assert "SystemEvents.TimeChanged -= OnTimeChanged;" in code, "Stop() lets go of the event"
+        assert "TimeZoneInfo.ClearCachedData();" in self.body(code, "private void ClockChanged()")
+
+    def test_a_clock_change_never_erases_the_gap(self):
+        """
+        Windows says the clock changed on resume from sleep and whenever its
+        time sync steps the clock (seconds, several times a week). Restarting
+        the count there erased the sleep gap, so the missed offer never came,
+        and lost any start between the last tick and the step. Only Start()
+        and a tick may move the count.
+        """
+        code = self.code()
+        assert "_lastTickUtc" not in self.body(code, "private void ClockChanged()")
+        rest = code
+        for member in ("public void Start()", "public void Tick(DateTime nowUtc)"):
+            rest = rest.replace(self.body(code, member), "")
+        assert not re.search(r"_lastTickUtc\s*=(?!=)", rest), "the count moves only in Start() and Tick()"
+
+    def test_the_tick_rate_follows_short_schedules(self):
+        """A 15-second tick can't see --short-schedules' 5-second lead or 10-second window."""
+        code = self.code()
+        assert re.search(r"public static TimeSpan Interval\s*=>\s*SchedulePlanner\.TickInterval;", code)
+        start = self.body(code, "public void Start()")
+        assert "_timer.Interval = Interval;" in start, "read when the timer starts, after the flags are set"
+        assert start.index("_timer.Interval = Interval;") < start.index("_timer.Start();")
+
+    def test_every_tick_reads_the_zone_afresh(self):
+        assert re.search(r"SchedulePlanner\.Decide\([^;]*TimeZoneInfo\.Local", self.code())
+
+    def test_a_clock_set_back_counts_from_the_new_time(self):
+        """Nothing between the new time and the last tick is read as passed time at once."""
+        assert "if (nowUtc < _lastTickUtc) _lastTickUtc = nowUtc;" in self.code()
+
+    def test_the_last_check_is_stamped_before_anything_is_raised(self):
+        """
+        R21: a start missed while FlowShield was closed is offered on launch.
+        Every tick stamps its time on the settings first, so any save that
+        follows (a scheduled start saves; exit saves) keeps it, and Start()
+        counts from the stamp, clamped, instead of from now.
+        """
+        code = self.code()
+        tick = self.body(code, "public void Tick(DateTime nowUtc)")
+        assert "_settings.ScheduleLastCheckUtc = nowUtc;" in tick
+        assert tick.index("_settings.ScheduleLastCheckUtc = nowUtc;") < tick.index("Action?.Invoke(this, action);")
+        start = self.body(code, "public void Start()")
+        assert "_lastTickUtc = SchedulePlanner.SeedLastTick(_settings.ScheduleLastCheckUtc, " in start
+
+    def test_one_failing_handler_cannot_eat_a_tick(self):
+        """
+        _lastTickUtc has already moved on, so an action a throwing handler
+        dropped would never be raised again, and the exception would reach
+        the dispatcher's error dialog from a background tick.
+        """
+        tick = self.body(self.code(), "public void Tick(DateTime nowUtc)")
+        guarded = tick[tick.index("try"):]
+        assert "Action?.Invoke(this, action);" in guarded.split("catch", 1)[0]
+        assert re.search(r"catch \(Exception ex\)\s*\{\s*Log\.Warn\(", guarded)
+        warning = guarded.split("Log.Warn(", 1)[1].split(";", 1)[0]
+        assert "action.Kind" in warning and "action.Schedule.Id" in warning, "name the schedule and the kind"
+
+    def test_every_tick_is_announced_before_it_decides(self):
+        """R23: the card's expiry is checked on each tick, whether or not anything is due."""
+        tick = self.body(self.code(), "public void Tick(DateTime nowUtc)")
+        assert "Ticked?.Invoke(this, nowUtc);" in tick
+        assert tick.index("Ticked?.Invoke(this, nowUtc);") < tick.index("SchedulePlanner.Decide(")
 
 
 # ================== F6: templates and schedules in the settings file (1.0.10)
@@ -501,6 +796,20 @@ class TestTemplatesInSettings:
         assert out["added"] == 3
         assert out["templates"] == ["Mine", "Homework evening", "Exam prep", "Light study"]
 
+    def test_a_restored_built_in_takes_a_number_when_its_name_is_taken(self):
+        """
+        Delete Exam prep, save your own "Exam prep", then Restore: the user's
+        keeps its name and the built-in comes back as "Exam prep 2", so the
+        names Today's chips and the page's ids are built from stay unique.
+        """
+        first = probe({"cmd": "settings-ensure-templates", "settings": settings_json()})
+        kept = [t for t in first["raw_templates"] if t["BuiltInKey"] != "exam"]
+        mine = {"Id": "t1", "Name": "Exam prep", "SprintMinutes": 60, "Shield": 2}
+        out = probe({"cmd": "settings-restore-builtins",
+                     "settings": settings_json(Templates=kept + [mine], TemplatesSeeded=True)})
+        assert out["added"] == 1
+        assert out["templates"] == ["Homework evening", "Light study", "Exam prep", "Exam prep 2"]
+
     @pytest.mark.parametrize("profile_id,expected", [("p2", "Everything"), ("", "School"),
                                                      ("deleted", "School")])
     def test_a_template_uses_its_profile_or_the_active_one(self, profile_id, expected):
@@ -515,6 +824,41 @@ class TestTemplatesInSettings:
         profiles, templates = "if (Settings.EnsureProfiles())", "if (Settings.EnsureTemplates())"
         assert profiles in source and templates in source
         assert source.index(profiles) < source.index(templates)
+
+
+class TestATemplatesBreakRidesWithTheSprint:
+    """
+    F6: a sprint started from a template takes its breaks at the template's
+    length, and a restart mid-cycle must not lose that. It is saved with the
+    running sprint; a sprint saved by 1.0.9 has none and uses Settings.
+    """
+
+    SPRINT = {"StartedUtc": "2026-09-28T21:00:00Z", "PlannedMinutes": 45, "Shield": 2,
+              "LastSeenUtc": "2026-09-28T21:00:00Z"}
+
+    def test_the_templates_break_length_is_saved_with_the_running_sprint(self):
+        sprint = dict(self.SPRINT, TemplateBreakMinutes=10)
+        out = probe({"cmd": "settings-ensure-templates", "settings": settings_json(ActiveSprint=sprint)})
+        assert out["saved"]["ActiveSprint"]["TemplateBreakMinutes"] == 10
+
+    def test_a_sprint_saved_before_templates_uses_the_break_settings(self):
+        out = probe({"cmd": "settings-ensure-templates", "settings": settings_json(ActiveSprint=self.SPRINT)})
+        assert out["saved"]["ActiveSprint"]["TemplateBreakMinutes"] is None
+
+    # A restart during a break inside a template cycle must keep the
+    # template's breaks too (PR C polish, item 8), so the break carries it.
+
+    BREAK = {"StartedUtc": "2026-09-28T21:45:00Z", "EndsUtc": "2026-09-28T21:55:00Z", "Minutes": 10,
+             "SprintsPlanned": 3, "SprintsDone": 1}
+
+    def test_the_templates_break_length_is_saved_with_the_running_break(self):
+        saved = dict(self.BREAK, TemplateBreakMinutes=10)
+        out = probe({"cmd": "settings-ensure-templates", "settings": settings_json(ActiveBreak=saved)})
+        assert out["saved"]["ActiveBreak"]["TemplateBreakMinutes"] == 10
+
+    def test_a_break_saved_before_templates_uses_the_break_settings(self):
+        out = probe({"cmd": "settings-ensure-templates", "settings": settings_json(ActiveBreak=self.BREAK)})
+        assert out["saved"]["ActiveBreak"]["TemplateBreakMinutes"] is None
 
 
 # ============================ Soft friction: tries, the wait, wording (1.0.10)

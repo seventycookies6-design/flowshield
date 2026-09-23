@@ -39,7 +39,7 @@ public partial class App : Application
             Models.GracefulClose.UseShortTimers = true;
             // F5: a three-second break, so tier 3 can run a whole cycle.
             Models.CycleState.UseShortTimers = true;
-            // 1.0.10: every wait before the Soft notice's Allow is one second.
+            // 1.0.10: every wait before the Soft notice's Allow is three seconds.
             Models.SoftOverlayPolicy.UseShortTimers = true;
             Log.Info("short end-sprint timers enabled by --short-timers flag");
         }
@@ -50,6 +50,14 @@ public partial class App : Application
         {
             Models.CycleState.UseShortSprints = true;
             Log.Info("five-second sprints enabled by --short-sprints flag");
+        }
+
+        // --short-schedules: a schedule's heads-up comes 5 seconds ahead and a
+        // start stays on offer for 10, so tier 3 can watch one happen (F6).
+        if (args.Any(a => a.Equals("--short-schedules", StringComparison.OrdinalIgnoreCase)))
+        {
+            Models.SchedulePlanner.UseShortSchedules = true;
+            Log.Info("short schedule windows enabled by --short-schedules flag");
         }
 
         if (args.Any(a => a.Equals("--dev", StringComparison.OrdinalIgnoreCase)))

@@ -45,10 +45,21 @@ public partial class TodayView : UserControl
         if (e.NewValue is TodayViewModel vm) ShowProgress(vm.Progress, glide: false);
     }
 
+    /// <summary>
+    /// A sprint starting brings the page back to the top. The intention field
+    /// sits below the fold at the default window height, so Start is often
+    /// pressed with the page scrolled down to it; the start then collapses the
+    /// template chips (F6) and the Start button, the page keeps its offset,
+    /// and the ring with its Cancel button would be left scrolled up under
+    /// the page header, out of sight and out of reach.
+    /// </summary>
     private void OnViewModelChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(TodayViewModel.Progress) && sender is TodayViewModel vm)
+        if (sender is not TodayViewModel vm) return;
+        if (e.PropertyName == nameof(TodayViewModel.Progress))
             ShowProgress(vm.Progress, glide: true);
+        else if (e.PropertyName == nameof(TodayViewModel.IsRunning) && vm.IsRunning)
+            PageScroll.ScrollToTop();
     }
 
     private void ShowProgress(double progress, bool glide)
@@ -84,7 +95,7 @@ public partial class TodayView : UserControl
             Grid.SetRow(StatsRail, 1);
             Grid.SetColumn(StatsRail, 0);
             Grid.SetColumnSpan(StatsRail, 2);
-            TimerCard.Margin = new Thickness(0, 0, 0, 16);
+            MainColumn.Margin = new Thickness(0, 0, 0, 16);
         }
         else
         {
@@ -97,7 +108,7 @@ public partial class TodayView : UserControl
             Grid.SetRow(StatsRail, 0);
             Grid.SetColumn(StatsRail, 1);
             Grid.SetColumnSpan(StatsRail, 1);
-            TimerCard.Margin = new Thickness(0, 0, 16, 0);
+            MainColumn.Margin = new Thickness(0, 0, 16, 0);
         }
     }
 }

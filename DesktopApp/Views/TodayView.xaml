@@ -4,7 +4,7 @@
              xmlns:models="clr-namespace:FlowShield.Models"
              x:Name="Root"
              SizeChanged="OnSizeChanged">
-    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+    <ScrollViewer x:Name="PageScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
         <Grid Margin="0,0,8,0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
@@ -15,9 +15,41 @@
                 <RowDefinition x:Name="StatsRow" Height="0"/>
             </Grid.RowDefinitions>
 
+            <!-- The main column: a schedule's heads-up card (F6), then the timer
+                 card. The code-behind moves the column's margin, not the
+                 timer card's, so the two cards stay flush. -->
+            <StackPanel x:Name="MainColumn" Grid.Row="0" Grid.Column="0" Margin="0,0,16,0"
+                        VerticalAlignment="Top">
+
+            <!-- ============================================= heads-up (F6) -->
+            <!-- "Homework evening starts at 17:00", or "You missed ...". No
+                 AutomationId on the Border (#134): the title, the line and the
+                 two buttons are the real controls. Start now is Secondary and
+                 Skip today Quiet: Start sprint below stays the view's one
+                 Primary (DESIGN_SYSTEM section 7). -->
+            <Border Style="{StaticResource Card}" Padding="20" Margin="0,0,0,16"
+                    Background="{DynamicResource PrimarySoft}" BorderBrush="{DynamicResource Primary}"
+                    Visibility="{Binding HeadsUpVisible, Converter={StaticResource BoolVis}}">
+                <StackPanel>
+                    <TextBlock Text="{Binding HeadsUpTitle}" Style="{StaticResource H2}" TextWrapping="Wrap"
+                               AutomationProperties.AutomationId="HeadsUpCard"/>
+                    <TextBlock Text="{Binding HeadsUpText}" Style="{StaticResource Body}" TextWrapping="Wrap"
+                               Margin="0,4,0,0" AutomationProperties.AutomationId="HeadsUpText"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                        <Button Style="{StaticResource BtnGhost}" Content="Start now" Padding="24,8"
+                                Command="{Binding StartNowCommand}"
+                                AutomationProperties.AutomationId="HeadsUpStartNowButton"
+                                AutomationProperties.Name="Start now"/>
+                        <Button Style="{StaticResource BtnQuiet}" Content="Skip today" Padding="24,8" Margin="12,0,0,0"
+                                Command="{Binding SkipTodayCommand}"
+                                AutomationProperties.AutomationId="HeadsUpSkipButton"
+                                AutomationProperties.Name="Skip today"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
             <!-- ==================================================== timer card -->
-            <Border x:Name="TimerCard" Grid.Row="0" Grid.Column="0" Style="{StaticResource Card}" Margin="0,0,16,0" Padding="24"
-                    VerticalAlignment="Top">
+            <Border x:Name="TimerCard" Style="{StaticResource Card}" Padding="24">
                 <StackPanel>
 
                     <!-- ring: 222px diameter, 12px stroke, round cap (UI-SPEC.md
@@ -93,6 +125,31 @@
                                        AutomationProperties.AutomationId="SprintIntentionText"/>
                         </StackPanel>
                     </Grid>
+
+                    <!-- templates (F6): a preset, not a lock. Each chip fills in
+                         length, shield, cycle and profile; hidden while a sprint
+                         or break runs. The id goes on the Button (#134). The
+                         list itself is no tab stop: Tab goes straight to the chips. -->
+                    <ItemsControl ItemsSource="{Binding Templates}" Margin="0,16,0,0" HorizontalAlignment="Center"
+                                  IsTabStop="False"
+                                  Visibility="{Binding TemplatesVisible, Converter={StaticResource BoolVis}}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel HorizontalAlignment="Center"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Button Style="{StaticResource BtnQuiet}" Padding="8,0" Margin="2,0,2,8"
+                                        Content="{Binding Name}"
+                                        Command="{Binding DataContext.ApplyTemplateCommand,
+                                                  RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                        CommandParameter="{Binding}"
+                                        AutomationProperties.AutomationId="{Binding Name, StringFormat=TemplateChip_{0}}"
+                                        AutomationProperties.Name="{Binding Name, StringFormat=Use the {0} template}"/>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
 
                     <!-- primary action -->
                     <Button Style="{StaticResource BtnPrimary}" Content="Start sprint"
@@ -439,6 +496,7 @@
                     </Border>
                 </StackPanel>
             </Border>
+            </StackPanel>
 
             <!-- ==================================================== stats rail -->
             <StackPanel x:Name="StatsRail" Grid.Row="0" Grid.Column="1" VerticalAlignment="Top">

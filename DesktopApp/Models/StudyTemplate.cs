@@ -35,7 +35,11 @@ public class StudyTemplate
     /// <summary>One of <see cref="CycleState.CycleChoices"/>; 0 means a single sprint.</summary>
     public int CycleSprints { get; set; }
 
-    /// <summary>The breaks inside this template's cycle. Hand-started sprints keep the global settings.</summary>
+    /// <summary>
+    /// The breaks inside this template's cycle, for a run begun from it: a
+    /// schedule's start, or a chip on Today followed by Start. A sprint
+    /// started with no template applied keeps the global settings.
+    /// </summary>
     public int BreakMinutes { get; set; } = CycleState.DefaultShortBreakMinutes;
 
     public string ProfileId { get; set; } = "";

@@ -29,6 +29,14 @@ internal static class Commands
             "schedule-between" => ScheduleBetween(request),
             "schedule-skip" => ScheduleSkip(request),
             "schedule-normalize" => ScheduleNormalize(request),
+            "schedule-decide" => ScheduleDecide(request),
+            "schedule-windows" => ScheduleWindows(request),
+            "schedule-seed" => new JsonObject
+            {
+                ["seed"] = Iso(SchedulePlanner.SeedLastTick(
+                    request["last"] is { } last ? Utc((string)last!) : null, Utc((string)request["now"]!))),
+            },
+            "schedule-card-expired" => ScheduleCardExpired(request),
             "text-days" => new JsonObject
             {
                 ["text"] = ScheduleText.Days(request["days"]!.AsArray().Select(d => (DayOfWeek)(int)d!)),
@@ -177,12 +185,15 @@ internal static class Commands
     /// date in "query", with the remembered dates as they came out. With
     /// "roundtrip": true the schedule goes through JSON between the two, as it
     /// would through the settings file; "stored" is what the file would hold.
+    /// With "kind": "local" each date is handed over as Kind=Local, the way
+    /// Today's Skip today (and DateTime.Today) hands it over.
     /// </summary>
     private static JsonNode ScheduleSkip(JsonObject request)
     {
         var schedule = ScheduleOf(request);
+        var kind = (string?)request["kind"] == "local" ? DateTimeKind.Local : DateTimeKind.Unspecified;
         foreach (var d in request["skip"]!.AsArray())
-            schedule.Skip(DateTime.Parse((string)d!, CultureInfo.InvariantCulture));
+            schedule.Skip(DateTime.SpecifyKind(DateTime.Parse((string)d!, CultureInfo.InvariantCulture), kind));
 
         var stored = JsonSerializer.SerializeToNode(schedule)!["SkippedDatesLocal"]!.AsArray()
             .Select(d => (JsonNode)(string)d!).ToArray();
@@ -211,6 +222,76 @@ internal static class Commands
             ["schedule"] = JsonSerializer.SerializeToNode(schedule),
             ["changed"] = changed,
         };
+    }
+
+    /// <summary>
+    /// {"schedules": [...], "zone", "last": UTC, "now": UTC, "shown": ["id@start", ...], "short": bool}
+    /// -> {"actions": [{"kind", "id", "start"}]}: one scheduler tick, oldest first.
+    /// </summary>
+    private static JsonNode ScheduleDecide(JsonObject request)
+    {
+        // Static, like SoftWait's flag: reset even when the request is malformed.
+        SchedulePlanner.UseShortSchedules = (bool?)request["short"] ?? false;
+        try
+        {
+            var schedules = request["schedules"].Deserialize<List<SprintSchedule>>()!;
+            var shown = request["shown"]!.AsArray().Select(x => (string)x!).ToHashSet(StringComparer.Ordinal);
+            var actions = SchedulePlanner.Decide(schedules, Utc((string)request["last"]!),
+                Utc((string)request["now"]!), ZoneOf(request), shown);
+            return new JsonObject
+            {
+                ["actions"] = new JsonArray(actions.Select(a => (JsonNode)new JsonObject
+                {
+                    ["kind"] = a.Kind.ToString(), ["id"] = a.Schedule.Id, ["start"] = Iso(a.StartUtc),
+                }).ToArray()),
+            };
+        }
+        finally
+        {
+            SchedulePlanner.UseShortSchedules = false;
+        }
+    }
+
+    /// <summary>
+    /// {"short": bool} -> {"lead", "late", "on_time", "tick"}: the heads-up lead,
+    /// the late window, how late still counts as on time, and the tick, in seconds.
+    /// </summary>
+    private static JsonNode ScheduleWindows(JsonObject request)
+    {
+        // Static, like SoftWait's flag: reset even when the request is malformed.
+        SchedulePlanner.UseShortSchedules = (bool?)request["short"] ?? false;
+        try
+        {
+            return new JsonObject
+            {
+                ["lead"] = (int)SchedulePlanner.HeadsUpLead.TotalSeconds,
+                ["late"] = (int)SchedulePlanner.LateWindow.TotalSeconds,
+                ["on_time"] = (int)SchedulePlanner.OnTime.TotalSeconds,
+                ["tick"] = (int)SchedulePlanner.TickInterval.TotalSeconds,
+            };
+        }
+        finally
+        {
+            SchedulePlanner.UseShortSchedules = false;
+        }
+    }
+
+    /// <summary>{"start": UTC, "now": UTC, "short": bool} -> {"expired"}: whether a card for that start has gone stale.</summary>
+    private static JsonNode ScheduleCardExpired(JsonObject request)
+    {
+        // Static, like SoftWait's flag: reset even when the request is malformed.
+        SchedulePlanner.UseShortSchedules = (bool?)request["short"] ?? false;
+        try
+        {
+            return new JsonObject
+            {
+                ["expired"] = SchedulePlanner.CardHasExpired(Utc((string)request["start"]!), Utc((string)request["now"]!)),
+            };
+        }
+        finally
+        {
+            SchedulePlanner.UseShortSchedules = false;
+        }
     }
 
     /// <summary>{"settings": {...}} as the settings file holds it, with profiles settled as startup does first.</summary>

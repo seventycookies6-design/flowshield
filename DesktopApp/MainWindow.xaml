@@ -503,9 +503,18 @@
             </Border>
 
             <!-- toast -->
+            <!-- A notice, never a control. It lies over the foot of whatever
+                 page is up for four seconds, so a click there must reach the
+                 page, not stop at the toast: with Today's row of template
+                 chips (F6) the shield picker sits under it at the default
+                 window height, and "Profile added" swallowed the click on
+                 Sealed. IsHitTestVisible lets the mouse look straight through
+                 it. (UI Automation's from_point still reports the toast while
+                 it is up; only real input passes.) -->
             <Border Grid.Row="1" VerticalAlignment="Bottom" HorizontalAlignment="Center"
                     Margin="0,0,0,24" CornerRadius="{StaticResource RadiusCard}" Padding="16,12"
                     Background="{DynamicResource Surface}" BorderBrush="{DynamicResource EdgeBright}" BorderThickness="1"
+                    IsHitTestVisible="False"
                     Visibility="{Binding ToastVisible, Converter={StaticResource BoolVis}}">
                 <Border.Effect>
                     <DropShadowEffect BlurRadius="20" ShadowDepth="4" Direction="270" Opacity="0.55"/>

@@ -10,7 +10,7 @@ from __future__ import annotations
 import os
 import subprocess
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -1623,6 +1623,9 @@ class TestNotificationSettings:
         ("NotifyFiveMinutesLeftToggle", "FiveMinutesLeft"),
         ("NotifySprintCompleteToggle", "SprintComplete"),
         ("NotifySprintInterruptedToggle", "SprintInterrupted"),
+        ("NotifyBreakOverToggle", "BreakOver"),
+        ("NotifyScheduledSprintToggle", "ScheduledSprint"),
+        ("NotifyAppClosingToggle", "AppClosing"),
         ("NotifyTrialEndingToggle", "TrialEnding"),
     ]
 
@@ -2956,3 +2959,300 @@ class TestSchedulePage:
         time.sleep(0.6)
         after = fresh_app.element("SaveSleepWindowButton").rectangle()
         assert after.top > before.top, "a wheel turn over the sleep window must scroll the page"
+
+
+# ============================ scheduled sprints and Today's chips (F6, PR C)
+
+class TestScheduledSprints:
+    """F6 done-when: a schedule a minute ahead starts, after a heads-up that can skip it."""
+
+    # Saving a schedule through the editor is several seconds of clicks, so
+    # the start has to be further off than that or it passes before Save.
+    SETUP_SECONDS = 30
+
+    # --short-schedules: the heads-up lead, the late window and how late a
+    # tick may be and still start (SchedulePlanner; pinned in tier 1).
+    LEAD_SECONDS = 15
+    ON_TIME_SECONDS = 3
+
+    TARGET = "flowshield-test-target"
+
+    def _schedule_in(self, app, seconds: int = 70, template="Light study", ask=True,
+                     setup_seconds: int | None = None) -> datetime:
+        """
+        A schedule for the whole minute `seconds` from now. The editor takes
+        HH:MM, so the start rounds down to the minute; one that would land
+        inside `setup_seconds` (SETUP_SECONDS by default) moves on a minute.
+        Returns the start, which is still more than a lead and a tick away.
+        """
+        now = datetime.now()
+        at = (now + timedelta(seconds=seconds)).replace(second=0, microsecond=0)
+        if (at - now).total_seconds() < (setup_seconds or self.SETUP_SECONDS):
+            at += timedelta(minutes=1)
+        app.navigate_to_tab("Schedule")
+        app.add_schedule(template, [at.strftime("%a")], at.strftime("%H:%M"), ask_first=ask)
+        verify.wait_for_settings(lambda st: len(st.get("Schedules") or []) == 1, what="the schedule")
+        assert datetime.now() < at - timedelta(seconds=self.LEAD_SECONDS + 1), \
+            "the editor took so long the heads-up was missed"
+        return at
+
+    def _wait_past_the_start(self, at: datetime) -> None:
+        """Until the start and its on-time window are behind us, plus a tick or two, so a start would show."""
+        while datetime.now() < at + timedelta(seconds=self.ON_TIME_SECONDS + 5):
+            time.sleep(0.5)
+
+    def _decoy(self, tmp_path):
+        """A blocked app that is open: a renamed ping, as TestPreSprintWarning uses."""
+        import shutil
+        exe = tmp_path / f"{self.TARGET}.exe"
+        shutil.copy2(Path(os.environ["WINDIR"]) / "System32" / "PING.EXE", exe)
+        return subprocess.Popen(
+            [str(exe), "-n", "300", "127.0.0.1"],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+
+    @staticmethod
+    def _wait_for_sprint(app, timeout: float = 40) -> bool:
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            if "Shield" in app.session_state():
+                return True
+            time.sleep(0.5)
+        return False
+
+    START_NOTICES = ("SprintStarted", "ScheduledSprint")
+
+    @staticmethod
+    def _log_lines(app) -> list[str]:
+        path = app.app_log_path()
+        return path.read_text(encoding="utf-8", errors="replace").splitlines() if path else []
+
+    def _start_notices_since(self, app, seen: int, expected: str, timeout: float = 5) -> list[str]:
+        """
+        The start notifications the app logged ("notification: <kind>") after
+        its first `seen` log lines, once `expected` is among them or the
+        timeout passes. Call it once the sprint shows as running: a start's
+        notices go out in the same dispatcher turn, so all of them are logged.
+        """
+        deadline = time.time() + timeout
+        while True:
+            kinds = [line.rsplit("notification: ", 1)[1].strip()
+                     for line in self._log_lines(app)[seen:] if "notification: " in line]
+            kinds = [kind for kind in kinds if kind in self.START_NOTICES]
+            if expected in kinds or time.time() >= deadline:
+                return kinds
+            time.sleep(0.25)
+
+    def test_heads_up_then_it_starts(self, schedule_app):
+        self._schedule_in(schedule_app)
+        schedule_app.navigate_to_tab("Today")
+        schedule_app.wait_until_control_enabled("HeadsUpStartNowButton", timeout=100)
+        # Read straight away: under --short-schedules the card is up for fifteen seconds.
+        title = schedule_app.text_of("HeadsUpCard")
+        text = schedule_app.text_of("HeadsUpText")
+        assert title.startswith("Light study starts at "), title
+        assert text == "25 minutes at Soft.", text
+
+        assert self._wait_for_sprint(schedule_app), "the sprint started by itself"
+        sprint = verify.read_settings()["ActiveSprint"]
+        assert sprint["Shield"] == 1   # Soft, from the template
+        assert sprint["TemplateBreakMinutes"] == 5, "the template's own break rides with the sprint"
+        assert not schedule_app.exists("HeadsUpStartNowButton", timeout=0.5), "the card has done its job"
+
+    def test_skip_today_stops_it(self, schedule_app):
+        at = self._schedule_in(schedule_app)
+        schedule_app.navigate_to_tab("Today")
+        schedule_app.wait_until_control_enabled("HeadsUpSkipButton", timeout=100)
+        schedule_app.click("HeadsUpSkipButton")
+        # A click that lands after the start would read as Skip not working.
+        assert datetime.now() < at, f"Skip was clicked after the start; too slow for the {self.LEAD_SECONDS}-second lead"
+        settings = verify.wait_for_settings(
+            lambda st: bool(st["Schedules"][0]["SkippedDatesLocal"]), what="the skip")
+        assert settings["Schedules"][0]["SkippedDatesLocal"] == [at.strftime("%Y-%m-%dT00:00:00")], \
+            "the start's own date, with no offset"
+
+        # Past the start and its on-time window: nothing started.
+        self._wait_past_the_start(at)
+        assert verify.read_settings().get("ActiveSprint") is None
+        assert "Shield" not in schedule_app.session_state()
+
+    def test_the_heads_up_names_the_app_it_will_close_and_stands_in_for_the_question(
+            self, schedule_app, tmp_path):
+        process = self._decoy(tmp_path)
+        try:
+            schedule_app.navigate_to_tab("Blocked Apps")
+            assert schedule_app.add_blocked_app(self.TARGET)
+            self._schedule_in(schedule_app, template="Homework evening")
+            schedule_app.navigate_to_tab("Today")
+            schedule_app.wait_until_control_enabled("HeadsUpStartNowButton", timeout=100)
+            text = schedule_app.text_of("HeadsUpText")
+            assert text.lower().startswith("45 minutes at firm."), text
+            assert f"{self.TARGET} will be closed." in text.lower(), text
+
+            assert self._wait_for_sprint(schedule_app), "the heads-up named it, so nothing is asked"
+            assert not schedule_app.exists("RunningAppsTitle", timeout=0.5)
+            assert verify.read_settings()["ActiveSprint"]["TemplateBreakMinutes"] == 10
+        finally:
+            if process.poll() is None:
+                process.kill()
+
+    def test_without_a_heads_up_an_open_app_is_asked_about_first(self, schedule_app, tmp_path):
+        """
+        Ask first off: nothing named the app, so the start waits on F7's
+        question, as quick start does (#270). Answering it starts the template.
+        """
+        process = self._decoy(tmp_path)
+        try:
+            schedule_app.navigate_to_tab("Blocked Apps")
+            assert schedule_app.add_blocked_app(self.TARGET)
+            self._schedule_in(schedule_app, template="Homework evening", ask=False)
+            schedule_app.navigate_to_tab("Schedule")   # away from Today: the question brings it back
+
+            assert schedule_app.exists("RunningAppsTitle", timeout=100), "the question never came"
+            assert schedule_app.current_page_title() == "Today"
+            assert not schedule_app.exists("StopSprintButton", timeout=1)
+            assert process.poll() is None, "nothing may be closed before the answer"
+            assert verify.read_settings().get("ActiveSprint") is None
+
+            seen = len(self._log_lines(schedule_app))
+            schedule_app.click("StartAnywayButton")
+            assert schedule_app.exists("StopSprintButton", timeout=5), "the answer starts the template"
+            sprint = verify.wait_for_settings(lambda st: st.get("ActiveSprint") is not None,
+                                              what="the sprint")["ActiveSprint"]
+            assert sprint["PlannedMinutes"] == 45 and sprint["TemplateBreakMinutes"] == 10
+            assert self._start_notices_since(schedule_app, seen, "ScheduledSprint") == ["ScheduledSprint"], \
+                "the answered start is still the schedule's, named once"
+        finally:
+            if process.poll() is None:
+                process.kill()
+
+    def test_a_start_without_asking_sends_one_notification(self, schedule_app):
+        """
+        Review of PR C: "Sprint started" is on by default, so a start with Ask
+        first off sent it and "Light study started" back to back. The named
+        one (spec 3.3) stands in for it: one start, one notification.
+        """
+        self._schedule_in(schedule_app, ask=False)
+        schedule_app.navigate_to_tab("Today")
+        seen = len(self._log_lines(schedule_app))
+        assert self._wait_for_sprint(schedule_app, timeout=100), "the sprint started by itself"
+        assert self._start_notices_since(schedule_app, seen, "ScheduledSprint") == ["ScheduledSprint"]
+
+    def _wait_for_log_line(self, app, needle: str, since: int, deadline: datetime, what: str) -> None:
+        """
+        Poll the app log for `needle` after its first `since` lines until
+        `deadline`; a miss fails as `what`, not as a timeout. The log is one
+        file a day, so an earlier run's line would otherwise match at once.
+        """
+        while not any(needle in line for line in self._log_lines(app)[since:]):
+            assert datetime.now() < deadline, what
+            time.sleep(0.2)
+
+    def test_a_start_whose_heads_up_fell_in_a_hand_sprint_is_offered_not_started(self, schedule_app):
+        """
+        Final review of PR C: Ask first promises a question before a start.
+        A sprint running when the heads-up is due swallows it (the scheduler
+        refuses while busy, and remembers the heads-up as shown), so at the
+        time nobody had been asked. The start is then offered on the card,
+        never taken. A 25-minute hand sprint ending between T-15 and T is
+        enough; here one is stopped by hand inside that window.
+        """
+        since = len(self._log_lines(schedule_app))     # this launch's lines only
+        # Room for the editor and a hand Start before the heads-up is due.
+        at = self._schedule_in(schedule_app, setup_seconds=self.SETUP_SECONDS + self.LEAD_SECONDS)
+        schedule_app.navigate_to_tab("Today")
+        schedule_app.select_shield("Soft")             # a fresh state starts at Firm, whose Stop asks first
+        schedule_app.start_sprint()
+        assert datetime.now() < at - timedelta(seconds=self.LEAD_SECONDS + 1), \
+            "Start landed too late for the heads-up to fall inside the sprint"
+
+        # The heads-up tick lands while the sprint runs: refused, and remembered
+        # as shown. The sprint is then stopped inside the lead: one lookup and
+        # an invoke, not click()'s resolve-scroll-settle, so the stop lands
+        # seconds before the start instead of racing it (#241). Soft ends on
+        # one press, in or out of the grace period.
+        stop = schedule_app.element("StopSprintButton")
+        self._wait_for_log_line(schedule_app, "schedule HeadsUp for Light study skipped: busy or gated",
+                                since=since, deadline=at, what="the heads-up was not swallowed by the sprint")
+        try:
+            stop.invoke()
+        except Exception:                                  # noqa: BLE001
+            stop.click_input()
+        stopped_at = datetime.now()
+        seen = len(self._log_lines(schedule_app))
+        assert stopped_at < at, f"the sprint ended after the start; too slow for the {self.LEAD_SECONDS}-second lead"
+        ended_by = time.time() + 5
+        while "Shield" in schedule_app.session_state():
+            assert time.time() < ended_by, "the Stop press did not end the sprint"
+            time.sleep(0.2)
+
+        schedule_app.wait_until_control_enabled("HeadsUpStartNowButton", timeout=20)
+        assert schedule_app.text_of("HeadsUpCard") == "Light study is due now"
+        assert schedule_app.text_of("HeadsUpText") == "25 minutes at Soft."
+        assert not any("schedule card shown: HeadsUp for Light study" in line
+                       for line in self._log_lines(schedule_app)[since:]), \
+            "no heads-up card was ever up: this offer is the first question"
+
+        # Past the start and its on-time window: offered, not started.
+        self._wait_past_the_start(at)
+        assert verify.read_settings().get("ActiveSprint") is None
+        assert "Shield" not in schedule_app.session_state()
+        assert schedule_app.exists("HeadsUpStartNowButton", timeout=0.5), "the offer stays up"
+        assert self._start_notices_since(schedule_app, seen, "ScheduledSprint") == ["ScheduledSprint"], \
+            "the offer is announced once, and no start is"
+
+        # The offer is live: Start now starts the template, with its own break.
+        schedule_app.click("HeadsUpStartNowButton")
+        assert self._wait_for_sprint(schedule_app, timeout=10), "Start now starts the template"
+        sprint = verify.wait_for_settings(lambda st: st.get("ActiveSprint") is not None,
+                                          what="the sprint")["ActiveSprint"]
+        assert sprint["PlannedMinutes"] == 25 and sprint["TemplateBreakMinutes"] == 5
+        assert not schedule_app.exists("HeadsUpStartNowButton", timeout=0.5), "the card has done its job"
+
+    def test_a_template_chip_fills_in_today(self, fresh_app):
+        fresh_app.select_shield("Soft")
+        fresh_app.click("TemplateChip_Homework evening")
+        assert fresh_app.is_selected("Shield_Firm")
+        assert fresh_app.is_selected("SprintLength_45")
+        assert fresh_app.is_selected("Cycle_3")
+        settings = verify.wait_for_settings(lambda st: st["CycleSprints"] == 3, what="the template's cycle")
+        assert settings["CycleSprints"] == 3
+
+    def test_a_chip_carries_the_templates_break_to_a_hand_start(self, fresh_app):
+        """
+        PR C polish, item 9: the chip's preset includes the template's break
+        length, and a hand change of length afterwards keeps it, so the
+        sprint started by Start takes the template's breaks (Light study: 5).
+        """
+        fresh_app.click("TemplateChip_Light study")
+        assert fresh_app.is_selected("SprintLength_25")
+        fresh_app.click("SprintLength_15")
+        fresh_app.start_sprint()
+        sprint = verify.wait_for_settings(lambda st: st.get("ActiveSprint") is not None,
+                                          what="the sprint")["ActiveSprint"]
+        assert sprint["PlannedMinutes"] == 15, "the hand change of length stands"
+        assert sprint["TemplateBreakMinutes"] == 5, "the chip's break rides with the sprint"
+
+    def test_a_template_between_the_preset_lengths_uses_custom(self, fresh_app):
+        """Also shows a new template reaching Today's chips (TemplatesChanged)."""
+        fresh_app.navigate_to_tab("Schedule")
+        fresh_app.click("NewTemplateButton")
+        fresh_app.set_text("TemplateNameInput", "Reading")
+        fresh_app.set_text("TemplateMinutesInput", "30")
+        fresh_app.click("SaveTemplateButton")
+        fresh_app.wait_until_gone("SaveTemplateButton")
+
+        fresh_app.navigate_to_tab("Today")
+        fresh_app.click("TemplateChip_Reading")
+        assert fresh_app.is_selected("SprintLength_Custom")
+        assert fresh_app.text_of("CustomMinutesInput") == "30"
+        assert fresh_app.text_of("SprintTimerText") == "30:00"
+
+    def test_the_chips_hide_while_a_sprint_runs(self, fresh_app):
+        assert fresh_app.exists("TemplateChip_Light study", timeout=3)
+        fresh_app.start_sprint()
+        try:
+            fresh_app.wait_until_gone("TemplateChip_Light study")
+        finally:
+            fresh_app.cancel_sprint()
+        assert fresh_app.exists("TemplateChip_Light study", timeout=3), "back once the sprint is over"

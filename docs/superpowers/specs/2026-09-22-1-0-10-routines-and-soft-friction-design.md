@@ -132,33 +132,39 @@ including a day-of-week change across midnight and a skipped date.
 ### 3.3 The scheduler
 
 `ScheduleService` owns a 15-second `DispatcherTimer`. `MainViewModel` creates
-and starts it (a two-line change) and nothing else in `MainViewModel` changes.
-On each tick, for each enabled schedule:
+and starts it and routes what it raises (`OnScheduleAction`) through the same
+gates as the Start button. `SchedulePlanner` is pure: given the last tick and
+now, it says what is due. Every tick stamps `AppSettings.ScheduleLastCheckUtc`
+before raising anything, and the next launch counts from that stamp (clamped
+to the matcher's look-back limit), so a start that passed while FlowShield
+was closed is inside the first tick's interval. For each enabled schedule:
 
 | Situation | Behaviour |
 |---|---|
-| Start is 5 minutes away (and `AskFirst`) | Raise the heads-up: a `ScheduledSprint` notification (the kind already exists in `Notifications.cs`) and a card on Today — "Homework evening starts at 17:00" with **Start now** and **Skip today**. The card names blocked apps that are open ("Discord will be closed") so it doubles as the pre-sprint warning. |
-| Start time reached, not skipped | Apply the template and start through the same gates as the Start button: terms accepted, first run finished, trial not ended. Open blocked apps get the normal Firm/Sealed warn-then-close. The pre-sprint running-apps panel is not shown; the heads-up replaced it. |
-| `AskFirst` is off | No heads-up; the notification "Homework evening started" appears at the start. |
-| A sprint or break is already running | Skip quietly and log one line. Nothing stacks or queues. |
-| FlowShield was closed or the PC asleep at the start time, and it is now up to 30 minutes late | Ask: "You missed Homework evening · Start now / Not today". Never start automatically after waking or launching. |
+| Start is 5 minutes away (and `AskFirst`) | Raise the heads-up: a `ScheduledSprint` notification titled "Homework evening starts at 17:00" and a card on Today with the same title, **Start now** and **Skip today**. Both name the open blocked apps the template will close ("Discord will be closed.") so they double as the pre-sprint warning. Clicking the notification opens Today. |
+| Start time reached on an ordinary tick, not skipped, with the card for this start up (or `AskFirst` off) | Apply the template to Today the way a chip does (length, shield, cycle, blocklist profile) and start through the Start button's gates: terms accepted, first run finished, trial not ended. F7's open-apps question is skipped only when the card named every open app the sprint will close where the person could see it (the window was up when the card was shown, or the notification with the names was sent); otherwise the question is asked on Today, brought to the front, and nothing starts or closes until it is answered. |
+| Start time reached, `AskFirst` on, and no card is up for this start (the heads-up tick landed while a sprint or break was running, a hand sprint since hid the card, or the clock was moved past the heads-up) | Offer, never start: the same card, reading "Homework evening is due now", naming the open apps as the heads-up would, plus the notification. Nobody was asked, and asking is the one promise Ask first makes. |
+| `AskFirst` is off | No heads-up; the notification "Homework evening started" goes out at the start, in place of "Sprint started". |
+| A sprint or break is already running, or a gate is up | Skip quietly and log one line. Nothing stacks or queues; a card up for that start goes. |
+| A gap since the last tick longer than a minute (the PC slept, FlowShield was closed, the clock jumped) | Every start inside the gap was missed, however recent: never start after waking or launching. The latest one up to 30 minutes late is offered: "You missed Homework evening · Start now / Skip today", with a notification that says it was missed. One offer per gap. |
 | More than 30 minutes late | Do nothing; log one line. |
+| A card's start is handled (started, refused, skipped, its schedule switched off or deleted), or 30 minutes have passed since its start | The card goes. Expiry is checked on every tick, so a missed offer does not outlive its window. |
 | **Skip today** | Record the date on the schedule. No effect on momentum, streak or daily goal. |
 | Trial ended (locked) | Never start and never show a heads-up. |
 | Terms not accepted or first run showing | Never start; no heads-up. |
 
 "Late" is measured against the wall clock of the missed start. The service
-remembers the last tick it saw; on the first tick after a gap longer than a
-minute it treats any start inside the gap as missed.
+remembers the last tick it saw; a tick more than a minute after the last one
+is a gap, and nothing in a gap starts.
 
 Templates started from a schedule set `RunningSprint.ActiveProfileId` from the
-template (the field and its "F6's templates will set it" comment already
-exist). Sealed schedules are allowed; the heads-up says the list will lock.
+template. Sealed schedules are allowed; the heads-up says the list will lock.
 
-**Test hook:** `--short-schedules` makes the heads-up lead 5 seconds instead
-of 5 minutes and the late window 10 seconds instead of 30 minutes, like the
-existing `--short-timers` and `--short-sprints`. The UI suite's default
-launch flags do not include it; the schedule tests add it.
+**Test hook:** `--short-schedules` makes the heads-up lead 15 seconds instead
+of 5 minutes, the late window 30 seconds instead of 30 minutes, the on-time
+tolerance 3 seconds and the tick 1 second, like the existing `--short-timers`
+and `--short-sprints`. The UI suite's default launch flags do not include it;
+the schedule tests add it.
 
 ### 3.4 The Schedule page
 
