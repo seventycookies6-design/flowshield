@@ -2804,7 +2804,9 @@ class SoftOverlayPolicy:
     Python mirror of Models/SoftOverlayPolicy.cs.
 
     Times are plain seconds here; the C# version takes UTC instants. Only the
-    two rules matter: once per sighting, and a per-app quiet window.
+    two rules matter: once per sighting, and a per-app quiet window. 1.0.10
+    adds two counters, tries and turned back, which the probe tests in
+    test_tier1_models.py run against the real C#.
     """
 
     ALLOW_WINDOW = 5 * 60
@@ -2814,6 +2816,8 @@ class SoftOverlayPolicy:
         self.quiet_until: dict[str, float] = {}
         self.sighting: str | None = None
         self.showing = False
+        self.tries = 0
+        self.turned_back = 0
 
     def should_show(self, app: str, now: float) -> bool:
         is_new = self.sighting is None or self.sighting.lower() != app.lower()
@@ -2823,6 +2827,7 @@ class SoftOverlayPolicy:
         if self.is_quiet(app, now):
             return False
         self.showing = True
+        self.tries += 1
         return True
 
     def left_the_foreground(self) -> bool:
@@ -2835,6 +2840,11 @@ class SoftOverlayPolicy:
         self._quieten(app, now, self.ALLOW_WINDOW)
 
     def back_to_work(self, app: str, now: float) -> None:
+        self.turned_back += 1
+        self._quieten(app, now, self.BACK_TO_WORK_QUIET)
+
+    def close_it(self, app: str, now: float) -> None:
+        self.turned_back += 1
         self._quieten(app, now, self.BACK_TO_WORK_QUIET)
 
     def _quieten(self, app: str, now: float, window: float) -> None:
@@ -2849,6 +2859,8 @@ class SoftOverlayPolicy:
         self.quiet_until.clear()
         self.sighting = None
         self.showing = False
+        self.tries = 0
+        self.turned_back = 0
 
 
 class TestSoftOverlayPolicy:
@@ -2994,8 +3006,9 @@ class TestSoftOverlayPolicy:
         source = self._model()
         assert ("public void AllowFiveMinutes(string displayName, DateTime nowUtc) => "
                 "Quieten(displayName, nowUtc, AllowWindow);") in source
-        assert ("public void BackToWork(string displayName, DateTime nowUtc) => "
-                "Quieten(displayName, nowUtc, BackToWorkQuiet);") in source
+        back = self._body("public void BackToWork(string displayName, DateTime nowUtc)")
+        assert "TurnedBack++;" in back, "Back to work counts as turned back (1.0.10)"
+        assert "Quieten(displayName, nowUtc, BackToWorkQuiet);" in back
         assert "AllowWindow = TimeSpan.FromMinutes(5)" in source
         assert (f"BackToWorkQuiet = TimeSpan.FromSeconds"
                 f"({self.BACK_TO_WORK_QUIET_SECONDS})") in source

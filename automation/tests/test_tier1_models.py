@@ -515,3 +515,84 @@ class TestTemplatesInSettings:
         profiles, templates = "if (Settings.EnsureProfiles())", "if (Settings.EnsureTemplates())"
         assert profiles in source and templates in source
         assert source.index(profiles) < source.index(templates)
+
+
+# ============================ Soft friction: tries, the wait, wording (1.0.10)
+
+class TestSoftFriction:
+    """
+    1.0.10: the one sec study (PNAS 2023) found the 'don't open it' choice did
+    the most and a wait helped; fixed friction fades within weeks. So: Close
+    first, a wait before Allow that grows with each try, varied wording.
+    """
+
+    def test_tries_count_every_notice_this_sprint_across_apps(self):
+        out = probe({"cmd": "soft-sequence", "steps": [
+            {"op": "show", "app": "Discord", "at": 0}, {"op": "left"},
+            {"op": "show", "app": "Steam", "at": 10}, {"op": "left"},
+            {"op": "show", "app": "Discord", "at": 20},
+            {"op": "tries"},
+        ]})
+        assert out["results"][-1] == 3
+
+    @pytest.mark.parametrize("try_number,seconds", [(1, 5), (2, 10), (3, 20), (4, 30), (9, 30)])
+    def test_the_wait_before_allow_grows(self, try_number, seconds):
+        assert probe({"cmd": "soft-wait", "try": try_number})["seconds"] == seconds
+
+    def test_short_timers_make_every_wait_one_second(self):
+        assert probe({"cmd": "soft-wait", "try": 4, "short": True})["seconds"] == 1
+
+    def test_close_and_back_to_work_count_as_turned_back_and_allow_does_not(self):
+        out = probe({"cmd": "soft-sequence", "steps": [
+            {"op": "show", "app": "Discord", "at": 0}, {"op": "close", "app": "Discord", "at": 1},
+            {"op": "left"},
+            {"op": "show", "app": "Steam", "at": 30}, {"op": "back", "app": "Steam", "at": 31},
+            {"op": "left"},
+            {"op": "show", "app": "Discord", "at": 60}, {"op": "allow", "app": "Discord", "at": 61},
+            {"op": "turned"},
+        ]})
+        assert out["results"][-1] == 2
+
+    def test_close_goes_quiet_like_back_to_work(self):
+        out = probe({"cmd": "soft-sequence", "steps": [
+            {"op": "show", "app": "Discord", "at": 0}, {"op": "close", "app": "Discord", "at": 0},
+            {"op": "show", "app": "Discord", "at": 1}, {"op": "left"},
+            {"op": "show", "app": "Discord", "at": 30},
+        ]})
+        assert out["results"][2] is False and out["results"][4] is True
+
+    def test_a_new_sprint_starts_counting_again(self):
+        out = probe({"cmd": "soft-sequence", "steps": [
+            {"op": "show", "app": "Discord", "at": 0}, {"op": "back", "app": "Discord", "at": 0},
+            {"op": "reset"}, {"op": "tries"}, {"op": "turned"},
+        ]})
+        assert out["results"][-2:] == [0, 0]
+
+    @pytest.mark.parametrize("n,line", [(1, "1st try this sprint"), (2, "2nd try this sprint"),
+                                        (3, "3rd try this sprint"), (4, "4th try this sprint"),
+                                        (11, "11th try this sprint"), (12, "12th try this sprint"),
+                                        (13, "13th try this sprint"), (21, "21st try this sprint"),
+                                        (22, "22nd try this sprint")])
+    def test_the_try_line(self, n, line):
+        assert probe({"cmd": "soft-copy", "try": n})["try_line"] == line
+
+    def test_the_first_sentence_is_the_design_systems_own_example(self):
+        out = probe({"cmd": "soft-copy", "try": 1, "app": "Discord", "ends": "2026-09-28T17:45:00"})
+        assert out["sentence"].startswith("Discord is on your blocklist until")
+
+    def test_the_wording_varies_across_four_tries_and_then_repeats(self):
+        sentences = [probe({"cmd": "soft-copy", "try": n, "app": "Discord",
+                            "ends": "2026-09-28T17:45:00"})["sentence"] for n in range(1, 6)]
+        assert len(set(sentences[:4])) == 4 and sentences[4] == sentences[0]
+        assert all("Discord" in s or "this time" in s for s in sentences)
+
+    @pytest.mark.parametrize("seconds,label", [(8, "Allow 5 minutes · 0:08"),
+                                               (30, "Allow 5 minutes · 0:30"),
+                                               (0, "Allow 5 minutes")])
+    def test_the_allow_button_counts_down_in_text(self, seconds, label):
+        assert probe({"cmd": "soft-copy", "try": 1, "allow_left": seconds})["allow_label"] == label
+
+    def test_an_empty_intention_shows_nothing(self):
+        assert probe({"cmd": "soft-copy", "try": 1, "intention": "  "})["intention"] == ""
+        assert probe({"cmd": "soft-copy", "try": 1, "intention": "finish chapter 3"})["intention"] \
+            == "You planned: finish chapter 3"

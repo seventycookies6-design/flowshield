@@ -209,6 +209,45 @@ public class AppBlockerService : IDisposable
         return found;
     }
 
+    /// <summary>
+    /// The Soft notice's "Close Discord" button (1.0.10). The user chose it;
+    /// Soft itself still closes nothing. Asks every running process of that
+    /// app to close, the way its own close button would, so unsaved work gets
+    /// its "save changes?" prompt. Never kills, and never touches a critical
+    /// process. Returns how many processes were asked.
+    /// </summary>
+    public int AskToClose(string displayName, AppSettings settings)
+    {
+        var app = settings.ActiveProfile.Apps.FirstOrDefault(a =>
+            a.IsEnabled && string.Equals(a.DisplayName, displayName, StringComparison.OrdinalIgnoreCase));
+        if (app is null) return 0;
+
+        var names = new HashSet<string>(app.AllProcessNames, StringComparer.OrdinalIgnoreCase);
+        var asked = 0;
+        foreach (var process in SafeGetProcesses())
+        {
+            try
+            {
+                var name = process.ProcessName;
+                if (CriticalProcesses.Contains(name) || !names.Contains(name)) continue;
+                if (process.CloseMainWindow())
+                {
+                    asked++;
+                    Log.Info($"soft: asked {name} (pid {process.Id}) to close, as the user chose");
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Warn($"soft: could not ask a process to close: {ex.Message}");
+            }
+            finally
+            {
+                process.Dispose();
+            }
+        }
+        return asked;
+    }
+
     public void BeginEnforcing(ShieldLevel shield)
     {
         lock (_gate)

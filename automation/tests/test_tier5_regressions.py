@@ -6844,6 +6844,42 @@ class TestSoftOverlayNeverCloses:
             )
 
 
+class TestSoftCloseNeverKills:
+    """
+    1.0.10 gives Soft a Close button. Soft still never closes anything on its
+    own, and a user-chosen close asks politely (CloseMainWindow) and never kills,
+    so the app's own "save changes?" prompt still appears.
+    """
+
+    BLOCKER = Path(DESKTOP_DIR) / "Services" / "AppBlockerService.cs"
+
+    def _ask_to_close(self) -> str:
+        source = self.BLOCKER.read_text(encoding="utf-8")
+        assert "public int AskToClose(string displayName, AppSettings settings)" in source
+        return source.split("public int AskToClose(", 1)[1].split("\n    }", 1)[0]
+
+    def test_it_only_asks(self):
+        body = self._ask_to_close()
+        assert "CloseMainWindow()" in body
+        for forbidden in ("Kill(", "KillAll(", "_closingAt["):
+            assert forbidden not in body, f"AskToClose must never {forbidden}"
+
+    def test_it_never_touches_a_critical_process(self):
+        assert "CriticalProcesses.Contains(" in self._ask_to_close()
+
+    @pytest.mark.xfail(strict=True, reason="wired in Task 7")
+    def test_it_is_only_reached_from_the_close_button(self):
+        callers = [p for p in Path(DESKTOP_DIR).rglob("*.cs")
+                   if "AskToClose(" in p.read_text(encoding="utf-8")]
+        names = sorted(p.name for p in callers)
+        assert names == ["AppBlockerService.cs", "MainViewModel.cs"], names
+
+    def test_the_sweep_still_closes_nothing_at_soft(self):
+        source = self.BLOCKER.read_text(encoding="utf-8")
+        soft = source.split("if (!terminate)", 1)[1].split("continue;", 1)[0]
+        assert "AskToClose" not in soft
+
+
 # ================================== blocklist profiles must not break anything
 
 class TestBlocklistProfilesKeepTheirPromises:
