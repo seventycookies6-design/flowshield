@@ -5,22 +5,27 @@ using Microsoft.Win32;
 namespace FlowShield.Services;
 
 /// <summary>
-/// Runs the schedules (F6): a 15-second tick that asks <see cref="SchedulePlanner"/>
-/// what is due and raises it. Deciding whether a start is allowed (terms,
-/// first run, trial, a sprint already running) is the caller's job, through
-/// the same gates as the Start button.
+/// Runs the schedules (F6): a 15-second tick (1 second under
+/// <c>--short-schedules</c>) that asks <see cref="SchedulePlanner"/> what is
+/// due and raises it. Deciding whether a start is allowed (terms, first run,
+/// trial, a sprint already running) is the caller's job, through the same
+/// gates as the Start button.
 ///
 /// .NET caches the local time zone, so a zone change would leave every
 /// schedule on the old zone's clock until a restart. Windows says when the
-/// clock or the zone changes; the service then clears that cache and counts
-/// from the change, so the jump is never read as time that passed.
+/// clock or the zone changes, and the service then clears that cache. It
+/// does not restart its count there: Windows says the same on resume from
+/// sleep and whenever its time sync steps the clock, and a restart would
+/// erase the sleep gap (so no missed offer) and lose a start just before a
+/// step. Every interval is in UTC, so a zone change can't replay one, and a
+/// clock set forward is a gap like sleep: at most one missed offer.
 /// </summary>
 public sealed class ScheduleService
 {
-    public static readonly TimeSpan Interval = TimeSpan.FromSeconds(15);
+    public static TimeSpan Interval => SchedulePlanner.TickInterval;
 
     private readonly Func<IReadOnlyList<SprintSchedule>> _schedules;
-    private readonly DispatcherTimer _timer = new() { Interval = Interval };
+    private readonly DispatcherTimer _timer = new();
     private readonly HashSet<string> _headsUpShown = new(StringComparer.Ordinal);
     private DateTime _lastTickUtc;
     private bool _listening;
@@ -49,6 +54,7 @@ public sealed class ScheduleService
                 Log.Warn($"schedules cannot follow clock changes: {ex.Message}");
             }
         }
+        _timer.Interval = Interval;
         _timer.Start();
     }
 
@@ -62,7 +68,9 @@ public sealed class ScheduleService
 
     public void Tick(DateTime nowUtc)
     {
-        // A clock set backwards must not replay starts that already passed.
+        // A clock set back counts from the new time: nothing between it and the
+        // last tick is read as time that passed. A start the clock is set back
+        // before is passed a second time, so it is raised again, like an alarm.
         if (nowUtc < _lastTickUtc) _lastTickUtc = nowUtc;
 
         var actions = SchedulePlanner.Decide(_schedules(), _lastTickUtc, nowUtc, TimeZoneInfo.Local, _headsUpShown);
@@ -77,18 +85,19 @@ public sealed class ScheduleService
     }
 
     // Windows may raise this on its own thread; the tick runs on the timer's.
+    // BeginInvoke is Normal priority and the timer's ticks are Background, so
+    // the cache is cleared before a tick that is already due.
     private void OnTimeChanged(object? sender, EventArgs e) =>
         _timer.Dispatcher.BeginInvoke(ClockChanged);
 
     /// <summary>
-    /// The clock or the time zone changed. Clears .NET's cached zone and
-    /// counts from now, so a start the change passed over is neither replayed
-    /// nor offered as missed.
+    /// The clock or the time zone changed. Clears .NET's cached zone so the
+    /// next tick reads the new one. The count is left alone (see the class
+    /// comment): the next tick still counts from the last one.
     /// </summary>
     private void ClockChanged()
     {
         TimeZoneInfo.ClearCachedData();
-        _lastTickUtc = DateTime.UtcNow;
-        Log.Info("schedules: the clock or time zone changed; counting from now");
+        Log.Info("schedules: the clock or time zone changed; reading the zone again");
     }
 }

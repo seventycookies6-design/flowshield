@@ -216,25 +216,37 @@ internal static class Commands
     }
 
     /// <summary>
-    /// {"schedules": [...], "zone", "last": UTC, "now": UTC, "shown": ["id@start", ...]}
+    /// {"schedules": [...], "zone", "last": UTC, "now": UTC, "shown": ["id@start", ...], "short": bool}
     /// -> {"actions": [{"kind", "id", "start"}]}: one scheduler tick, oldest first.
     /// </summary>
     private static JsonNode ScheduleDecide(JsonObject request)
     {
-        var schedules = request["schedules"].Deserialize<List<SprintSchedule>>()!;
-        var shown = request["shown"]!.AsArray().Select(x => (string)x!).ToHashSet(StringComparer.Ordinal);
-        var actions = SchedulePlanner.Decide(schedules, Utc((string)request["last"]!),
-            Utc((string)request["now"]!), ZoneOf(request), shown);
-        return new JsonObject
+        // Static, like SoftWait's flag: reset even when the request is malformed.
+        SchedulePlanner.UseShortSchedules = (bool?)request["short"] ?? false;
+        try
         {
-            ["actions"] = new JsonArray(actions.Select(a => (JsonNode)new JsonObject
+            var schedules = request["schedules"].Deserialize<List<SprintSchedule>>()!;
+            var shown = request["shown"]!.AsArray().Select(x => (string)x!).ToHashSet(StringComparer.Ordinal);
+            var actions = SchedulePlanner.Decide(schedules, Utc((string)request["last"]!),
+                Utc((string)request["now"]!), ZoneOf(request), shown);
+            return new JsonObject
             {
-                ["kind"] = a.Kind.ToString(), ["id"] = a.Schedule.Id, ["start"] = Iso(a.StartUtc),
-            }).ToArray()),
-        };
+                ["actions"] = new JsonArray(actions.Select(a => (JsonNode)new JsonObject
+                {
+                    ["kind"] = a.Kind.ToString(), ["id"] = a.Schedule.Id, ["start"] = Iso(a.StartUtc),
+                }).ToArray()),
+            };
+        }
+        finally
+        {
+            SchedulePlanner.UseShortSchedules = false;
+        }
     }
 
-    /// <summary>{"short": bool} -> {"lead", "late"}: the heads-up lead and the late window, in seconds.</summary>
+    /// <summary>
+    /// {"short": bool} -> {"lead", "late", "on_time", "tick"}: the heads-up lead,
+    /// the late window, how late still counts as on time, and the tick, in seconds.
+    /// </summary>
     private static JsonNode ScheduleWindows(JsonObject request)
     {
         // Static, like SoftWait's flag: reset even when the request is malformed.
@@ -245,6 +257,8 @@ internal static class Commands
             {
                 ["lead"] = (int)SchedulePlanner.HeadsUpLead.TotalSeconds,
                 ["late"] = (int)SchedulePlanner.LateWindow.TotalSeconds,
+                ["on_time"] = (int)SchedulePlanner.OnTime.TotalSeconds,
+                ["tick"] = (int)SchedulePlanner.TickInterval.TotalSeconds,
             };
         }
         finally

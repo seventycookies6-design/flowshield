@@ -19,14 +19,24 @@ public sealed record ScheduleAction(ScheduleActionKind Kind, SprintSchedule Sche
 /// </summary>
 public static class SchedulePlanner
 {
-    /// <summary>Set by <c>--short-schedules</c> so the UI suite doesn't wait minutes.</summary>
+    /// <summary>
+    /// Set by <c>--short-schedules</c> so the UI suite doesn't wait minutes.
+    /// Every window shrinks with the tick, so each rule can still happen:
+    /// tick &lt; lead, tick &lt; on time &lt; late window.
+    /// </summary>
     public static bool UseShortSchedules { get; set; }
 
     public static TimeSpan HeadsUpLead => UseShortSchedules ? TimeSpan.FromSeconds(5) : TimeSpan.FromMinutes(5);
     public static TimeSpan LateWindow => UseShortSchedules ? TimeSpan.FromSeconds(10) : TimeSpan.FromMinutes(30);
 
-    /// <summary>How late a start may be seen and still count as on time: one tick and a bit.</summary>
-    public static readonly TimeSpan OnTime = TimeSpan.FromMinutes(1);
+    /// <summary>How often the service ticks.</summary>
+    public static TimeSpan TickInterval => UseShortSchedules ? TimeSpan.FromSeconds(1) : TimeSpan.FromSeconds(15);
+
+    /// <summary>
+    /// How late a start may be seen and still count as on time: a few ticks,
+    /// so a tick the busy UI thread runs late still starts it.
+    /// </summary>
+    public static TimeSpan OnTime => UseShortSchedules ? TimeSpan.FromSeconds(3) : TimeSpan.FromMinutes(1);
 
     /// <summary>"s1@2026-09-28T21:00:00Z": one heads-up per schedule and start.</summary>
     public static string HeadsUpKey(SprintSchedule s, DateTime startUtc) =>

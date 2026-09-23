@@ -363,9 +363,9 @@ class TestSchedulePlanner:
 
     Z = EASTERN
 
-    def decide(self, schedules, last, now, shown=()):
-        return probe({"cmd": "schedule-decide", "schedules": schedules, "zone": self.Z,
-                      "last": last, "now": now, "shown": list(shown)})
+    def decide(self, schedules, last, now, shown=(), zone=None, short=False):
+        return probe({"cmd": "schedule-decide", "schedules": schedules, "zone": zone or self.Z,
+                      "last": last, "now": now, "shown": list(shown), "short": short})
 
     def test_heads_up_five_minutes_before(self):
         out = self.decide([schedule()], "2026-09-28T20:54:50Z", "2026-09-28T20:55:05Z")
@@ -427,22 +427,59 @@ class TestSchedulePlanner:
         out = self.decide([b, a], "2026-09-28T20:59:50Z", "2026-09-28T21:00:05Z")
         assert [x["id"] for x in out["actions"]] == ["a", "b"]
 
-    def test_a_clock_or_zone_change_counts_from_the_change(self):
+    @pytest.mark.parametrize("new_zone", ["Pacific Standard Time", "GMT Standard Time"])
+    def test_a_zone_change_between_ticks_replays_nothing(self, new_zone):
         """
-        ScheduleService restarts its count when Windows says the clock or the
-        time zone changed. Set forward from 16:50 to 17:10 EDT, the jump would
-        otherwise read as twenty minutes that passed and bring 17:00 back as a
-        missed start; counted from the change, a start already passed is
-        neither started nor offered.
+        Every interval is in UTC, so a start already passed is never inside a
+        later one, whatever the zone now says. The next tick counts from the
+        last one, with no reset: westward (17:00 PDT is 00:00Z) or eastward
+        (17:00 BST was 16:00Z), the 17:00 EDT start that just ran is not seen again.
         """
-        before, change, tick = "2026-09-28T20:50:00Z", "2026-09-28T21:10:00Z", "2026-09-28T21:10:15Z"
-        assert [a["kind"] for a in self.decide([schedule()], before, tick)["actions"]] == ["OfferMissed"]
-        assert self.decide([schedule()], change, tick)["actions"] == []
+        ran = self.decide([schedule()], "2026-09-28T20:59:50Z", "2026-09-28T21:00:05Z")
+        assert [a["kind"] for a in ran["actions"]] == ["Start"]
+        after = self.decide([schedule()], "2026-09-28T21:00:05Z", "2026-09-28T21:00:20Z", zone=new_zone)
+        assert after["actions"] == []
 
-    def test_short_schedules_shrink_the_lead_and_late_window(self):
+    def test_a_clock_set_forward_past_a_start_is_a_gap_like_sleep(self):
+        """
+        Review focus 2: a clock change is a gap, like sleep. Set forward from
+        16:50 to 17:10 EDT, the next tick still counts from 16:50, so 17:00 is
+        one missed offer, never a start. Windows also says "the clock changed"
+        on resume and on its own time sync; the service no longer restarts its
+        count then, which is what erased the sleep gap and lost starts.
+        """
+        before, tick = "2026-09-28T20:50:00Z", "2026-09-28T21:10:15Z"
+        out = self.decide([schedule()], before, tick)
+        assert out["actions"] == [{"kind": "OfferMissed", "id": "s1", "start": "2026-09-28T21:00:00Z"}]
+
+    def test_short_schedules_shrink_every_window_and_the_tick(self):
         out = probe({"cmd": "schedule-windows", "short": True})
-        assert out == {"lead": 5, "late": 10}
-        assert probe({"cmd": "schedule-windows", "short": False}) == {"lead": 300, "late": 1800}
+        assert out == {"lead": 5, "late": 10, "on_time": 3, "tick": 1}
+        assert probe({"cmd": "schedule-windows", "short": False}) == \
+            {"lead": 300, "late": 1800, "on_time": 60, "tick": 15}
+
+    @pytest.mark.parametrize("short", [False, True])
+    def test_every_rule_can_happen_in_both_modes(self, short):
+        """
+        With 15-second ticks and a 1-minute on-time window, --short-schedules'
+        10-second late window could never offer (anything within a minute
+        started) and a 5-second lead was hit by one tick in three.
+        """
+        w = probe({"cmd": "schedule-windows", "short": short})
+        assert w["tick"] < w["lead"], "some tick always lands inside the heads-up lead"
+        assert w["tick"] < w["on_time"], "some tick always sees a start on time"
+        assert w["on_time"] < w["late"], "a start seen late can be offered"
+
+    @pytest.mark.parametrize("last,now,kinds", [
+        ("2026-09-28T20:59:53Z", "2026-09-28T20:59:55Z", ["HeadsUp"]),      # 5 s ahead
+        ("2026-09-28T20:59:50Z", "2026-09-28T20:59:54Z", []),               # 6 s ahead: not yet
+        ("2026-09-28T20:59:59Z", "2026-09-28T21:00:01Z", ["Start"]),
+        ("2026-09-28T20:59:59Z", "2026-09-28T21:00:05Z", ["OfferMissed"]),  # 5 s late
+        ("2026-09-28T20:59:59Z", "2026-09-28T21:00:11Z", []),               # past the 10 s window
+    ])
+    def test_short_schedules_run_every_rule_in_seconds(self, last, now, kinds):
+        out = self.decide([schedule()], last, now, shown=[], short=True)
+        assert [a["kind"] for a in out["actions"]] == kinds
 
 
 class TestScheduleService:
@@ -456,20 +493,47 @@ class TestScheduleService:
         source = (DESKTOP / "Services" / "ScheduleService.cs").read_text(encoding="utf-8")
         return "\n".join(line.split("//")[0] for line in source.splitlines())
 
+    @staticmethod
+    def body(code: str, signature: str) -> str:
+        """One member, from its signature to the closing brace at member depth."""
+        start = code.index(signature)
+        return code[start:code.index("\n    }", start)]
+
     def test_it_follows_a_clock_or_time_zone_change(self):
         """.NET caches the local zone: without this the schedules keep the old zone's clock until a restart."""
         code = self.code()
         assert "SystemEvents.TimeChanged += OnTimeChanged;" in code
         assert "SystemEvents.TimeChanged -= OnTimeChanged;" in code, "Stop() lets go of the event"
-        changed = code[code.index("private void ClockChanged()"):]
-        changed = changed[:changed.index("\n    }")]
-        assert "TimeZoneInfo.ClearCachedData();" in changed
-        assert "_lastTickUtc = DateTime.UtcNow;" in changed
+        assert "TimeZoneInfo.ClearCachedData();" in self.body(code, "private void ClockChanged()")
+
+    def test_a_clock_change_never_erases_the_gap(self):
+        """
+        Windows says the clock changed on resume from sleep and whenever its
+        time sync steps the clock (seconds, several times a week). Restarting
+        the count there erased the sleep gap, so the missed offer never came,
+        and lost any start between the last tick and the step. Only Start()
+        and a tick may move the count.
+        """
+        code = self.code()
+        assert "_lastTickUtc" not in self.body(code, "private void ClockChanged()")
+        rest = code
+        for member in ("public void Start()", "public void Tick(DateTime nowUtc)"):
+            rest = rest.replace(self.body(code, member), "")
+        assert not re.search(r"_lastTickUtc\s*=(?!=)", rest), "the count moves only in Start() and Tick()"
+
+    def test_the_tick_rate_follows_short_schedules(self):
+        """A 15-second tick can't see --short-schedules' 5-second lead or 10-second window."""
+        code = self.code()
+        assert re.search(r"public static TimeSpan Interval\s*=>\s*SchedulePlanner\.TickInterval;", code)
+        start = self.body(code, "public void Start()")
+        assert "_timer.Interval = Interval;" in start, "read when the timer starts, after the flags are set"
+        assert start.index("_timer.Interval = Interval;") < start.index("_timer.Start();")
 
     def test_every_tick_reads_the_zone_afresh(self):
         assert re.search(r"SchedulePlanner\.Decide\([^;]*TimeZoneInfo\.Local", self.code())
 
-    def test_a_clock_set_back_never_replays_a_start(self):
+    def test_a_clock_set_back_counts_from_the_new_time(self):
+        """Nothing between the new time and the last tick is read as passed time at once."""
         assert "if (nowUtc < _lastTickUtc) _lastTickUtc = nowUtc;" in self.code()
 
 
