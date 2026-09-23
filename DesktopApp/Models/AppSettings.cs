@@ -528,23 +528,58 @@ public class AppSettings
     {
         var changed = false;
 
-        // A hand-edited file can hold null for either list; like
-        // Normalize, filling one in counts as a change.
+        // A hand-edited file can hold null for either list, or a null entry
+        // in one; like Normalize, repairing that counts as a change.
         if (Templates is null) { Templates = new List<StudyTemplate>(); changed = true; }
         if (Schedules is null) { Schedules = new List<SprintSchedule>(); changed = true; }
-
-        if (!TemplatesSeeded)
-        {
-            Templates.AddRange(StudyTemplate.BuiltIns());
-            TemplatesSeeded = true;
-            changed = true;
-        }
+        changed |= Templates.RemoveAll(t => t is null) > 0;
+        changed |= Schedules.RemoveAll(s => s is null) > 0;
 
         foreach (var template in Templates) changed |= template.Normalize();
         foreach (var schedule in Schedules) changed |= schedule.Normalize();
 
+        if (!TemplatesSeeded)
+        {
+            // Through Restore, which adds only what is missing, so a file that
+            // already holds a built-in without the mark doesn't get a second copy.
+            RestoreBuiltInTemplates();
+            TemplatesSeeded = true;
+            changed = true;
+        }
+
+        // The page and its AutomationIds go by name, so no two may share one.
+        // The earlier template keeps its name, as the earlier profile would.
+        var seen = new HashSet<string>(StringComparer.CurrentCultureIgnoreCase);
+        foreach (var template in Templates)
+        {
+            if (seen.Add(template.Name)) continue;
+            template.Name = UniqueTemplateName(template.Name, except: template);
+            seen.Add(template.Name);
+            changed = true;
+        }
+
         changed |= Schedules.RemoveAll(s => FindTemplate(s.TemplateId) is null) > 0;
         return changed;
+    }
+
+    /// <summary>
+    /// The wanted name, or that name with a number after it, kept inside
+    /// <see cref="StudyTemplate.MaxNameLength"/> so a later Normalize can't cut
+    /// the number off again. The template counterpart of <see cref="UniqueProfileName"/>.
+    /// </summary>
+    public string UniqueTemplateName(string wanted, StudyTemplate? except = null)
+    {
+        bool Taken(string name) => Templates.Any(t =>
+            !ReferenceEquals(t, except) && string.Equals(t.Name, name, StringComparison.CurrentCultureIgnoreCase));
+
+        if (!Taken(wanted)) return wanted;
+        for (var n = 2; n < 100; n++)
+        {
+            var suffix = $" {n}";
+            var candidate = StudyTemplate.Cut(wanted, StudyTemplate.MaxNameLength - suffix.Length) + suffix;
+            if (!Taken(candidate)) return candidate;
+        }
+        return wanted;
     }
 
     /// <summary>Re-adds any built-in that is missing; never touches the user's own. Returns how many came back.</summary>

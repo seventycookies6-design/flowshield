@@ -15,6 +15,15 @@ namespace FlowShield.Models;
 /// </summary>
 public static class ScheduleMatcher
 {
+    /// <summary>
+    /// How far back <see cref="StartsBetweenUtc"/> ever looks. Nothing more
+    /// than a week late is ever acted on (the scheduler stops offering a missed
+    /// start after 30 minutes), so an unset last check, which arrives as
+    /// <see cref="DateTime.MinValue"/>, is clamped here rather than throwing or
+    /// walking every day since year one.
+    /// </summary>
+    public static readonly TimeSpan LookBackLimit = TimeSpan.FromDays(8);
+
     /// <summary>A local wall-clock time in <paramref name="zone"/> as one UTC instant, per the rules above.</summary>
     public static DateTime ToUtc(DateTime local, TimeZoneInfo zone)
     {
@@ -43,12 +52,20 @@ public static class ScheduleMatcher
         return ToUtc(date.AddMinutes(minute), zone);
     }
 
-    /// <summary>Every start after <paramref name="fromUtcExclusive"/> and at or before <paramref name="toUtcInclusive"/>, oldest first.</summary>
+    /// <summary>
+    /// Every start after <paramref name="fromUtcExclusive"/> and at or before
+    /// <paramref name="toUtcInclusive"/>, oldest first. A <paramref name="fromUtcExclusive"/>
+    /// more than <see cref="LookBackLimit"/> before the end is moved up to it.
+    /// </summary>
     public static IReadOnlyList<DateTime> StartsBetweenUtc(
         SprintSchedule schedule, DateTime fromUtcExclusive, DateTime toUtcInclusive, TimeZoneInfo zone)
     {
         var found = new List<DateTime>();
         if (toUtcInclusive <= fromUtcExclusive || schedule.Days.Count == 0) return found;
+
+        // The first test keeps the subtraction inside DateTime's range.
+        if (toUtcInclusive - DateTime.MinValue > LookBackLimit && fromUtcExclusive < toUtcInclusive - LookBackLimit)
+            fromUtcExclusive = toUtcInclusive - LookBackLimit;
 
         // One day either side: a UTC window can start or end on a different local date.
         var first = TimeZoneInfo.ConvertTimeFromUtc(fromUtcExclusive, zone).Date.AddDays(-1);

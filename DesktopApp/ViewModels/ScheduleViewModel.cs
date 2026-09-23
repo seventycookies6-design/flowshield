@@ -183,6 +183,7 @@ public class ScheduleViewModel : ViewModelBase
             var label = CultureInfo.InvariantCulture.DateTimeFormat.GetAbbreviatedDayName(day);
             EditorDays.Add(Watch(new Choice<DayOfWeek>(day, label, source.Days.Contains(day))
             {
+                AutomationId = $"ScheduleDay_{label}",
                 AccessibleName = CultureInfo.InvariantCulture.DateTimeFormat.GetDayName(day),
             }));
         }
@@ -198,7 +199,12 @@ public class ScheduleViewModel : ViewModelBase
     {
         EditorTemplates.Clear();
         foreach (var t in S.Templates)
-            EditorTemplates.Add(Watch(new Choice<StudyTemplate>(t, t.Name, t.Id == chosenId)));
+        {
+            EditorTemplates.Add(Watch(new Choice<StudyTemplate>(t, t.Name, t.Id == chosenId)
+            {
+                AutomationId = $"ScheduleTemplate_{t.Name}",
+            }));
+        }
     }
 
     /// <summary>Save's enabled state follows the chips, which change without a keystroke to requery it.</summary>
@@ -282,6 +288,14 @@ public class ScheduleViewModel : ViewModelBase
     private string _templateBreak = "";
     public string TemplateBreak { get => _templateBreak; set => Set(ref _templateBreak, value); }
 
+    /// <summary>"Sprint minutes (5-240)": the label over the field, from the same bounds Save checks.</summary>
+    public string SprintMinutesLabel =>
+        $"Sprint minutes ({StudyTemplate.MinSprintMinutes}\u2013{StudyTemplate.MaxSprintMinutes})";
+
+    /// <summary>"Break minutes (1-60)", likewise.</summary>
+    public string BreakMinutesLabel =>
+        $"Break minutes ({CycleState.MinBreakMinutes}\u2013{CycleState.MaxBreakMinutes})";
+
     /// <summary>"Active profile" first (a null value: whichever is active when it starts), then each blocklist.</summary>
     public ObservableCollection<Choice<BlocklistProfile?>> TemplateProfiles { get; } = new();
 
@@ -305,13 +319,15 @@ public class ScheduleViewModel : ViewModelBase
         TemplateProfiles.Clear();
         TemplateProfiles.Add(new Choice<BlocklistProfile?>(null, "Active profile", profile is null)
         {
-            Key = "Active",
+            // Not TemplateProfile_{name}: a profile called "Active" would collide.
+            AutomationId = "TemplateProfileActive",
             AccessibleName = "Use whichever blocklist is active",
         });
         foreach (var p in S.Profiles)
         {
             TemplateProfiles.Add(new Choice<BlocklistProfile?>(p, p.Name, ReferenceEquals(p, profile))
             {
+                AutomationId = $"TemplateProfile_{p.Name}",
                 AccessibleName = $"Use the {p.Name} blocklist",
             });
         }
@@ -346,6 +362,9 @@ public class ScheduleViewModel : ViewModelBase
         template.BreakMinutes = breakMinutes;
         template.ProfileId = TemplateProfiles.FirstOrDefault(c => c.IsChosen)?.Value?.Id ?? "";
         template.Normalize();
+        // After Normalize, so the number is added to the cleaned name. Two
+        // templates called "Mine" would be indistinguishable on the page.
+        template.Name = S.UniqueTemplateName(template.Name, except: template);
         if (_editingTemplate is null) S.Templates.Add(template);
 
         _main.SaveSettings();
@@ -455,7 +474,6 @@ public class Choice<T> : ViewModelBase
     {
         Value = value;
         Label = label;
-        Key = label;
         AccessibleName = label;
         _isChosen = chosen;
     }
@@ -465,8 +483,11 @@ public class Choice<T> : ViewModelBase
     /// <summary>What the chip says.</summary>
     public string Label { get; }
 
-    /// <summary>The end of the chip's AutomationId. The label unless it's set.</summary>
-    public string Key { get; init; }
+    /// <summary>
+    /// The chip's whole AutomationId, built where the chip is: ScheduleDay_Mon,
+    /// ScheduleTemplate_{name}, TemplateProfile_{name}, TemplateProfileActive.
+    /// </summary>
+    public string AutomationId { get; init; } = "";
 
     /// <summary>What a screen reader says. The label unless it's set.</summary>
     public string AccessibleName { get; init; }

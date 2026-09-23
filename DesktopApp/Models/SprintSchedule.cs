@@ -11,7 +11,8 @@ public class SprintSchedule
     /// <summary>How long a "Skip today" is remembered. Older dates can't matter again.</summary>
     public const int SkipMemoryDays = 14;
 
-    public string Id { get; set; } = StudyTemplate.NewId();
+    /// <summary>Empty until <see cref="Normalize"/> assigns one and reports the change, for the same reason as <see cref="StudyTemplate.Id"/>.</summary>
+    public string Id { get; set; } = "";
     public string TemplateId { get; set; } = "";
     public List<DayOfWeek> Days { get; set; } = new();
 
@@ -23,7 +24,12 @@ public class SprintSchedule
 
     public bool Enabled { get; set; } = true;
 
-    /// <summary>Local dates the user chose Skip today.</summary>
+    /// <summary>
+    /// Local dates the user chose Skip today. Stored with
+    /// <see cref="DateTimeKind.Unspecified"/>: a Local kind is written to the
+    /// file with the PC's offset and converted back on load, so a skip
+    /// recorded before a westward time-zone change would read as the day before.
+    /// </summary>
     public List<DateTime> SkippedDatesLocal { get; set; } = new();
 
     public bool IsSkipped(DateTime localDate) =>
@@ -31,7 +37,7 @@ public class SprintSchedule
 
     public void Skip(DateTime localDate)
     {
-        var date = localDate.Date;
+        var date = DateTime.SpecifyKind(localDate.Date, DateTimeKind.Unspecified);
         if (!IsSkipped(date)) SkippedDatesLocal.Add(date);
         SkippedDatesLocal.RemoveAll(d => d.Date < date.AddDays(-SkipMemoryDays));
         SkippedDatesLocal.Sort();

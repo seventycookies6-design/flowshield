@@ -73,7 +73,7 @@
                                     <DataTemplate>
                                         <RadioButton Style="{StaticResource Segment}" GroupName="ScheduleTemplate" Margin="0,0,8,8"
                                                      Content="{Binding Label}" IsChecked="{Binding IsChosen}"
-                                                     AutomationProperties.AutomationId="{Binding Key, StringFormat=ScheduleTemplate_{0}}"
+                                                     AutomationProperties.AutomationId="{Binding AutomationId}"
                                                      AutomationProperties.Name="{Binding AccessibleName}"/>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
@@ -86,7 +86,7 @@
                                     <DataTemplate>
                                         <CheckBox Style="{StaticResource SegmentCheck}" Margin="0,0,8,8"
                                                   Content="{Binding Label}" IsChecked="{Binding IsChosen}"
-                                                  AutomationProperties.AutomationId="{Binding Key, StringFormat=ScheduleDay_{0}}"
+                                                  AutomationProperties.AutomationId="{Binding AutomationId}"
                                                   AutomationProperties.Name="{Binding AccessibleName}"/>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
@@ -169,7 +169,11 @@
                                      AutomationProperties.AutomationId="TemplateNameInput"
                                      AutomationProperties.Name="Template name"/>
 
-                            <TextBlock Text="Sprint minutes (5–240)" Style="{StaticResource Caption}" Margin="4,12,0,8"/>
+                            <!-- Both range labels come from the view model, built from the
+                                 same constants Save checks, so a changed bound can't leave
+                                 the label lying. -->
+                            <TextBlock Text="{Binding SprintMinutesLabel}" Style="{StaticResource Caption}" Margin="4,12,0,8"
+                                       AutomationProperties.AutomationId="TemplateMinutesLabel"/>
                             <TextBox Style="{StaticResource Field}" Width="112" HorizontalAlignment="Left"
                                      Text="{Binding TemplateMinutes, UpdateSourceTrigger=PropertyChanged}"
                                      AutomationProperties.AutomationId="TemplateMinutesInput"
@@ -213,7 +217,8 @@
                                              AutomationProperties.Name="Four sprints with breaks"/>
                             </WrapPanel>
 
-                            <TextBlock Text="Break minutes (1–60)" Style="{StaticResource Caption}" Margin="4,8,0,8"/>
+                            <TextBlock Text="{Binding BreakMinutesLabel}" Style="{StaticResource Caption}" Margin="4,8,0,8"
+                                       AutomationProperties.AutomationId="TemplateBreakLabel"/>
                             <TextBox Style="{StaticResource Field}" Width="112" HorizontalAlignment="Left"
                                      Text="{Binding TemplateBreak, UpdateSourceTrigger=PropertyChanged}"
                                      AutomationProperties.AutomationId="TemplateBreakInput"
@@ -224,9 +229,11 @@
                                 <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
+                                        <!-- TemplateProfile_{name}, or TemplateProfileActive for the
+                                             first chip: an id a profile name can't produce. -->
                                         <RadioButton Style="{StaticResource Segment}" GroupName="TemplateProfile" Margin="0,0,8,8"
                                                      Content="{Binding Label}" IsChecked="{Binding IsChosen}"
-                                                     AutomationProperties.AutomationId="{Binding Key, StringFormat=TemplateProfile_{0}}"
+                                                     AutomationProperties.AutomationId="{Binding AutomationId}"
                                                      AutomationProperties.Name="{Binding AccessibleName}"/>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
@@ -254,7 +261,9 @@
                  scroll here but would swallow the mouse wheel; the code-behind
                  hands each turn to this page instead. The negative right margin
                  cancels the gutter it leaves for that scrollbar, so its cards
-                 line up with the ones above. -->
+                 line up with the ones above: -8 offsets the Margin="0,0,8,0" on
+                 SleepBlockingView.xaml's own StackPanel, and must change if
+                 that margin does (Roadmap 3.7 reworks that view). -->
             <views:SleepBlockingView DataContext="{Binding Sleep}" Margin="0,0,-8,0"
                                      PreviewMouseWheel="OnSleepWindowPreviewMouseWheel"/>
         </StackPanel>

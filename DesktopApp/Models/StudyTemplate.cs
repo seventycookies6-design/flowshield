@@ -16,13 +16,18 @@ public class StudyTemplate
 {
     public const int MaxNameLength = 40;
 
-    /// <summary>Same bounds as Today's custom sprint length.</summary>
+    /// <summary>Same bounds as Today's custom sprint length (tier 1 pins them equal).</summary>
     public const int MinSprintMinutes = 5;
     public const int MaxSprintMinutes = 240;
 
     public const string UntitledName = "Untitled template";
 
-    public string Id { get; set; } = NewId();
+    /// <summary>
+    /// Empty until <see cref="Normalize"/> assigns one, and reported as a
+    /// change when it does. A default of <see cref="NewId"/> here would give a
+    /// record without an "Id" key a fresh id on every load that nothing saved.
+    /// </summary>
+    public string Id { get; set; } = "";
     public string Name { get; set; } = "";
     public int SprintMinutes { get; set; } = 25;
     public ShieldLevel Shield { get; set; } = ShieldLevel.Firm;
@@ -39,7 +44,7 @@ public class StudyTemplate
     public string BuiltInKey { get; set; } = "";
 
     [JsonIgnore]
-    public bool IsBuiltIn => BuiltInKey.Length > 0;
+    public bool IsBuiltIn => !string.IsNullOrEmpty(BuiltInKey);
 
     public static string NewId() => Guid.NewGuid().ToString("N");
 
@@ -51,24 +56,36 @@ public class StudyTemplate
     {
         new StudyTemplate
         {
-            Name = "Homework evening", SprintMinutes = 45, Shield = ShieldLevel.Firm,
+            Id = NewId(), Name = "Homework evening", SprintMinutes = 45, Shield = ShieldLevel.Firm,
             CycleSprints = 3, BreakMinutes = 10, BuiltInKey = "homework",
         },
         new StudyTemplate
         {
-            Name = "Exam prep", SprintMinutes = 90, Shield = ShieldLevel.Sealed,
+            Id = NewId(), Name = "Exam prep", SprintMinutes = 90, Shield = ShieldLevel.Sealed,
             CycleSprints = 0, BreakMinutes = CycleState.DefaultShortBreakMinutes, BuiltInKey = "exam",
         },
         new StudyTemplate
         {
-            Name = "Light study", SprintMinutes = 25, Shield = ShieldLevel.Soft,
+            Id = NewId(), Name = "Light study", SprintMinutes = 25, Shield = ShieldLevel.Soft,
             CycleSprints = 0, BreakMinutes = 5, BuiltInKey = "light",
         },
     };
 
     /// <summary>
+    /// The first <paramref name="max"/> UTF-16 units of a name, trailing
+    /// spaces dropped. Never ends inside a surrogate pair: half an emoji would
+    /// be written to the file as U+FFFD.
+    /// </summary>
+    public static string Cut(string name, int max)
+    {
+        if (name.Length <= max) return name;
+        if (max > 0 && char.IsHighSurrogate(name[max - 1])) max--;
+        return name[..max].TrimEnd();
+    }
+
+    /// <summary>
     /// Brings every field into range: a hand-edited or older settings file can
-    /// hold anything. Returns true if anything changed.
+    /// hold anything. Returns true if anything changed, including a new id.
     /// </summary>
     public bool Normalize()
     {
@@ -78,8 +95,7 @@ public class StudyTemplate
 
         var name = (Name ?? "").Trim();
         if (name.Length == 0) name = UntitledName;
-        if (name.Length > MaxNameLength) name = name[..MaxNameLength].TrimEnd();
-        Name = name;
+        Name = Cut(name, MaxNameLength);
 
         SprintMinutes = Math.Clamp(SprintMinutes, MinSprintMinutes, MaxSprintMinutes);
         if (!Enum.IsDefined(Shield)) Shield = ShieldLevel.Firm;
