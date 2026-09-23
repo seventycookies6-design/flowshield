@@ -605,32 +605,39 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// Really exit. During a Firm or Sealed sprint (past its grace period) the
-    /// window opens on that sprint's end flow instead, and FlowShield quits
-    /// only once the sprint has actually ended; otherwise Quit would be a
-    /// one-click way around the countdown and phrase.
+    /// Really exit. During a sprint, quitting is ending it: it goes through
+    /// exactly what the End button would do at that moment. Inside the grace
+    /// period that is a free cancel; at Soft it is an immediate end, recorded
+    /// as ended early; at Firm or Sealed the window opens on that sprint's end
+    /// flow, and FlowShield quits only once the sprint has actually ended —
+    /// otherwise Quit would be a one-click way around the countdown and phrase.
+    ///
+    /// Soft used to skip this altogether (#204): nothing was recorded, the
+    /// sprint stayed saved as running, and the next launch resumed a sprint the
+    /// user had walked away from. A Windows shutdown never comes through here
+    /// (Window.Closing isn't raised when the session ends), so a sprint still
+    /// survives a restart the way F3 intends.
     /// </summary>
     private void Quit()
     {
-        if (Vm is { } vm && NeedsEndFlowToQuit(vm))
+        // RequestEnd answers true when the sprint ended there and then (a
+        // cancel, or Soft's immediate end), so quitting simply carries on. Only
+        // a panel that needs answering brings the window back from the tray.
+        if (Vm is { } vm && NeedsEndFlowToQuit(vm) && !vm.Today.RequestEnd())
         {
             RestoreFromTray();
             vm.CurrentPage = AppPage.Today;
-            if (!vm.Today.RequestEnd())
-            {
-                _quitWhenSprintEnds = true;
-                vm.Toast("End the sprint to quit FlowShield.");
-                Log.Info("quit deferred until the running sprint ends");
-                return;
-            }
+            _quitWhenSprintEnds = true;
+            vm.Toast("End the sprint to quit FlowShield.");
+            Log.Info("quit deferred until the running sprint ends");
+            return;
         }
 
         _reallyClosing = true;
         Close();
     }
 
-    private static bool NeedsEndFlowToQuit(MainViewModel vm) =>
-        vm.Today.IsRunning && vm.Blocker.ActiveShield >= Models.ShieldLevel.Firm;
+    private static bool NeedsEndFlowToQuit(MainViewModel vm) => vm.Today.IsRunning;
 
     private void OnTodayChanged(object? sender, PropertyChangedEventArgs e)
     {
