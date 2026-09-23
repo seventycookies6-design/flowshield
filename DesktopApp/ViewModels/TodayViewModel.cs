@@ -1287,6 +1287,13 @@ public class TodayViewModel : ViewModelBase
                 Raise(nameof(CycleProgressText));
                 Raise(nameof(CycleProgressVisible));
 
+                // A sprint saved by a build without WatchedMinutes (1.0.8 and
+                // earlier) takes its watched time from the old estimate first,
+                // while LastSeenUtc still says when it was last seen. Otherwise
+                // the count would restart at zero here and the half-watched
+                // rule would call a sprint watched all along interrupted.
+                saved.WatchedMinutes ??= saved.WatchedSoFar;
+
                 // LastSeenUtc moves up, but the gap it spans is deliberately
                 // not added to WatchedMinutes: FlowShield was closed for it.
                 saved.LastSeenUtc = now;
@@ -1305,7 +1312,10 @@ public class TodayViewModel : ViewModelBase
                 var session = new FocusSession
                 {
                     StartedUtc = saved.StartedUtc,
-                    EndedUtc = saved.EndsUtc,
+                    // An interrupted sprint ends where watching stopped, so its
+                    // ActualMinutes (the minutes goal, History, the heatmap) is
+                    // time actually enforced, not the whole planned length.
+                    EndedUtc = completed ? saved.EndsUtc : saved.StartedUtc + TimeSpan.FromMinutes(saved.WatchedSoFar),
                     PlannedMinutes = saved.PlannedMinutes,
                     Shield = saved.Shield,
                     MomentumAtStart = saved.MomentumAtStart,
@@ -1440,7 +1450,7 @@ public class TodayViewModel : ViewModelBase
         // ActualMinutes — what the minutes goal and the focus tiles add up —
         // is the time the shield was actually up, not the hours asleep.
         _current.EndedUtc = interrupted
-            ? _current.StartedUtc + TimeSpan.FromMinutes(S.ActiveSprint?.WatchedMinutes ?? 0)
+            ? _current.StartedUtc + TimeSpan.FromMinutes(S.ActiveSprint?.WatchedSoFar ?? 0)
             : DateTime.UtcNow;
         _current.Completed = completed;
         _current.Interrupted = interrupted;
@@ -1482,6 +1492,11 @@ public class TodayViewModel : ViewModelBase
         {
             S.CompletedSprintsInARow = 0;
             _cycle = interrupted ? CycleState.Nothing : _cycle.OnSprintAbandoned();
+            // OfferBreakIfEarned normally announces the cycle's new state, and
+            // an interrupted sprint skips it, so say here that "Sprint 2 of 3"
+            // is gone.
+            Raise(nameof(CycleProgressText));
+            Raise(nameof(CycleProgressVisible));
         }
 
         S.ActiveSprint = null;

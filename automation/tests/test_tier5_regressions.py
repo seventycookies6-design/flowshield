@@ -5629,8 +5629,12 @@ class TestResumingDoesNotCreditTimeFlowShieldWasClosed:
         return source.split("public SprintResume Decide(", 1)[1].split("\n    }", 1)[0]
 
     def test_the_decision_reads_an_accumulated_total(self):
-        decide = self._decide(self.SETTINGS.read_text(encoding="utf-8"))
-        assert "WatchedMinutes ??" in decide, (
+        source = self.SETTINGS.read_text(encoding="utf-8")
+        decide = self._decide(source)
+        # Since #203 the preference lives in WatchedSoFar, which every
+        # judgement of watched time reads; Decide must go through it.
+        so_far = source.split("public double WatchedSoFar", 1)[1].split(";", 1)[0]
+        assert "WatchedSoFar" in decide and "WatchedMinutes ??" in so_far, (
             "Decide must prefer the accumulated watched time over the two-timestamp "
             "estimate a resume invalidates"
         )
@@ -5684,6 +5688,7 @@ class TestTimeUpAfterSleepUsesWatchedTime:
     """A lid-closed gap must not turn an expired sprint into full credit."""
 
     VM = DESKTOP / "ViewModels" / "TodayViewModel.cs"
+    SETTINGS = DESKTOP / "Models" / "AppSettings.cs"
 
     def _block(self, source: str, marker: str) -> str:
         start = source.find(marker)
@@ -5740,6 +5745,55 @@ class TestTimeUpAfterSleepUsesWatchedTime:
         ), "an under-watched sprint must skip momentum gain and ended-early decay"
         assert re.search(r"if\s*\(\s*!interrupted\s*\)[^{;]*OfferBreakIfEarned\s*\(", end), (
             "an interrupted sprint after sleep must not offer or start a break"
+        )
+
+    def test_running_sprint_decide_uses_watched_so_far_helper(self):
+        source = self.SETTINGS.read_text(encoding="utf-8")
+        decide = self._block(source, "public SprintResume Decide(")
+        assert "WatchedSoFar" in decide and "WatchedMinutes ??" not in decide, (
+            "RunningSprint.Decide must use the shared clamped WatchedSoFar helper"
+        )
+
+    def test_resume_seeds_legacy_watched_minutes_before_advancing_last_seen(self):
+        source = self.VM.read_text(encoding="utf-8")
+        resume = self._block(source, "public void ResumeInterruptedSprint(")
+        branch = resume.split("case SprintResume.Resume:", 1)[1].split(
+            "case SprintResume.RecordCompleted:", 1
+        )[0]
+        advance = branch.find("saved.LastSeenUtc = now")
+        seed_region = branch[:advance] if advance >= 0 else ""
+        assert advance >= 0 and "WatchedMinutes" in seed_region and "WatchedSoFar" in seed_region, (
+            "the Resume branch must seed missing WatchedMinutes from WatchedSoFar "
+            "before LastSeenUtc advances, preserving 1.0.8 legacy time"
+        )
+
+    def test_startup_interruption_ends_at_watched_time(self):
+        source = self.VM.read_text(encoding="utf-8")
+        resume = self._block(source, "public void ResumeInterruptedSprint(")
+        branch = resume.split("case SprintResume.RecordCompleted:", 1)[1]
+        assert re.search(
+            r"EndedUtc\s*=\s*completed\s*\?\s*saved\.EndsUtc\s*:\s*"
+            r"saved\.StartedUtc\s*\+\s*TimeSpan\.FromMinutes\s*\(\s*saved\.WatchedSoFar\s*\)",
+            branch,
+        ), (
+            "startup recovery must use EndsUtc only for completed sprints and "
+            "StartedUtc + WatchedSoFar for interrupted sprints"
+        )
+
+    def test_interrupted_end_uses_clamped_time_and_notifies_cycle_clear(self):
+        source = self.VM.read_text(encoding="utf-8")
+        end = self._block(source, "private void EndSprint(")
+        assert re.search(
+            r"interrupted\s*\?\s*_current\.StartedUtc\s*\+\s*"
+            r"TimeSpan\.FromMinutes\s*\(\s*S\.ActiveSprint\?\.WatchedSoFar\s*\?\?\s*0\s*\)",
+            end,
+        ), "EndSprint must timestamp an interruption from clamped ActiveSprint.WatchedSoFar"
+        cleared = end.find("_cycle = interrupted ? CycleState.Nothing")
+        text_raise = end.find("Raise(nameof(CycleProgressText))", cleared)
+        visible_raise = end.find("Raise(nameof(CycleProgressVisible))", cleared)
+        assert cleared >= 0 and text_raise > cleared and visible_raise > cleared, (
+            "clearing the cycle on an interrupted EndSprint must notify both cycle "
+            "progress bindings because OfferBreakIfEarned is skipped"
         )
 
 
