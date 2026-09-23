@@ -9412,3 +9412,93 @@ class TestTheJumpListStartsLikeTheTray:
             for literal in re.findall(r'"[^"\n]*"', text):
                 assert "!" not in literal, literal
                 assert literal.isascii(), literal
+
+
+# ================================ Delete everything clears the Jump List (#311)
+
+class TestDeleteEverythingClearsTheJumpList:
+    """
+    #311: the Jump List puts each template's name and length in a file Windows
+    keeps in the user profile, outside the encrypted settings. Delete
+    everything removed the settings and logs and relaunched with --reset, so
+    the old names went only if the relaunch rebuilt the list, and a relaunch
+    can fail. Now the deleting process empties the list itself: after the
+    delete, before the relaunch, and nothing rebuilds it from the in-memory
+    settings before the process ends. Comments are stripped, so a call left
+    only in a comment can't satisfy these.
+    """
+
+    SETTINGS_VM = Path(DESKTOP_DIR) / "ViewModels" / "SettingsViewModel.cs"
+    MAIN = Path(DESKTOP_DIR) / "ViewModels" / "MainViewModel.cs"
+    SERVICE = Path(DESKTOP_DIR) / "Services" / "JumpListService.cs"
+    PRIVACY = Path(DESKTOP_DIR) / "Services" / "DataPrivacyService.cs"
+
+    code = staticmethod(TestTheJumpListStartsLikeTheTray.code)
+    member = staticmethod(TestTheJumpListStartsLikeTheTray.member)
+
+    def test_the_delete_clears_the_list_after_the_files_go_and_before_the_relaunch(self):
+        code = self.code(self.SETTINGS_VM)
+        assert "JumpListService.Clear();" in code, "Delete everything must clear the Jump List"
+        delete = self.member(code, "private async Task DeleteEverythingAsync()")
+        assert delete.count("JumpListService.Clear();") == 1
+        deleted = delete.index("await DataPrivacyService.DeleteEverythingAsync(")
+        cleared = delete.index("JumpListService.Clear();")
+        relaunch = delete.index("_main.RestartToFirstRun();")
+        assert deleted < cleared < relaunch, "clear after the files are gone and before the relaunch"
+        # Not in the catch: a failed delete keeps its list and says so, as before.
+        failed = delete.index("catch (Exception ex)")
+        assert delete.index("return;", failed) < cleared, "the clear runs only once the delete succeeded"
+        # The WPF call stays out of the service that removes the files.
+        privacy = self.code(self.PRIVACY)
+        assert "System.Windows" not in privacy and "JumpList" not in privacy
+
+    def test_the_clear_applies_an_empty_list_and_catches_its_own_failure(self):
+        code = self.code(self.SERVICE)
+        assert "public static void Clear()" in code, "JumpListService.Clear() is missing"
+        clear = self.member(code, "public static void Clear()")
+        applied = clear.index("JumpList.SetJumpList(Application.Current,")
+        assert clear.index("try") < applied
+        assert "new JumpList" in clear and "JumpItems" not in clear and "JumpTask" not in clear, \
+            "the cleared list is empty"
+        assert 'Log.Info("jump list: cleared");' in clear[applied:]
+        failed = clear[clear.index("catch (Exception ex)"):]
+        assert "Log.Warn(" in failed and "throw" not in clear, "a failure costs the shortcut, never the delete"
+
+    def test_nothing_rebuilds_the_old_list_before_the_process_ends(self):
+        """
+        The list is rebuilt at startup and on TemplatesChanged, both through
+        RebuildJumpList, which now refuses once local data is deleted.
+        RestartToFirstRun sets that flag before asking WPF to shut down, and
+        the clear and the relaunch run in one turn of the UI thread.
+        """
+        main = self.code(self.MAIN)
+        rebuild = self.member(main, "public void RebuildJumpList()")
+        assert "if (SkipSaveOnExit) return;" in rebuild, "no rebuild from the deleted settings"
+        assert rebuild.index("if (SkipSaveOnExit) return;") < rebuild.index("JumpListService.Rebuild(")
+        restart = self.member(main, "public void RestartToFirstRun()")
+        assert restart.index("SkipSaveOnExit = true;") < restart.index("Application.Current.Shutdown();")
+
+        # RebuildJumpList is the only way to Rebuild, so its guard covers them all.
+        callers = [path.name for path in Path(DESKTOP_DIR).rglob("*.cs")
+                   if not {"bin", "obj"} & set(path.relative_to(DESKTOP_DIR).parts)
+                   and "JumpListService.Rebuild(" in self.code(path)]
+        assert callers == ["MainViewModel.cs"], callers
+        assert main.count("JumpListService.Rebuild(") == 1
+
+    def test_the_confirmation_names_everything_it_removes(self):
+        """
+        The dialog listed sessions, journal, blocklist, momentum and licence,
+        and left out the templates, schedules and profiles that go too, and
+        now the taskbar list (owner ruling on #311). One calm sentence for
+        what goes, no exclamation marks, and an id tier 3 can read it by.
+        """
+        xaml = (Path(DESKTOP_DIR) / "Views" / "ConfirmDeleteDialog.xaml").read_text(encoding="utf-8")
+        detail = re.search(r'<TextBlock x:Name="DetailText" Text="([^"]*)"', xaml)
+        assert detail, "the dialog's detail text is missing"
+        removes = detail.group(1).split(". ")[0]
+        assert removes.startswith("This removes your "), removes
+        for what in ("sessions", "journal", "blocklist profiles", "templates", "schedules",
+                     "momentum", "licence", "taskbar Jump List"):
+            assert what in removes, f"the confirmation doesn't say {what} goes: {removes}"
+        assert "!" not in detail.group(1)
+        assert 'AutomationProperties.AutomationId="ConfirmDeleteDetailText"' in xaml

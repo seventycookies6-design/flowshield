@@ -988,6 +988,14 @@ public class SettingsViewModel : ViewModelBase
             return;
         }
 
+        // #311: the taskbar Jump List names the templates in a file Windows
+        // keeps outside settings.json, so it is emptied here, in the process
+        // that deleted them: after the file is gone, before the relaunch, on
+        // the UI thread WPF's JumpList needs. Here rather than in
+        // DataPrivacyService, which stays free of WPF. A relaunch that fails
+        // leaves it empty; one that works builds it from a fresh install.
+        JumpListService.Clear();
+
         // No IsBusy = false here: the app is restarting, so there is no more
         // UI left to unblock.
         _main.RestartToFirstRun();
