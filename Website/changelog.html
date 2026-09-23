@@ -45,7 +45,7 @@
   <p class="updated">What has changed in FlowShield, newest first.</p>
 
   <div class="release">
-    <h2>1.0.9 <span class="date">22 September 2026</span></h2>
+    <h2>1.0.9 <span class="date">23 September 2026</span></h2>
     <ul>
       <li>A History page: this week's hours focused, sprints completed and distractions caught, plus a 30-day heatmap of focus minutes.</li>
       <li>Breaks between sprints, and a study cycle that runs two, three or four sprints back to back with a break in between.</li>
@@ -66,6 +66,13 @@
       <li>The timer ring shows the time left: it starts full and drains smoothly as the sprint or break runs. With Windows' animation effects off it steps once a second.</li>
       <li>Find an app lists only apps installed on your PC, each with its own icon, and leaves out updaters, installers, runtimes and other entries that aren't apps.</li>
       <li>Fixed: the cycle line under Today kept the old sprint length when you changed the length after picking the number of sprints.</li>
+      <li>Fixed: a sprint whose time ran out while the PC was asleep counted as finished. It's now judged like one that ran out while FlowShield was closed: finished only if FlowShield was watching for at least half of it.</li>
+      <li>Fixed: quitting FlowShield during a Soft sprint left it saved as running, so it came back on the next launch. Quitting now ends a sprint exactly as the End button would.</li>
+      <li>Fixed: starting a sprint from the tray or the hotkey while a blocked app was open did nothing. FlowShield now opens and asks about the open apps.</li>
+      <li>Fixed: switching to an empty blocklist profile mid-sprint and back could close a blocked app without its warning.</li>
+      <li>Fixed: Delete everything could leave your settings on disk and not restart FlowShield.</li>
+      <li>Fixed: after a first install, the Activate in FlowShield button on the purchase page could do nothing because the link wasn't registered. FlowShield now registers it each time it starts.</li>
+      <li>A break inside your sleep window now says the nightly shield is still up, instead of saying blocked apps are allowed.</li>
     </ul>
   </div>
 
