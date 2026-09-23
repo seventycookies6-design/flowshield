@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import re
 import subprocess
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -976,3 +977,59 @@ class TestSoftFriction:
     def test_the_note_under_the_buttons_is_softs_promise(self):
         """One wording, read by the notice and the Settings caption alike."""
         assert probe({"cmd": "soft-copy", "try": 1})["close_note"] == "Nothing is closed unless you choose to."
+
+
+# ============================= turned back, recorded and shown (1.0.10, 4.3)
+
+def focus_session(started_utc: str, turned_back: int | None = None) -> dict:
+    """A finished 25-minute Soft sprint as the settings file holds it."""
+    ended = datetime.fromisoformat(started_utc.replace("Z", "+00:00")) + timedelta(minutes=25)
+    session = {"StartedUtc": started_utc, "EndedUtc": ended.strftime("%Y-%m-%dT%H:%M:%SZ"),
+               "PlannedMinutes": 25, "Shield": 1, "Completed": True, "BlocksEnforced": 0}
+    if turned_back is not None:
+        session["TurnedBack"] = turned_back
+    return session
+
+
+class TestTurnedBack:
+    """
+    Spec 4.3: Close and Back to work on the Soft notice each count as one
+    turned back. The count is saved with the sprint and History adds up the
+    week's; which app it was is never recorded.
+    """
+
+    # Thursday 24 September 2026, local. Its week is Monday 21 to Sunday 27.
+    # The sprints meant to fall in it start at noon or 15:00 UTC on the
+    # Tuesday or Wednesday, which stay inside that week in every time zone,
+    # so the answer doesn't depend on this PC's zone.
+    NOW = "2026-09-24T12:00:00"
+
+    def test_the_week_adds_up_every_sprints_turned_back(self):
+        week = probe({"cmd": "history-week", "now": self.NOW, "sessions": [
+            focus_session("2026-09-22T12:00:00Z", turned_back=2),
+            focus_session("2026-09-23T12:00:00Z", turned_back=3),
+        ]})
+        assert week["TurnedBack"] == 5
+
+    def test_a_sprint_outside_the_week_is_not_counted(self):
+        week = probe({"cmd": "history-week", "now": self.NOW, "sessions": [
+            focus_session("2026-09-22T12:00:00Z", turned_back=2),
+            focus_session("2026-09-10T12:00:00Z", turned_back=7),    # two weeks before
+        ]})
+        assert week["TurnedBack"] == 2
+        assert week["SprintsCompleted"] == 1
+
+    def test_a_sprint_saved_before_1_0_10_counts_zero(self):
+        """A 1.0.9 settings file has no TurnedBack on its sprints; they load as 0."""
+        week = probe({"cmd": "history-week", "now": self.NOW, "sessions": [
+            focus_session("2026-09-22T12:00:00Z", turned_back=2),
+            focus_session("2026-09-23T15:00:00Z"),
+        ]})
+        assert week["SprintsCompleted"] == 2, "the old sprint is in the week"
+        assert week["TurnedBack"] == 2
+
+    @pytest.mark.parametrize("n,text", [(0, ""), (1, "Turned back 1 time"), (4, "Turned back 4 times"),
+                                        (11, "Turned back 11 times")])
+    def test_the_wording(self, n, text):
+        """Empty at zero, so the card and History hide the line rather than say 'Turned back 0 times'."""
+        assert probe({"cmd": "turned-back-text", "n": n})["text"] == text

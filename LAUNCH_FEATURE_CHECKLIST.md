@@ -357,6 +357,9 @@ A summary of the research, to explain the choices below.
       and keyboard action (Enter, Esc), so a keystroke meant for the blocked
       app can never close it; *Allow 5 minutes* waits 5, 10, 20, then 30 s
       with a text countdown; the sprint's intention and a try count show.
+      Close and Back to work each count as one *turned back* (#307), saved
+      with the sprint as a count only (never which app) and shown on its
+      summary card and in History's week.
 
 **Assigned:** Miles (milessmart6-pixel), built with Codex and Cursor
 

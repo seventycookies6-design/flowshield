@@ -59,6 +59,13 @@
                                    AutomationProperties.AutomationId="WeekDistractionsValue"/>
                         <TextBlock Text="Times the shield stepped in during a sprint."
                                    Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                        <!-- 1.0.10: Close or Back to work on the Soft notice,
+                             this week. Empty, and so hidden, at zero. -->
+                        <TextBlock Text="{Binding WeekTurnedBackText}" Style="{StaticResource Caption}"
+                                   TextWrapping="Wrap" Margin="0,8,0,0"
+                                   Typography.NumeralAlignment="Tabular"
+                                   Visibility="{Binding WeekTurnedBackText, Converter={StaticResource NonEmptyVis}}"
+                                   AutomationProperties.AutomationId="HistoryTurnedBackText"/>
                     </StackPanel>
                 </Border>
 

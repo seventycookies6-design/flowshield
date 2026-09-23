@@ -52,6 +52,11 @@ internal static class Commands
             "settings-restore-builtins" => SettingsRestore(request),
             "settings-profile-for" => SettingsProfileFor(request),
             "settings-unique-template-name" => SettingsUniqueTemplateName(request),
+            "history-week" => HistoryWeek(request),
+            "turned-back-text" => new JsonObject
+            {
+                ["text"] = HistoryStats.TurnedBackText((int)request["n"]!),
+            },
             _ => throw new ArgumentException($"unknown command '{cmd}'"),
         };
     }
@@ -370,6 +375,15 @@ internal static class Commands
         var except = settings.FindTemplate((string?)request["except_id"]);
         return new JsonObject { ["name"] = settings.UniqueTemplateName((string)request["wanted"]!, except) };
     }
+
+    /// <summary>
+    /// {"sessions": [...] as the settings file holds them, "now": local ISO time}
+    /// -> HistoryStats.ForWeek's Week, field by field.
+    /// </summary>
+    private static JsonNode HistoryWeek(JsonObject request) =>
+        JsonSerializer.SerializeToNode(HistoryStats.ForWeek(
+            request["sessions"].Deserialize<List<FocusSession>>()!,
+            DateTime.Parse((string)request["now"]!, CultureInfo.InvariantCulture)))!;
 
     private static JsonNode? Do(Action action)
     {

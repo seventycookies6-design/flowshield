@@ -9,7 +9,8 @@ namespace FlowShield.Models;
 /// projection of what is already on disk — the same choice
 /// <see cref="MomentumTrend"/> made, and for the same reason: a stored weekly
 /// roll-up would start the day this shipped and could disagree with the
-/// sessions it claims to summarise.
+/// sessions it claims to summarise. The turned-back count added in 1.0.10
+/// follows the same rule: it is saved on each sprint and summed here.
 ///
 /// Deliberately free of any UI, clock or file system. The rules below are the
 /// ones tier 1 pins by reading this file, so they live here rather than in the
@@ -50,12 +51,17 @@ public static class HistoryStats
     // ------------------------------------------------------------- this week
 
     /// <summary>One week's figures, as the cards at the top of History show them.</summary>
+    /// <param name="TurnedBack">
+    /// Times the Soft notice was answered with Close or Back to work (1.0.10).
+    /// A sprint saved before then has no count and adds nothing.
+    /// </param>
     public readonly record struct Week(
         DateTime Start,
         DateTime End,
         double FocusMinutes,
         int SprintsCompleted,
-        int Distractions);
+        int Distractions,
+        int TurnedBack);
 
     /// <summary>
     /// The week containing <paramref name="nowLocal"/>.
@@ -81,8 +87,16 @@ public static class HistoryStats
             end,
             Math.Round(inWeek.Sum(s => s.ActualMinutes), 1),
             inWeek.Count(s => s.Completed),
-            inWeek.Sum(s => s.BlocksEnforced));
+            inWeek.Sum(s => s.BlocksEnforced),
+            inWeek.Sum(s => s.TurnedBack));
     }
+
+    /// <summary>
+    /// "Turned back 4 times", for the summary card and History alike, or an
+    /// empty string at zero so both hide the line rather than print a zero.
+    /// </summary>
+    public static string TurnedBackText(int n) =>
+        n <= 0 ? "" : n == 1 ? "Turned back 1 time" : $"Turned back {n} times";
 
     // --------------------------------------------------------------- heatmap
 

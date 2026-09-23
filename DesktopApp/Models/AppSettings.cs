@@ -117,6 +117,12 @@ public class FocusSession
     /// <summary>Nudges the shield sent during the sprint (the soft side of BlocksEnforced).</summary>
     public int NudgesSent { get; set; }
 
+    /// <summary>
+    /// Times the Soft notice was answered with Close or Back to work (1.0.10).
+    /// A count only: which app is never recorded.
+    /// </summary>
+    public int TurnedBack { get; set; }
+
     /// <summary>Momentum when the sprint started, so the summary can show what changed.</summary>
     public double MomentumAtStart { get; set; }
 
