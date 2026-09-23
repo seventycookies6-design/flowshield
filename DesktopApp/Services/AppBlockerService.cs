@@ -294,7 +294,16 @@ public class AppBlockerService : IDisposable
             foreach (var processName in app.AllProcessNames) targets[processName] = app;
         }
 
-        if (targets.Count == 0) return;
+        if (targets.Count == 0)
+        {
+            // #269: an empty profile has no pending enforcement state.
+            lock (_gate)
+            {
+                _present.Clear();
+                _closingAt.Clear();
+            }
+            return;
+        }
 
         // Grouped by blocklist entry rather than walked process by process.
         // Closing gracefully is a decision about an *app* — warn once, ask all
