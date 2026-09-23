@@ -656,6 +656,76 @@
         </Setter>
     </Style>
 
+    <!-- The same chip for a choice of several (F6's day chips): a CheckBox, so
+         it keeps the Toggle pattern, drawn exactly like Segment above. -->
+    <Style x:Key="SegmentCheck" TargetType="CheckBox">
+        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusVisual}"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="FontFamily" Value="{StaticResource FontStack}"/>
+        <Setter Property="FontSize" Value="12.5"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Foreground" Value="{DynamicResource InkDim}"/>
+        <Setter Property="Margin" Value="0,0,8,0"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="CheckBox">
+                    <Border x:Name="bd" Background="{DynamicResource Surface2}" BorderBrush="{DynamicResource Edge}"
+                            BorderThickness="1" CornerRadius="{StaticResource RadiusControl}" Padding="16,8">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource EdgeBright}"/>
+                        </Trigger>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="bd" Property="Background" Value="{DynamicResource PrimarySoft}"/>
+                            <Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource Primary}"/>
+                            <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
+                            <Trigger.EnterActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="bd" Storyboard.TargetProperty="Opacity"
+                                                          From="0.7" To="1" Duration="{x:Static inf:Motion.Selection}">
+                                            <DoubleAnimation.EasingFunction>
+                                                <CubicEase EasingMode="EaseOut"/>
+                                            </DoubleAnimation.EasingFunction>
+                                        </DoubleAnimation>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.EnterActions>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Trigger.EnterActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="bd" Storyboard.TargetProperty="Opacity"
+                                                          To="0.45" Duration="{x:Static inf:Motion.Selection}">
+                                            <DoubleAnimation.EasingFunction>
+                                                <CubicEase EasingMode="EaseOut"/>
+                                            </DoubleAnimation.EasingFunction>
+                                        </DoubleAnimation>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.EnterActions>
+                            <Trigger.ExitActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="bd" Storyboard.TargetProperty="Opacity"
+                                                          To="1" Duration="{x:Static inf:Motion.Selection}">
+                                            <DoubleAnimation.EasingFunction>
+                                                <CubicEase EasingMode="EaseIn"/>
+                                            </DoubleAnimation.EasingFunction>
+                                        </DoubleAnimation>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.ExitActions>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <!-- Shield-level chip (UI-SPEC.md A4): the same segmented cell as
          Segment above, tall enough (52px) for the shared shield glyph
          stacked above its label, per the winning sketch's ".seg-shield". -->

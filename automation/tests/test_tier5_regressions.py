@@ -8176,3 +8176,113 @@ class TestACompletedSprintDoesNotCountTheSleep300:
     def test_the_shipped_assignment_is_rejected(self):
         problems = self._problems(self.PRE_FIX_END_SPRINT)
         assert any("bare DateTime.UtcNow" in problem for problem in problems), problems
+
+
+class TestSchedulePageKeepsTheSleepWindow:
+    """F6 moves Sleep Blocking inside Schedule; nothing of the sleep window may be lost."""
+
+    def test_the_sleep_view_is_embedded_not_rewritten(self):
+        page = (Path(DESKTOP_DIR) / "Views" / "ScheduleView.xaml").read_text(encoding="utf-8")
+        assert "<views:SleepBlockingView" in page and 'DataContext="{Binding Sleep}"' in page
+        sleep = (Path(DESKTOP_DIR) / "Views" / "SleepBlockingView.xaml").read_text(encoding="utf-8")
+        for automation_id in ("SleepBlockToggle", "SleepStartInput", "SleepEndInput",
+                              "SaveSleepWindowButton", "SleepStatusText", "SleepWindowText"):
+            assert f'AutomationProperties.AutomationId="{automation_id}"' in sleep
+
+    def test_the_tab_keeps_its_id_and_shortcut(self):
+        xaml = (Path(DESKTOP_DIR) / "MainWindow.xaml").read_text(encoding="utf-8")
+        assert 'AutomationProperties.AutomationId="Tab_SleepBlocking"' in xaml
+        assert 'Key="D4" Command="{Binding NavigateCommand}" CommandParameter="SleepBlocking"' in xaml
+        assert 'Text="Schedule"' in xaml
+
+    def test_every_new_id_is_on_a_real_control(self):
+        xaml = (Path(DESKTOP_DIR) / "Views" / "ScheduleView.xaml").read_text(encoding="utf-8")
+        for match in re.finditer(r"<(\w+)[^>]*AutomationProperties\.AutomationId=", xaml):
+            assert match.group(1) not in ("Border", "Grid", "StackPanel", "WrapPanel"), (
+                f"an AutomationId on a {match.group(1)} is never surfaced (#134)")
+
+
+class TestSchedulePageRefusesInTheViewModel:
+    """
+    A Sealed sprint makes the Schedule page read-only. The buttons go grey, but
+    a disabled or covered control can still be reached (CLAUDE.md, "Covered
+    controls"), so every method that changes a schedule or a template refuses
+    on its own, not only through its command's CanExecute.
+    """
+
+    VM = Path(DESKTOP_DIR) / "ViewModels" / "ScheduleViewModel.cs"
+
+    def _body(self, source: str, signature: str) -> str:
+        start = source.index(signature)
+        return source[start:source.index("\n    }\n", start)]
+
+    @staticmethod
+    def _first_statement(body: str) -> str:
+        """The first line of code inside the braces, blanks and comments skipped."""
+        for line in body[body.index("{") + 1:].splitlines():
+            stripped = line.strip()
+            if stripped and not stripped.startswith("//"):
+                return stripped
+        return ""
+
+    def test_every_change_checks_can_edit_first(self):
+        """
+        First, not merely somewhere: a guard after the change, or in a comment,
+        would satisfy a substring check and refuse nothing.
+        """
+        source = self.VM.read_text(encoding="utf-8")
+        for signature in ("private void OpenScheduleEditor(", "private void SaveSchedule(",
+                          "private void DeleteSchedule(", "private void SetScheduleEnabled(",
+                          "private void OpenTemplateEditor(", "private void SaveTemplate(",
+                          "private void DeleteTemplate(", "private void RestoreTemplates("):
+            first = self._first_statement(self._body(source, signature))
+            assert first.startswith("if (") and "!EnsureCanEdit()" in first, (
+                f"{signature.strip('(')} must refuse during a Sealed sprint before it does "
+                f"anything else; its first statement is {first!r}")
+
+
+class TestSchedulePageNamesAndLabels:
+    """
+    After the PR A review: template names are unique because the page's
+    AutomationIds are built from them, the range labels come from the constants
+    Save checks, and the active-profile chip has an id no profile name can
+    produce. The report's tier table must also know about the probe tests.
+    """
+
+    VM = Path(DESKTOP_DIR) / "ViewModels" / "ScheduleViewModel.cs"
+    XAML = Path(DESKTOP_DIR) / "Views" / "ScheduleView.xaml"
+
+    def test_the_editor_saves_a_unique_name(self):
+        source = self.VM.read_text(encoding="utf-8")
+        start = source.index("private void SaveTemplate(")
+        body = source[start:source.index("\n    }\n", start)]
+        assert "S.UniqueTemplateName(template.Name, except: template)" in body
+        assert body.index("template.Normalize()") < body.index("UniqueTemplateName("), \
+            "the number goes on the cleaned name, or a later Normalize could cut it off"
+
+    def test_the_range_labels_are_bound_not_typed(self):
+        xaml = self.XAML.read_text(encoding="utf-8")
+        assert 'Text="{Binding SprintMinutesLabel}"' in xaml
+        assert 'Text="{Binding BreakMinutesLabel}"' in xaml
+        assert "(5–240)" not in xaml and "(1–60)" not in xaml, "a typed limit can drift from the constant"
+        vm = self.VM.read_text(encoding="utf-8")
+        assert "Sprint minutes ({StudyTemplate.MinSprintMinutes}" in vm
+        assert "{StudyTemplate.MaxSprintMinutes})" in vm
+        assert "Break minutes ({CycleState.MinBreakMinutes}" in vm
+        assert "{CycleState.MaxBreakMinutes})" in vm
+
+    def test_the_active_profile_chip_has_an_id_no_profile_name_can_produce(self):
+        vm = self.VM.read_text(encoding="utf-8")
+        assert 'AutomationId = "TemplateProfileActive"' in vm
+        assert 'AutomationId = $"TemplateProfile_{p.Name}"' in vm
+        xaml = self.XAML.read_text(encoding="utf-8")
+        assert "TemplateProfile_{0}" not in xaml, "the prefix form would let a profile named Active collide"
+        assert xaml.count('AutomationProperties.AutomationId="{Binding AutomationId}"') == 3, \
+            "every chip (template, day, profile) takes its whole id from the view model"
+
+    def test_every_tier_file_has_a_row_in_the_report(self):
+        """make_report.py counts tests per tier by filename; a file with no row leaves the rows short of the total."""
+        root = Path(DESKTOP_DIR).parent
+        report = (root / "automation" / "make_report.py").read_text(encoding="utf-8")
+        for path in sorted((root / "automation" / "tests").glob("test_tier*.py")):
+            assert f'"{path.name}":' in report, f"{path.name} has no tier row in make_report.py"

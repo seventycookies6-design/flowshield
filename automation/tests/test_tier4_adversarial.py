@@ -343,7 +343,7 @@ class TestUIInputEdges:
         so it was really just failing to type. Assert the gate that actually
         exists; the time-parsing rules are covered by tier 1.
         """
-        expired_app.navigate_to_tab("Sleep Blocking")
+        expired_app.navigate_to_tab("Schedule")
 
         for auto_id in ("SleepStartInput", "SleepEndInput"):
             assert expired_app.is_control_enabled(auto_id) is False, \
@@ -353,7 +353,7 @@ class TestUIInputEdges:
         assert result.ok, result.detail
 
     def test_saving_a_sleep_window_after_the_trial_persists_nothing(self, expired_app):
-        expired_app.navigate_to_tab("Sleep Blocking")
+        expired_app.navigate_to_tab("Schedule")
         before = verify.read_settings()
 
         # The Save button stays live so it can explain the gate; pressing it

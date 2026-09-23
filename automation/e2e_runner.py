@@ -305,7 +305,8 @@ class E2ERun:
 
     def step_15_sleep_blocking(self) -> None:
         self.log.begin("Sleep Blocking — enable a schedule and verify it saves")
-        self.ctrl.navigate_to_tab("Sleep Blocking")
+        # The sleep window lives on the Schedule page since F6.
+        self.ctrl.navigate_to_tab("Schedule")
 
         # Unlocked either way: by the licence, or by the free trial a clean
         # install is in.

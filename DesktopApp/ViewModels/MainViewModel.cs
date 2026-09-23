@@ -31,6 +31,11 @@ public class MainViewModel : ViewModelBase
         if (Settings.EnsureProfiles())
             Log.Info($"blocklist profiles ready: {Settings.Profiles.Count}, active \"{Settings.ActiveProfile.Name}\"");
 
+        // F6: the three built-in templates arrive once, and a schedule whose
+        // template is gone is dropped before anything reads it.
+        if (Settings.EnsureTemplates())
+            Log.Info($"study templates ready: {Settings.Templates.Count}, schedules {Settings.Schedules.Count}");
+
         Blocker = new AppBlockerService(settingsService, Settings);
         Blocker.Blocked += OnBlocked;
         Blocker.SoftForeground += OnSoftForeground;
@@ -39,6 +44,7 @@ public class MainViewModel : ViewModelBase
         History = new HistoryViewModel(this);
         BlockedApps = new BlockedAppsViewModel(this);
         SleepBlocking = new SleepBlockingViewModel(this);
+        Schedule = new ScheduleViewModel(this);
         SettingsPage = new SettingsViewModel(this, licenseService);
         FirstRun = new FirstRunViewModel(this);
         ShowFirstRunCommand = new RelayCommand(() => FirstRun.Show());
@@ -77,6 +83,10 @@ public class MainViewModel : ViewModelBase
     public HistoryViewModel History { get; }
     public BlockedAppsViewModel BlockedApps { get; }
     public SleepBlockingViewModel SleepBlocking { get; }
+
+    /// <summary>The Schedule page (F6), which holds the sleep window as well.</summary>
+    public ScheduleViewModel Schedule { get; }
+
     public SettingsViewModel SettingsPage { get; }
     public FirstRunViewModel FirstRun { get; }
 
@@ -242,7 +252,10 @@ public class MainViewModel : ViewModelBase
                 // show whatever was true when the app started (F16).
                 case AppPage.History: History.Refresh(); break;
                 case AppPage.BlockedApps: BlockedApps.RefreshStatus(); break;
-                case AppPage.SleepBlocking: SleepBlocking.RefreshStatus(); break;
+                case AppPage.SleepBlocking:
+                    SleepBlocking.RefreshStatus();
+                    Schedule.Refresh();
+                    break;
                 case AppPage.Settings:
                     SettingsPage.RefreshLicenseStatus();
                     // The export card counts the sprints in its date range, and
@@ -265,7 +278,7 @@ public class MainViewModel : ViewModelBase
         AppPage.Today => "Today",
         AppPage.History => "History",
         AppPage.BlockedApps => "Blocked Apps",
-        AppPage.SleepBlocking => "Sleep Blocking",
+        AppPage.SleepBlocking => "Schedule",
         _ => "Settings",
     };
 
@@ -274,7 +287,7 @@ public class MainViewModel : ViewModelBase
         AppPage.Today => "Start a sprint and let the shield hold the line.",
         AppPage.History => "Your week, and every sprint you have run.",
         AppPage.BlockedApps => "What the shield closes while you're working.",
-        AppPage.SleepBlocking => "A nightly window where the shield raises itself.",
+        AppPage.SleepBlocking => "Templates that start by themselves, and your nightly window.",
         _ => "License, startup and enforcement preferences.",
     };
 
@@ -311,6 +324,13 @@ public class MainViewModel : ViewModelBase
         _toastTimer.Start();
         Log.Info($"toast: {message}");
     }
+
+    /// <summary>
+    /// A yes/no question with a named destructive button, in the same dialog
+    /// Delete everything uses. True only when that button was pressed.
+    /// </summary>
+    public bool Confirm(string question, string confirmLabel) =>
+        Views.ConfirmDeleteDialog.Ask(question, confirmLabel);
 
     // -------------------------------------------------------------- plumbing
 
@@ -407,6 +427,7 @@ public class MainViewModel : ViewModelBase
         Today.OnTierChanged();
         BlockedApps.RefreshStatus();
         SleepBlocking.OnTierChanged();
+        Schedule.Refresh();
         SettingsPage.RefreshLicenseStatus();
     }
 
@@ -447,6 +468,10 @@ public class MainViewModel : ViewModelBase
         Raise(nameof(IsSprintRunning));
         Raise(nameof(IsFocusInProgress));
         BlockedApps.RefreshStatus();
+
+        // So the page's Sealed lock follows the sprint. Null-safe: this can run
+        // while the constructor is still building the page view models.
+        Schedule?.Refresh();
 
         // An allowance belongs to the sprint it was granted in, and a notice
         // must never outlive the shield that raised it.

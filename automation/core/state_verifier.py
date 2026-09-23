@@ -98,6 +98,29 @@ def read_settings(path: Path | None = None) -> dict:
     return json.loads(plain.decode("utf-8"))
 
 
+def wait_for_settings(predicate, timeout: float = 5.0, what: str = "the change",
+                      path: Path | None = None) -> dict:
+    """
+    Read the settings file until `predicate(settings)` holds, and return them.
+
+    The app writes its settings a moment after the click that changed them,
+    so a test that reads straight away is racing the save. Waiting for the
+    change itself, rather than sleeping a guess, is CLAUDE.md's "wait for what
+    happens". Raises TimeoutError, naming `what`, when the deadline passes.
+    """
+    deadline = time.time() + timeout
+    while True:
+        try:
+            settings = read_settings(path)
+            if predicate(settings):
+                return settings
+        except (OSError, ValueError):            # mid-write, or not written yet
+            pass
+        if time.time() >= deadline:
+            raise TimeoutError(f"the settings file did not show {what} within {timeout}s")
+        time.sleep(0.1)
+
+
 def _read_past_a_replace(path: Path, timeout: float = 2.0) -> str:
     """
     Read a file the app may be swapping out from under us.

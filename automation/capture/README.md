@@ -22,7 +22,7 @@ sprints and, in the recording's case, closes a real application.
 | 1 | `set_resolution.py` | The baseline VM is 1024x768, which clips the app window. Raises it to 1920x1080 and persists it. A `lab.ps1 revert` puts it back, so this runs after every revert. |
 | 2 | `clean_desktop.py` | Plain dark wallpaper, desktop icons hidden. The stock Windows photo is noise behind the app. |
 | 3 | `seed_sample_data.py` | Writes a fortnight of sample sprints and a three-app blocklist. |
-| 4 | `capture_screens.py` | Today, Blocked Apps, Sleep Blocking, and the end of a sprint. |
+| 4 | `capture_screens.py` | Today, Blocked Apps, Schedule, and the end of a sprint. |
 | 5 | `record_shield_closing.py` | Records the shield closing a blocked app, as JPEG frames. |
 
 Encode the frames on the host once they are fetched:
