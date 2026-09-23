@@ -41,6 +41,7 @@ internal static class Commands
             "settings-delete-template" => SettingsDeleteTemplate(request),
             "settings-restore-builtins" => SettingsRestore(request),
             "settings-profile-for" => SettingsProfileFor(request),
+            "settings-unique-template-name" => SettingsUniqueTemplateName(request),
             _ => throw new ArgumentException($"unknown command '{cmd}'"),
         };
     }
@@ -75,14 +76,17 @@ internal static class Commands
 
     /// <summary>
     /// Runs StudyTemplate.Normalize on {"template": {...}} and returns the
-    /// template as it came out, with whether anything changed.
+    /// template as it came out, with whether anything changed. IsBuiltIn is
+    /// read first, as a caller that runs before Normalize would.
     /// </summary>
     private static JsonNode TemplateNormalize(JsonObject request)
     {
         var template = request["template"].Deserialize<StudyTemplate>()!;
+        var isBuiltInBefore = template.IsBuiltIn;
         var changed = template.Normalize();
         return new JsonObject
         {
+            ["is_built_in_before"] = isBuiltInBefore,
             ["template"] = JsonSerializer.SerializeToNode(template),
             ["changed"] = changed,
         };
@@ -127,13 +131,21 @@ internal static class Commands
 
     /// <summary>
     /// Skips each local date in "skip" in turn, then answers IsSkipped for each
-    /// date in "query", with the remembered dates as they came out.
+    /// date in "query", with the remembered dates as they came out. With
+    /// "roundtrip": true the schedule goes through JSON between the two, as it
+    /// would through the settings file; "stored" is what the file would hold.
     /// </summary>
     private static JsonNode ScheduleSkip(JsonObject request)
     {
         var schedule = ScheduleOf(request);
         foreach (var d in request["skip"]!.AsArray())
             schedule.Skip(DateTime.Parse((string)d!, CultureInfo.InvariantCulture));
+
+        var stored = JsonSerializer.SerializeToNode(schedule)!["SkippedDatesLocal"]!.AsArray()
+            .Select(d => (JsonNode)(string)d!).ToArray();
+        if ((bool?)request["roundtrip"] == true)
+            schedule = JsonSerializer.Deserialize<SprintSchedule>(JsonSerializer.Serialize(schedule))!;
+
         var queries = request["query"]!.AsArray()
             .Select(d => (JsonNode)schedule.IsSkipped(DateTime.Parse((string)d!, CultureInfo.InvariantCulture)))
             .ToArray();
@@ -141,6 +153,7 @@ internal static class Commands
         {
             ["skipped"] = new JsonArray(schedule.SkippedDatesLocal
                 .Select(d => (JsonNode)d.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)).ToArray()),
+            ["stored"] = new JsonArray(stored),
             ["is_skipped"] = new JsonArray(queries),
         };
     }
@@ -224,6 +237,14 @@ internal static class Commands
         var settings = SettingsOf(request);
         var template = settings.FindTemplate((string)request["template_id"]!)!;
         return new JsonObject { ["profile"] = settings.ProfileFor(template).Name };
+    }
+
+    /// <summary>{"settings", "wanted", "except_id"?} -> the name UniqueTemplateName hands back.</summary>
+    private static JsonNode SettingsUniqueTemplateName(JsonObject request)
+    {
+        var settings = SettingsOf(request);
+        var except = settings.FindTemplate((string?)request["except_id"]);
+        return new JsonObject { ["name"] = settings.UniqueTemplateName((string)request["wanted"]!, except) };
     }
 
     private static JsonNode? Do(Action action)

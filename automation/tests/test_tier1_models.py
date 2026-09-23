@@ -10,12 +10,16 @@ test_tier1_unit.py so the two files can change independently.
 from __future__ import annotations
 
 import re
+import subprocess
 from pathlib import Path
 
 import pytest
 
 from config import SERVER_DIR
+from core import model_probe
 from core.model_probe import ProbeError, probe
+
+DESKTOP = Path(SERVER_DIR).parent / "DesktopApp"
 
 
 # ============================ the model probe: real C# from tier 1 (1.0.10)
@@ -44,6 +48,45 @@ class TestModelProbe:
         with pytest.raises(ProbeError):
             probe({"cmd": "no-such-command"})
 
+    # The harness itself: every way a probe can go wrong is a ProbeError that
+    # names the command, and a broken Models folder is compiled once, not once
+    # per test (up to 300 s each).
+
+    def test_a_build_failure_is_remembered_not_rebuilt(self, monkeypatch):
+        calls = []
+
+        def failing_build(command, **kwargs):
+            calls.append(command)
+            return subprocess.CompletedProcess(command, 1, stdout="error CS0000: no", stderr="")
+
+        monkeypatch.setattr(model_probe, "_build_outcome", None)
+        monkeypatch.setattr(model_probe.shutil, "which", lambda name: "dotnet")
+        monkeypatch.setattr(model_probe.subprocess, "run", failing_build)
+        for _ in range(2):
+            with pytest.raises(ProbeError, match="did not build"):
+                model_probe.build()
+        assert len(calls) == 1, "the second call must re-raise the first failure, not rebuild"
+
+    def test_a_hung_probe_is_a_probe_error_that_names_the_command(self, monkeypatch):
+        def hang(command, **kwargs):
+            raise subprocess.TimeoutExpired(command, kwargs.get("timeout", 0), output="half an answer")
+
+        monkeypatch.setattr(model_probe, "_build_outcome", Path("ModelProbe.exe"))
+        monkeypatch.setattr(model_probe.subprocess, "run", hang)
+        with pytest.raises(ProbeError) as err:
+            probe({"cmd": "ping"})
+        assert "ping" in str(err.value) and "half an answer" in str(err.value)
+
+    def test_an_answer_that_is_not_json_is_a_probe_error_not_a_decode_error(self, monkeypatch):
+        def chatty(command, **kwargs):
+            return subprocess.CompletedProcess(command, 0, stdout="a stray WriteLine\n{}", stderr="")
+
+        monkeypatch.setattr(model_probe, "_build_outcome", Path("ModelProbe.exe"))
+        monkeypatch.setattr(model_probe.subprocess, "run", chatty)
+        with pytest.raises(ProbeError) as err:
+            probe({"cmd": "ping"})
+        assert "ping" in str(err.value) and "stray WriteLine" in str(err.value)
+
 
 # ============================================ F6: study templates (1.0.10)
 
@@ -71,6 +114,22 @@ class TestStudyTemplates:
         first = {t["Id"] for t in self._builtins().values()}
         second = {t["Id"] for t in self._builtins().values()}
         assert len(first) == 3 and not first & second
+        assert all(len(i) == 32 for i in first | second), "a built-in never arrives without an id"
+
+    def test_the_length_bounds_are_todays_custom_length_bounds(self):
+        """
+        The comment on StudyTemplate's bounds says they match Today's custom
+        sprint length; the numbers are declared twice, so pin them equal.
+        (TodayViewModel.cs is the teammate's file this week, so no sharing yet.)
+        """
+        def const(path, name):
+            match = re.search(rf"public const int {name} = (\d+);", path.read_text(encoding="utf-8"))
+            assert match, f"{name} not found in {path.name}"
+            return int(match.group(1))
+
+        template, today = DESKTOP / "Models" / "StudyTemplate.cs", DESKTOP / "ViewModels" / "TodayViewModel.cs"
+        assert const(template, "MinSprintMinutes") == const(today, "CustomMinMinutes")
+        assert const(template, "MaxSprintMinutes") == const(today, "CustomMaxMinutes")
 
     @pytest.mark.parametrize("field,given,expected", [
         ("SprintMinutes", 2, 5),
@@ -95,9 +154,22 @@ class TestStudyTemplates:
         assert out["template"][field] == expected
         assert out["changed"] is (given != expected)
 
-    def test_normalize_gives_a_missing_id_a_new_one(self):
-        out = probe({"cmd": "template-normalize", "template": {"Id": "", "Name": "A"}})
+    @pytest.mark.parametrize("template", [{"Id": "", "Name": "A"}, {"Name": "A"}],
+                             ids=["blank id", "no Id key"])
+    def test_normalize_gives_a_missing_id_a_new_one_and_says_so(self, template):
+        """Reported as a change, so the loader saves it: an id that isn't saved changes every launch."""
+        out = probe({"cmd": "template-normalize", "template": template})
         assert len(out["template"]["Id"]) == 32 and out["changed"] is True
+
+    def test_truncation_never_splits_an_emoji(self):
+        """Cutting at 40 UTF-16 units would leave half a surrogate pair, saved as U+FFFD."""
+        out = probe({"cmd": "template-normalize", "template": {"Id": "t1", "Name": "x" * 39 + "\U0001F600"}})
+        assert out["template"]["Name"] == "x" * 39
+
+    def test_is_built_in_is_safe_to_read_before_normalize(self):
+        """A hand-edited "BuiltInKey": null must not crash whoever reads IsBuiltIn first."""
+        out = probe({"cmd": "template-normalize", "template": {"Id": "t1", "Name": "A", "BuiltInKey": None}})
+        assert out["is_built_in_before"] is False
 
 
 # ================================= F6: schedules and when they start (1.0.10)
@@ -169,6 +241,18 @@ class TestScheduleMatcher:
                      "after": "2026-09-25T12:00:00Z", "zone": EASTERN})
         assert out["utc"] is None
 
+    def test_an_unset_last_check_looks_back_a_week_at_most(self):
+        """
+        DateTime.MinValue is what an unset last check looks like. Nothing more
+        than a week late is ever acted on, so the window is clamped to eight
+        days rather than throwing, or walking every day since year one.
+        """
+        out = probe({"cmd": "schedule-between", "schedule": schedule(), "zone": EASTERN,
+                     "from": "0001-01-01T00:00:00Z", "to": "2026-10-01T00:00:00Z"})
+        assert out["utc"] == ["2026-09-23T21:00:00Z", "2026-09-24T21:00:00Z",
+                              "2026-09-28T21:00:00Z", "2026-09-29T21:00:00Z",
+                              "2026-09-30T21:00:00Z"]
+
 
 class TestSprintScheduleSkips:
     """F6: Skip today, and a schedule can't hold nonsense."""
@@ -182,6 +266,28 @@ class TestSprintScheduleSkips:
         out = probe({"cmd": "schedule-skip", "schedule": schedule(),
                      "skip": ["2026-09-01", "2026-09-28"], "query": []})
         assert out["skipped"] == ["2026-09-28"]
+
+    def test_the_skip_memory_keeps_fourteen_days_and_drops_fifteen(self):
+        out = probe({"cmd": "schedule-skip", "schedule": schedule(),
+                     "skip": ["2026-09-13", "2026-09-14", "2026-09-28"], "query": []})
+        assert out["skipped"] == ["2026-09-14", "2026-09-28"]
+
+    def test_a_skip_survives_the_file_whatever_the_time_zone_does(self):
+        """
+        A skip is a date, not an instant. Stored with an offset it would be
+        converted at load, so after a westward zone change it would read as
+        the day before. Round-trip through JSON as the settings file does.
+        """
+        out = probe({"cmd": "schedule-skip", "schedule": schedule(), "roundtrip": True,
+                     "skip": ["2026-09-28"], "query": ["2026-09-28"]})
+        assert out["is_skipped"] == [True]
+        assert out["stored"] == ["2026-09-28T00:00:00"], "no offset, no Z: a plain local date"
+
+    def test_normalize_gives_a_schedule_without_an_id_key_one_and_says_so(self):
+        s = schedule()
+        del s["Id"]
+        out = probe({"cmd": "schedule-normalize", "schedule": s})
+        assert len(out["schedule"]["Id"]) == 32 and out["changed"] is True
 
     @pytest.mark.parametrize("minute,expected", [(-5, 0), (24 * 60, 24 * 60 - 1), (600, 600)])
     def test_normalize_keeps_the_start_inside_the_day(self, minute, expected):
@@ -213,6 +319,7 @@ class TestScheduleText:
         ([1, 3, 5], "Mon, Wed, Fri"),
         ([0], "Sun"),
         ([], "No days"),
+        ([9], "No days"),    # not a DayOfWeek; a hand-edited file, before Normalize drops it
     ])
     def test_days(self, days, expected):
         assert probe({"cmd": "text-days", "days": days})["text"] == expected
@@ -222,6 +329,11 @@ class TestScheduleText:
         ("2026-09-28T09:00:00", "2026-09-28T07:00:00", "Next: today 09:00 · Homework evening"),
         ("2026-09-29T17:00:00", "2026-09-28T20:00:00", "Next: tomorrow 17:00 · Homework evening"),
         ("2026-10-01T17:00:00", "2026-09-28T20:00:00", "Next: Thu 17:00 · Homework evening"),
+        # A Monday-only schedule seen on Monday after it ran: "Mon 17:00" would read as today.
+        ("2026-10-05T17:00:00", "2026-09-28T18:00:00", "Next: next Mon 17:00 · Homework evening"),
+        ("2026-10-08T17:00:00", "2026-09-28T18:00:00", "Next: next Thu 17:00 · Homework evening"),
+        # A start already behind now (a clock set back) reads like today, not like a weekday.
+        ("2026-09-27T17:00:00", "2026-09-28T09:00:00", "Next: tonight 17:00 · Homework evening"),
     ])
     def test_next_up(self, start, now, expected):
         out = probe({"cmd": "text-next-up", "name": "Homework evening", "start": start, "now": now})
@@ -229,11 +341,20 @@ class TestScheduleText:
 
     def test_the_copy_keeps_to_the_house_voice(self):
         """DESIGN_SYSTEM.md §9: no exclamation marks; ASCII only in C# literals (escape the rest)."""
-        for name in ("ScheduleText.cs", "SprintSchedule.cs", "ScheduleMatcher.cs", "StudyTemplate.cs"):
-            source = (Path(SERVER_DIR).parent / "DesktopApp" / "Models" / name).read_text(encoding="utf-8")
+        sources = [DESKTOP / "Models" / name
+                   for name in ("ScheduleText.cs", "SprintSchedule.cs", "ScheduleMatcher.cs", "StudyTemplate.cs")]
+        sources.append(DESKTOP / "ViewModels" / "ScheduleViewModel.cs")
+        for path in sources:
+            source = path.read_text(encoding="utf-8")
             for text in re.findall(r'"([^"]*)"', source):
-                assert "!" not in text, f"exclamation mark in {name}: {text!r}"
-                assert text.isascii(), f"non-ascii in {name}: {text!r}"
+                assert "!" not in text, f"exclamation mark in {path.name}: {text!r}"
+                assert text.isascii(), f"non-ascii in {path.name}: {text!r}"
+
+        # The page's own strings. Its range labels use an en dash on purpose
+        # (the view model builds them), so only the exclamation rule applies.
+        xaml = (DESKTOP / "Views" / "ScheduleView.xaml").read_text(encoding="utf-8")
+        for text in re.findall(r'\b(?:Text|Content)="([^"]*)"', xaml):
+            assert "!" not in text, f"exclamation mark in ScheduleView.xaml: {text!r}"
 
 
 # ================== F6: templates and schedules in the settings file (1.0.10)
@@ -290,6 +411,61 @@ class TestTemplatesInSettings:
                      "settings": settings_json(TemplatesSeeded=True, **{field: None})})
         assert out["changed_first"] is True and out["changed_second"] is False
 
+    def test_a_null_entry_in_either_list_is_dropped_not_fatal(self):
+        """[null] in a hand-edited file used to throw inside the MainViewModel constructor."""
+        t = {"Id": "t1", "Name": "Mine", "SprintMinutes": 30, "Shield": 2}
+        s = {"Id": "s1", "TemplateId": "t1", "Days": [1], "StartMinuteOfDay": 1020}
+        out = probe({"cmd": "settings-ensure-templates",
+                     "settings": settings_json(Templates=[None, t], TemplatesSeeded=True,
+                                               Schedules=[None, s])})
+        assert out["changed_first"] is True and out["changed_second"] is False
+        assert out["templates"] == ["Mine"] and out["schedules"] == ["s1"]
+
+    def test_records_without_an_id_key_get_ids_that_are_saved(self):
+        """An id the loader doesn't save would be a new one every launch (and PR C keys on it)."""
+        t1 = {"Id": "t1", "Name": "Mine", "SprintMinutes": 30, "Shield": 2}
+        t2 = {"Name": "Other", "SprintMinutes": 30, "Shield": 2}
+        s = {"TemplateId": "t1", "Days": [1], "StartMinuteOfDay": 1020}
+        out = probe({"cmd": "settings-ensure-templates",
+                     "settings": settings_json(Templates=[t1, t2], TemplatesSeeded=True, Schedules=[s])})
+        assert out["changed_first"] is True and out["changed_second"] is False
+        assert len(out["raw_templates"][1]["Id"]) == 32
+        assert len(out["raw_schedules"][0]["Id"]) == 32
+
+    def test_seeding_does_not_duplicate_a_built_in_that_is_already_there(self):
+        """A file with a built-in but no TemplatesSeeded mark (hand-edited, or half migrated)."""
+        homework = {"Id": "h1", "Name": "Homework evening", "SprintMinutes": 45, "Shield": 2,
+                    "CycleSprints": 3, "BreakMinutes": 10, "BuiltInKey": "homework"}
+        out = probe({"cmd": "settings-ensure-templates",
+                     "settings": settings_json(Templates=[homework], TemplatesSeeded=False)})
+        assert out["templates"] == ["Homework evening", "Exam prep", "Light study"]
+        assert out["seeded"] is True and out["changed_second"] is False
+
+    def test_two_templates_with_one_name_are_told_apart_on_load(self):
+        """The page and its AutomationIds go by name, so no two templates may share one."""
+        a = {"Id": "t1", "Name": "Mine", "SprintMinutes": 30, "Shield": 2}
+        b = {"Id": "t2", "Name": "mine", "SprintMinutes": 45, "Shield": 2}
+        out = probe({"cmd": "settings-ensure-templates",
+                     "settings": settings_json(Templates=[a, b], TemplatesSeeded=True)})
+        assert out["templates"] == ["Mine", "mine 2"], "the earlier one keeps its name"
+        assert out["changed_first"] is True and out["changed_second"] is False
+
+    @pytest.mark.parametrize("wanted,except_id,expected", [
+        ("Mine", None, "Mine 3"),                  # "Mine" and "Mine 2" are both taken
+        ("MINE", None, "MINE 3"),                  # case-insensitive, like profiles
+        ("Mine 2", None, "Mine 2 2"),
+        ("Fresh", None, "Fresh"),
+        ("Mine", "t1", "Mine"),                    # renaming a template to its own name
+        ("x" * 40, None, "x" * 38 + " 2"),         # the number fits inside the 40-character cap
+    ], ids=["taken", "case", "the numbered one is taken", "free", "own name", "at the cap"])
+    def test_unique_template_name(self, wanted, except_id, expected):
+        templates = [{"Id": "t1", "Name": "Mine", "SprintMinutes": 30, "Shield": 2},
+                     {"Id": "t2", "Name": "Mine 2", "SprintMinutes": 30, "Shield": 2},
+                     {"Id": "t3", "Name": "x" * 40, "SprintMinutes": 30, "Shield": 2}]
+        out = probe({"cmd": "settings-unique-template-name", "wanted": wanted, "except_id": except_id,
+                     "settings": settings_json(Templates=templates, TemplatesSeeded=True)})
+        assert out["name"] == expected
+
     def test_deleting_a_template_deletes_its_schedules(self):
         t = {"Id": "t1", "Name": "Mine", "SprintMinutes": 30, "Shield": 2}
         keep = {"Id": "s2", "TemplateId": "t2", "Days": [2], "StartMinuteOfDay": 600}
@@ -334,5 +510,8 @@ class TestTemplatesInSettings:
         assert out["profile"] == expected
 
     def test_startup_ensures_templates_after_profiles(self):
-        source = (Path(SERVER_DIR).parent / "DesktopApp" / "ViewModels" / "MainViewModel.cs").read_text(encoding="utf-8")
-        assert source.index("Settings.EnsureProfiles()") < source.index("Settings.EnsureTemplates()")
+        """Anchored on the if-statements, so a call left only in a comment can't satisfy it."""
+        source = (DESKTOP / "ViewModels" / "MainViewModel.cs").read_text(encoding="utf-8")
+        profiles, templates = "if (Settings.EnsureProfiles())", "if (Settings.EnsureTemplates())"
+        assert profiles in source and templates in source
+        assert source.index(profiles) < source.index(templates)

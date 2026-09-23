@@ -924,7 +924,11 @@ class DesktopController:
 
     def add_schedule(self, template: str, days: list[str], time_text: str,
                      ask_first: bool = True) -> None:
-        """Schedule page: Add schedule, pick a template, days and time, then Save."""
+        """
+        Schedule page: Add schedule, pick a template, days and time, then Save,
+        and wait for the editor to close. A refused save (a bad time, say)
+        leaves it open, which surfaces here as a clear error, not a sleep.
+        """
         self.click("AddScheduleButton")
         self.choose(f"ScheduleTemplate_{template}")
         for day in days:
@@ -932,7 +936,19 @@ class DesktopController:
         self.set_text("ScheduleTimeInput", time_text)
         self.set_toggle("ScheduleAskFirstToggle", ask_first)
         self.click("SaveScheduleButton")
-        time.sleep(0.8)
+        self.wait_until_gone("SaveScheduleButton")
+
+    def wait_until_gone(self, auto_id: str, timeout: float = 5.0) -> None:
+        """
+        Block until a control leaves the UI Automation tree, which is what a
+        collapsed WPF panel does. The direct way to know an inline editor has
+        closed, rather than a guess at how long its save takes.
+        """
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            if not self.exists(auto_id, timeout=0.2):
+                return
+        raise DesktopControllerError(f"'{auto_id}' was still on the page after {timeout}s")
 
     # ------------------------------------------------------------- sprints
 

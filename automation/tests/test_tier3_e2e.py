@@ -2057,6 +2057,11 @@ class TestYourDataCard:
         assert "licenseKey" not in payload["licence"], \
             "the export must never contain the licence key"
         assert "blockedApps" in payload and "sessions" in payload
+        # F6: templates and schedules are stored locally too, so they are part
+        # of "everything". A fresh install holds the three built-ins.
+        assert [t["Name"] for t in payload["studyTemplates"]] == \
+            ["Homework evening", "Exam prep", "Light study"]
+        assert payload["sprintSchedules"] == []
 
     def test_delete_everything_asks_for_confirmation_first(self, fresh_app):
         fresh_app.navigate_to_tab("Settings")
@@ -2511,8 +2516,8 @@ class TestSchedulePage:
         fresh_app.navigate_to_tab("Schedule")
         assert fresh_app.text_of("ScheduleNextUpText") == "No schedules yet"
         fresh_app.add_schedule("Homework evening", ["Mon", "Tue", "Wed", "Thu"], "17:00")
-        schedules = verify.read_settings()["Schedules"]
-        assert len(schedules) == 1
+        schedules = verify.wait_for_settings(lambda st: len(st["Schedules"]) == 1,
+                                             what="the new schedule")["Schedules"]
         s = schedules[0]
         assert s["Days"] == [1, 2, 3, 4] and s["StartMinuteOfDay"] == 17 * 60 and s["AskFirst"] is True
         template = next(t for t in verify.read_settings()["Templates"] if t["Id"] == s["TemplateId"])
@@ -2537,7 +2542,8 @@ class TestSchedulePage:
     def test_editing_a_schedule_opens_it_as_saved_and_keeps_its_id(self, fresh_app):
         fresh_app.navigate_to_tab("Schedule")
         fresh_app.add_schedule("Exam prep", ["Sat"], "09:00", ask_first=False)
-        original = verify.read_settings()["Schedules"][0]
+        original = verify.wait_for_settings(lambda st: len(st["Schedules"]) == 1,
+                                            what="the new schedule")["Schedules"][0]
 
         fresh_app.click(f"EditSchedule_{original['Id']}")
         assert fresh_app.is_selected("ScheduleTemplate_Exam prep")
@@ -2548,21 +2554,71 @@ class TestSchedulePage:
 
         fresh_app.set_text("ScheduleTimeInput", "10:30")
         fresh_app.click("SaveScheduleButton")
-        time.sleep(0.8)
-        schedules = verify.read_settings()["Schedules"]
+        fresh_app.wait_until_gone("SaveScheduleButton")
+        schedules = verify.wait_for_settings(
+            lambda st: st["Schedules"] and st["Schedules"][0]["StartMinuteOfDay"] == 10 * 60 + 30,
+            what="the edited start time")["Schedules"]
         assert len(schedules) == 1, "editing must not add a second schedule"
         assert schedules[0]["Id"] == original["Id"]
-        assert schedules[0]["StartMinuteOfDay"] == 10 * 60 + 30
 
     def test_a_schedule_can_be_switched_off(self, fresh_app):
         fresh_app.navigate_to_tab("Schedule")
         fresh_app.add_schedule("Light study", ["Sun"], "19:00")
-        schedule_id = verify.read_settings()["Schedules"][0]["Id"]
+        schedule_id = verify.wait_for_settings(lambda st: len(st["Schedules"]) == 1,
+                                               what="the new schedule")["Schedules"][0]["Id"]
 
         assert fresh_app.set_toggle(f"ScheduleEnabled_{schedule_id}", False) is False
-        time.sleep(0.5)
-        assert verify.read_settings()["Schedules"][0]["Enabled"] is False
+        verify.wait_for_settings(lambda st: st["Schedules"][0]["Enabled"] is False,
+                                 what="the schedule switched off")
         assert fresh_app.text_of("ScheduleNextUpText") == "All your schedules are off"
+
+    def test_a_sealed_sprint_refuses_a_schedule_change_through_automation(self, fresh_app):
+        """
+        CLAUDE.md, "Covered controls": prove the lock by what happens, not by
+        the grey. The row's switch is driven through UI Automation's Toggle
+        pattern and its Delete through Invoke, the way a test or an assistive
+        tool would reach them; the file must not change and the switch must
+        still read as saved. WPF refuses either pattern on a disabled control
+        with an exception, which is one acceptable way to refuse.
+        """
+        fresh_app.navigate_to_tab("Schedule")
+        fresh_app.add_schedule("Light study", ["Sun"], "19:00")
+        before = verify.wait_for_settings(lambda st: len(st["Schedules"]) == 1,
+                                          what="the new schedule")["Schedules"]
+        schedule_id = before[0]["Id"]
+        assert before[0]["Enabled"] is True
+
+        fresh_app.navigate_to_tab("Today")
+        fresh_app.select_shield("Sealed")
+        fresh_app.start_sprint()
+        fresh_app.wait_out_grace_period()
+        try:
+            fresh_app.navigate_to_tab("Schedule")
+            refusals = []
+            switch = fresh_app.element(f"ScheduleEnabled_{schedule_id}")
+            try:
+                switch.iface_toggle.Toggle()
+            except Exception as exc:                      # noqa: BLE001
+                refusals.append(f"toggle: {type(exc).__name__}")
+            delete = fresh_app.element(f"DeleteSchedule_{schedule_id}")
+            try:
+                delete.iface_invoke.Invoke()
+            except Exception as exc:                      # noqa: BLE001
+                refusals.append(f"delete: {type(exc).__name__}")
+
+            assert fresh_app.toggle_state(f"ScheduleEnabled_{schedule_id}") is True, \
+                "the switch must still show the saved state"
+            assert fresh_app.exists(f"ScheduleRow_{schedule_id}", timeout=2), \
+                "the row must still be there"
+            # A refusal has no outcome to wait for; give a wrongly accepted
+            # change the same moment the profile-switcher test does.
+            time.sleep(0.8)
+            assert verify.read_settings()["Schedules"] == before, \
+                f"Sealed must keep the schedules exactly as saved (refusals: {refusals})"
+            assert "Sealed" in fresh_app.text_of("ScheduleStatusText")
+        finally:
+            fresh_app.navigate_to_tab("Today")
+            fresh_app.stop_sprint()
 
     def test_deleting_a_template_deletes_its_schedules_after_a_confirmation(self, fresh_app):
         fresh_app.navigate_to_tab("Schedule")
@@ -2570,10 +2626,9 @@ class TestSchedulePage:
         fresh_app.click("DeleteTemplate_Exam prep")
         assert "1 schedule" in (fresh_app.accept_dialog() or ""), \
             "the confirmation names what goes with it"
-        time.sleep(0.5)
-        settings = verify.read_settings()
+        settings = verify.wait_for_settings(lambda st: st["Schedules"] == [],
+                                            what="the schedule going with its template")
         assert all(t["Name"] != "Exam prep" for t in settings["Templates"])
-        assert settings["Schedules"] == []
 
     def test_restore_brings_back_a_deleted_built_in(self, fresh_app):
         fresh_app.navigate_to_tab("Schedule")
@@ -2594,15 +2649,36 @@ class TestSchedulePage:
         fresh_app.click("SaveTemplateButton")
 
         assert fresh_app.exists("TemplateRow_Reading", timeout=3)
-        saved = next(t for t in verify.read_settings()["Templates"] if t["Name"] == "Reading")
+        settings = verify.wait_for_settings(lambda st: any(t["Name"] == "Reading" for t in st["Templates"]),
+                                            what="the Reading template")
+        saved = next(t for t in settings["Templates"] if t["Name"] == "Reading")
         assert (saved["SprintMinutes"], saved["CycleSprints"], saved["BreakMinutes"]) == (30, 2, 7)
         assert saved["Shield"] in (1, "Soft")
         assert saved["ProfileId"] == "", "no profile chosen means whichever is active"
         assert saved["BuiltInKey"] == ""
 
+    def test_a_second_template_with_the_same_name_gets_a_number(self, fresh_app):
+        """Rows and their buttons are addressed by name, so two "Reading"s would be one."""
+        fresh_app.navigate_to_tab("Schedule")
+        for _ in range(2):
+            fresh_app.click("NewTemplateButton")
+            fresh_app.set_text("TemplateNameInput", "Reading")
+            fresh_app.click("SaveTemplateButton")
+            fresh_app.wait_until_gone("SaveTemplateButton")
+
+        assert fresh_app.exists("TemplateRow_Reading", timeout=3)
+        assert fresh_app.exists("TemplateRow_Reading 2", timeout=3)
+        settings = verify.wait_for_settings(
+            lambda st: sum(t["Name"].startswith("Reading") for t in st["Templates"]) == 2,
+            what="both Reading templates")
+        assert [t["Name"] for t in settings["Templates"]][-2:] == ["Reading", "Reading 2"]
+
     def test_a_template_length_out_of_range_is_refused(self, fresh_app):
         fresh_app.navigate_to_tab("Schedule")
         fresh_app.click("NewTemplateButton")
+        # The labels say the same limits Save checks, built from one set of constants.
+        assert fresh_app.text_of("TemplateMinutesLabel") == "Sprint minutes (5–240)"
+        assert fresh_app.text_of("TemplateBreakLabel") == "Break minutes (1–60)"
         fresh_app.set_text("TemplateNameInput", "Marathon")
         fresh_app.set_text("TemplateMinutesInput", "300")
         fresh_app.click("SaveTemplateButton")
@@ -2614,19 +2690,21 @@ class TestSchedulePage:
     def test_a_template_can_use_a_blocklist_profile(self, fresh_app):
         fresh_app.navigate_to_tab("Blocked Apps")
         fresh_app.new_profile("School")
-        time.sleep(0.6)
-        school = next(p for p in verify.read_settings()["Profiles"] if p["Name"] == "School")
+        settings = verify.wait_for_settings(lambda st: any(p["Name"] == "School" for p in st["Profiles"]),
+                                            what="the School profile")
+        school = next(p for p in settings["Profiles"] if p["Name"] == "School")
 
         fresh_app.navigate_to_tab("Schedule")
         fresh_app.click("NewTemplateButton")
-        assert fresh_app.is_selected("TemplateProfile_Active"), \
+        assert fresh_app.is_selected("TemplateProfileActive"), \
             "a new template follows whichever profile is active"
         fresh_app.set_text("TemplateNameInput", "Maths")
         fresh_app.choose("TemplateProfile_School")
         fresh_app.click("SaveTemplateButton")
-        time.sleep(0.5)
 
-        saved = next(t for t in verify.read_settings()["Templates"] if t["Name"] == "Maths")
+        settings = verify.wait_for_settings(lambda st: any(t["Name"] == "Maths" for t in st["Templates"]),
+                                            what="the Maths template")
+        saved = next(t for t in settings["Templates"] if t["Name"] == "Maths")
         assert saved["ProfileId"] == school["Id"]
 
     def test_a_sealed_sprint_makes_the_page_read_only(self, fresh_app):
