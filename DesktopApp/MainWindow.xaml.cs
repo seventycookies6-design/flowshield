@@ -326,6 +326,7 @@ public partial class MainWindow : Window
             oldVm.SoftOverlayRequested -= OnSoftOverlayRequested;
             oldVm.SoftOverlayDismissRequested -= OnSoftOverlayDismissRequested;
             oldVm.OpenAppsQuestionRaised -= OnOpenAppsQuestionRaised;
+            oldVm.QuickStartRequested -= OnQuickStartRequested;
             oldVm.WindowVisibility = null;
         }
 
@@ -338,6 +339,7 @@ public partial class MainWindow : Window
             newVm.SoftOverlayRequested += OnSoftOverlayRequested;
             newVm.SoftOverlayDismissRequested += OnSoftOverlayDismissRequested;
             newVm.OpenAppsQuestionRaised += OnOpenAppsQuestionRaised;
+            newVm.QuickStartRequested += OnQuickStartRequested;
             // Whether anyone could see a card on Today right now (F6): not
             // from the tray (Hide) and not minimised. Read when a card is
             // shown, never stored, so it cannot go stale.
@@ -353,6 +355,9 @@ public partial class MainWindow : Window
     /// way QuickStart puts it there (#270). The view model has already chosen Today.
     /// </summary>
     private void OnOpenAppsQuestionRaised(object? sender, EventArgs e) => BringToFront();
+
+    /// <summary>The Jump List's "Start sprint" (1.0.10): the tray's quick start itself, not a copy of it.</summary>
+    private void OnQuickStartRequested(object? sender, EventArgs e) => QuickStart();
 
     /// <summary>Turning the F4 hotkey setting on or off takes effect immediately.</summary>
     private void OnSettingsPageChanged(object? sender, PropertyChangedEventArgs e)
@@ -772,6 +777,12 @@ public partial class MainWindow : Window
                 currentVm.SettingsPage.PropertyChanged -= OnSettingsPageChanged;
                 currentVm.SoftOverlayRequested -= OnSoftOverlayRequested;
                 currentVm.SoftOverlayDismissRequested -= OnSoftOverlayDismissRequested;
+                // A Jump List launch handed over mid-shutdown must not reach a
+                // closed window: not its quick start, not F7's question
+                // (BringToFront, then Show), not a notification.
+                currentVm.QuickStartRequested -= OnQuickStartRequested;
+                currentVm.OpenAppsQuestionRaised -= OnOpenAppsQuestionRaised;
+                currentVm.NotificationRequested -= OnNotificationRequested;
             }
             // Delete everything already removed these settings (#271).
             if (Vm?.SkipSaveOnExit != true) Vm?.SaveSettings();
