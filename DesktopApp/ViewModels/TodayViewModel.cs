@@ -30,8 +30,13 @@ public class TodayViewModel : ViewModelBase
     {
         _main = main;
 
-        _tick = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
-        _tick.Tick += (_, _) => OnTick();
+        // Normal priority (#319), as the scheduler's since #316: WPF's default,
+        // Background, sits below input, rendering and the calls that serve UI
+        // Automation, and a busy UI thread can hold Background ticks back for
+        // a minute. The tick is light (a few properties, a save every 30 s);
+        // its last one does what the End button does.
+        _tick = new DispatcherTimer(DispatcherPriority.Normal) { Interval = TimeSpan.FromSeconds(1) };
+        _tick.Tick += (_, _) => OnTimerTick();
 
         StartCommand = new RelayCommand(StartSprint, CanStart);
         StopCommand = new RelayCommand(() => RequestEnd(), () => IsRunning);
@@ -731,7 +736,7 @@ public class TodayViewModel : ViewModelBase
         IsOnBreak = true;
         _main.OnSprintStateChanged();
         OnBreakTick();   // sets the caption under the ring
-        _tick.Start();
+        StartClock();
         CommandManager.InvalidateRequerySuggested();
     }
 
@@ -1514,7 +1519,7 @@ public class TodayViewModel : ViewModelBase
         _main.OnSprintStateChanged();
 
         OnTick();
-        _tick.Start();
+        StartClock();
     }
 
     /// <summary>How often a running sprint re-saves that FlowShield is still watching it.</summary>
@@ -1524,6 +1529,14 @@ public class TodayViewModel : ViewModelBase
     /// The most one heartbeat may add to a sprint's watched time. A
     /// DispatcherTimer does not tick while the machine is suspended, so a gap
     /// far longer than the interval is time nothing was enforced for.
+    ///
+    /// The cap is also all that tells sleep apart, so it can't tell sleep from
+    /// an awake FlowShield whose UI thread stalled (#319), and it isn't meant
+    /// to. Since the clock runs at Normal priority, input and rendering can't
+    /// hold it back; a gap this long means the UI thread was hung. The
+    /// blocker's events wait on a hung thread too (they reach it through
+    /// Dispatcher.Invoke, and at Soft every sweep raises one), so that time is
+    /// not counted as watched either.
     /// </summary>
     public static readonly TimeSpan WatchedStretchCap = HeartbeatInterval * 2;
 
@@ -1768,6 +1781,40 @@ public class TodayViewModel : ViewModelBase
         Progress = total <= 0 ? 0 : Math.Clamp(1 - remaining.TotalSeconds / total, 0, 1);
     }
 
+    /// <summary>How far past its due time a tick may fire before it is logged (#319).</summary>
+    public static readonly TimeSpan LateTickThreshold = TimeSpan.FromSeconds(5);
+
+    /// <summary>
+    /// When the clock's next tick is due, on <see cref="Environment.TickCount64"/>:
+    /// the monotonic count the timer itself runs on, which a clock step doesn't
+    /// move. Sleep does, so the first tick after waking is logged late.
+    /// </summary>
+    private long _tickDueMs;
+
+    /// <summary>Starts the clock, noting when its first tick is due.</summary>
+    private void StartClock()
+    {
+        _tickDueMs = Environment.TickCount64 + (long)_tick.Interval.TotalMilliseconds;
+        _tick.Start();
+    }
+
+    /// <summary>
+    /// The clock's tick. One log line when it fires more than
+    /// <see cref="LateTickThreshold"/> after it was due, so a starved or hung
+    /// UI thread shows in the log (#319, as #316 did for the scheduler);
+    /// nothing otherwise.
+    /// </summary>
+    private void OnTimerTick()
+    {
+        var late = TimeSpan.FromMilliseconds(Environment.TickCount64 - _tickDueMs);
+        if (late > LateTickThreshold) Log.Info($"sprint tick {(long)late.TotalSeconds} s late");
+
+        OnTick();
+
+        // The timer counts its next interval from the end of this handler.
+        _tickDueMs = Environment.TickCount64 + (long)_tick.Interval.TotalMilliseconds;
+    }
+
     /// <param name="interrupted">
     /// The time ran out but FlowShield wasn't watching for most of it (#203):
     /// the PC slept, the clock jumped, or FlowShield was closed for most of a
@@ -1915,7 +1962,7 @@ public class TodayViewModel : ViewModelBase
             if (_cycle.StartsNextSprint) StartBreak();
             // The offer can wait on screen for hours, and the sleep window can
             // open meanwhile: keep ticking so its text follows (#301).
-            else _tick.Start();
+            else StartClock();
         }
         else
         {
