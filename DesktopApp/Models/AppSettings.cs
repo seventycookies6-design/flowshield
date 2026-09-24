@@ -268,10 +268,11 @@ public class RunningSprint
     /// Any other end is now, but never after the planned end: a
     /// DispatcherTimer doesn't tick while the PC sleeps, so the tick that
     /// finishes a sprint can come hours late, and the nap would count as focus
-    /// (#300). The cap doesn't ask whether the sprint finished, because input
-    /// is dispatched ahead of that Background-priority tick: an End click
-    /// handled after waking ends the sprint early with now hours past the
-    /// planned end too. The caller still records that as ended early, momentum
+    /// (#300). The cap doesn't ask whether the sprint finished, because an End
+    /// click can still be handled after waking before that first tick (the
+    /// tick runs at Normal priority since #319, but input already queued can
+    /// come first): it ends the sprint early with now hours past the planned
+    /// end too. The caller still records that as ended early, momentum
     /// and all; only the minutes are capped. A real early end is before the
     /// planned end, so now is already right. Sessions saved before #300 keep
     /// the end they were saved with.

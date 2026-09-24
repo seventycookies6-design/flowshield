@@ -7517,7 +7517,9 @@ class TestBreakCopyTracksScheduledSleepWindow:
         source = self.vm()
         offer = source.split("private void OfferBreakIfEarned(bool completed)")[1].split("\n    }")[0]
         shown = offer.split("BreakOfferVisible = true;")[1].split("BreakOfferVisible = false;")[0]
-        assert "_tick.Start();" in shown, (
+        # Since #319 every start of the clock goes through StartClock(), which
+        # sets when its first tick is due before _tick.Start().
+        assert "StartClock();" in shown, (
             "#301: the timer must keep running while a break offer waits on screen"
         )
         tick = source.split("private void OnTick()")[1].split("\n    }")[0]
@@ -8546,8 +8548,9 @@ class TestACompletedSprintDoesNotCountTheSleep300:
     journal export. F3's startup path already ended a completed sprint at its
     planned end; both now go through RunningSprint.RecordedEnd.
 
-    The cap is not tied to finishing. Input is dispatched ahead of the
-    Background-priority timer, so an End click handled after waking but
+    The cap is not tied to finishing. An End click already queued at wake
+    can be handled before the sprint clock's first tick (Background priority
+    until #319, Normal since), so an End click handled after waking but
     before that first tick ends the sprint early with now hours past its
     planned end; it is still recorded as ended early, momentum and all, but
     its minutes are capped the same way.
@@ -9569,3 +9572,63 @@ class TestTheSchedulerTickIsNotStarved316:
 
         # The planner's own entry point stays silent per tick.
         assert "Log.Info(" not in self.member(code, "public void Tick(DateTime nowUtc)")
+
+
+# ==================== the sprint clock is not starved at Background priority (#319)
+
+class TestTheSprintClockIsNotStarved319:
+    """
+    #319, found while fixing #316: Today's one clock (the sprint's countdown,
+    its heartbeat and time-up, the break's countdown) was a DispatcherTimer at
+    WPF's default Background priority, below input, rendering and the calls
+    that serve UI Automation. On a busy UI thread its ticks can be held back
+    for a minute: a heartbeat gap past WatchedStretchCap under-counts watched
+    time, and an End click handled before a late time-up tick records a
+    finished sprint as ended early. Comments are stripped, so a call left only
+    in a comment can't satisfy these.
+    """
+
+    VM = Path(DESKTOP_DIR) / "ViewModels" / "TodayViewModel.cs"
+
+    ABOVE_BACKGROUND = TestTheSchedulerTickIsNotStarved316.ABOVE_BACKGROUND
+
+    code = staticmethod(TestTheJumpListStartsLikeTheTray.code)
+    member = staticmethod(TestTheJumpListStartsLikeTheTray.member)
+
+    def test_the_clock_runs_above_background_priority(self):
+        code = self.code(self.VM)
+        made = code.split("_tick = new", 1)
+        assert len(made) == 2, "TodayViewModel's clock is not constructed where expected"
+        args = re.match(r"(?:\s+DispatcherTimer)?\s*\(([^)]*)\)", made[1])
+        assert args, "new DispatcherTimer { ... } with no priority runs at Background, below input and UIA"
+        priority = re.fullmatch(r"\s*DispatcherPriority\.(\w+)\s*", args.group(1))
+        assert priority, "the clock's priority must be given to its constructor"
+        assert priority.group(1) in self.ABOVE_BACKGROUND, f"the clock runs at {priority.group(1)}"
+        assert code.count("new DispatcherTimer") == 1, "one clock, the one pinned here"
+
+    def test_a_late_tick_is_logged_once_and_on_time_ticks_are_quiet(self):
+        """
+        The same line #316 added for the scheduler: late is measured on the
+        monotonic count the DispatcherTimer itself uses, so a clock step
+        doesn't show as lateness, and only past 5 s.
+        """
+        code = self.code(self.VM)
+        assert "_tick.Tick += (_, _) => OnTimerTick();" in code, "the clock's tick goes through the lateness check"
+        assert re.search(r"LateTickThreshold\s*=\s*TimeSpan\.FromSeconds\(5\);", code)
+
+        fired = self.member(code, "private void OnTimerTick()")
+        assert "Environment.TickCount64" in fired and "DateTime.UtcNow" not in fired
+        logged = re.search(r"if \(late > LateTickThreshold\)\s*Log\.Info\(\$\"sprint tick \{[^}]+\} s late\"\);", fired)
+        assert logged, "one line, only when the tick is more than 5 s late"
+        assert fired.count("Log.") == 1, "on-time ticks log nothing"
+        assert fired.index("Log.Info(") < fired.index("OnTick();"), "logged before the tick acts"
+        assert "_tickDueMs = " in fired[fired.index("OnTick();"):], "the next tick is due from this one's end"
+
+        # Every start of the clock says when its first tick is due, so the
+        # first tick isn't "late" by however long the clock was stopped.
+        start = self.member(code, "private void StartClock()")
+        assert start.index("_tickDueMs = ") < start.index("_tick.Start();")
+        assert code.count("_tick.Start();") == 1, "the clock starts only through StartClock()"
+
+        # The tick's own work stays silent per tick.
+        assert "Log." not in self.member(code, "private void OnTick()")
