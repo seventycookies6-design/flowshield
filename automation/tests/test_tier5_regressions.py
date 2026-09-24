@@ -9502,3 +9502,70 @@ class TestDeleteEverythingClearsTheJumpList:
             assert what in removes, f"the confirmation doesn't say {what} goes: {removes}"
         assert "!" not in detail.group(1)
         assert 'AutomationProperties.AutomationId="ConfirmDeleteDetailText"' in xaml
+
+
+# ==================== the scheduler's tick is not starved at Background priority (#316)
+
+class TestTheSchedulerTickIsNotStarved316:
+    """
+    #316: on the 1.0.10 VM run a scheduled sprint started 57 s after its time,
+    though the scheduler ticks every 15 s. Its DispatcherTimer ran at WPF's
+    default Background priority, below input, rendering and the calls that
+    serve UI Automation, so a busy UI thread held its ticks back. A stall past
+    SchedulePlanner.OnTime (1 minute) turns the promised start into "You
+    missed ...". Comments are stripped, so a call left only in a comment
+    can't satisfy these.
+    """
+
+    SERVICE = Path(DESKTOP_DIR) / "Services" / "ScheduleService.cs"
+
+    # Every DispatcherPriority that runs ahead of Background (WPF's order).
+    ABOVE_BACKGROUND = ("Input", "Loaded", "Render", "DataBind", "Normal", "Send")
+
+    code = staticmethod(TestTheJumpListStartsLikeTheTray.code)
+    member = staticmethod(TestTheJumpListStartsLikeTheTray.member)
+
+    def test_the_timer_runs_above_background_priority(self):
+        code = self.code(self.SERVICE)
+        made = re.findall(r"new(?:\s+DispatcherTimer)?\s*\(([^)]*)\)", code.split("_timer =", 1)[1].split(";", 1)[0])
+        assert made, "ScheduleService's timer is not constructed where expected"
+        priority = re.fullmatch(r"\s*DispatcherPriority\.(\w+)\s*", made[0])
+        assert priority, "new DispatcherTimer() with no priority runs at Background, below input and UIA"
+        assert priority.group(1) in self.ABOVE_BACKGROUND, f"the timer runs at {priority.group(1)}"
+        assert code.count("DispatcherTimer") == 1, "one timer, the one pinned here"
+
+    def test_a_clock_change_is_still_read_before_a_tick_already_due(self):
+        """
+        Before #316 the zone cache was cleared at Normal, ahead of the
+        Background tick. With the tick at Normal too, that order holds only
+        if the clear goes in at the one priority above it.
+        """
+        code = self.code(self.SERVICE)
+        changed = code[code.index("private void OnTimeChanged(object? sender, EventArgs e)"):]
+        changed = changed[:changed.index(";") + 1]
+        assert "_timer.Dispatcher.BeginInvoke(DispatcherPriority.Send, ClockChanged)" in changed
+
+    def test_a_late_tick_is_logged_once_and_on_time_ticks_are_quiet(self):
+        """
+        So the next VM run can tell a starved timer from a clock step: late is
+        measured on the monotonic tick count the DispatcherTimer itself uses,
+        which a clock step doesn't move, and only past 5 s.
+        """
+        code = self.code(self.SERVICE)
+        assert "_timer.Tick += (_, _) => OnTimerTick();" in code, "the timer's tick goes through the lateness check"
+        assert re.search(r"LateTickThreshold\s*=\s*TimeSpan\.FromSeconds\(5\);", code)
+
+        fired = self.member(code, "private void OnTimerTick()")
+        assert "Environment.TickCount64" in fired and "DateTime.UtcNow - " not in fired
+        logged = re.search(r"if \(late > LateTickThreshold\)\s*Log\.Info\(\$\"schedule tick \{[^}]+\} s late\"\);", fired)
+        assert logged, "one line, only when the tick is more than 5 s late"
+        assert fired.count("Log.") == 1, "on-time ticks log nothing"
+        assert fired.index("Log.Info(") < fired.index("Tick(DateTime.UtcNow);"), "logged before the tick acts"
+
+        # The count restarts wherever the timer does, so the first tick isn't late by the whole launch.
+        start = self.member(code, "public void Start()")
+        assert start.index("_dueMs = ") < start.index("_timer.Start();")
+        assert "_dueMs = " in fired[fired.index("Tick(DateTime.UtcNow);"):], "the next tick is due from this one's end"
+
+        # The planner's own entry point stays silent per tick.
+        assert "Log.Info(" not in self.member(code, "public void Tick(DateTime nowUtc)")
