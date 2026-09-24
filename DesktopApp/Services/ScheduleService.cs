@@ -27,21 +27,38 @@ namespace FlowShield.Services;
 /// erase the sleep gap (so no missed offer) and lose a start just before a
 /// step. Every interval is in UTC, so a zone change can't replay one, and a
 /// clock set forward is a gap like sleep: at most one missed offer.
+///
+/// The timer runs at Normal priority (#316). WPF's default, Background, sits
+/// below input, rendering and the calls that serve UI Automation, and on a
+/// busy UI thread that held ticks back for about a minute: past
+/// <see cref="SchedulePlanner.OnTime"/> the planner reads that as a gap and
+/// offers the start as missed. A tick is light (the planner, and a card
+/// dropped when stale); a start it raises is the same work as the Start button.
 /// </summary>
 public sealed class ScheduleService
 {
     public static TimeSpan Interval => SchedulePlanner.TickInterval;
 
+    /// <summary>How far past its due time a tick may fire before it is logged.</summary>
+    public static readonly TimeSpan LateTickThreshold = TimeSpan.FromSeconds(5);
+
     private readonly AppSettings _settings;
-    private readonly DispatcherTimer _timer = new();
+    private readonly DispatcherTimer _timer = new(DispatcherPriority.Normal);
     private readonly HashSet<string> _headsUpShown = new(StringComparer.Ordinal);
     private DateTime _lastTickUtc;
     private bool _listening;
 
+    /// <summary>
+    /// When the next tick is due, on <see cref="Environment.TickCount64"/>:
+    /// the monotonic count the timer itself runs on, which a clock step
+    /// doesn't move. Sleep does, so the first tick after waking is logged late.
+    /// </summary>
+    private long _dueMs;
+
     public ScheduleService(AppSettings settings)
     {
         _settings = settings;
-        _timer.Tick += (_, _) => Tick(DateTime.UtcNow);
+        _timer.Tick += (_, _) => OnTimerTick();
     }
 
     public event EventHandler<ScheduleAction>? Action;
@@ -71,6 +88,7 @@ public sealed class ScheduleService
             }
         }
         _timer.Interval = Interval;
+        _dueMs = Environment.TickCount64 + (long)Interval.TotalMilliseconds;
         _timer.Start();
     }
 
@@ -80,6 +98,23 @@ public sealed class ScheduleService
         if (!_listening) return;
         SystemEvents.TimeChanged -= OnTimeChanged;
         _listening = false;
+    }
+
+    /// <summary>
+    /// The timer's tick. One log line when it fires more than
+    /// <see cref="LateTickThreshold"/> after it was due, so a starved timer
+    /// can be told from a clock step (which moves the wall clock, not this
+    /// count); nothing otherwise.
+    /// </summary>
+    private void OnTimerTick()
+    {
+        var late = TimeSpan.FromMilliseconds(Environment.TickCount64 - _dueMs);
+        if (late > LateTickThreshold) Log.Info($"schedule tick {(long)late.TotalSeconds} s late");
+
+        Tick(DateTime.UtcNow);
+
+        // The timer counts its next interval from the end of this handler.
+        _dueMs = Environment.TickCount64 + (long)_timer.Interval.TotalMilliseconds;
     }
 
     public void Tick(DateTime nowUtc)
@@ -117,10 +152,10 @@ public sealed class ScheduleService
     }
 
     // Windows may raise this on its own thread; the tick runs on the timer's.
-    // BeginInvoke is Normal priority and the timer's ticks are Background, so
-    // the cache is cleared before a tick that is already due.
+    // Queued at Send, the one priority above the timer's Normal, so the cache
+    // is cleared before a tick that is already due.
     private void OnTimeChanged(object? sender, EventArgs e) =>
-        _timer.Dispatcher.BeginInvoke(ClockChanged);
+        _timer.Dispatcher.BeginInvoke(DispatcherPriority.Send, ClockChanged);
 
     /// <summary>
     /// The clock or the time zone changed. Clears .NET's cached zone so the

@@ -481,6 +481,20 @@ class TestSchedulePlanner:
         out = self.decide([schedule()], "2026-09-28T20:59:55Z", "2026-09-28T21:00:05Z")
         assert [a["kind"] for a in out["actions"]] == ["Start"]
 
+    @pytest.mark.parametrize("last,kinds", [
+        ("2026-09-28T20:59:30Z", ["Start"]),        # 59 s since the last tick: late, still a tick
+        ("2026-09-28T20:59:28Z", ["OfferMissed"]),  # 61 s: a gap, so the start is only offered
+    ])
+    def test_a_tick_held_back_under_a_minute_still_starts(self, last, kinds):
+        """
+        #316: on the VM a busy UI thread held the 15 s tick back, and a
+        scheduled start came 57 s late. Past OnTime (1 minute) the planner
+        reads the stall as a gap and offers the start as missed instead. The
+        rule stays; the timer's priority keeps real ticks inside it.
+        """
+        out = self.decide([schedule()], last, "2026-09-28T21:00:29Z")
+        assert [a["kind"] for a in out["actions"]] == kinds
+
     def test_short_mode_a_gap_offers_a_start_seconds_old(self):
         """The same rule at --short-schedules' scale: 12 s since the last 1 s tick is a gap."""
         out = self.decide([schedule()], "2026-09-28T20:59:50Z", "2026-09-28T21:00:02Z", short=True)
