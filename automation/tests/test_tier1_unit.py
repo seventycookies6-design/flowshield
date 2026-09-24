@@ -800,8 +800,9 @@ class TestASprintIsRecordedAsEndingWhenItDid:
     """
     #300: a sprint finished by the first tick after the PC woke was stamped
     with the wake time, so the whole nap counted as focused minutes. So was
-    one ended by a click handled after waking but before that tick: input is
-    dispatched ahead of the Background-priority timer, and the end was now.
+    one ended by a click handled after waking but before that tick: input
+    already queued can come before the clock's first tick (Background
+    priority until #319), and the end was now.
     Any end but an interruption is now capped at the planned end.
     """
 

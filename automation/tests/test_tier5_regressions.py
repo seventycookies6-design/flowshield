@@ -8548,8 +8548,9 @@ class TestACompletedSprintDoesNotCountTheSleep300:
     journal export. F3's startup path already ended a completed sprint at its
     planned end; both now go through RunningSprint.RecordedEnd.
 
-    The cap is not tied to finishing. Input is dispatched ahead of the
-    Background-priority timer, so an End click handled after waking but
+    The cap is not tied to finishing. An End click already queued at wake
+    can be handled before the sprint clock's first tick (Background priority
+    until #319, Normal since), so an End click handled after waking but
     before that first tick ends the sprint early with now hours past its
     planned end; it is still recorded as ended early, momentum and all, but
     its minutes are capped the same way.
