@@ -1976,6 +1976,9 @@ class TestMomentumTrendAndExplainer:
         assert fresh_app.exists("MomentumExplainerText", timeout=3), \
             "the link lands on History with the rule already open"
         assert fresh_app.current_page_title() == "History"
+        time.sleep(0.5)
+        assert fresh_app.is_on_screen("MomentumExplainerButton"), \
+            "and scrolled to it: below the fold the link looked dead (VM bench, #330)"
 
     def test_the_chart_stays_hidden_until_there_is_momentum(self, fresh_app):
         """

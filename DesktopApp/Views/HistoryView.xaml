@@ -149,8 +149,9 @@
             <!-- ======================================== how momentum works -->
             <!-- F14's rule, moved here from Today's momentum card in the Today
                  declutter (#147). Folded by default so the page still leads
-                 with the figures; Today's "How momentum works" opens it. -->
-            <Border Style="{StaticResource Card}" Padding="24" Margin="0,16,0,0">
+                 with the figures; Today's "How momentum works" opens it and
+                 the code-behind scrolls it into view. -->
+            <Border x:Name="MomentumCard" Style="{StaticResource Card}" Padding="24" Margin="0,16,0,0">
                 <StackPanel>
                     <TextBlock Text="MOMENTUM" Style="{StaticResource Eyebrow}"/>
                     <TextBlock Text="Finished sprints compound. Abandoned ones decay — they don't reset."

@@ -120,8 +120,25 @@ public class HistoryViewModel : ViewModelBase
     public RelayCommand ToggleExplainerCommand => _toggleExplainerCommand ??=
         new RelayCommand(() => ExplainerVisible = !ExplainerVisible);
 
-    /// <summary>Today's "How momentum works" lands here with the rule already open.</summary>
-    public void ShowExplainer() => ExplainerVisible = true;
+    /// <summary>
+    /// Today's "How momentum works" lands here with the rule already open and
+    /// scrolled into view: at 768 px the week's figures and the heatmap fill
+    /// the screen, and an open card below the fold read as a dead link (VM
+    /// bench on #330). The view does the scrolling once it is showing.
+    /// </summary>
+    public void ShowExplainer()
+    {
+        ExplainerVisible = true;
+        ExplainerScrollPending = true;
+    }
+
+    private bool _explainerScrollPending;
+    /// <summary>Set by <see cref="ShowExplainer"/>; HistoryView scrolls to the card and clears it.</summary>
+    public bool ExplainerScrollPending
+    {
+        get => _explainerScrollPending;
+        set => Set(ref _explainerScrollPending, value);
+    }
 
     /// <summary>The rule in plain words, straight from the model that applies it, a paragraph a line.</summary>
     public string MomentumExplanationText => string.Join("\n\n", MomentumTrend.Explanation);

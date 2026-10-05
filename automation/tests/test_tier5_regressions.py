@@ -9807,6 +9807,22 @@ class TestTodayDeclutter147:
         assert 'AutomationId="MomentumExplainerText"' in history
         assert 'Command="{Binding ShowMomentumRulesCommand}"' in today
 
+    def test_the_link_scrolls_the_rule_into_view(self):
+        """
+        VM bench on #330: at 1024x768 the opened rule sat below the week's
+        figures and the heatmap, so the link looked dead. The request waits
+        until History is showing, then scrolls after layout.
+        """
+        vm = " ".join((Path(DESKTOP_DIR) / "ViewModels" / "HistoryViewModel.cs").read_text(encoding="utf-8").split())
+        view = " ".join((Path(DESKTOP_DIR) / "Views" / "HistoryView.xaml.cs").read_text(encoding="utf-8").split())
+        show = vm.split("public void ShowExplainer()", 1)[1].split("}", 1)[0]
+        assert "ExplainerVisible = true;" in show and "ExplainerScrollPending = true;" in show
+        assert 'x:Name="MomentumCard"' in self.HISTORY.read_text(encoding="utf-8")
+        assert "IsVisibleChanged += (_, _) => ScrollToExplainerIfAsked();" in view, "acts once History shows"
+        scroll = view.split("private void ScrollToExplainerIfAsked()", 1)[1]
+        assert "!IsVisible) return;" in scroll, "a collapsed page cannot scroll"
+        assert "MomentumCard.BringIntoView()" in scroll and "DispatcherPriority.Loaded" in scroll
+
     def test_the_driver_opens_the_fold_only_for_todays_pickers(self):
         from desktop.app_controller import is_sprint_option
         for auto_id in ("SprintLength_25", "Shield_Firm", "Cycle_2", "CustomMinutesInput",

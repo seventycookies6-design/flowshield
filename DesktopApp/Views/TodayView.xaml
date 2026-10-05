@@ -269,7 +269,7 @@
                          profile to switch to — the timer is what matters while
                          a sprint runs (§1), so this says its name and stops. -->
                     <TextBlock Text="{Binding ProfileCaption}" Style="{StaticResource Caption}"
-                               Margin="0,4,0,0" TextWrapping="Wrap"
+                               Margin="0,8,0,0" TextWrapping="Wrap"
                                AutomationProperties.AutomationId="TodayProfileCaption"/>
                     <StackPanel Visibility="{Binding SprintOptionsVisible, Converter={StaticResource BoolVis}}">
                         <!-- length -->
