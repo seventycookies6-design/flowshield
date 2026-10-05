@@ -146,6 +146,31 @@
                 </StackPanel>
             </Border>
 
+            <!-- ======================================== how momentum works -->
+            <!-- F14's rule, moved here from Today's momentum card in the Today
+                 declutter (#147). Folded by default so the page still leads
+                 with the figures; Today's "How momentum works" opens it and
+                 the code-behind scrolls it into view. -->
+            <Border x:Name="MomentumCard" Style="{StaticResource Card}" Padding="24" Margin="0,16,0,0">
+                <StackPanel>
+                    <TextBlock Text="MOMENTUM" Style="{StaticResource Eyebrow}"/>
+                    <TextBlock Text="Finished sprints compound. Abandoned ones decay — they don't reset."
+                               Style="{StaticResource Body}" TextWrapping="Wrap" Margin="0,8,0,0"/>
+                    <Button Style="{StaticResource BtnQuiet}" HorizontalAlignment="Left"
+                            Margin="-12,8,0,0"
+                            Content="{Binding ExplainerToggleText}"
+                            Command="{Binding ToggleExplainerCommand}"
+                            AutomationProperties.AutomationId="MomentumExplainerButton"
+                            AutomationProperties.Name="{Binding ExplainerToggleText}"/>
+                    <!-- One TextBlock, not the ItemsControl Today had: no
+                         AutomationId sits on an ItemsControl on this page. -->
+                    <TextBlock Text="{Binding MomentumExplanationText}" Style="{StaticResource Caption}"
+                               TextWrapping="Wrap" Margin="0,4,0,0"
+                               Visibility="{Binding ExplainerVisible, Converter={StaticResource BoolVis}}"
+                               AutomationProperties.AutomationId="MomentumExplainerText"/>
+                </StackPanel>
+            </Border>
+
             <!-- ================================================ milestones -->
             <!-- Empty for now on purpose. F14's quiet milestones (#133) are
                  listed here; the place is held so the page does not have to be

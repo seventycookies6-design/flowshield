@@ -1049,6 +1049,28 @@ class TestTurnedBack:
         assert probe({"cmd": "turned-back-text", "n": n})["text"] == text
 
 
+# ======================================= Today's folded sprint options (#147)
+
+class TestSprintOptionsSummary:
+    """
+    The one line Today shows in place of the length, shield and cycle
+    pickers. It has to say what Start will do, so it reads the real values.
+    """
+
+    @pytest.mark.parametrize("minutes,shield,cycle,text", [
+        (25, "Firm", 0, "25 min · Firm shield · One sprint"),
+        (45, "Firm", 3, "45 min · Firm shield · 3 sprints with breaks"),
+        (15, "Soft", 2, "15 min · Soft shield · 2 sprints with breaks"),
+        (150, "Sealed", 0, "150 min · Sealed shield · One sprint"),
+        # A custom length Start would refuse is not shown as a length.
+        (0, "Firm", 0, "Custom length · Firm shield · One sprint"),
+    ])
+    def test_the_wording(self, minutes, shield, cycle, text):
+        out = probe({"cmd": "sprint-options-summary", "minutes": minutes,
+                     "shield": shield, "cycle": cycle})
+        assert out["text"] == text
+
+
 # =========================================== the taskbar Jump List (1.0.10, 5)
 
 class TestStartSprintArg:

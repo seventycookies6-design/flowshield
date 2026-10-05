@@ -68,6 +68,19 @@ def _uia():
     return _IUIA, _UIA_DLL
 
 
+# Today's pickers that fold behind "Change" (#147). Exact ids and prefixes, so
+# a lookalike such as the Schedule page's TemplateShield_Soft is left alone.
+SPRINT_OPTIONS_TOGGLE = "SprintOptionsToggle"
+SPRINT_OPTION_PREFIXES = ("SprintLength_", "Shield_", "Cycle_", "TodayProfile_")
+SPRINT_OPTION_IDS = {"CustomMinutesInput", "CustomMinutesError",
+                     "ShieldDescriptionText", "ShieldBestForText", "CycleDescriptionText"}
+
+
+def is_sprint_option(auto_id: str) -> bool:
+    """Whether an AutomationId is one of Today's folded sprint pickers."""
+    return auto_id in SPRINT_OPTION_IDS or auto_id.startswith(SPRINT_OPTION_PREFIXES)
+
+
 def _automation_id_condition(auto_id: str):
     """Property conditions are immutable and reusable; build each one once."""
     if auto_id not in _CONDITION_CACHE:
@@ -348,6 +361,8 @@ class DesktopController:
             raise DesktopControllerError("not connected to a window")
 
         _, uia = _uia()
+        if is_sprint_option(auto_id):
+            self._open_sprint_options(uia)
         condition = _automation_id_condition(auto_id)
 
         deadline = time.time() + timeout
@@ -369,6 +384,31 @@ class DesktopController:
                     f"no element with AutomationId '{auto_id}' appeared within {timeout}s"
                 )
             time.sleep(0.15)
+
+    def _open_sprint_options(self, uia) -> None:
+        """
+        Unfold Today's sprint options before looking for one of the pickers.
+
+        Since the Today declutter (#147) the length, shield, blocklist and
+        cycle pickers sit behind "Change", and a collapsed control is not in
+        the UIA tree at all. Opening it here keeps every existing test's
+        `choose("Shield_Firm")` meaning what it always did. The toggle's name
+        says which way it goes, so this never folds an open panel shut, and
+        when the toggle is absent (a sprint is running, or another page is
+        showing) it does nothing and the lookup answers as before.
+        """
+        try:
+            found = self.window.element_info.element.FindFirst(
+                uia.TreeScope_Descendants, _automation_id_condition(SPRINT_OPTIONS_TOGGLE)
+            )
+            if not found:
+                return
+            toggle = UIAWrapper(UIAElementInfo(found))
+            if toggle.window_text().startswith("Change"):
+                toggle.invoke()
+                time.sleep(0.35)
+        except Exception as exc:                    # COM hiccup; the lookup still runs
+            self._say(f"could not open the sprint options (continuing): {exc}")
 
     def exists(self, auto_id: str, timeout: float = 1.5) -> bool:
         try:
