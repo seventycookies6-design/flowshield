@@ -4929,11 +4929,20 @@ class TestTodayAutomationIdsUnchangedA4:
     # Image) against the same mistake.
     PANEL_ELEMENTS = ("Grid", "StackPanel", "WrapPanel", "DockPanel", "Image")
 
+    # The Today declutter (#147) moved the momentum explainer to History,
+    # ids and all. Moved, not removed: they must be found there instead.
+    MOVED_TO_HISTORY = {"MomentumExplainerButton", "MomentumExplainerText"}
+
     def test_every_expected_automation_id_is_still_present(self):
         xml = self.TODAY_VIEW.read_text(encoding="utf-8")
         found = set(re.findall(r'AutomationId="([^"]+)"', xml))
-        missing = self.EXPECTED_IDS - found
+        missing = self.EXPECTED_IDS - self.MOVED_TO_HISTORY - found
         assert not missing, f"AutomationIds removed or renamed by A4: {sorted(missing)}"
+
+    def test_the_moved_ids_are_on_history(self):
+        history = (Path(DESKTOP_DIR) / "Views" / "HistoryView.xaml").read_text(encoding="utf-8")
+        found = set(re.findall(r'AutomationId="([^"]+)"', history))
+        assert self.MOVED_TO_HISTORY <= found, sorted(self.MOVED_TO_HISTORY - found)
 
     def test_no_automation_id_sits_on_a_layout_panel(self):
         xml = self.TODAY_VIEW.read_text(encoding="utf-8")
@@ -9804,3 +9813,109 @@ class TestTheWindowFitsTheWorkArea296:
         assert "info.rcWork" in fit and "info.rcMonitor" not in fit
         assert "TransformFromDevice" in fit, "the work area is in device pixels; the window in DIPs"
         assert "WindowFit.Fit(current, workArea, MinWidth, MinHeight)" in fit
+
+
+# ================================================ the Today declutter (#147)
+
+class TestTodayDeclutter147:
+    """
+    The competitor gap analysis (2026-10-05) found Today stacked the timer,
+    six length chips, three shields, a cycle row, an intention box and the
+    momentum essay in one column, with Start sprint lost among them. Idle,
+    Today is now the timer, the templates and Start; the pickers fold behind
+    one summary line, and the momentum rule lives on History.
+    """
+
+    TODAY = Path(DESKTOP_DIR) / "Views" / "TodayView.xaml"
+    HISTORY = Path(DESKTOP_DIR) / "Views" / "HistoryView.xaml"
+    VM = Path(DESKTOP_DIR) / "ViewModels" / "TodayViewModel.cs"
+    PICKERS = ('AutomationId="SprintLength_15"', 'AutomationId="SprintLength_Custom"',
+               'AutomationId="CustomMinutesInput"', 'AutomationId="Shield_Soft"',
+               'AutomationId="Shield_Firm"', 'AutomationId="Shield_Sealed"',
+               'AutomationId="ShieldDescriptionText"', 'AutomationId="Cycle_Off"',
+               'AutomationId="Cycle_4"', 'AutomationId="CycleDescriptionText"',
+               "StringFormat=TodayProfile_{0}")
+    # Warnings about the shield in use, the blocklist's name, the intention
+    # and Start itself: never folded.
+    ALWAYS_SHOWN = ("SealedRestartHint", "SoftHardKillHint", "TodayProfileCaption",
+                    "IntentionInput", "StartSprintButton")
+
+    def _fold(self):
+        xaml = self.TODAY.read_text(encoding="utf-8")
+        opener = '<StackPanel Visibility="{Binding SprintOptionsVisible, Converter={StaticResource BoolVis}}">'
+        assert xaml.count(opener) == 1, "one fold, bound to SprintOptionsVisible"
+        start = xaml.index(opener)
+        # The fold's own closing tag: count nested StackPanels, skipping self-closing ones.
+        depth = 0
+        for tag in re.finditer(r"<(/?)StackPanel\b[^>]*?(/?)>", xaml[start:]):
+            if tag.group(2):
+                continue
+            depth += -1 if tag.group(1) else 1
+            if depth == 0:
+                return xaml, xaml[start:start + tag.end()]
+        raise AssertionError("the fold never closes")
+
+    def test_the_pickers_are_inside_the_fold(self):
+        _, fold = self._fold()
+        for picker in self.PICKERS:
+            assert picker in fold, f"{picker} should fold away with the other pickers"
+
+    def test_warnings_start_and_intention_stay_outside_it(self):
+        xaml, fold = self._fold()
+        for auto_id in self.ALWAYS_SHOWN:
+            assert f'AutomationId="{auto_id}"' in xaml, auto_id
+            assert f'AutomationId="{auto_id}"' not in fold, f"{auto_id} must not be folded away"
+
+    def test_start_comes_before_the_options(self):
+        xaml = self.TODAY.read_text(encoding="utf-8")
+        start = xaml.index('AutomationId="StartSprintButton"')
+        summary = xaml.index('AutomationId="SprintOptionsSummary"')
+        assert start < summary < xaml.index('AutomationId="SprintLength_15"'), "the one decision leads"
+
+    def test_the_fold_starts_closed_and_never_hides_why_start_is_off(self):
+        code = " ".join(self.VM.read_text(encoding="utf-8").split())
+        assert "private bool _sprintOptionsOpen;" in code, "closed until Change"
+        assert "SprintOptionsRowVisible && (_sprintOptionsOpen || CustomMinutesErrorVisible)" in code, \
+            "an invalid custom length keeps the pickers, and its error, on screen"
+        assert "public bool SprintOptionsRowVisible => !IsRunning && !IsOnBreak;" in code
+
+    def test_the_summary_reads_what_start_reads(self):
+        code = " ".join(self.VM.read_text(encoding="utf-8").split())
+        assert ("SprintOptionsCopy.Summary( IsCustomSelected && !IsCustomMinutesValid ? 0 : SelectedMinutes, "
+                "SelectedShield, CycleSprints)") in code
+        for declaration in ("public ShieldLevel SelectedShield", "public int CycleSprints",
+                            "public int SelectedMinutes"):
+            body = code.split(declaration, 1)[1].split(" public ", 1)[0]
+            assert "Raise(nameof(SprintOptionsSummary));" in body, f"{declaration} must refresh the line"
+
+    def test_the_momentum_rule_moved_to_history(self):
+        today = self.TODAY.read_text(encoding="utf-8")
+        history = self.HISTORY.read_text(encoding="utf-8")
+        assert "Finished sprints compound" not in today and "Finished sprints compound" in history
+        assert 'AutomationId="MomentumExplainerText"' in history
+        assert 'Command="{Binding ShowMomentumRulesCommand}"' in today
+
+    def test_the_link_scrolls_the_rule_into_view(self):
+        """
+        VM bench on #330: at 1024x768 the opened rule sat below the week's
+        figures and the heatmap, so the link looked dead. The request waits
+        until History is showing, then scrolls after layout.
+        """
+        vm = " ".join((Path(DESKTOP_DIR) / "ViewModels" / "HistoryViewModel.cs").read_text(encoding="utf-8").split())
+        view = " ".join((Path(DESKTOP_DIR) / "Views" / "HistoryView.xaml.cs").read_text(encoding="utf-8").split())
+        show = vm.split("public void ShowExplainer()", 1)[1].split("}", 1)[0]
+        assert "ExplainerVisible = true;" in show and "ExplainerScrollPending = true;" in show
+        assert 'x:Name="MomentumCard"' in self.HISTORY.read_text(encoding="utf-8")
+        assert "IsVisibleChanged += (_, _) => ScrollToExplainerIfAsked();" in view, "acts once History shows"
+        scroll = view.split("private void ScrollToExplainerIfAsked()", 1)[1]
+        assert "!IsVisible) return;" in scroll, "a collapsed page cannot scroll"
+        assert "MomentumCard.BringIntoView()" in scroll and "DispatcherPriority.Loaded" in scroll
+
+    def test_the_driver_opens_the_fold_only_for_todays_pickers(self):
+        from desktop.app_controller import is_sprint_option
+        for auto_id in ("SprintLength_25", "Shield_Firm", "Cycle_2", "CustomMinutesInput",
+                        "ShieldDescriptionText", "TodayProfile_School"):
+            assert is_sprint_option(auto_id), auto_id
+        for auto_id in ("TemplateShield_Soft", "TemplateCycle_2", "FirstRunShield_Sealed",
+                        "StartSprintButton", "SprintOptionsToggle", "IntentionInput"):
+            assert not is_sprint_option(auto_id), auto_id

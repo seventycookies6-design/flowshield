@@ -19,6 +19,7 @@ from core.installed_apps import STEAM_INSTALLED
 
 from config import TEST_BLOCK_APP
 from core import state_verifier as verify
+from desktop.app_controller import _automation_id_condition, _uia
 
 pytestmark = pytest.mark.ui
 
@@ -1953,8 +1954,10 @@ class TestMomentumTrendAndExplainer:
     """F14: the score is on screen with the rule behind it and 30 days of shape."""
 
     def test_the_explainer_opens_and_closes(self, fresh_app):
-        fresh_app.navigate_to_tab("Today")
-        assert not fresh_app.exists("MomentumExplainerText", timeout=1),             "the card leads with the number, not with the essay"
+        """On History since the Today declutter (#147), still folded by default."""
+        fresh_app.navigate_to_tab("History")
+        assert not fresh_app.exists("MomentumExplainerText", timeout=1), \
+            "the page leads with the figures, not with the essay"
 
         fresh_app.click("MomentumExplainerButton")
         time.sleep(0.5)
@@ -1963,6 +1966,19 @@ class TestMomentumTrendAndExplainer:
         fresh_app.click("MomentumExplainerButton")
         time.sleep(0.5)
         assert not fresh_app.exists("MomentumExplainerText", timeout=1)
+
+    def test_today_links_to_the_rule_on_history(self, fresh_app):
+        """#147: Today keeps the number; its link opens History with the rule showing."""
+        fresh_app.navigate_to_tab("Today")
+        assert not fresh_app.exists("MomentumExplainerButton", timeout=1), \
+            "the explainer moved off Today"
+        fresh_app.click("MomentumRulesLink")
+        assert fresh_app.exists("MomentumExplainerText", timeout=3), \
+            "the link lands on History with the rule already open"
+        assert fresh_app.current_page_title() == "History"
+        time.sleep(0.5)
+        assert fresh_app.is_on_screen("MomentumExplainerButton"), \
+            "and scrolled to it: below the fold the link looked dead (VM bench, #330)"
 
     def test_the_chart_stays_hidden_until_there_is_momentum(self, fresh_app):
         """
@@ -3269,6 +3285,47 @@ class TestScheduledSprints:
         assert fresh_app.is_selected("Cycle_3")
         settings = verify.wait_for_settings(lambda st: st["CycleSprints"] == 3, what="the template's cycle")
         assert settings["CycleSprints"] == 3
+
+    def test_the_sprint_options_are_folded_until_change(self, fresh_app):
+        """
+        #147: idle, Today is the timer, the templates and Start sprint. The
+        pickers sit behind one summary line, and a template chip updates the
+        line without opening them. Looked up by element() directly, which
+        does not go through the driver's unfolding.
+        """
+        fresh_app.navigate_to_tab("Today")
+        toggle = fresh_app.element("SprintOptionsToggle", timeout=3)
+        assert toggle.window_text() == "Change sprint options"
+        assert self._shown_without_unfolding(fresh_app, "SprintLength_25") is False, \
+            "the length picker is folded away by default"
+
+        fresh_app.click("TemplateChip_Homework evening")
+        assert fresh_app.text_of("SprintOptionsSummary") == \
+            "45 min · Firm shield · 3 sprints with breaks"
+        assert self._shown_without_unfolding(fresh_app, "Shield_Firm") is False, \
+            "a template fills the choices in without unfolding them"
+
+        fresh_app.click("SprintOptionsToggle")
+        assert self._shown_without_unfolding(fresh_app, "Shield_Firm") is True
+        assert fresh_app.element("SprintOptionsToggle").window_text() == "Hide sprint options"
+
+        fresh_app.click("SprintOptionsToggle")
+        assert self._shown_without_unfolding(fresh_app, "Shield_Firm") is False
+
+    def test_the_sprint_options_hide_while_a_sprint_runs(self, fresh_app):
+        fresh_app.navigate_to_tab("Today")
+        fresh_app.click("SprintOptionsToggle")
+        fresh_app.start_sprint()
+        fresh_app.wait_until_gone("SprintOptionsToggle")      # the timer is the screen (§1)
+        assert self._shown_without_unfolding(fresh_app, "Shield_Firm") is False
+
+    @staticmethod
+    def _shown_without_unfolding(app, auto_id: str) -> bool:
+        """Whether a picker is in the UIA tree, asked without opening the fold."""
+        _, uia = _uia()
+        found = app.window.element_info.element.FindFirst(
+            uia.TreeScope_Descendants, _automation_id_condition(auto_id))
+        return bool(found)
 
     def test_a_chip_carries_the_templates_break_to_a_hand_start(self, fresh_app):
         """

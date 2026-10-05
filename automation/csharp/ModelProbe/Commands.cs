@@ -57,6 +57,11 @@ internal static class Commands
             {
                 ["text"] = HistoryStats.TurnedBackText((int)request["n"]!),
             },
+            "sprint-options-summary" => new JsonObject
+            {
+                ["text"] = SprintOptionsCopy.Summary((int)request["minutes"]!,
+                    Enum.Parse<ShieldLevel>((string)request["shield"]!), (int)request["cycle"]!),
+            },
             "start-arg" => StartArg(request),
             "start-arg-for" => new JsonObject { ["arg"] = StartSprintArg.For((string?)request["id"]) },
             "jump-title" => new JsonObject { ["title"] = JumpListText.Title((string)request["name"]!) },
