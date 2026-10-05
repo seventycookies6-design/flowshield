@@ -2330,7 +2330,7 @@ class TestSettingsSaveDoesNotRaceItsMutators:
 
 
 class TestMomentumTrendView:
-    """The chart and explainer exist on Today and follow the chart rules."""
+    """The chart is on Today, its explainer on History, and both follow the chart rules."""
 
     DESKTOP = Path(SERVER_DIR).parent / "DesktopApp"
     XAML = DESKTOP / "Views" / "TodayView.xaml"
@@ -2340,11 +2340,15 @@ class TestMomentumTrendView:
         xaml = self.XAML.read_text(encoding="utf-8")
         return xaml.split("F14: the 30-day trend", 1)[1].split("</Border>", 1)[0]
 
-    def test_today_has_the_chart_and_the_explainer(self):
-        xaml = self.XAML.read_text(encoding="utf-8")
-        for automation_id in ("MomentumTrendRange", "MomentumTrendPeak",
-                              "MomentumExplainerButton", "MomentumExplainerText"):
-            assert f'AutomationProperties.AutomationId="{automation_id}"' in xaml
+    def test_today_has_the_chart_and_history_has_the_explainer(self):
+        """The Today declutter (#147) moved the rule to History; Today links to it."""
+        today = self.XAML.read_text(encoding="utf-8")
+        history = (self.DESKTOP / "Views" / "HistoryView.xaml").read_text(encoding="utf-8")
+        for automation_id in ("MomentumTrendRange", "MomentumTrendPeak", "MomentumRulesLink"):
+            assert f'AutomationProperties.AutomationId="{automation_id}"' in today
+        for automation_id in ("MomentumExplainerButton", "MomentumExplainerText"):
+            assert f'AutomationProperties.AutomationId="{automation_id}"' in history
+            assert f'AutomationProperties.AutomationId="{automation_id}"' not in today
 
     def test_no_automation_id_sits_on_a_layout_panel(self):
         """

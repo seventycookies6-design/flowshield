@@ -11,7 +11,9 @@
          here: a layout panel is not surfaced to UI Automation, so an id on one
          can never be resolved and a test asking for it would pass whether the
          content was drawn or not (#134). The ids are all on TextBlocks and
-         Buttons. -->
+         Buttons, except MomentumExplainerText, which came over from Today
+         (#147) on the ItemsControl it has always had: an ItemsControl does
+         surface, and tier 3 has found it there since F14. -->
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
         <StackPanel Margin="0,0,8,0">
 
@@ -143,6 +145,34 @@
                                    Typography.NumeralAlignment="Tabular"
                                    AutomationProperties.AutomationId="HeatmapPeak"/>
                     </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- ======================================== how momentum works -->
+            <!-- F14's rule, moved here from Today's momentum card in the Today
+                 declutter (#147). Folded by default so the page still leads
+                 with the figures; Today's "How momentum works" opens it. -->
+            <Border Style="{StaticResource Card}" Padding="24" Margin="0,16,0,0">
+                <StackPanel>
+                    <TextBlock Text="MOMENTUM" Style="{StaticResource Eyebrow}"/>
+                    <TextBlock Text="Finished sprints compound. Abandoned ones decay — they don't reset."
+                               Style="{StaticResource Body}" TextWrapping="Wrap" Margin="0,8,0,0"/>
+                    <Button Style="{StaticResource BtnQuiet}" HorizontalAlignment="Left"
+                            Margin="-12,8,0,0"
+                            Content="{Binding ExplainerToggleText}"
+                            Command="{Binding ToggleExplainerCommand}"
+                            AutomationProperties.AutomationId="MomentumExplainerButton"
+                            AutomationProperties.Name="{Binding ExplainerToggleText}"/>
+                    <ItemsControl ItemsSource="{Binding MomentumExplanation}" Margin="0,4,0,0"
+                                  Visibility="{Binding ExplainerVisible, Converter={StaticResource BoolVis}}"
+                                  AutomationProperties.AutomationId="MomentumExplainerText">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding}" Style="{StaticResource Caption}"
+                                           TextWrapping="Wrap" Margin="0,0,0,8"/>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
                 </StackPanel>
             </Border>
 

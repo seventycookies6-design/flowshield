@@ -283,6 +283,7 @@ public class TodayViewModel : ViewModelBase
             Raise(nameof(EndButtonLabel));
             Raise(nameof(CanSwitchProfile));
             Raise(nameof(TemplatesVisible));
+            RaiseSprintOptions();
         }
     }
 
@@ -343,6 +344,7 @@ public class TodayViewModel : ViewModelBase
             if (!Set(ref _selectedMinutes, value)) return;
             Raise(nameof(PresetMinutes));
             Raise(nameof(CycleDescription));
+            Raise(nameof(SprintOptionsSummary));
             UpdateIdleDisplay();
         }
     }
@@ -395,6 +397,7 @@ public class TodayViewModel : ViewModelBase
             Raise(nameof(IsCustomMinutesValid));
             Raise(nameof(CustomMinutesError));
             Raise(nameof(CustomMinutesErrorVisible));
+            RaiseSprintOptions();
             ApplyCustomMinutes();
         }
     }
@@ -434,6 +437,7 @@ public class TodayViewModel : ViewModelBase
             Raise(nameof(CustomInputVisible));
             Raise(nameof(CustomMinutesErrorVisible));
             Raise(nameof(PresetMinutes));
+            RaiseSprintOptions();
             if (value) ApplyCustomMinutes();
         }
     }
@@ -475,6 +479,7 @@ public class TodayViewModel : ViewModelBase
             Raise(nameof(ShieldBestFor));
             Raise(nameof(SealedRestartHintVisible));
             Raise(nameof(SoftHardKillHintVisible));
+            Raise(nameof(SprintOptionsSummary));
         }
     }
 
@@ -617,6 +622,7 @@ public class TodayViewModel : ViewModelBase
             Raise(nameof(SprintRingVisible));
             Raise(nameof(BreakRingVisible));
             Raise(nameof(TemplatesVisible));
+            RaiseSprintOptions();
         }
     }
 
@@ -690,6 +696,7 @@ public class TodayViewModel : ViewModelBase
             S.CycleSprints = value;
             _main.SaveSettings();
             Raise(nameof(CycleDescription));
+            Raise(nameof(SprintOptionsSummary));
         }
     }
 
@@ -911,20 +918,17 @@ public class TodayViewModel : ViewModelBase
     public string TrendDescription =>
         $"Momentum over the last {MomentumTrend.Days} days, now {MomentumText}, {TrendCeilingText}";
 
-    private bool _explainerVisible;
-    public bool ExplainerVisible { get => _explainerVisible; private set => Set(ref _explainerVisible, value); }
-
-    public string ExplainerToggleText => ExplainerVisible ? "Hide" : "How momentum works";
-
-    private RelayCommand? _toggleExplainerCommand;
-    public RelayCommand ToggleExplainerCommand => _toggleExplainerCommand ??= new RelayCommand(() =>
+    /// <summary>
+    /// "How momentum works" opens History with the rule unfolded. The rule
+    /// itself moved there in the Today declutter (#147): Today keeps the
+    /// number, the streak and the line, and History is where you read back.
+    /// </summary>
+    private RelayCommand? _showMomentumRulesCommand;
+    public RelayCommand ShowMomentumRulesCommand => _showMomentumRulesCommand ??= new RelayCommand(() =>
     {
-        ExplainerVisible = !ExplainerVisible;
-        Raise(nameof(ExplainerToggleText));
+        _main.History.ShowExplainer();
+        _main.CurrentPage = AppPage.History;
     });
-
-    /// <summary>The rule in plain words, straight from the model that applies it.</summary>
-    public IReadOnlyList<string> MomentumExplanation => MomentumTrend.Explanation;
 
     /// <summary>
     /// Redraws the 30-day line.
@@ -1036,6 +1040,56 @@ public class TodayViewModel : ViewModelBase
         Raise(nameof(ProfileCaption));
         Raise(nameof(ProfileSwitcherVisible));
         Raise(nameof(CanSwitchProfile));
+    }
+
+    // --------------------------------------- sprint options, folded (#147)
+
+    /// <summary>
+    /// Length, shield, blocklist and cycle fold away behind one summary line
+    /// so that, idle, Today is the timer, the templates and Start sprint. The
+    /// templates already preset all four (F6); Change opens the pickers.
+    ///
+    /// Folded is only how it looks: Shift+1/2/3 and a template still change
+    /// the choices, the line follows them, and the shield warnings stay
+    /// outside the fold so a Sealed or hard-kill caveat is never hidden.
+    /// </summary>
+    private bool _sprintOptionsOpen;
+
+    /// <summary>The summary line and its Change button: idle only, like the templates.</summary>
+    public bool SprintOptionsRowVisible => !IsRunning && !IsOnBreak;
+
+    /// <summary>
+    /// The pickers. A custom length that Start would refuse keeps them open,
+    /// so the reason Start is greyed out is never folded away with them.
+    /// </summary>
+    public bool SprintOptionsVisible =>
+        SprintOptionsRowVisible && (_sprintOptionsOpen || CustomMinutesErrorVisible);
+
+    public string SprintOptionsSummary => SprintOptionsCopy.Summary(
+        IsCustomSelected && !IsCustomMinutesValid ? 0 : SelectedMinutes, SelectedShield, CycleSprints);
+
+    public string SprintOptionsToggleText => SprintOptionsVisible ? "Done" : "Change";
+
+    /// <summary>Spoken name; the test driver reads it to open the fold without closing it.</summary>
+    public string SprintOptionsToggleName =>
+        SprintOptionsVisible ? "Hide sprint options" : "Change sprint options";
+
+    private RelayCommand? _toggleSprintOptionsCommand;
+    public RelayCommand ToggleSprintOptionsCommand => _toggleSprintOptionsCommand ??= new RelayCommand(() =>
+    {
+        // Done while a custom length is invalid would do nothing visible, so
+        // it closes only what the user opened and the error keeps it open.
+        _sprintOptionsOpen = !SprintOptionsVisible;
+        RaiseSprintOptions();
+    });
+
+    private void RaiseSprintOptions()
+    {
+        Raise(nameof(SprintOptionsRowVisible));
+        Raise(nameof(SprintOptionsVisible));
+        Raise(nameof(SprintOptionsSummary));
+        Raise(nameof(SprintOptionsToggleText));
+        Raise(nameof(SprintOptionsToggleName));
     }
 
     /// <summary>Shift+1/2/3 only change the shield where the segmented buttons do: idle, on Today.</summary>

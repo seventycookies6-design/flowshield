@@ -240,109 +240,200 @@
                         </StackPanel>
                     </Border>
 
-                    <!-- length -->
-                    <TextBlock Text="SPRINT LENGTH" Style="{StaticResource Eyebrow}" Margin="0,24,0,8"/>
-                    <WrapPanel IsEnabled="{Binding IsRunning, Converter={StaticResource InvBool}}">
-                        <RadioButton Style="{StaticResource Segment}" GroupName="SprintLength" Content="15 min"
-                                     Margin="0,0,8,8"
-                                     AutomationProperties.AutomationId="SprintLength_15"
-                                     AutomationProperties.Name="15 minute sprint"
-                                     IsChecked="{Binding PresetMinutes, Converter={StaticResource IntEq},
-                                                 ConverterParameter=15}"/>
-                        <RadioButton Style="{StaticResource Segment}" GroupName="SprintLength" Content="25 min"
-                                     Margin="0,0,8,8"
-                                     AutomationProperties.AutomationId="SprintLength_25"
-                                     AutomationProperties.Name="25 minute sprint"
-                                     IsChecked="{Binding PresetMinutes, Converter={StaticResource IntEq},
-                                                 ConverterParameter=25}"/>
-                        <RadioButton Style="{StaticResource Segment}" GroupName="SprintLength" Content="45 min"
-                                     Margin="0,0,8,8"
-                                     AutomationProperties.AutomationId="SprintLength_45"
-                                     AutomationProperties.Name="45 minute sprint"
-                                     IsChecked="{Binding PresetMinutes, Converter={StaticResource IntEq},
-                                                 ConverterParameter=45}"/>
-                        <RadioButton Style="{StaticResource Segment}" GroupName="SprintLength" Content="60 min"
-                                     Margin="0,0,8,8"
-                                     AutomationProperties.AutomationId="SprintLength_60"
-                                     AutomationProperties.Name="60 minute sprint"
-                                     IsChecked="{Binding PresetMinutes, Converter={StaticResource IntEq},
-                                                 ConverterParameter=60}"/>
-                        <RadioButton Style="{StaticResource Segment}" GroupName="SprintLength" Content="90 min"
-                                      Margin="0,0,8,8"
-                                      AutomationProperties.AutomationId="SprintLength_90"
-                                      AutomationProperties.Name="90 minute sprint"
-                                      IsChecked="{Binding PresetMinutes, Converter={StaticResource IntEq},
-                                                  ConverterParameter=90}"/>
-                        <RadioButton Style="{StaticResource Segment}" GroupName="SprintLength" Content="Custom…"
-                                      Margin="0,0,8,8"
-                                      AutomationProperties.AutomationId="SprintLength_Custom"
-                                      AutomationProperties.Name="Custom sprint length"
-                                      IsChecked="{Binding IsCustomSelected}"/>
-                    </WrapPanel>
+                    <!-- sprint options, folded (#147). Idle, Today is the timer,
+                         the template chips and Start sprint; the templates
+                         already preset length, shield, blocklist and cycle (F6),
+                         so the pickers sit behind one line that says what Start
+                         will do, and a Change button. Hidden while a sprint or
+                         break runs, like the templates. Every picker keeps its
+                         AutomationId; the driver opens the fold first. -->
+                    <Grid Margin="0,24,0,0"
+                          Visibility="{Binding SprintOptionsRowVisible, Converter={StaticResource BoolVis}}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="{Binding SprintOptionsSummary}" Style="{StaticResource Body}"
+                                   Foreground="{DynamicResource Ink}" TextWrapping="Wrap" VerticalAlignment="Center"
+                                   AutomationProperties.AutomationId="SprintOptionsSummary"/>
+                        <Button Grid.Column="1" Style="{StaticResource BtnQuiet}" Margin="12,0,-12,0"
+                                VerticalAlignment="Center"
+                                Content="{Binding SprintOptionsToggleText}"
+                                Command="{Binding ToggleSprintOptionsCommand}"
+                                AutomationProperties.AutomationId="SprintOptionsToggle"
+                                AutomationProperties.Name="{Binding SprintOptionsToggleName}"/>
+                    </Grid>
 
-                    <StackPanel Margin="0,0,0,8"
-                                Visibility="{Binding CustomInputVisible, Converter={StaticResource BoolVis}}">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBox Width="70" Style="{StaticResource Field}"
-                                     Text="{Binding CustomMinutesText, UpdateSourceTrigger=PropertyChanged}"
-                                     AutomationProperties.AutomationId="CustomMinutesInput"
-                                     AutomationProperties.Name="Custom minutes"/>
-                            <TextBlock Text="min (5–240)" Style="{StaticResource Caption}"
-                                       VerticalAlignment="Center" Margin="8,0,0,0"/>
+                    <!-- which blocklist this sprint uses (F9). One caption line,
+                         with the switcher only when there is more than one
+                         profile to switch to — the timer is what matters while
+                         a sprint runs (§1), so this says its name and stops. -->
+                    <TextBlock Text="{Binding ProfileCaption}" Style="{StaticResource Caption}"
+                               Margin="0,4,0,0" TextWrapping="Wrap"
+                               AutomationProperties.AutomationId="TodayProfileCaption"/>
+                    <StackPanel Visibility="{Binding SprintOptionsVisible, Converter={StaticResource BoolVis}}">
+                        <!-- length -->
+                        <TextBlock Text="SPRINT LENGTH" Style="{StaticResource Eyebrow}" Margin="0,16,0,8"/>
+                        <WrapPanel IsEnabled="{Binding IsRunning, Converter={StaticResource InvBool}}">
+                            <RadioButton Style="{StaticResource Segment}" GroupName="SprintLength" Content="15 min"
+                                         Margin="0,0,8,8"
+                                         AutomationProperties.AutomationId="SprintLength_15"
+                                         AutomationProperties.Name="15 minute sprint"
+                                         IsChecked="{Binding PresetMinutes, Converter={StaticResource IntEq},
+                                                     ConverterParameter=15}"/>
+                            <RadioButton Style="{StaticResource Segment}" GroupName="SprintLength" Content="25 min"
+                                         Margin="0,0,8,8"
+                                         AutomationProperties.AutomationId="SprintLength_25"
+                                         AutomationProperties.Name="25 minute sprint"
+                                         IsChecked="{Binding PresetMinutes, Converter={StaticResource IntEq},
+                                                     ConverterParameter=25}"/>
+                            <RadioButton Style="{StaticResource Segment}" GroupName="SprintLength" Content="45 min"
+                                         Margin="0,0,8,8"
+                                         AutomationProperties.AutomationId="SprintLength_45"
+                                         AutomationProperties.Name="45 minute sprint"
+                                         IsChecked="{Binding PresetMinutes, Converter={StaticResource IntEq},
+                                                     ConverterParameter=45}"/>
+                            <RadioButton Style="{StaticResource Segment}" GroupName="SprintLength" Content="60 min"
+                                         Margin="0,0,8,8"
+                                         AutomationProperties.AutomationId="SprintLength_60"
+                                         AutomationProperties.Name="60 minute sprint"
+                                         IsChecked="{Binding PresetMinutes, Converter={StaticResource IntEq},
+                                                     ConverterParameter=60}"/>
+                            <RadioButton Style="{StaticResource Segment}" GroupName="SprintLength" Content="90 min"
+                                          Margin="0,0,8,8"
+                                          AutomationProperties.AutomationId="SprintLength_90"
+                                          AutomationProperties.Name="90 minute sprint"
+                                          IsChecked="{Binding PresetMinutes, Converter={StaticResource IntEq},
+                                                      ConverterParameter=90}"/>
+                            <RadioButton Style="{StaticResource Segment}" GroupName="SprintLength" Content="Custom…"
+                                          Margin="0,0,8,8"
+                                          AutomationProperties.AutomationId="SprintLength_Custom"
+                                          AutomationProperties.Name="Custom sprint length"
+                                          IsChecked="{Binding IsCustomSelected}"/>
+                        </WrapPanel>
+
+                        <StackPanel Margin="0,0,0,8"
+                                    Visibility="{Binding CustomInputVisible, Converter={StaticResource BoolVis}}">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBox Width="70" Style="{StaticResource Field}"
+                                         Text="{Binding CustomMinutesText, UpdateSourceTrigger=PropertyChanged}"
+                                         AutomationProperties.AutomationId="CustomMinutesInput"
+                                         AutomationProperties.Name="Custom minutes"/>
+                                <TextBlock Text="min (5–240)" Style="{StaticResource Caption}"
+                                           VerticalAlignment="Center" Margin="8,0,0,0"/>
+                            </StackPanel>
+                            <TextBlock Text="{Binding CustomMinutesError}" Style="{StaticResource Caption}"
+                                       Foreground="{DynamicResource Amber}" Margin="0,8,0,0"
+                                       Visibility="{Binding CustomMinutesErrorVisible, Converter={StaticResource BoolVis}}"
+                                       AutomationProperties.AutomationId="CustomMinutesError"/>
                         </StackPanel>
-                        <TextBlock Text="{Binding CustomMinutesError}" Style="{StaticResource Caption}"
-                                   Foreground="{DynamicResource Amber}" Margin="0,8,0,0"
-                                   Visibility="{Binding CustomMinutesErrorVisible, Converter={StaticResource BoolVis}}"
-                                   AutomationProperties.AutomationId="CustomMinutesError"/>
+
+                        <!-- shield level: icon-above-label chips, one shield glyph
+                             resource shared with the ring above (§6, UI-SPEC.md A4). -->
+                        <TextBlock Text="SHIELD LEVEL" Style="{StaticResource Eyebrow}" Margin="0,16,0,8"/>
+                        <StackPanel Orientation="Horizontal"
+                                    IsEnabled="{Binding IsRunning, Converter={StaticResource InvBool}}">
+                            <RadioButton Style="{StaticResource SegmentShield}" GroupName="Shield" Width="90"
+                                         Margin="0,0,8,0"
+                                         AutomationProperties.AutomationId="Shield_Soft"
+                                         AutomationProperties.Name="Shield I Soft"
+                                         IsChecked="{Binding SelectedShield, Converter={StaticResource EnumEq},
+                                                     ConverterParameter={x:Static models:ShieldLevel.Soft}}">
+                                <StackPanel>
+                                    <Image Source="{DynamicResource ShieldGlyphSoft}" Width="18" Height="18"
+                                           Stretch="Uniform" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="I · Soft" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                                </StackPanel>
+                            </RadioButton>
+                            <RadioButton Style="{StaticResource SegmentShield}" GroupName="Shield" Width="90"
+                                         Margin="0,0,8,0"
+                                         AutomationProperties.AutomationId="Shield_Firm"
+                                         AutomationProperties.Name="Shield II Firm"
+                                         IsChecked="{Binding SelectedShield, Converter={StaticResource EnumEq},
+                                                     ConverterParameter={x:Static models:ShieldLevel.Firm}}">
+                                <StackPanel>
+                                    <Image Source="{DynamicResource ShieldGlyphFirm}" Width="18" Height="18"
+                                           Stretch="Uniform" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="II · Firm" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                                </StackPanel>
+                            </RadioButton>
+                            <RadioButton Style="{StaticResource SegmentShield}" GroupName="Shield" Width="90"
+                                         AutomationProperties.AutomationId="Shield_Sealed"
+                                         AutomationProperties.Name="Shield III Sealed"
+                                         IsChecked="{Binding SelectedShield, Converter={StaticResource EnumEq},
+                                                     ConverterParameter={x:Static models:ShieldLevel.Sealed}}">
+                                <StackPanel>
+                                    <Image Source="{DynamicResource ShieldGlyphSealed}" Width="18" Height="18"
+                                           Stretch="Uniform" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="III · Sealed" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                                </StackPanel>
+                            </RadioButton>
+                        </StackPanel>
+                        <TextBlock Text="{Binding ShieldDescription}" Style="{StaticResource Caption}"
+                                   Margin="0,8,0,0"
+                                   AutomationProperties.AutomationId="ShieldDescriptionText"/>
+                        <TextBlock Text="{Binding ShieldBestFor}" Style="{StaticResource Caption}"
+                                   Margin="0,4,0,0"
+                                   AutomationProperties.AutomationId="ShieldBestForText"/>
+                        <ItemsControl ItemsSource="{Binding Profiles}" Margin="0,16,0,0"
+                                      IsEnabled="{Binding CanSwitchProfile}"
+                                      Visibility="{Binding ProfileSwitcherVisible, Converter={StaticResource BoolVis}}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel/>
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <RadioButton Style="{StaticResource Segment}" GroupName="TodayBlocklistProfile"
+                                                 Margin="0,0,8,8"
+                                                 Content="{Binding Name}"
+                                                 IsChecked="{Binding IsActive, Mode=OneWay}"
+                                                 Command="{Binding DataContext.SelectProfileCommand,
+                                                           RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                 CommandParameter="{Binding}"
+                                                 AutomationProperties.AutomationId="{Binding Name, StringFormat=TodayProfile_{0}}"
+                                                 AutomationProperties.Name="{Binding Name, StringFormat=Use the {0} blocklist}"/>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <!-- cycle (F5): run several sprints with breaks between them -->
+                        <TextBlock Text="CYCLE" Style="{StaticResource Eyebrow}" Margin="0,24,0,8"/>
+                        <WrapPanel IsEnabled="{Binding IsRunning, Converter={StaticResource InvBool}}">
+                            <RadioButton Style="{StaticResource Segment}" GroupName="Cycle" Content="One sprint"
+                                         Margin="0,0,8,8"
+                                         AutomationProperties.AutomationId="Cycle_Off"
+                                         AutomationProperties.Name="One sprint, no cycle"
+                                         IsChecked="{Binding CycleSprints, Converter={StaticResource IntEq},
+                                                     ConverterParameter=0}"/>
+                            <RadioButton Style="{StaticResource Segment}" GroupName="Cycle" Content="2 sprints"
+                                         Margin="0,0,8,8"
+                                         AutomationProperties.AutomationId="Cycle_2"
+                                         AutomationProperties.Name="Two sprints with breaks"
+                                         IsChecked="{Binding CycleSprints, Converter={StaticResource IntEq},
+                                                     ConverterParameter=2}"/>
+                            <RadioButton Style="{StaticResource Segment}" GroupName="Cycle" Content="3 sprints"
+                                         Margin="0,0,8,8"
+                                         AutomationProperties.AutomationId="Cycle_3"
+                                         AutomationProperties.Name="Three sprints with breaks"
+                                         IsChecked="{Binding CycleSprints, Converter={StaticResource IntEq},
+                                                     ConverterParameter=3}"/>
+                            <RadioButton Style="{StaticResource Segment}" GroupName="Cycle" Content="4 sprints"
+                                         Margin="0,0,8,8"
+                                         AutomationProperties.AutomationId="Cycle_4"
+                                         AutomationProperties.Name="Four sprints with breaks"
+                                         IsChecked="{Binding CycleSprints, Converter={StaticResource IntEq},
+                                                     ConverterParameter=4}"/>
+                        </WrapPanel>
+                        <TextBlock Text="{Binding CycleDescription}" Style="{StaticResource Caption}"
+                                   TextWrapping="Wrap"
+                                   AutomationProperties.AutomationId="CycleDescriptionText"/>
+
                     </StackPanel>
 
-                    <!-- shield level: icon-above-label chips, one shield glyph
-                         resource shared with the ring above (§6, UI-SPEC.md A4). -->
-                    <TextBlock Text="SHIELD LEVEL" Style="{StaticResource Eyebrow}" Margin="0,16,0,8"/>
-                    <StackPanel Orientation="Horizontal"
-                                IsEnabled="{Binding IsRunning, Converter={StaticResource InvBool}}">
-                        <RadioButton Style="{StaticResource SegmentShield}" GroupName="Shield" Width="90"
-                                     Margin="0,0,8,0"
-                                     AutomationProperties.AutomationId="Shield_Soft"
-                                     AutomationProperties.Name="Shield I Soft"
-                                     IsChecked="{Binding SelectedShield, Converter={StaticResource EnumEq},
-                                                 ConverterParameter={x:Static models:ShieldLevel.Soft}}">
-                            <StackPanel>
-                                <Image Source="{DynamicResource ShieldGlyphSoft}" Width="18" Height="18"
-                                       Stretch="Uniform" HorizontalAlignment="Center"/>
-                                <TextBlock Text="I · Soft" HorizontalAlignment="Center" Margin="0,4,0,0"/>
-                            </StackPanel>
-                        </RadioButton>
-                        <RadioButton Style="{StaticResource SegmentShield}" GroupName="Shield" Width="90"
-                                     Margin="0,0,8,0"
-                                     AutomationProperties.AutomationId="Shield_Firm"
-                                     AutomationProperties.Name="Shield II Firm"
-                                     IsChecked="{Binding SelectedShield, Converter={StaticResource EnumEq},
-                                                 ConverterParameter={x:Static models:ShieldLevel.Firm}}">
-                            <StackPanel>
-                                <Image Source="{DynamicResource ShieldGlyphFirm}" Width="18" Height="18"
-                                       Stretch="Uniform" HorizontalAlignment="Center"/>
-                                <TextBlock Text="II · Firm" HorizontalAlignment="Center" Margin="0,4,0,0"/>
-                            </StackPanel>
-                        </RadioButton>
-                        <RadioButton Style="{StaticResource SegmentShield}" GroupName="Shield" Width="90"
-                                     AutomationProperties.AutomationId="Shield_Sealed"
-                                     AutomationProperties.Name="Shield III Sealed"
-                                     IsChecked="{Binding SelectedShield, Converter={StaticResource EnumEq},
-                                                 ConverterParameter={x:Static models:ShieldLevel.Sealed}}">
-                            <StackPanel>
-                                <Image Source="{DynamicResource ShieldGlyphSealed}" Width="18" Height="18"
-                                       Stretch="Uniform" HorizontalAlignment="Center"/>
-                                <TextBlock Text="III · Sealed" HorizontalAlignment="Center" Margin="0,4,0,0"/>
-                            </StackPanel>
-                        </RadioButton>
-                    </StackPanel>
-                    <TextBlock Text="{Binding ShieldDescription}" Style="{StaticResource Caption}"
-                               Margin="0,8,0,0"
-                               AutomationProperties.AutomationId="ShieldDescriptionText"/>
-                    <TextBlock Text="{Binding ShieldBestFor}" Style="{StaticResource Caption}"
-                               Margin="0,4,0,0"
-                               AutomationProperties.AutomationId="ShieldBestForText"/>
+                    <!-- The shield's caveats stay outside the fold: a template
+                         or Shift+3 can pick Sealed without opening it. -->
                     <TextBlock Style="{StaticResource Caption}" Margin="0,8,0,0" TextWrapping="Wrap"
                                Foreground="{DynamicResource Amber}"
                                Visibility="{Binding SealedRestartHintVisible, Converter={StaticResource BoolVis}}"
@@ -353,68 +444,6 @@
                                Visibility="{Binding SoftHardKillHintVisible, Converter={StaticResource BoolVis}}"
                                AutomationProperties.AutomationId="SoftHardKillHint"
                                Text="Hard kill mode is on (Settings), so Soft closes blocked apps instead of nudging."/>
-
-                    <!-- which blocklist this sprint uses (F9). One caption line,
-                         with the switcher only when there is more than one
-                         profile to switch to — the timer is what matters while
-                         a sprint runs (§1), so this says its name and stops. -->
-                    <TextBlock Text="{Binding ProfileCaption}" Style="{StaticResource Caption}"
-                               Margin="0,16,0,0" TextWrapping="Wrap"
-                               AutomationProperties.AutomationId="TodayProfileCaption"/>
-                    <ItemsControl ItemsSource="{Binding Profiles}" Margin="0,8,0,0"
-                                  IsEnabled="{Binding CanSwitchProfile}"
-                                  Visibility="{Binding ProfileSwitcherVisible, Converter={StaticResource BoolVis}}">
-                        <ItemsControl.ItemsPanel>
-                            <ItemsPanelTemplate>
-                                <WrapPanel/>
-                            </ItemsPanelTemplate>
-                        </ItemsControl.ItemsPanel>
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <RadioButton Style="{StaticResource Segment}" GroupName="TodayBlocklistProfile"
-                                             Margin="0,0,8,8"
-                                             Content="{Binding Name}"
-                                             IsChecked="{Binding IsActive, Mode=OneWay}"
-                                             Command="{Binding DataContext.SelectProfileCommand,
-                                                       RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                             CommandParameter="{Binding}"
-                                             AutomationProperties.AutomationId="{Binding Name, StringFormat=TodayProfile_{0}}"
-                                             AutomationProperties.Name="{Binding Name, StringFormat=Use the {0} blocklist}"/>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-
-                    <!-- cycle (F5): run several sprints with breaks between them -->
-                    <TextBlock Text="CYCLE" Style="{StaticResource Eyebrow}" Margin="0,24,0,8"/>
-                    <WrapPanel IsEnabled="{Binding IsRunning, Converter={StaticResource InvBool}}">
-                        <RadioButton Style="{StaticResource Segment}" GroupName="Cycle" Content="One sprint"
-                                     Margin="0,0,8,8"
-                                     AutomationProperties.AutomationId="Cycle_Off"
-                                     AutomationProperties.Name="One sprint, no cycle"
-                                     IsChecked="{Binding CycleSprints, Converter={StaticResource IntEq},
-                                                 ConverterParameter=0}"/>
-                        <RadioButton Style="{StaticResource Segment}" GroupName="Cycle" Content="2 sprints"
-                                     Margin="0,0,8,8"
-                                     AutomationProperties.AutomationId="Cycle_2"
-                                     AutomationProperties.Name="Two sprints with breaks"
-                                     IsChecked="{Binding CycleSprints, Converter={StaticResource IntEq},
-                                                 ConverterParameter=2}"/>
-                        <RadioButton Style="{StaticResource Segment}" GroupName="Cycle" Content="3 sprints"
-                                     Margin="0,0,8,8"
-                                     AutomationProperties.AutomationId="Cycle_3"
-                                     AutomationProperties.Name="Three sprints with breaks"
-                                     IsChecked="{Binding CycleSprints, Converter={StaticResource IntEq},
-                                                 ConverterParameter=3}"/>
-                        <RadioButton Style="{StaticResource Segment}" GroupName="Cycle" Content="4 sprints"
-                                     Margin="0,0,8,8"
-                                     AutomationProperties.AutomationId="Cycle_4"
-                                     AutomationProperties.Name="Four sprints with breaks"
-                                     IsChecked="{Binding CycleSprints, Converter={StaticResource IntEq},
-                                                 ConverterParameter=4}"/>
-                    </WrapPanel>
-                    <TextBlock Text="{Binding CycleDescription}" Style="{StaticResource Caption}"
-                               TextWrapping="Wrap"
-                               AutomationProperties.AutomationId="CycleDescriptionText"/>
 
                     <!-- intention (F13) -->
                     <TextBlock Text="INTENTION" Style="{StaticResource Eyebrow}" Margin="0,24,0,8"/>
@@ -529,8 +558,6 @@
                             <Run Text="Streak:"/>
                             <Run Text="{Binding StreakText, Mode=OneWay}" Foreground="{DynamicResource PrimaryHover}"/>
                         </TextBlock>
-                        <TextBlock Text="Finished sprints compound. Abandoned ones decay — they don't reset."
-                                   Style="{StaticResource Caption}" Margin="0,8,0,0"/>
 
                         <!-- F14: the 30-day trend. DESIGN_SYSTEM.md "Charts" —
                              one series in primary at 2 px, no area fill,
@@ -567,24 +594,14 @@
                             </Grid>
                         </StackPanel>
 
-                        <!-- F14: the rule in plain words, folded away by default
-                             so the card still leads with the number. -->
+                        <!-- F14's rule in plain words lives on History since the
+                             Today declutter (#147); this opens it there. -->
                         <Button Style="{StaticResource BtnQuiet}" HorizontalAlignment="Left"
                                 Margin="-12,8,0,0"
-                                Content="{Binding ExplainerToggleText}"
-                                Command="{Binding ToggleExplainerCommand}"
-                                AutomationProperties.AutomationId="MomentumExplainerButton"
-                                AutomationProperties.Name="{Binding ExplainerToggleText}"/>
-                        <ItemsControl ItemsSource="{Binding MomentumExplanation}" Margin="0,4,0,0"
-                                      Visibility="{Binding ExplainerVisible, Converter={StaticResource BoolVis}}"
-                                      AutomationProperties.AutomationId="MomentumExplainerText">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <TextBlock Text="{Binding}" Style="{StaticResource Caption}"
-                                               TextWrapping="Wrap" Margin="0,0,0,8"/>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
+                                Content="How momentum works"
+                                Command="{Binding ShowMomentumRulesCommand}"
+                                AutomationProperties.AutomationId="MomentumRulesLink"
+                                AutomationProperties.Name="How momentum works, on History"/>
                     </StackPanel>
                 </Border>
 
