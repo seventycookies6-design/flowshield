@@ -11,9 +11,7 @@
          here: a layout panel is not surfaced to UI Automation, so an id on one
          can never be resolved and a test asking for it would pass whether the
          content was drawn or not (#134). The ids are all on TextBlocks and
-         Buttons, except MomentumExplainerText, which came over from Today
-         (#147) on the ItemsControl it has always had: an ItemsControl does
-         surface, and tier 3 has found it there since F14. -->
+         Buttons. -->
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
         <StackPanel Margin="0,0,8,0">
 
@@ -163,16 +161,12 @@
                             Command="{Binding ToggleExplainerCommand}"
                             AutomationProperties.AutomationId="MomentumExplainerButton"
                             AutomationProperties.Name="{Binding ExplainerToggleText}"/>
-                    <ItemsControl ItemsSource="{Binding MomentumExplanation}" Margin="0,4,0,0"
-                                  Visibility="{Binding ExplainerVisible, Converter={StaticResource BoolVis}}"
-                                  AutomationProperties.AutomationId="MomentumExplainerText">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <TextBlock Text="{Binding}" Style="{StaticResource Caption}"
-                                           TextWrapping="Wrap" Margin="0,0,0,8"/>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
+                    <!-- One TextBlock, not the ItemsControl Today had: no
+                         AutomationId sits on an ItemsControl on this page. -->
+                    <TextBlock Text="{Binding MomentumExplanationText}" Style="{StaticResource Caption}"
+                               TextWrapping="Wrap" Margin="0,4,0,0"
+                               Visibility="{Binding ExplainerVisible, Converter={StaticResource BoolVis}}"
+                               AutomationProperties.AutomationId="MomentumExplainerText"/>
                 </StackPanel>
             </Border>
 

@@ -123,8 +123,8 @@ public class HistoryViewModel : ViewModelBase
     /// <summary>Today's "How momentum works" lands here with the rule already open.</summary>
     public void ShowExplainer() => ExplainerVisible = true;
 
-    /// <summary>The rule in plain words, straight from the model that applies it.</summary>
-    public IReadOnlyList<string> MomentumExplanation => MomentumTrend.Explanation;
+    /// <summary>The rule in plain words, straight from the model that applies it, a paragraph a line.</summary>
+    public string MomentumExplanationText => string.Join("\n\n", MomentumTrend.Explanation);
 
     // ------------------------------------------------------------- this week
 
