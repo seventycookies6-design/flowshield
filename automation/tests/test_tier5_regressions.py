@@ -6699,10 +6699,15 @@ class TestSoftOverlayNeverCloses:
         the seconds someone has to save.
         """
         source = self.BLOCKER.read_text(encoding="utf-8")
-        assert "if (!terminate) ReportForeground(targets);" in source, (
-            "the foreground check must sit behind the same !terminate gate that "
-            "separates Soft from Firm, Sealed and hard kill"
+        # Since the website notice (F10 interim, #325) the foreground is also
+        # read above Soft when the profile has websites, but blocked *apps*
+        # are only reported behind the same !terminate gate that separates
+        # Soft from Firm, Sealed and hard kill.
+        assert "ReportForeground(targets, sites, reportApps: !terminate);" in source, (
+            "blocked apps must only be looked for in front while Soft is the shield"
         )
+        body = source.split("private void ReportForeground", 1)[1].split("\n    }", 1)[0]
+        assert "if (reportApps && !CriticalProcesses.Contains(name) && targets.TryGetValue(name, out var app))" in body
 
     def test_the_foreground_check_stays_timid(self):
         """

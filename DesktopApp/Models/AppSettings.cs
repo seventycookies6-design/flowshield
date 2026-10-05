@@ -418,13 +418,15 @@ public class AppSettings
         return changed;
     }
 
-    /// <summary>Adds a profile, optionally starting from a copy of another list.</summary>
-    public BlocklistProfile AddProfile(string? name, IEnumerable<BlockedApp>? startFrom = null)
+    /// <summary>Adds a profile, optionally starting from a copy of another list (apps and websites).</summary>
+    public BlocklistProfile AddProfile(string? name, IEnumerable<BlockedApp>? startFrom = null,
+                                       IEnumerable<string>? startFromSites = null)
     {
         var profile = new BlocklistProfile
         {
             Name = UniqueProfileName(CleanProfileName(name)),
             Apps = startFrom?.Select(a => a.Copy()).ToList() ?? new List<BlockedApp>(),
+            Sites = startFromSites?.ToList() ?? new List<string>(),
         };
         Profiles.Add(profile);
         return profile;

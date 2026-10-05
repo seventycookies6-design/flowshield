@@ -430,7 +430,7 @@ public partial class MainWindow : Window
 
             var overlay = new Views.SoftOverlayWindow();
             overlay.Configure(request.DisplayName, request.Sentence, request.TimeLeft, request.Window,
-                              request.Intention, request.TryLine, request.AllowWait);
+                              request.Intention, request.TryLine, request.AllowWait, request.IsWebsite);
             overlay.CloseIt += (_, _) =>
             {
                 CloseSoftOverlay();

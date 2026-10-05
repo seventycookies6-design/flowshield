@@ -1165,3 +1165,176 @@ class TestRingCaptions:
                          "Sprint interrupted", "Sprint ended early",
                          "Sprint finished while FlowShield was closed"):
             assert expected in idle, f"{expected!r} is not measured"
+
+
+# ============================ website notice: the F10 interim (#325)
+
+class TestWebsiteTitleMatch:
+    """
+    F10's interim before the browser extension: a website on the active
+    profile gets FlowShield's notice when the browser tab in front names it.
+    These run the real matcher (Models/WebsiteTitleMatch.cs).
+    """
+
+    def match(self, process: str, title: str, sites: list[str]):
+        return probe({"cmd": "site-match", "process": process, "title": title, "sites": sites})["site"]
+
+    @pytest.mark.parametrize("typed,host,keyword", [
+        ("youtube.com", "youtube.com", "youtube"),
+        ("https://www.YouTube.com/watch?v=1", "youtube.com", "youtube"),
+        ("  Reddit.com/r/all  ", "reddit.com", "reddit"),
+        ("music.youtube.com", "music.youtube.com", "youtube"),
+        ("bbc.co.uk", "bbc.co.uk", "bbc"),
+        ("x.com", "x.com", "x"),
+        ("twitch.tv:443", "twitch.tv", "twitch"),
+    ])
+    def test_what_was_typed_becomes_the_site_it_means(self, typed, host, keyword):
+        out = probe({"cmd": "site-normalize", "inputs": [typed]})
+        assert out["hosts"] == [host]
+        assert out["keywords"] == [keyword]
+
+    @pytest.mark.parametrize("typed", ["", "   ", "not a website", "-bad.com", "you_tube.com", None])
+    def test_something_that_is_not_a_site_is_refused(self, typed):
+        assert probe({"cmd": "site-normalize", "inputs": [typed]})["hosts"] == [None]
+
+    @pytest.mark.parametrize("process,title", [
+        ("chrome", "Lofi beats to study to - YouTube - Google Chrome"),
+        ("msedge", "YouTube and 3 more pages - Personal - Microsoft\u200b Edge"),
+        ("firefox", "(3) YouTube \u2014 Mozilla Firefox"),
+        ("brave", "youtube.com - Brave"),
+    ])
+    def test_a_browser_tab_naming_the_site_is_seen(self, process, title):
+        assert self.match(process, title, ["youtube.com"]) == "youtube.com"
+
+    def test_only_browsers_are_read(self):
+        """A document called "YouTube notes" in Word is not YouTube."""
+        assert self.match("winword", "YouTube notes - Word", ["youtube.com"]) is None
+        assert self.match("discord", "YouTube - Discord", ["youtube.com"]) is None
+
+    def test_the_name_must_be_a_whole_word(self):
+        assert self.match("chrome", "Top youtuber news - Google Chrome", ["youtube.com"]) is None
+
+    def test_the_browsers_own_name_is_not_the_page(self):
+        """Blocking google.com must not catch every Chrome window."""
+        assert self.match("chrome", "Calculus notes - Google Chrome", ["google.com"]) is None
+        assert self.match("chrome", "Google Docs - Google Chrome", ["google.com"]) == "google.com"
+
+    def test_a_short_name_matches_only_by_its_whole_host(self):
+        """'x' as a word is in far too many titles, so x.com needs "x.com" itself."""
+        assert self.match("chrome", "Home / X - Google Chrome", ["x.com"]) is None
+        assert self.match("chrome", "x.com - Google Chrome", ["x.com"]) == "x.com"
+
+    def test_nothing_matches_without_sites_or_a_title(self):
+        assert self.match("chrome", "YouTube - Google Chrome", []) is None
+        assert self.match("chrome", "", ["youtube.com"]) is None
+        assert self.match("chrome", "New Tab - Google Chrome", ["youtube.com", "reddit.com"]) is None
+
+    def test_the_first_listed_site_that_matches_is_named(self):
+        sites = ["reddit.com", "youtube.com"]
+        assert self.match("chrome", "Reddit thread about YouTube - Google Chrome", sites) == "reddit.com"
+
+
+class TestWebsitesLiveInProfiles:
+    """Sites sit on a blocklist profile (F9), so they switch, copy and save with it."""
+
+    @staticmethod
+    def settings(profile: dict) -> dict:
+        return {"Profiles": [dict({"Id": "a", "Name": "Default", "Apps": []}, **profile)],
+                "ActiveProfileId": "a"}
+
+    def test_a_profile_keeps_its_sites_and_copies_them(self):
+        out = probe({"cmd": "site-profile", "settings": self.settings({"Sites": ["youtube.com", "reddit.com"]})})
+        assert out["sites"] == ["youtube.com", "reddit.com"]
+        assert out["duplicate"] == ["youtube.com", "reddit.com"], "Duplicate copies the websites too"
+        assert out["added"] == ["youtube.com", "reddit.com"], "New profile starts from the list on screen"
+        assert out["independent"], "a copy's list must not be the original's list"
+        assert out["saved"] == ["youtube.com", "reddit.com"]
+
+    @pytest.mark.parametrize("profile", [{}, {"Sites": None}])
+    def test_an_older_or_hand_edited_file_has_an_empty_list_not_null(self, profile):
+        out = probe({"cmd": "site-profile", "settings": self.settings(profile)})
+        assert out["sites"] == [] and out["saved"] == []
+
+    def test_the_notice_copy_for_a_website(self):
+        out = probe({"cmd": "soft-copy", "try": 1, "app": "youtube.com", "ends": "2026-09-28T17:45:00"})
+        assert out["sentence"].startswith("youtube.com is on your blocklist until ")
+        assert out["website_eyebrow"] == "WEBSITE \u00b7 NOTICE ONLY"
+        assert "browser stays open" in out["website_note"]
+        assert "!" not in out["website_note"]
+
+
+class TestWebsiteNoticeWiring:
+    """
+    What a probe can't reach: the blocker, the notice and the page. Read from
+    the source, like the Soft notice's own guards in tier 5.
+    """
+
+    BLOCKER = DESKTOP / "Services" / "AppBlockerService.cs"
+    MAIN_VM = DESKTOP / "ViewModels" / "MainViewModel.cs"
+    MAIN_WINDOW = DESKTOP / "MainWindow.xaml.cs"
+    OVERLAY_CS = DESKTOP / "Views" / "SoftOverlayWindow.xaml.cs"
+    PAGE_VM = DESKTOP / "ViewModels" / "BlockedAppsViewModel.cs"
+    PAGE = DESKTOP / "Views" / "BlockedAppsView.xaml"
+
+    def foreground(self) -> str:
+        source = self.BLOCKER.read_text(encoding="utf-8")
+        return source.split("private void ReportForeground", 1)[1].split("\n    }", 1)[0]
+
+    def test_a_website_is_only_ever_read_never_closed(self):
+        body = self.foreground()
+        assert "WebsiteTitleMatch.Match(name, WindowTitle(window), sites)" in body
+        for forbidden in ("Kill", "CloseMainWindow", "AskToClose", "_closingAt"):
+            assert forbidden not in body, f"the website path must not {forbidden}"
+
+    def test_the_title_is_matched_and_dropped_never_logged(self):
+        source = self.BLOCKER.read_text(encoding="utf-8")
+        title = source.split("private static string WindowTitle(IntPtr window)", 1)[1].split("\n    }", 1)[0]
+        assert "Log." not in title
+        assert "Log." not in self.foreground()
+
+    def test_websites_are_looked_for_at_every_shield_but_only_in_a_sprint(self):
+        source = " ".join(self.BLOCKER.read_text(encoding="utf-8").split())
+        assert "if (!terminate || (enforcing && sites.Count > 0)) ReportForeground(targets, sites, reportApps: !terminate);" in source
+        assert "if (enforcing && sites.Count > 0) ReportForeground(targets, sites, reportApps: false);" in source, (
+            "a profile with websites and no apps still gets its notice"
+        )
+
+    def test_the_sites_snapshot_is_refreshed_with_the_apps(self):
+        source = self.BLOCKER.read_text(encoding="utf-8")
+        assert source.count("_sites = settings.ActiveProfile.Sites.ToList();") == 2
+
+    def test_a_website_notice_has_no_close(self):
+        code = self.OVERLAY_CS.read_text(encoding="utf-8")
+        configure = code.split("public void Configure(", 1)[1].split("private void UpdateAllow", 1)[0]
+        assert "CloseButton.Visibility = Visibility.Collapsed;" in configure
+        handler = code.split("private void OnCloseIt(", 1)[1].split("\n    }", 1)[0]
+        assert "if (_isWebsite) return;" in handler, "the gate sits where the click lands, not only in what is drawn"
+        window = self.MAIN_WINDOW.read_text(encoding="utf-8")
+        assert "request.AllowWait, request.IsWebsite);" in window
+
+    def test_a_website_notice_counts_once_as_a_nudge(self):
+        handler = self.MAIN_VM.read_text(encoding="utf-8").split("private void OnSoftForeground", 1)[1].split("\n    }", 1)[0]
+        counted = handler.split("if (e.IsWebsite)\n", 1)[1].split("}", 1)[0]
+        assert "Today.RecordBlock(terminated: false);" in counted
+        assert "Settings.RecordBlock();" in counted
+        assert handler.index("_softOverlay.ShouldShow") < handler.index("if (e.IsWebsite)\n"), (
+            "counted when the notice shows, so an Allow window or a repeat sweep doesn't count it again"
+        )
+
+    def test_the_page_edits_the_active_profiles_sites(self):
+        vm = self.PAGE_VM.read_text(encoding="utf-8")
+        add = vm.split("private void AddSite()", 1)[1].split("\n    }", 1)[0]
+        assert "if (!CanEdit()) return;" in add, "sealed and expired-trial guards, as for apps"
+        assert "WebsiteTitleMatch.Normalize(NewSiteText)" in add
+        assert "ActiveProfile.Sites.Add(host);" in add
+        assert "_main.SaveSettings();" in add
+        remove = vm.split("private void RemoveSite(", 1)[1].split("\n    }", 1)[0]
+        assert "if (IsSealed)" in remove
+        assert "AddProfile(wanted, ActiveApps, ActiveProfile.Sites)" in vm
+        reload = vm.split("public void ReloadActiveProfile()", 1)[1].split("\n    }", 1)[0]
+        assert "foreach (var site in ActiveProfile.Sites) Sites.Add(site);" in reload
+
+    def test_the_page_controls_carry_their_ids(self):
+        page = self.PAGE.read_text(encoding="utf-8")
+        for automation_id in ('"NewSiteInput"', '"AddSiteButton"', "StringFormat=RemoveSite_{0}", '"SitesHint"'):
+            assert automation_id in page, automation_id
