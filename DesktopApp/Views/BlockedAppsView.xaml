@@ -172,6 +172,52 @@
                     </TextBlock.Style>
                 </TextBlock>
 
+                <!-- ============================== websites (F10 interim)
+                     Docked under the app list so the apps stay the page's main
+                     job. Basalt can't block a site without the browser
+                     extension (after launch), so the caption says what it does
+                     instead: a notice over the tab, at every shield. -->
+                <StackPanel DockPanel.Dock="Bottom" Margin="0,16,0,0">
+                    <TextBlock Text="WEBSITES · NOTICE ONLY" Style="{StaticResource Eyebrow}" Margin="0,0,0,8"/>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBox Grid.Column="0" Style="{StaticResource Field}" MaxLength="253"
+                                 Text="{Binding NewSiteText, UpdateSourceTrigger=PropertyChanged}"
+                                 IsEnabled="{Binding IsEditable}"
+                                 AutomationProperties.AutomationId="NewSiteInput"
+                                 AutomationProperties.Name="Website"
+                                 AutomationProperties.HelpText="A website such as youtube.com"/>
+                        <Button Grid.Column="1" Style="{StaticResource BtnGhost}" Content="Add website"
+                                Command="{Binding AddSiteCommand}" Margin="8,0,0,0" Padding="16,0"
+                                AutomationProperties.AutomationId="AddSiteButton"
+                                AutomationProperties.Name="Add blocked website"/>
+                    </Grid>
+                    <ItemsControl ItemsSource="{Binding Sites}" Margin="0,8,0,0">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Button Style="{StaticResource BtnQuiet}" Padding="12,0" Margin="0,0,8,8"
+                                        Content="{Binding}" ContentStringFormat="{}{0}  ×"
+                                        Command="{Binding DataContext.RemoveSiteCommand,
+                                                  RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                        CommandParameter="{Binding}"
+                                        AutomationProperties.AutomationId="{Binding StringFormat=RemoveSite_{0}}"
+                                        AutomationProperties.Name="{Binding StringFormat=Remove {0}}"/>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <TextBlock Style="{StaticResource Caption}" Margin="4,0,0,0" TextWrapping="Wrap"
+                               AutomationProperties.AutomationId="SitesHint"
+                               Text="During a sprint, Basalt shows its notice when the tab in front names one of these. It reads the tab's title only, so it can miss a page or catch a search, and it never closes your browser."/>
+                </StackPanel>
+
                 <!-- the list -->
                 <ListBox ItemsSource="{Binding Apps}"
                          SelectedItem="{Binding SelectedApp}"

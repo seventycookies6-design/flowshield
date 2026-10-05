@@ -141,7 +141,9 @@ endpoints are rate limited. Closing the rest means requiring the licence key
 hear about it unless they email you. There is a local diagnostic log at
 `%APPDATA%\FlowShield\logs`, which support can ask for.
 
-**Windows only, x64 only.** No ARM64 build, no macOS.
+**Windows only.** No macOS. `tools/build_release.ps1` now also builds for
+Windows on ARM, starting with the first release cut after it landed; that
+build compiles in CI but has not yet run on real ARM hardware.
 
 **Tested on one machine.** Windows 11, one hardware configuration. The installer
 has never run on a clean machine without .NET or developer tooling present.

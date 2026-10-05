@@ -122,9 +122,11 @@ keeps the key they already had. A full refund revokes the licence.
 pwsh tools/build_release.ps1 -Version 1.0.4 -Publish
 ```
 
-Builds a self-contained win-x64 copy (customers don't need the .NET runtime),
-packages it with Velopack into an installer plus an update feed, and publishes
-both to GitHub Releases. Installed copies find it via Settings → Check for
+Builds self-contained win-x64 and win-arm64 copies (customers don't need the
+.NET runtime), packages each with Velopack into an installer plus an update
+feed, and publishes them to GitHub Releases. Windows on ARM laptops get
+`FlowShield-win-arm64-Setup.exe`, on its own update channel, so an ARM install
+only ever updates to the ARM build; x64 keeps the file names it always had. Installed copies find it via Settings → Check for
 updates; an update is never applied mid-sprint, since restarting would drop the
 shield a sealed session exists to hold.
 

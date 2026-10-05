@@ -227,6 +227,15 @@ public static class SoftOverlayCopy
     /// <summary>The note under the buttons: Soft's promise, in words.</summary>
     public const string CloseNote = "Nothing is closed unless you choose to.";
 
+    /// <summary>The eyebrow on a website's notice (F10 interim), which shows at every shield.</summary>
+    public const string WebsiteEyebrow = "WEBSITE \u00B7 NOTICE ONLY";
+
+    /// <summary>
+    /// The note under a website's buttons: what Basalt does and does not
+    /// do with the browser, in words.
+    /// </summary>
+    public const string WebsiteNote = "Your browser stays open. Basalt only reads the title of the tab in front.";
+
     /// <summary>The sprint's end time in the user's own short-time format.</summary>
     public static string Until(DateTime endsAtLocal) =>
         endsAtLocal.ToString("t", CultureInfo.CurrentCulture);

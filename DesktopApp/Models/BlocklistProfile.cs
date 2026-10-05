@@ -43,6 +43,21 @@ public class BlocklistProfile : INotifyPropertyChanged
 
     public List<BlockedApp> Apps { get; set; } = new();
 
+    private List<string> _sites = new();
+
+    /// <summary>
+    /// Websites on this list, as normalised hosts ("youtube.com"). Basalt
+    /// cannot block them without a browser extension (F10, after launch), so
+    /// during a sprint it shows its notice when a browser's title names one
+    /// (<see cref="WebsiteTitleMatch"/>). Never null: an older settings file
+    /// has no list, and a hand-edited one may say null.
+    /// </summary>
+    public List<string> Sites
+    {
+        get => _sites;
+        set => _sites = value ?? new List<string>();
+    }
+
     private bool _isActive;
 
     /// <summary>
@@ -73,5 +88,6 @@ public class BlocklistProfile : INotifyPropertyChanged
         Id = NewId(),
         Name = name,
         Apps = Apps.Select(a => a.Copy()).ToList(),
+        Sites = Sites.ToList(),
     };
 }

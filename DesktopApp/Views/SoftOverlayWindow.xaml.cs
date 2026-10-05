@@ -38,6 +38,9 @@ public partial class SoftOverlayWindow : Window
     /// <summary>The blocked app's window, so the notice opens on its monitor.</summary>
     private IntPtr _anchor;
 
+    /// <summary>A website's notice (F10 interim), which has no Close.</summary>
+    private bool _isWebsite;
+
     /// <summary>Set once any button has been answered, so none fires twice.</summary>
     private bool _answered;
 
@@ -56,8 +59,14 @@ public partial class SoftOverlayWindow : Window
     }
 
     /// <summary>Fills in the notice. Called before Show.</summary>
+    /// <remarks>
+    /// <paramref name="isWebsite"/> (F10 interim): the name is a site in a
+    /// browser tab. There is no Close for it, because asking the browser to
+    /// close would close every tab, so the button is collapsed rather than
+    /// disabled and nothing can raise <see cref="CloseIt"/>.
+    /// </remarks>
     public void Configure(string displayName, string sentence, string timeLeft, IntPtr anchor,
-                          string intention, string tryLine, TimeSpan allowWait)
+                          string intention, string tryLine, TimeSpan allowWait, bool isWebsite = false)
     {
         SentenceText.Text = sentence;
         TimeLeftText.Text = timeLeft;
@@ -66,6 +75,15 @@ public partial class SoftOverlayWindow : Window
         TryLineText.Text = tryLine;
         CloseButton.Content = $"Close {displayName}";
         AutomationProperties.SetName(CloseButton, $"Close {displayName}");
+        _isWebsite = isWebsite;
+        if (isWebsite)
+        {
+            CloseButton.Visibility = Visibility.Collapsed;
+            BackToWorkButton.Style = (Style)FindResource("BtnPrimary");
+            EyebrowText.Text = SoftOverlayCopy.WebsiteEyebrow;
+            NoteText.Text = SoftOverlayCopy.WebsiteNote;
+            AutomationProperties.SetName(this, "Blocked website notice");
+        }
         _anchor = anchor;
 
         // The wait before Allow (1.0.10). Text only, so reduced motion changes nothing.
@@ -149,7 +167,16 @@ public partial class SoftOverlayWindow : Window
         }
     }
 
-    private void OnCloseIt(object sender, RoutedEventArgs e) => Answer(CloseIt);
+    /// <summary>
+    /// Refuses for a website, where the button is collapsed: the gate sits
+    /// where the click lands, not only in what is drawn (CLAUDE.md, "covered
+    /// controls").
+    /// </summary>
+    private void OnCloseIt(object sender, RoutedEventArgs e)
+    {
+        if (_isWebsite) return;
+        Answer(CloseIt);
+    }
 
     private void OnBackToWork(object sender, RoutedEventArgs e) => Answer(BackToWork);
 

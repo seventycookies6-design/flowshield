@@ -422,7 +422,8 @@ public class SettingsViewModel : ViewModelBase
 
     /// <summary>The switch's caption, ending in the notice's own note so the two can't drift apart.</summary>
     public string SoftOverlayCaption =>
-        "When a blocked app comes to the front during a Soft sprint, Basalt says so over it. "
+        "When a blocked app comes to the front during a Soft sprint, or a browser tab names a "
+        + "blocked website during any sprint, Basalt says so over it. "
         + SoftOverlayCopy.CloseNote;
 
     public bool MinimizeToTrayOnClose

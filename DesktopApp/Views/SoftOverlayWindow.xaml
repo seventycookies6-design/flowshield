@@ -50,7 +50,9 @@
                 <StackPanel Orientation="Horizontal">
                     <Image Source="{DynamicResource ShieldGlyphSoft}" Width="20" Height="20"
                            Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,12,0"/>
-                    <TextBlock Text="SHIELD I · SOFT" Style="{StaticResource Eyebrow}"
+                    <!-- Configure says "WEBSITE · NOTICE ONLY" for a website (F10
+                         interim), which gets this notice at every shield. -->
+                    <TextBlock x:Name="EyebrowText" Text="SHIELD I · SOFT" Style="{StaticResource Eyebrow}"
                                VerticalAlignment="Center"
                                AutomationProperties.AutomationId="SoftOverlayEyebrow"/>
                 </StackPanel>
@@ -71,7 +73,7 @@
                            AutomationProperties.AutomationId="SoftOverlayTryLine"/>
 
                 <!-- Soft's promise, in the one place it is worded (SoftOverlayCopy). -->
-                <TextBlock Text="{x:Static models:SoftOverlayCopy.CloseNote}"
+                <TextBlock x:Name="NoteText" Text="{x:Static models:SoftOverlayCopy.CloseNote}"
                            Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,4,0,0"
                            AutomationProperties.AutomationId="SoftOverlayNote"/>
 
@@ -82,7 +84,10 @@
                      app must never become "the user chose to close it". Back to
                      work takes focus and is both the default (Enter) and the
                      cancel (Escape) action; Close is reached by mouse or by Tab.
-                     Allow is last, disabled until its wait runs out. -->
+                     Allow is last, disabled until its wait runs out.
+                     A website (F10 interim) has no Close: closing the browser
+                     would close every tab, so Configure collapses it and Back
+                     to work becomes the primary button. -->
                 <WrapPanel Orientation="Horizontal" Margin="0,24,0,0">
                     <!-- Configure names the app: "Close Discord". -->
                     <Button x:Name="CloseButton" Style="{StaticResource BtnPrimary}" Content="Close"

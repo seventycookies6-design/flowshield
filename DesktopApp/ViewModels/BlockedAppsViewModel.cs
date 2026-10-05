@@ -22,6 +22,7 @@ public class BlockedAppsViewModel : ViewModelBase
         if (upgraded) main.SettingsService.Save(main.Settings);
 
         Apps = new ObservableCollection<BlockedApp>(ActiveApps);
+        Sites = new ObservableCollection<string>(ActiveProfile.Sites);
 
         AddCommand = new RelayCommand(AddApp, CanAdd);
         RemoveCommand = new RelayCommand(p => RemoveApp(p as BlockedApp), p => p is BlockedApp && !IsSealed);
@@ -30,6 +31,8 @@ public class BlockedAppsViewModel : ViewModelBase
             p => p is PickerEntry { IsAdded: false } && IsEditable && !_main.IsLocked);
         ToggleAppCommand = new RelayCommand(p => ToggleApp(p as BlockedApp),
             p => p is BlockedApp && CanEditApps);
+        AddSiteCommand = new RelayCommand(AddSite, () => IsEditable && !_main.IsLocked && !string.IsNullOrWhiteSpace(NewSiteText));
+        RemoveSiteCommand = new RelayCommand(p => RemoveSite(p as string), p => p is string && !IsSealed);
 
         SelectProfileCommand = new RelayCommand(p => SelectProfile(p as BlocklistProfile),
             p => p is BlocklistProfile && CanSwitchProfile);
@@ -55,6 +58,8 @@ public class BlockedAppsViewModel : ViewModelBase
     public RelayCommand RefreshRunningCommand { get; }
     public RelayCommand PickCommand { get; }
     public RelayCommand ToggleAppCommand { get; }
+    public RelayCommand AddSiteCommand { get; }
+    public RelayCommand RemoveSiteCommand { get; }
 
     // ------------------------------------------------- blocklist profiles (F9)
 
@@ -155,7 +160,7 @@ public class BlockedAppsViewModel : ViewModelBase
         // A new profile starts from the list already on screen, because "School"
         // is usually today's list minus one app rather than an empty page.
         var wanted = string.IsNullOrWhiteSpace(name) ? ProfileNameText : name;
-        var profile = _main.Settings.AddProfile(wanted, ActiveApps);
+        var profile = _main.Settings.AddProfile(wanted, ActiveApps, ActiveProfile.Sites);
         _main.Settings.SetActiveProfile(profile.Id);
         ProfileNameText = "";
         _main.SaveSettings();
@@ -251,6 +256,8 @@ public class BlockedAppsViewModel : ViewModelBase
     {
         Apps.Clear();
         foreach (var app in ActiveApps) Apps.Add(app);
+        Sites.Clear();
+        foreach (var site in ActiveProfile.Sites) Sites.Add(site);
         RefreshProfiles();
         RefreshStatus();
         ApplyFilter();
@@ -554,6 +561,71 @@ public class BlockedAppsViewModel : ViewModelBase
         Raise(nameof(CanSwitchProfile));
         Raise(nameof(CanEditProfiles));
         Raise(nameof(CanDeleteProfile));
+    }
+
+    // ------------------------------------------- websites (F10 interim)
+
+    /// <summary>
+    /// The active profile's websites. Basalt can't block a site without a
+    /// browser extension, so these get the notice when a browser tab's title
+    /// names them, at every shield, and the browser is never closed.
+    /// </summary>
+    public ObservableCollection<string> Sites { get; }
+
+    private string _newSiteText = "";
+    public string NewSiteText
+    {
+        get => _newSiteText;
+        set
+        {
+            if (!Set(ref _newSiteText, value)) return;
+            // Same reason as NewAppName: a programmatic change must re-enable Add.
+            System.Windows.Input.CommandManager.InvalidateRequerySuggested();
+        }
+    }
+
+    private void AddSite()
+    {
+        if (!CanEdit()) return;
+
+        var host = WebsiteTitleMatch.Normalize(NewSiteText);
+        if (host is null)
+        {
+            _main.Toast("That doesn't look like a website. Try something like youtube.com.");
+            return;
+        }
+        if (ActiveProfile.Sites.Contains(host, StringComparer.OrdinalIgnoreCase))
+        {
+            _main.Toast($"{host} is already on this list.");
+            NewSiteText = "";
+            return;
+        }
+        if (ActiveProfile.Sites.Count >= WebsiteTitleMatch.MaxSites)
+        {
+            _main.Toast($"A profile holds up to {WebsiteTitleMatch.MaxSites} websites.");
+            return;
+        }
+
+        ActiveProfile.Sites.Add(host);   // the selected profile only (F9)
+        Sites.Add(host);
+        NewSiteText = "";
+        _main.SaveSettings();
+        Log.Info($"blocked website added: {host}");
+    }
+
+    private void RemoveSite(string? host)
+    {
+        if (host is null) return;
+        if (IsSealed)
+        {
+            _main.Toast("The blocklist is sealed until this sprint ends.");
+            return;
+        }
+
+        ActiveProfile.Sites.RemoveAll(s => string.Equals(s, host, StringComparison.OrdinalIgnoreCase));
+        Sites.Remove(host);
+        _main.SaveSettings();
+        Log.Info($"blocked website removed: {host}");
     }
 
     /// <summary>"C:\path\Slack.exe", "Slack.exe" and "slack" all normalise the same way.</summary>
