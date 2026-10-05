@@ -164,7 +164,7 @@ public static class HistoryStats
     /// This one figure cannot come from the sessions: a sprint records *how
     /// many* distractions it caught, never which app they were, and adding a
     /// per-app-per-sprint tally would be new stored data for one line of text.
-    /// So it is the running count FlowShield already keeps per blocklist entry,
+    /// So it is the running count Basalt already keeps per blocklist entry,
     /// and History labels it as the whole time you have been blocking, not as
     /// this week.
     ///

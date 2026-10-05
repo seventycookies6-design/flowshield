@@ -1,8 +1,8 @@
 """
-FlowShield end-to-end run.
+Basalt end-to-end run.
 
 Drives the real thing from a clean install to an activated Pro licence:
-build → servers up → app launch → Buy FlowShield → website → real Stripe test checkout
+build → servers up → app launch → Buy Basalt → website → real Stripe test checkout
 → licence key → activation in the app → verification against the encrypted
 settings file → Pro-gated features.
 
@@ -114,12 +114,12 @@ class E2ERun:
         if not self.services.website.start():
             raise RuntimeError("website server did not come up")
         response = requests.get(f"{WEBSITE_URL}/index.html", timeout=6)
-        if "FlowShield" not in response.text:
-            raise RuntimeError("index.html did not render the FlowShield landing page")
+        if "Basalt" not in response.text:
+            raise RuntimeError("index.html did not render the Basalt landing page")
         self.log.passed(f"{WEBSITE_URL} serving {len(response.text)} bytes")
 
     def step_04_launch(self) -> None:
-        self.log.begin("Launch FlowShield (clean state)")
+        self.log.begin("Launch Basalt (clean state)")
         self.ctrl.launch_app(clean_state=True)
         self.log.passed(f"pid {self.ctrl.pid}")
 
@@ -143,7 +143,7 @@ class E2ERun:
         self.log.passed(f"status={status!r}, badge={self.ctrl.tier_badge()!r}")
 
     def step_07_get_pro(self) -> None:
-        self.log.begin("Click Buy FlowShield (opens the website)")
+        self.log.begin("Click Buy Basalt (opens the website)")
         self.attempt(lambda: self.ctrl.click_get_pro_button())
         time.sleep(1.5)
         toast = self.ctrl.toast_text(timeout=3)
@@ -153,7 +153,7 @@ class E2ERun:
         # the app recorded rather than on catching the toast in time.
         if not self.ctrl.app_log_contains("opening upgrade page"):
             raise AssertionError(
-                "the app did not log an upgrade-page launch after Buy FlowShield was clicked")
+                "the app did not log an upgrade-page launch after Buy Basalt was clicked")
 
         self.log.passed(f"upgrade page launched; toast={toast!r}")
 
@@ -363,7 +363,7 @@ class E2ERun:
 
     def run(self) -> int:
         self.log.note("\n" + "=" * 64)
-        self.log.note("  FlowShield — end-to-end run")
+        self.log.note("  Basalt — end-to-end run")
         self.log.note("=" * 64)
 
         if not self.stripe_ready:
@@ -429,7 +429,7 @@ class E2ERun:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="FlowShield end-to-end run")
+    parser = argparse.ArgumentParser(description="Basalt end-to-end run")
     # Headless by default. A visible browser is nicer to watch, but the E2E
     # drives the desktop app at the same time, and the checkout page submits
     # far more reliably headless — a visible window intermittently accepts the

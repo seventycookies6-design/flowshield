@@ -89,12 +89,12 @@
                                                AutomationProperties.AutomationId="DeviceText"/>
                                 </StackPanel>
 
-                                <Button Style="{StaticResource BtnPrimary}" Content="Buy FlowShield — $4.99"
+                                <Button Style="{StaticResource BtnPrimary}" Content="Buy Basalt — $4.99"
                                         HorizontalAlignment="Right" VerticalAlignment="Top"
                                         Command="{Binding GetProCommand}"
                                         Visibility="{Binding IsNotPro, Converter={StaticResource BoolVis}}"
                                         AutomationProperties.AutomationId="GetProButton"
-                                        AutomationProperties.Name="Buy FlowShield"/>
+                                        AutomationProperties.Name="Buy Basalt"/>
                             </Grid>
 
                             <Border Height="1" Background="{DynamicResource Edge}" Margin="0,0,0,16"/>
@@ -400,7 +400,7 @@
                                       AutomationProperties.Name="Start the last sprint from anywhere">
                                 <StackPanel>
                                     <TextBlock Text="Start the last sprint from anywhere" Style="{StaticResource Label}"/>
-                                    <TextBlock Text="Off by default. Press Ctrl+Alt+F from any app to start your last sprint, even while FlowShield is in the tray. Turns itself off if another app already uses that combination."
+                                    <TextBlock Text="Off by default. Press Ctrl+Alt+F from any app to start your last sprint, even while Basalt is in the tray. Turns itself off if another app already uses that combination."
                                                Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,4,0,0"/>
                                 </StackPanel>
                             </CheckBox>
@@ -443,7 +443,7 @@
                     <Border Style="{StaticResource Card}" Padding="24">
                         <StackPanel>
                             <TextBlock Text="NOTIFICATIONS" Style="{StaticResource Eyebrow}" Margin="0,0,0,8"/>
-                            <TextBlock Text="FlowShield notifies from the tray, and never about buying while a sprint is running."
+                            <TextBlock Text="Basalt notifies from the tray, and never about buying while a sprint is running."
                                        Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,16"/>
 
                             <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding NotificationsEnabled}"

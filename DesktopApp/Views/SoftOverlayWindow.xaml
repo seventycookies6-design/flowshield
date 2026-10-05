@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:inf="clr-namespace:FlowShield.Infrastructure"
         xmlns:models="clr-namespace:FlowShield.Models"
-        Title="FlowShield"
+        Title="Basalt"
         WindowStyle="None" ResizeMode="NoResize" ShowInTaskbar="False"
         AllowsTransparency="True" Topmost="True"
         Background="{DynamicResource Scrim}"

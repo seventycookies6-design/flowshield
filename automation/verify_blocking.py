@@ -55,7 +55,7 @@ def main() -> int:
     try:
         kill_all(TARGET)
 
-        log.begin("Launch FlowShield")
+        log.begin("Launch Basalt")
         ctrl.launch_app(clean_state=True)
         ctrl.connect_window()
         time.sleep(1.2)

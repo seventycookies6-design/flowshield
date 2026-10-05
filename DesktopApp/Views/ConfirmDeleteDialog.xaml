@@ -1,7 +1,7 @@
 <Window x:Class="FlowShield.Views.ConfirmDeleteDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="FlowShield"
+        Title="Basalt"
         Width="460" SizeToContent="Height"
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize"
@@ -21,7 +21,7 @@
             <TextBlock x:Name="QuestionText" Text="Delete everything on this PC."
                        Style="{StaticResource H2}" TextWrapping="Wrap"
                        AutomationProperties.AutomationId="ConfirmDeleteText"/>
-            <TextBlock x:Name="DetailText" Text="This removes your sessions, journal, blocklist profiles, templates, schedules, momentum and licence from this computer, and empties FlowShield's taskbar Jump List. If FlowShield is licensed here, that seat is freed for another machine first. This cannot be undone."
+            <TextBlock x:Name="DetailText" Text="This removes your sessions, journal, blocklist profiles, templates, schedules, momentum and licence from this computer, and empties Basalt's taskbar Jump List. If Basalt is licensed here, that seat is freed for another machine first. This cannot be undone."
                        Style="{StaticResource Body}" Margin="0,12,0,0" TextWrapping="Wrap"
                        AutomationProperties.AutomationId="ConfirmDeleteDetailText"/>
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,24,0,0">

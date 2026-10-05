@@ -38,7 +38,7 @@ public record BlockEvent(
 ///
 /// <see cref="DisplayName"/> is the blocked app's name when the foreground
 /// window belongs to one, and null when it belongs to anything else — which is
-/// how the Soft notice knows to come down again. FlowShield's own windows are
+/// how the Soft notice knows to come down again. Basalt's own windows are
 /// never reported at all, so the notice never reacts to itself.
 /// </summary>
 public record ForegroundSighting(string? DisplayName, IntPtr Window, DateTime AtUtc);
@@ -509,7 +509,7 @@ public class AppBlockerService : IDisposable
 
         if (GetWindowThreadProcessId(window, out var pid) == 0 || pid == 0) return;
 
-        // FlowShield's own windows — including the notice itself — are not a
+        // Basalt's own windows — including the notice itself — are not a
         // sighting and not an absence of one. Reporting them would make the
         // notice close itself the moment it took focus.
         if (pid == (uint)Environment.ProcessId) return;

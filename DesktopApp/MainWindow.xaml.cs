@@ -114,7 +114,7 @@ public partial class MainWindow : Window
     /// is drawn above everything else, so Escape closes whichever of those is
     /// actually in front. The terms gate and the trial-ended lock screen are
     /// deliberately left out — neither has a cancel action, because nothing in
-    /// FlowShield is usable until the terms are accepted, and the lock screen
+    /// Basalt is usable until the terms are accepted, and the lock screen
     /// is the state itself rather than a dialog over it.
     /// </summary>
     protected override void OnPreviewKeyDown(System.Windows.Input.KeyEventArgs e)
@@ -214,7 +214,7 @@ public partial class MainWindow : Window
             {
                 Icon = _trayIdleIcon,
                 Visible = false,
-                Text = "FlowShield",
+                Text = "Basalt",
             };
 
             var menu = new Forms.ContextMenuStrip();
@@ -267,7 +267,7 @@ public partial class MainWindow : Window
                            (_, _) => QuickStart());
             menu.Items.Add("Start…", null, (_, _) => OpenToStartSprint());
             menu.Items.Add(new Forms.ToolStripSeparator());
-            menu.Items.Add("Open FlowShield", null, (_, _) => RestoreFromTray());
+            menu.Items.Add("Open Basalt", null, (_, _) => RestoreFromTray());
         }
 
         menu.Items.Add(new Forms.ToolStripSeparator());
@@ -379,7 +379,7 @@ public partial class MainWindow : Window
         {
             _lastNotification = notification;
             // A hidden NotifyIcon can't raise a balloon, so show it for the
-            // duration — the tray is where a minimised FlowShield lives anyway.
+            // duration — the tray is where a minimised Basalt lives anyway.
             _tray.Visible = true;
             _tray.ShowBalloonTip(5000, notification.Title, notification.Message, Forms.ToolTipIcon.None);
         }
@@ -418,7 +418,7 @@ public partial class MainWindow : Window
     /// Puts the Soft notice over the blocked app, on that app's monitor.
     ///
     /// Close asks the blocked app to close (the user's choice, never a kill);
-    /// Back to work brings FlowShield forward; Allow goes quiet after its wait.
+    /// Back to work brings Basalt forward; Allow goes quiet after its wait.
     /// Soft closing something on its own would break the promise on its own
     /// shield chip.
     /// </summary>
@@ -527,9 +527,9 @@ public partial class MainWindow : Window
         // Windows 11 hides new tray icons in the overflow until the user drags
         // one out, so the countdown also goes in the title: the taskbar button's
         // tooltip and thumbnail then show the time left without any setup.
-        Title = onBreak ? $"FlowShield — {NotificationPolicy.BreakLabel(remaining)}"
-              : running ? $"FlowShield — {Vm?.Today.RemainingText}"
-              : "FlowShield";
+        Title = onBreak ? $"Basalt — {NotificationPolicy.BreakLabel(remaining)}"
+              : running ? $"Basalt — {Vm?.Today.RemainingText}"
+              : "Basalt";
 
         // Taskbar button: a progress bar for as long as the sprint runs.
         if (TaskbarItemInfo is not null)
@@ -647,7 +647,7 @@ public partial class MainWindow : Window
     /// exactly what the End button would do at that moment. Inside the grace
     /// period that is a free cancel; at Soft it is an immediate end, recorded
     /// as ended early; at Firm or Sealed the window opens on that sprint's end
-    /// flow, and FlowShield quits only once the sprint has actually ended —
+    /// flow, and Basalt quits only once the sprint has actually ended —
     /// otherwise Quit would be a one-click way around the countdown and phrase.
     ///
     /// Soft used to skip this altogether (#204): nothing was recorded, the
@@ -666,7 +666,7 @@ public partial class MainWindow : Window
             RestoreFromTray();
             vm.CurrentPage = AppPage.Today;
             _quitWhenSprintEnds = true;
-            vm.Toast("End the sprint to quit FlowShield.");
+            vm.Toast("End the sprint to quit Basalt.");
             Log.Info("quit deferred until the running sprint ends");
             return;
         }
@@ -698,7 +698,7 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// Shows this window on top when FlowShield is opened again (roadmap 1.3).
+    /// Shows this window on top when Basalt is opened again (roadmap 1.3).
     /// Leaves the page and any running sprint or end panel exactly as they are.
     /// </summary>
     public void BringToFront()
@@ -751,7 +751,7 @@ public partial class MainWindow : Window
             e.Cancel = true;
             Hide();
             _tray.Visible = true;
-            _tray.ShowBalloonTip(2500, "FlowShield", "Still guarding. Double-click to reopen.",
+            _tray.ShowBalloonTip(2500, "Basalt", "Still guarding. Double-click to reopen.",
                 Forms.ToolTipIcon.Info);
             Log.Info("minimised to tray on close");
             return;

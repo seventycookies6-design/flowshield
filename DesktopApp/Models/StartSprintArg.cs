@@ -12,7 +12,7 @@ public static class StartSprintArg
     /// <summary>
     /// Whether <paramref name="args"/> asks for a sprint, and for which
     /// template: null for the plain flag or an empty id. Matched
-    /// case-insensitively, like FlowShield's other switches.
+    /// case-insensitively, like Basalt's other switches.
     /// </summary>
     public static bool TryFind(IEnumerable<string> args, out string? templateId)
     {
@@ -33,7 +33,7 @@ public static class StartSprintArg
     /// <summary>
     /// The argument a template's entry runs with, or null when its id could
     /// not survive a command line: a space or a quote would split it into
-    /// extra arguments. Every id FlowShield makes (<see cref="StudyTemplate.NewId"/>)
+    /// extra arguments. Every id Basalt makes (<see cref="StudyTemplate.NewId"/>)
     /// is letters and digits only.
     /// </summary>
     public static string? For(string? templateId) =>

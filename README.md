@@ -1,10 +1,14 @@
-# FlowShield
+# Basalt
+
+*Formerly FlowShield. The product was renamed in #321 because another Windows
+focus app already used that name. The repository, the installed `FlowShield.exe`,
+the settings folder and `flowshield://` links keep the old name for now.*
 
 **[Download for Windows](https://github.com/seventycookies6-design/flowshield/releases/latest/download/FlowShield-win-Setup.exe)**
 · **[Site](https://seventycookies6-design.github.io/flowshield/)**
 · **[Licence server](https://flowshield-license-server.onrender.com)**
 
-FlowShield is free for 7 days with everything unlocked, then a **one-time
+Basalt is free for 7 days with everything unlocked, then a **one-time
 $4.99 purchase** — no subscription. Buying on the site issues a real licence
 key, and the installed app activates against the deployed server. Stripe is in **test mode** — see
 **[SELLING.md](SELLING.md)** for what's left before charging real customers.

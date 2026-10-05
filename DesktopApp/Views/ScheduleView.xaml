@@ -26,7 +26,7 @@
                 <Border Style="{StaticResource Card}" Padding="24">
                     <StackPanel>
                         <TextBlock Text="YOUR SCHEDULES" Style="{StaticResource Eyebrow}" Margin="0,0,0,12"/>
-                        <TextBlock Text="A template starts by itself at the time you pick. By default FlowShield asks five minutes before."
+                        <TextBlock Text="A template starts by itself at the time you pick. By default Basalt asks five minutes before."
                                    Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,12"/>
 
                         <ItemsControl ItemsSource="{Binding Schedules}">

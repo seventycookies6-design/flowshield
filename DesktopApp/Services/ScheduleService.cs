@@ -15,7 +15,7 @@ namespace FlowShield.Services;
 /// (<see cref="AppSettings.ScheduleLastCheckUtc"/>) before raising anything,
 /// so a save that follows keeps it: a scheduled start saves settings, and so
 /// does exit. The next launch counts from that stamp, so a start missed while
-/// FlowShield was closed is inside the first tick's interval and the planner's
+/// Basalt was closed is inside the first tick's interval and the planner's
 /// gap rule offers it, never starts it. A start handled before exit is at or
 /// before the stamp of the tick that handled it, so it is never offered twice.
 ///

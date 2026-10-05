@@ -108,7 +108,7 @@ public class MainViewModel : ViewModelBase
     public RelayCommand NavigateCommand { get; }
     public RelayCommand GetProCommand { get; }
 
-    /// <summary>FlowShield has been bought and activated on this machine.</summary>
+    /// <summary>Basalt has been bought and activated on this machine.</summary>
     public bool IsPro => Settings.IsPro;
     public bool IsNotPro => !Settings.IsPro;
 
@@ -274,7 +274,7 @@ public class MainViewModel : ViewModelBase
         if (template is null)
         {
             // Gone since the list was built: the shell keeps the list while
-            // FlowShield is closed, and a settings file can be reset under it.
+            // Basalt is closed, and a settings file can be reset under it.
             CurrentPage = AppPage.Today;
             Toast("That template isn't here any more. Pick one on Today.");
             return;
@@ -399,7 +399,7 @@ public class MainViewModel : ViewModelBase
         IsPro ? "Green" : IsTrial ? "Primary" : "Amber";
 
     public string TrialEndedText =>
-        "Your 7-day free trial has ended. Buy FlowShield once for $4.99 to keep using it — "
+        "Your 7-day free trial has ended. Buy Basalt once for $4.99 to keep using it — "
         + "no subscription. Already bought it? Enter your licence key below.";
 
     // ---------------------------------------------------------------- toast
@@ -551,7 +551,7 @@ public class MainViewModel : ViewModelBase
         var today = DateTime.Now.Date;
         if (Settings.TrialEndingNotifiedLocal?.Date == today) return;
         if (!Notify(NotificationKind.TrialEnding, "Your free trial ends tomorrow",
-                    "Buy FlowShield once for $4.99 to keep it — no subscription.",
+                    "Buy Basalt once for $4.99 to keep it — no subscription.",
                     NotificationAction.OpenSettingsLicense)) return;
 
         Settings.TrialEndingNotifiedLocal = today;
@@ -695,7 +695,7 @@ public class MainViewModel : ViewModelBase
     public event EventHandler? SoftOverlayDismissRequested;
 
     /// <summary>
-    /// True while any FlowShield panel is up: the terms gate, the lock screen,
+    /// True while any Basalt panel is up: the terms gate, the lock screen,
     /// the welcome, an activation prompt, the end-sprint flow, the "what moved?"
     /// prompt or the pre-sprint question.
     ///
@@ -729,7 +729,7 @@ public class MainViewModel : ViewModelBase
             if (e.DisplayName is null)
             {
                 // Something that is not a blocked app is in front, so the notice
-                // has done its job. FlowShield's own windows are never reported
+                // has done its job. Basalt's own windows are never reported
                 // here, so this is not the notice seeing itself.
                 if (_softOverlay.LeftTheForeground())
                     SoftOverlayDismissRequested?.Invoke(this, EventArgs.Empty);
@@ -820,7 +820,7 @@ public class MainViewModel : ViewModelBase
                 _ => GracefulClose.Noted(e.DisplayName),
             });
 
-            // A toast only exists inside FlowShield's own window, which during a
+            // A toast only exists inside Basalt's own window, which during a
             // sprint is usually not the window you are looking at — so the one
             // warning that is worth interrupting for also goes to Windows.
             if (e.Outcome == BlockOutcome.Closing)
@@ -834,7 +834,7 @@ public class MainViewModel : ViewModelBase
         var url = Settings.WebsiteUrl.TrimEnd('/') + "/index.html#pricing";
         Log.Info($"opening upgrade page {url}");
         OpenUrl(url);
-        Toast("Opened the FlowShield store page in your browser.");
+        Toast("Opened the Basalt store page in your browser.");
     }
 
     public void OpenUrl(string url)

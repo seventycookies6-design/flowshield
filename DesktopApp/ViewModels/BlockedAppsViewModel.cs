@@ -237,7 +237,7 @@ public class BlockedAppsViewModel : ViewModelBase
         }
         if (_main.IsLocked)
         {
-            _main.Toast("Your free trial has ended. Buy FlowShield to edit the blocklist.");
+            _main.Toast("Your free trial has ended. Buy Basalt to edit the blocklist.");
             return false;
         }
         return true;
@@ -439,7 +439,7 @@ public class BlockedAppsViewModel : ViewModelBase
         }
         if (_main.IsLocked)
         {
-            _main.Toast("Your free trial has ended. Buy FlowShield to edit the blocklist.");
+            _main.Toast("Your free trial has ended. Buy Basalt to edit the blocklist.");
             return false;
         }
         return true;

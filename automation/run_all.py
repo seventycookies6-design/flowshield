@@ -37,7 +37,7 @@ def run(args: list[str], cwd: Path) -> int:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Run the whole FlowShield suite")
+    parser = argparse.ArgumentParser(description="Run the whole Basalt suite")
     parser.add_argument("--fast", action="store_true",
                         help="skip tiers 3 and 4 (the slow UI-driving ones)")
     parser.add_argument("--headless", action="store_true",

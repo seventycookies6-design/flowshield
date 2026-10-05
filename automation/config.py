@@ -1,4 +1,4 @@
-"""Shared configuration for the FlowShield automation suite."""
+"""Shared configuration for the Basalt automation suite."""
 
 from __future__ import annotations
 
@@ -25,9 +25,9 @@ for _d in (LOG_DIR, SCREENSHOT_DIR, REPORT_DIR):
 
 STRIPE_KEYS_PATH = PROJECT_ROOT / ".stripe_keys.json"
 
-APP_NAME = "FlowShield"
+APP_NAME = "Basalt"
 APP_EXE = DESKTOP_DIR / "bin" / "Release" / "net8.0-windows" / "FlowShield.exe"
-APP_WINDOW_TITLE = "FlowShield"
+APP_WINDOW_TITLE = "Basalt"
 APP_PROCESS_NAME = "FlowShield"
 
 # Settings written by the app (DPAPI-encrypted envelope).

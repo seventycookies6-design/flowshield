@@ -37,7 +37,7 @@ public static class BreakCopy
     /// dash themselves rather than wherever the width runs out ("the shield /
     /// is down"). Tier 5 lays out each one in the real view.
     /// </summary>
-    /// <param name="resumed">The break was picked up again after FlowShield restarted (F5).</param>
+    /// <param name="resumed">The break was picked up again after Basalt restarted (F5).</param>
     public static string Caption(bool inSleepWindow, bool resumed) => (resumed, inSleepWindow) switch
     {
         (false, false) => "Break — the shield is down",

@@ -15,7 +15,7 @@ namespace FlowShield.Views;
 ///
 /// A separate topmost window rather than a panel inside MainWindow: the whole
 /// point is that it appears over the distraction, on the monitor the
-/// distraction is on, when FlowShield's own window is behind everything.
+/// distraction is on, when Basalt's own window is behind everything.
 ///
 /// It never closes anything on its own. Back to work and Allow leave the
 /// blocked app running. Close (1.0.10) is the user's choice: this window only

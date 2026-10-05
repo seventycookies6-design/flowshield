@@ -221,7 +221,7 @@ public class LicenseService
                 Log.Info($"license activated: status={settings.LicenseStatus} "
                          + $"devices={settings.DeviceCount}/{settings.DeviceLimit}");
                 return new LicenseResult(true, true, settings.LicenseStatus,
-                    "FlowShield activated. Every feature is yours to keep.",
+                    "Basalt activated. Every feature is yours to keep.",
                     settings.LicenseEmail, settings.LicenseKey);
             }
 

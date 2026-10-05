@@ -1,6 +1,10 @@
 <#
 .SYNOPSIS
-    Build a distributable FlowShield release: installer, portable zip, update feed.
+    Build a distributable Basalt release: installer, portable zip, update feed.
+
+    Basalt was called FlowShield (#321). The package id, the exe and the
+    artifact names keep the old name: a new package id would leave every
+    installed copy on its old version, because the updater looks for its own id.
 
 .DESCRIPTION
     Produces a self-contained build (no .NET runtime needed on the customer's
@@ -60,8 +64,8 @@ Step "Packaging $Version"
     --packVersion $Version `
     --packDir 'dist\publish' `
     --mainExe 'FlowShield.exe' `
-    --packTitle 'FlowShield' `
-    --packAuthors 'FlowShield' `
+    --packTitle 'Basalt' `
+    --packAuthors 'Basalt' `
     --icon 'DesktopApp\Assets\FlowShield.ico' `
     --outputDir 'dist\releases'
 if ($LASTEXITCODE -ne 0) { Fail 'vpk pack failed' }
@@ -81,7 +85,7 @@ if ($Publish) {
     Step "Publishing GitHub Release v$Version"
     if (-not (Get-Command gh -ErrorAction SilentlyContinue)) { Fail 'gh CLI not found' }
 
-    $notes = "FlowShield $Version`n`nDownload **FlowShield-win-Setup.exe** below.`n`n" +
+    $notes = "Basalt $Version`n`nDownload **FlowShield-win-Setup.exe** below.`n`n" +
              "Windows SmartScreen will warn that the publisher is unknown, because " +
              "this build is not code signed. Choose More info -> Run anyway."
 
@@ -91,7 +95,7 @@ if ($Publish) {
         "dist\releases\FlowShield-$Version-full.nupkg" `
         'dist\releases\RELEASES' `
         'dist\releases\releases.win.json' `
-        --title "FlowShield $Version" --notes $notes
+        --title "Basalt $Version" --notes $notes
     if ($LASTEXITCODE -ne 0) { Fail 'gh release create failed' }
 
     Write-Host "`n  Published: https://github.com/seventycookies6-design/flowshield/releases/tag/v$Version" -ForegroundColor Green

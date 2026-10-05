@@ -207,7 +207,7 @@ def stripe_section() -> str:
 
 # ---------------------------------------------------------------------- main
 
-TEMPLATE = """# FlowShield — build & test report
+TEMPLATE = """# Basalt — build & test report
 
 _Generated {generated}_
 
@@ -215,7 +215,7 @@ _Generated {generated}_
 
 ## 1. What this is
 
-**FlowShield** is a Windows focus-timer and app blocker. Distractions go behind a
+**Basalt** is a Windows focus-timer and app blocker. Distractions go behind a
 shield whose strength you choose per sprint, and finished sprints compound into a
 momentum score.
 
@@ -324,7 +324,7 @@ Do this only when you actually intend to charge real cards.
    bank-details onboarding. Test mode needs none of that.
 2. **Recreate the product in live mode.** Price IDs do not cross the test/live
    boundary — run `node tools/setup_stripe_store.js` against live mode (after
-   deliberately lifting its test-key guard) to create *FlowShield* at a one-time
+   deliberately lifting its test-key guard) to create *Basalt* at a one-time
    $4.99, and copy the new `price_...`.
 3. **Swap the credentials** in `.stripe_keys.json` for the `pk_live_` /
    `sk_live_` pair, or set `STRIPE_SECRET_KEY` and friends in the environment
@@ -370,7 +370,7 @@ LIMITATIONS_BASE = """- **The Stripe account is not created by the automation.**
   common developer tooling). Letting a distraction through is a far cheaper
   failure than killing something that matters.
 - **Sealed mode locks the blocklist, not the process.** A determined user can
-  still quit FlowShield from Task Manager. Making that genuinely hard needs a
+  still quit Basalt from Task Manager. Making that genuinely hard needs a
   Windows service and elevation, which is out of scope here.
 - **UI tests are slow.** Each launches a clean instance (~15s cold start).
   That's deliberate: sharing an instance breaks isolation because `launch_app()`

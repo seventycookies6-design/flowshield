@@ -67,7 +67,7 @@ public static class MomentumTrend
     /// An interrupted sprint leaves it alone. TodayViewModel.ApplyMomentum is
     /// only ever called for a completed sprint or a deliberate early end, so
     /// branching on Completed alone charged the ended-early decay to a sprint
-    /// FlowShield was simply not running for — and the replayed line then sat
+    /// Basalt was simply not running for — and the replayed line then sat
     /// below the momentum number printed next to it.
     /// </summary>
     private static double After(double score, FocusSession session) =>

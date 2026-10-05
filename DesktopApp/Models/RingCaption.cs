@@ -16,13 +16,13 @@ public static class RingCaption
     public const string Interrupted = "Sprint interrupted";
     public const string EndedEarly = "Sprint ended early";
 
-    /// <summary>F3: the sprint ran out while FlowShield was closed.</summary>
-    public const string FinishedWhileClosed = "Sprint finished while FlowShield was closed";
+    /// <summary>F3: the sprint ran out while Basalt was closed.</summary>
+    public const string FinishedWhileClosed = "Sprint finished while Basalt was closed";
 
     /// <summary>A sprint starting. The shield glyph sits beside it.</summary>
     public static string Engaged(ShieldLevel shield) => $"Shield {Roman(shield)} engaged";
 
-    /// <summary>A sprint picked up again after FlowShield restarted. The shield glyph sits beside it.</summary>
+    /// <summary>A sprint picked up again after Basalt restarted. The shield glyph sits beside it.</summary>
     public static string Resumed(ShieldLevel shield) => $"Sprint resumed — shield {Roman(shield)}";
 
     private static string Roman(ShieldLevel level) => level switch

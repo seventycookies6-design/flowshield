@@ -289,7 +289,7 @@ def trial_days_left(start_days_ago: float) -> int:
 
 
 class TestFreeTrial:
-    """Seven days with everything unlocked, then locked until FlowShield is bought."""
+    """Seven days with everything unlocked, then locked until Basalt is bought."""
 
     SOURCE = Path(SERVER_DIR).parent / "DesktopApp" / "Models" / "AppSettings.cs"
 
@@ -353,7 +353,7 @@ def maybe_notify_trial_ending(*, is_trial: bool, trial_days_left: int,
 
 class TestTrialEndingNotice:
     """
-    The only day FlowShield ever asks about the trial before it ends: one
+    The only day Basalt ever asks about the trial before it ends: one
     notice, on the last day (TrialDaysLeft == 1, i.e. "day 6" of a 7-day
     trial), sent at most once and never during a sprint.
     """
@@ -709,7 +709,7 @@ def watched_so_far(planned: float, started: float, last_seen: float,
 
 
 class TestSprintResume:
-    """F3: what happens to a sprint that was running when FlowShield closed."""
+    """F3: what happens to a sprint that was running when Basalt closed."""
 
     SOURCE = Path(SERVER_DIR).parent / "DesktopApp" / "Models" / "AppSettings.cs"
 
@@ -749,7 +749,7 @@ class TestSprintResume:
         assert resume_decision(started, planned, last_seen) == expected
 
     @pytest.mark.parametrize("started,planned,last_seen,watched,expected", [
-        # #198: the 60-minute sprint FlowShield watched 2 minutes of, reopened
+        # #198: the 60-minute sprint Basalt watched 2 minutes of, reopened
         # near the end so LastSeenUtc sits a minute before the finish line.
         (65, 60, 6, 2, "RecordInterrupted"),
         # The same timestamps with the app genuinely up the whole time.
@@ -1099,7 +1099,7 @@ class TestTermsAcceptance:
         assert "offered, never started by itself" in terms
         assert "unless you choose Close on its notice" in terms
         assert "templates, schedules and preferences" in privacy
-        assert "Jump List" in privacy and "outside FlowShield's encrypted settings" in privacy
+        assert "Jump List" in privacy and "outside Basalt's encrypted settings" in privacy
         assert self.version() != "1.0 (17 September 2026)", \
             "these changes are material: the version must move so everyone is asked again"
 
@@ -1892,7 +1892,7 @@ def suggested_name(start: date, end: date, fmt: str) -> str:
     if end < start:
         start, end = end, start
     ext = "csv" if fmt == "csv" else "md"
-    return f"FlowShield journal {start:%Y-%m-%d} to {end:%Y-%m-%d}.{ext}"
+    return f"Basalt journal {start:%Y-%m-%d} to {end:%Y-%m-%d}.{ext}"
 
 
 class TestJournalExportFormulaInjection:
@@ -1962,14 +1962,14 @@ class TestJournalExportFileName:
 
     def test_the_name_carries_both_dates(self):
         assert suggested_name(date(2026, 9, 1), date(2026, 9, 18), "csv") == \
-            "FlowShield journal 2026-09-01 to 2026-09-18.csv"
+            "Basalt journal 2026-09-01 to 2026-09-18.csv"
 
     def test_markdown_gets_the_md_extension(self):
         assert suggested_name(date(2026, 9, 1), date(2026, 9, 18), "md").endswith(".md")
 
     def test_a_backwards_range_is_put_in_order(self):
         assert suggested_name(date(2026, 9, 18), date(2026, 9, 1), "csv") == \
-            "FlowShield journal 2026-09-01 to 2026-09-18.csv"
+            "Basalt journal 2026-09-01 to 2026-09-18.csv"
 
 
 class TestJournalExportSource:
@@ -2945,7 +2945,7 @@ class TestSoftOverlayPolicy:
 
     def test_back_to_work_goes_quiet_just_long_enough_to_get_out_of_the_way(self):
         """
-        Bringing FlowShield forward takes a moment. Without the quiet window the
+        Bringing Basalt forward takes a moment. Without the quiet window the
         notice reappears in the gap, over the window it just asked for.
         """
         policy = SoftOverlayPolicy()

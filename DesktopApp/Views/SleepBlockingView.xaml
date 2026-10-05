@@ -21,9 +21,9 @@
                     <StackPanel Grid.Column="0" Margin="0,0,16,0">
                         <TextBlock Text="Your free trial has ended" Style="{StaticResource H2}"/>
                         <TextBlock Style="{StaticResource Body}" Margin="0,4,0,0"
-                                   Text="Buy FlowShield once for $4.99 to keep your nightly shield."/>
+                                   Text="Buy Basalt once for $4.99 to keep your nightly shield."/>
                     </StackPanel>
-                    <Button Grid.Column="1" Style="{StaticResource BtnPrimary}" Content="Buy FlowShield"
+                    <Button Grid.Column="1" Style="{StaticResource BtnPrimary}" Content="Buy Basalt"
                             VerticalAlignment="Center" Command="{Binding GetProCommand}"
                             AutomationProperties.AutomationId="SleepGetProButton"/>
                 </Grid>

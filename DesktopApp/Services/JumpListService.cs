@@ -6,7 +6,7 @@ namespace FlowShield.Services;
 
 /// <summary>
 /// The taskbar Jump List (1.0.10, spec 5): "Start sprint" and one "Start
-/// &lt;template&gt;" per template. Each runs FlowShield with --start-sprint,
+/// &lt;template&gt;" per template. Each runs Basalt with --start-sprint,
 /// which the single-instance pipe hands to a copy already running. A per-user
 /// shell feature: no registry, no admin.
 /// </summary>

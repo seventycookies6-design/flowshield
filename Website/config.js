@@ -1,5 +1,5 @@
 /*
- * FlowShield site configuration.
+ * Basalt site configuration.
  *
  * Only PUBLIC values belong in this file — it is committed and served to every
  * visitor. A Stripe Payment Link URL is public by design; secret keys never

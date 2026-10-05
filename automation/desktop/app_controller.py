@@ -1,5 +1,5 @@
 """
-UI-Automation driver for the FlowShield desktop app.
+UI-Automation driver for the Basalt desktop app.
 
 Everything addresses controls by AutomationId rather than by on-screen text, so
 copy changes don't break the suite. Text is only asserted on, never used to
@@ -32,7 +32,7 @@ from config import (
     WINDOW_CONNECT_TIMEOUT,
 )
 
-# A running sprint puts the countdown in the title ("FlowShield — 14:32", F19),
+# A running sprint puts the countdown in the title ("Basalt — 14:32", F19),
 # so windows are matched on the prefix rather than the exact title.
 WINDOW_TITLE_RE = rf"^{APP_WINDOW_TITLE}( .*)?$"
 
@@ -79,7 +79,7 @@ def _automation_id_condition(auto_id: str):
 
 
 class DesktopController:
-    """Drives one FlowShield window."""
+    """Drives one Basalt window."""
 
     def __init__(self, logger=None):
         self.log = logger
@@ -118,7 +118,7 @@ class DesktopController:
 
     @staticmethod
     def kill_stray_instances() -> int:
-        """Terminate any FlowShield left over from a previous run."""
+        """Terminate any Basalt left over from a previous run."""
         killed = 0
         for proc in psutil.process_iter(["name", "pid"]):
             try:
@@ -262,13 +262,13 @@ class DesktopController:
         return True
 
     def find_tray_icon(self, timeout: float = UI_ACTION_TIMEOUT):
-        """Return FlowShield's real Windows notification-area button."""
+        """Return Basalt's real Windows notification-area button."""
         deadline = time.time() + timeout
         opened_overflow = False
         while time.time() < deadline:
             try:
                 elements = find_elements(
-                    title_re=r"^FlowShield(?:$|\s)",
+                    title_re=r"^Basalt(?:$|\s)",
                     control_type="Button",
                     backend="uia",
                     top_level_only=False,
@@ -768,7 +768,7 @@ class DesktopController:
                 self._say(f"clicking {auto_id}")
                 self.click(auto_id)
                 return
-        raise DesktopControllerError("no Buy FlowShield button is visible on this page")
+        raise DesktopControllerError("no Buy Basalt button is visible on this page")
 
     def enter_license_key(self, text: str) -> None:
         self.set_text("LicenseKeyInput", text)
@@ -1144,7 +1144,7 @@ class DesktopController:
 
     @staticmethod
     def app_log_path() -> Path | None:
-        """Newest FlowShield diagnostic log, or None."""
+        """Newest Basalt diagnostic log, or None."""
         import os
 
         log_dir = Path(os.environ.get("APPDATA", "")) / "FlowShield" / "logs"
@@ -1279,7 +1279,7 @@ class DesktopController:
 
     def accept_dialog(self, timeout: float = 5.0) -> str | None:
         """
-        Say yes to FlowShield's own confirmation (ConfirmDeleteDialog) and
+        Say yes to Basalt's own confirmation (ConfirmDeleteDialog) and
         return what it asked, or None when no confirmation appeared.
 
         dismiss_dialog() is the wrong tool for this: it presses the first of
@@ -1314,7 +1314,7 @@ class DesktopController:
                 except psutil.TimeoutExpired:
                     if force:
                         proc.kill()
-                self._say(f"closed FlowShield (pid {self.pid})")
+                self._say(f"closed Basalt (pid {self.pid})")
             except psutil.NoSuchProcess:
                 pass
             except Exception as exc:

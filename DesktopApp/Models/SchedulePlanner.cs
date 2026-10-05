@@ -12,7 +12,7 @@ public sealed record ScheduleAction(ScheduleActionKind Kind, SprintSchedule Sche
 /// only carries them out. Its one side effect is a log line for a start
 /// missed by more than the late window (spec 3.3).
 ///
-/// A gap since the last tick (the PC slept, FlowShield was closed, the clock
+/// A gap since the last tick (the PC slept, Basalt was closed, the clock
 /// jumped) means nobody was here for anything inside it: every start in the
 /// gap was missed, however recent, because the heads-up before it was never
 /// seen and the spec says never start after waking or launching. Missed
@@ -48,7 +48,7 @@ public static class SchedulePlanner
 
     /// <summary>
     /// Where a launch counts from: the last check the previous run saved, so
-    /// a start missed while FlowShield was closed is inside the first tick's
+    /// a start missed while Basalt was closed is inside the first tick's
     /// interval. Clamped to [now - <see cref="ScheduleMatcher.LookBackLimit"/>,
     /// now]: nothing older is ever acted on, and a check in the future (the
     /// clock was set back between launches) is not passed time. Now, when
@@ -80,7 +80,7 @@ public static class SchedulePlanner
         ScheduleAction? latestMissed = null;
         (SprintSchedule Schedule, DateTime StartUtc)? tooLate = null;
 
-        // Sleep, a closed FlowShield or a clock jump: nothing in it is started.
+        // Sleep, a closed Basalt or a clock jump: nothing in it is started.
         // On an ordinary tick every start in the interval is within OnTime of
         // now, because the interval itself is.
         var gap = nowUtc - lastTickUtc > OnTime;

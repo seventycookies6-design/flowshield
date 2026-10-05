@@ -136,7 +136,7 @@ public class SettingsViewModel : ViewModelBase
     private string _licenseEmailInput;
     public string LicenseEmailInput { get => _licenseEmailInput; set => Set(ref _licenseEmailInput, value); }
 
-    /// <summary>FlowShield has been bought and activated here.</summary>
+    /// <summary>Basalt has been bought and activated here.</summary>
     public bool IsPro => _main.IsPro;
     public bool IsNotPro => !_main.IsPro;
 
@@ -185,7 +185,7 @@ public class SettingsViewModel : ViewModelBase
                 LicenseEmailInput = _main.Settings.LicenseEmail;
                 _main.OnTierChanged();
                 RefreshLicenseStatus();
-                _main.Toast("FlowShield activated. Thanks for buying it.");
+                _main.Toast("Basalt activated. Thanks for buying it.");
             }
             else if (LicenseWaitCopy.IsTransportFailure(result.Definitive))
             {
@@ -239,7 +239,7 @@ public class SettingsViewModel : ViewModelBase
             var checkedAt = settings.LicenseCheckedUtc?.ToLocalTime();
             LicenseDetailText =
                 (string.IsNullOrWhiteSpace(settings.LicenseEmail)
-                    ? "FlowShield is yours — every feature, for good."
+                    ? "Basalt is yours — every feature, for good."
                     : $"Bought by {settings.LicenseEmail}. Every feature, for good.")
                 + (checkedAt is null ? "" : $" Last verified {checkedAt:d MMM, HH:mm}.");
 
@@ -254,14 +254,14 @@ public class SettingsViewModel : ViewModelBase
         {
             var days = _main.TrialDaysLeft;
             LicenseStatusText = $"Free trial — {days} day{(days == 1 ? "" : "s")} left";
-            LicenseDetailText = "Everything is unlocked during the trial. Buy FlowShield once for $4.99 "
+            LicenseDetailText = "Everything is unlocked during the trial. Buy Basalt once for $4.99 "
                                 + "to keep it — no subscription.";
             DeviceText = "";
         }
         else
         {
             LicenseStatusText = "Trial ended";
-            LicenseDetailText = "Buy FlowShield once for $4.99 to keep using it, or enter the licence "
+            LicenseDetailText = "Buy Basalt once for $4.99 to keep using it, or enter the licence "
                                 + "key you received when you bought it.";
             DeviceText = "";
         }
@@ -391,7 +391,7 @@ public class SettingsViewModel : ViewModelBase
         {
             if (value && _main.IsLocked)
             {
-                _main.Toast("Your free trial has ended. Buy FlowShield to use hard kill mode.");
+                _main.Toast("Your free trial has ended. Buy Basalt to use hard kill mode.");
                 Raise();
                 return;
             }
@@ -405,7 +405,7 @@ public class SettingsViewModel : ViewModelBase
     /// <summary>
     /// The Soft shield's full-screen notice (F7). Soft never closes anything on
     /// its own — the notice's Close is the user's choice — so this is the only
-    /// thing it does that is visible from outside FlowShield, which is also
+    /// thing it does that is visible from outside Basalt, which is also
     /// why someone might want it off.
     /// </summary>
     public bool ShowSoftOverlayEnabled
@@ -422,7 +422,7 @@ public class SettingsViewModel : ViewModelBase
 
     /// <summary>The switch's caption, ending in the notice's own note so the two can't drift apart.</summary>
     public string SoftOverlayCaption =>
-        "When a blocked app comes to the front during a Soft sprint, FlowShield says so over it. "
+        "When a blocked app comes to the front during a Soft sprint, Basalt says so over it. "
         + SoftOverlayCopy.CloseNote;
 
     public bool MinimizeToTrayOnClose

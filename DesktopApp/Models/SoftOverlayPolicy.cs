@@ -9,7 +9,7 @@ namespace FlowShield.Models;
 /// Soft closes nothing on its own; the Close button is the user's choice,
 /// carried out by <c>AppBlockerService.AskToClose</c>. So the notice is the
 /// whole intervention: a blocked app comes to the foreground during a sprint
-/// and FlowShield says so, once, then gets out of the way. Two rules keep it
+/// and Basalt says so, once, then gets out of the way. Two rules keep it
 /// from becoming the thing people turn off:
 ///
 ///   * <b>once per sighting.</b> The blocker sweeps every two seconds. Showing
@@ -23,7 +23,7 @@ namespace FlowShield.Models;
 ///     app has left the foreground and returned.
 ///   * <b>a suppression window.</b> "Allow 5 minutes" means five minutes of
 ///     silence for that app. "Back to work" gets a few quiet seconds too —
-///     bringing FlowShield forward takes a moment, and the notice must not
+///     bringing Basalt forward takes a moment, and the notice must not
 ///     reappear in the gap before it does. Close keeps the same few seconds,
 ///     so a quick bounce out of the app and back does not re-trigger it.
 ///

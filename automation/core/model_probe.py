@@ -1,5 +1,5 @@
 """
-Runs FlowShield's real C# model code from Python (1.0.10).
+Runs Basalt's real C# model code from Python (1.0.10).
 
 Tier 1 has always mirrored C# rules in Python and pinned the C# by reading its
 source, because there is no dotnet test project (CLAUDE.md). That proves the

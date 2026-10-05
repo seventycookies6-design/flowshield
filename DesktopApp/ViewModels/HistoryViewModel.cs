@@ -71,7 +71,7 @@ public class HistoryRow
 ///
 /// It only ever reads. Every number comes from <see cref="AppSettings.Sessions"/>
 /// through the pure <see cref="HistoryStats"/>, and nothing on this page writes
-/// settings or sends anything anywhere: the page is a view of what FlowShield
+/// settings or sends anything anywhere: the page is a view of what Basalt
 /// already stored on this PC.
 /// </summary>
 public class HistoryViewModel : ViewModelBase
