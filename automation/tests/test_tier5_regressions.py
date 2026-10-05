@@ -367,6 +367,51 @@ class TestBrandedAppIcon:
         assert "SystemIcons.Shield" not in window
 
 
+# ============== Windows on ARM gets its own build and its own update feed
+
+class TestReleaseShipsAnArm64Build:
+    """
+    `build_release.ps1` published win-x64 only, so a Snapdragon laptop ran the
+    blocker under x64 emulation. It now publishes win-arm64 too, each on its
+    own Velopack channel: the updater reads `releases.<channel>.json`, so the
+    two builds must never share one, and x64 must keep the default "win"
+    channel or every copy installed before ARM64 existed loses its updates.
+    """
+
+    def _script(self) -> str:
+        return (Path(DESKTOP_DIR).parent / "tools" / "build_release.ps1").read_text(
+            encoding="utf-8-sig")
+
+    def test_both_processors_are_published_and_packed(self):
+        script = self._script()
+        assert "Runtime = 'win-x64'" in script
+        assert "Runtime = 'win-arm64'" in script, "no ARM64 build is published"
+        assert "-r $t.Runtime" in script, "dotnet publish ignores the target list"
+        assert "--runtime $t.Runtime" in script and "--channel $t.Channel" in script, \
+            "vpk must pack each build for its own processor and channel"
+
+    def test_x64_keeps_the_channel_existing_installs_update_from(self):
+        targets = re.findall(r"Runtime = '([\w-]+)';\s*Channel = '([\w-]+)'", self._script())
+        channels = dict(targets)
+        assert channels.get("win-x64") == "win", \
+            "x64 left the default channel; installed copies would stop finding updates"
+        assert channels.get("win-arm64") not in (None, "win"), \
+            "ARM64 shares x64's update feed, so one would install the other's build"
+
+    def test_publishing_uploads_both_update_feeds(self):
+        publish = self._script().split("gh release create", 1)[1]
+        for asset in ("FlowShield-win-Setup.exe", "releases.win.json", "RELEASES'",
+                      "FlowShield-$Version-full.nupkg",
+                      "FlowShield-win-arm64-Setup.exe", "releases.win-arm64.json",
+                      "RELEASES-win-arm64", "FlowShield-$Version-win-arm64-full.nupkg"):
+            assert asset in publish, f"{asset} is never uploaded to the release"
+
+    def test_ci_builds_the_arm64_app(self):
+        ci = (Path(DESKTOP_DIR).parent / ".github" / "workflows" / "ci.yml").read_text(
+            encoding="utf-8")
+        assert "-r win-arm64" in ci, "nothing checks that the ARM64 build still compiles"
+
+
 # ======================== Windows startup stays quiet and current
 
 class TestStartWithWindowsSource:
