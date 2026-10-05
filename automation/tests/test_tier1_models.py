@@ -1111,18 +1111,17 @@ class TestStartSprintArg:
 
 class TestJumpListText:
     """
-    Spec 5: a template's entry reads "Start <template>". Entries are shell
-    menu text, where one & marks a keyboard mnemonic and is not drawn, so
-    "Maths & Physics" would show as "Maths Physics" with the P underlined.
-    JumpListText escapes it the shell's way (&&); the tooltip stays as typed.
+    Spec 5: a template's entry reads "Start <template>". A JumpTask's Title is
+    drawn exactly as written, so an & must not be doubled: "Maths & Physics"
+    showed as "Maths && Physics" on Windows 11 (VM, 1.0.11).
     """
 
     @pytest.mark.parametrize("name,title", [
         ("Light study", "Start Light study"),
-        ("Maths & Physics", "Start Maths && Physics"),
-        ("R&D && more", "Start R&&D &&&& more"),
+        ("Maths & Physics", "Start Maths & Physics"),
+        ("R&D && more", "Start R&D && more"),
     ])
-    def test_a_templates_title_escapes_the_shells_mnemonic(self, name, title):
+    def test_a_templates_title_is_shown_as_typed(self, name, title):
         assert probe({"cmd": "jump-title", "name": name})["title"] == title
 
 

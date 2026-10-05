@@ -9454,17 +9454,17 @@ class TestTheJumpListStartsLikeTheTray:
         assert "Log.Warn(" in handler and "e.RejectedItems.Count" in handler and "e.RejectionReasons" in handler
         assert 'Log.Info($"jump list: {list.JumpItems.Count} entries");' in rebuild[applied:]
 
-    def test_an_ampersand_in_a_template_name_is_not_a_mnemonic(self):
+    def test_an_ampersand_in_a_template_name_is_not_doubled(self):
         """
-        Titles are shell menu text: one & marks a mnemonic and is not drawn,
-        so "Maths & Physics" showed as "Maths Physics" (review). The title
-        comes from JumpListText, which tier 1 probes; the tooltip stays as typed.
+        A JumpTask title is drawn as written, so escaping & as && showed
+        "Maths && Physics" on Windows 11 (VM, 1.0.11). The title comes from
+        JumpListText, which tier 1 probes; the tooltip stays as typed.
         """
         code = self.code(self.SERVICE)
         assert "Title = JumpListText.Title(t.Name)," in code
         assert 'Description = $"{t.SprintMinutes} minutes at {t.Shield}",' in code
         text = self.code(Path(DESKTOP_DIR) / "Models" / "JumpListText.cs")
-        assert 'Replace("&", "&&")' in self.member(text, "public static string Title(")
+        assert '"&&"' not in self.member(text, "public static string Title(")
 
     def test_the_new_copy_keeps_to_the_house_voice(self):
         """DESIGN_SYSTEM 9: no exclamation marks, and ASCII-only C# literals."""
