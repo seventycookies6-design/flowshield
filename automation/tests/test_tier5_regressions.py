@@ -9682,3 +9682,37 @@ class TestTheSprintClockIsNotStarved319:
 
         # The tick's own work stays silent per tick.
         assert "Log." not in self.member(code, "private void OnTick()")
+
+
+# ============================== the window opens inside the work area (#296)
+
+class TestTheWindowFitsTheWorkArea296:
+    """
+    The main window asked for 1180 × 760 with CenterScreen and never checked
+    the monitor, so on a 768 px-tall screen its title bar sat above the top
+    and its bottom under the taskbar (VM bench, 1.0.9 RC). Start-up and every
+    return from the tray now run FitToWorkArea, which goes through the pure
+    WindowFit rule tier 1 mirrors.
+    """
+
+    WINDOW = Path(DESKTOP_DIR) / "MainWindow.xaml.cs"
+
+    def member(self, code: str, signature: str) -> str:
+        parts = code.split(signature, 1)
+        assert len(parts) == 2, f"{signature} not found in MainWindow.xaml.cs"
+        return parts[1].split("\n    }")[0]
+
+    def test_start_up_and_tray_restore_fit_the_window(self):
+        code = self.WINDOW.read_text(encoding="utf-8")
+        assert "FitToWorkArea();" in self.member(code, "protected override void OnSourceInitialized(EventArgs e)")
+        restore = self.member(code, "private void RestoreFromTray()")
+        assert "FitToWorkArea();" in restore
+        assert restore.index("WindowState = WindowState.Normal;") < restore.index("FitToWorkArea();"), \
+            "fit after restoring: a maximised or minimised window is skipped"
+
+    def test_it_uses_the_monitors_work_area_not_the_whole_screen(self):
+        fit = self.member(self.WINDOW.read_text(encoding="utf-8"), "private void FitToWorkArea()")
+        assert "MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST)" in fit
+        assert "info.rcWork" in fit and "info.rcMonitor" not in fit
+        assert "TransformFromDevice" in fit, "the work area is in device pixels; the window in DIPs"
+        assert "WindowFit.Fit(current, workArea, MinWidth, MinHeight)" in fit

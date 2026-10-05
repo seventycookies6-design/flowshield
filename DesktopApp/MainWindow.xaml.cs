@@ -4,6 +4,7 @@ using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Interop;
+using FlowShield.Infrastructure;
 using FlowShield.Models;
 using FlowShield.Services;
 using FlowShield.ViewModels;
@@ -140,8 +141,71 @@ public partial class MainWindow : Window
     {
         base.OnSourceInitialized(e);
 
+        // CenterScreen has already placed the window by now, against the whole
+        // screen; pull it inside the work area before it is first drawn (#296).
+        FitToWorkArea();
         ApplyTitleBarTheme();
         SetUpGlobalHotkey();
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct NativeRect
+    {
+        public int Left, Top, Right, Bottom;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct MonitorInfo
+    {
+        public int cbSize;
+        public NativeRect rcMonitor;
+        public NativeRect rcWork;
+        public uint dwFlags;
+    }
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr MonitorFromWindow(IntPtr hwnd, uint dwFlags);
+
+    [DllImport("user32.dll")]
+    private static extern bool GetMonitorInfo(IntPtr hMonitor, ref MonitorInfo lpmi);
+
+    private const uint MONITOR_DEFAULTTONEAREST = 2;
+
+    /// <summary>
+    /// Keeps the whole window, title bar included, inside the work area of the
+    /// monitor it is on (#296): the 1180 × 760 the XAML asks for doesn't fit a
+    /// 768 px-tall laptop screen. Shrinking below CompactRailBelow lets
+    /// OnSizeChanged switch to the narrow rail on its own. Run at start-up and
+    /// whenever the window comes back from the tray, since the monitor it was
+    /// on may have changed or gone in between.
+    /// </summary>
+    private void FitToWorkArea()
+    {
+        if (WindowState != WindowState.Normal) return;
+
+        var hwnd = new WindowInteropHelper(this).Handle;
+        if (hwnd == IntPtr.Zero) return;
+
+        var info = new MonitorInfo { cbSize = Marshal.SizeOf<MonitorInfo>() };
+        var monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+        if (monitor == IntPtr.Zero || !GetMonitorInfo(monitor, ref info)) return;
+
+        // The work area comes in device pixels; Left/Top/Width/Height are DIPs.
+        var fromDevice = PresentationSource.FromVisual(this)?.CompositionTarget?.TransformFromDevice;
+        if (fromDevice is not { } transform) return;
+        var topLeft = transform.Transform(new System.Windows.Point(info.rcWork.Left, info.rcWork.Top));
+        var bottomRight = transform.Transform(new System.Windows.Point(info.rcWork.Right, info.rcWork.Bottom));
+        var workArea = new Rect(topLeft, bottomRight);
+
+        var current = new Rect(Left, Top, ActualWidth > 0 ? ActualWidth : Width, ActualHeight > 0 ? ActualHeight : Height);
+        var fitted = WindowFit.Fit(current, workArea, MinWidth, MinHeight);
+        if (fitted == current) return;
+
+        Log.Info($"window fitted to work area {workArea}: {current} -> {fitted}");
+        Width = fitted.Width;
+        Height = fitted.Height;
+        Left = fitted.Left;
+        Top = fitted.Top;
     }
 
     /// <summary>
@@ -715,6 +779,7 @@ public partial class MainWindow : Window
     {
         Show();
         WindowState = WindowState.Normal;
+        FitToWorkArea();
         Activate();
         // The countdown stays in the tray during a sprint; otherwise the icon goes.
         if (_tray is not null) _tray.Visible = Vm?.Today.IsRunning == true;

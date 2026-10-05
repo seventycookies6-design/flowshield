@@ -4531,3 +4531,76 @@ class TestTimerRingDrains:
     def test_an_empty_ring_paints_no_dot(self):
         xaml = self.xaml()
         assert xaml.count("Path=RingRemaining, ElementName=Root, Converter={StaticResource PositiveVis}") == 2
+
+
+# ============================================ the window fits small screens (#296)
+
+def fit_window(window, work, min_w, min_h):
+    """Mirror of Infrastructure/WindowFit.Fit. Rects are (left, top, width, height)."""
+    left, top, w, h = window
+    wl, wt, ww, wh = work
+    width = max(min_w, min(w, ww))
+    height = max(min_h, min(h, wh))
+    return (max(wl, min(left, wl + ww - width)), max(wt, min(top, wt + wh - height)), width, height)
+
+
+class TestWindowFitsTheWorkArea:
+    """
+    #296: on a 768 px-tall screen the 1180 × 760 window opened with its title
+    bar above the screen and its bottom under the taskbar. Start-up and
+    restoring from the tray now fit it inside the work area of its monitor.
+    """
+
+    SOURCE = Path(SERVER_DIR).parent / "DesktopApp" / "Infrastructure" / "WindowFit.cs"
+    XAML = Path(SERVER_DIR).parent / "DesktopApp" / "MainWindow.xaml"
+    MIN = (800, 540)
+
+    def requested(self):
+        xaml = self.XAML.read_text(encoding="utf-8-sig")
+        size = re.search(r'Height="(\d+)" Width="(\d+)"', xaml)
+        minimum = re.search(r'MinHeight="(\d+)" MinWidth="(\d+)"', xaml)
+        assert size and minimum, "MainWindow.xaml no longer sets its size this way; update this test"
+        assert (int(minimum.group(2)), int(minimum.group(1))) == self.MIN
+        return int(size.group(2)), int(size.group(1))
+
+    def centred(self, screen_w, screen_h):
+        """Where CenterScreen puts the window: against the whole screen, as the VM saw."""
+        w, h = self.requested()
+        return ((screen_w - w) / 2, (screen_h - h) / 2, w, h)
+
+    @pytest.mark.parametrize("screen,work", [
+        ((1366, 768), (0, 0, 1366, 728)),   # the most common laptop screen, 40 px taskbar
+        ((1024, 768), (0, 0, 1024, 728)),   # the VM bench (#296)
+        ((1280, 720), (0, 0, 1280, 672)),
+        ((1920, 1080), (0, 0, 1920, 1040)),
+    ])
+    def test_the_whole_window_lands_inside_the_work_area(self, screen, work):
+        left, top, w, h = fit_window(self.centred(*screen), work, *self.MIN)
+        wl, wt, ww, wh = work
+        assert left >= wl and top >= wt, "the title bar must be on-screen"
+        assert left + w <= wl + ww and top + h <= wt + wh, "nothing may run off the side or under the taskbar"
+
+    def test_a_screen_that_has_room_is_left_alone(self):
+        window = self.centred(1920, 1080)
+        assert fit_window(window, (0, 0, 1920, 1040), *self.MIN) == window
+
+    def test_1024_by_768_fills_the_work_area_exactly(self):
+        # The VM saw [-78, -20, 966, 740]; now it starts at the corner.
+        assert fit_window(self.centred(1024, 768), (0, 0, 1024, 728), *self.MIN) == (0, 0, 1024, 728)
+
+    def test_never_below_the_minimum_and_the_title_bar_wins(self):
+        # A 800 × 600 screen with a 48 px taskbar: shrinks to its 552 px.
+        assert fit_window((-50, -30, 1180, 760), (0, 0, 800, 552), *self.MIN) == (0, 0, 800, 552)
+        # Smaller than the minimum: the top-left corner stays on-screen.
+        assert fit_window((0, 0, 1180, 760), (0, 0, 640, 432), *self.MIN) == (0, 0, 800, 540)
+
+    def test_a_second_monitor_keeps_its_offset(self):
+        # Work area of a monitor to the right of the primary one.
+        assert fit_window((1500, 100, 1180, 760), (1366, 0, 1366, 728), *self.MIN) == (1500, 0, 1180, 728)
+
+    def test_the_mirror_matches_the_app(self):
+        source = self.SOURCE.read_text(encoding="utf-8")
+        assert "Math.Max(minWidth, Math.Min(window.Width, workArea.Width))" in source
+        assert "Math.Max(minHeight, Math.Min(window.Height, workArea.Height))" in source
+        assert "Math.Max(workArea.Left, Math.Min(window.Left, workArea.Right - width))" in source
+        assert "Math.Max(workArea.Top, Math.Min(window.Top, workArea.Bottom - height))" in source

@@ -140,7 +140,7 @@ roadmap item below has exactly one owner. Tracking issues: #37 (Keenan) and
 | Design §8–9 | Reduced motion (done, #176), and the copy pass — not done: the app and site still mix "licence" and "license" | S |
 | Roadmap 1.2 | Start with Windows in the tray (#13, pull request #14, done) | M |
 | Roadmap 1.6 | A real app icon | S |
-| Roadmap 1.13 | Fit small screens | S |
+| Roadmap 1.13 | Fit small screens: the window fits the work area of a 768 px screen (done, #296; VM re-check at 1024×768 and 1366×768 still to do) | S |
 | Roadmap 1.14 | Friendly errors | S |
 | Roadmap 1.15 | No developer text on customer surfaces | S |
 | Roadmap 2.3 | Custom sprint lengths | S |
