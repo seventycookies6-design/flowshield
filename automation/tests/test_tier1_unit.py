@@ -4301,12 +4301,13 @@ class TestTokenContrast:
 
     def test_the_light_theme_carries_the_corrected_values(self):
         """
-        §2 marks four light tokens **change**; the corrected values are what
-        make warn, ok, danger and text-faint pass above. Regressing any of them
-        to the pre-#180 value would put the light theme back under AA.
+        The corrected light values are what make warn, ok, danger and
+        text-faint pass above (text-faint is the stone grey from #336).
+        Regressing any of them to the pre-#180 value would put the light
+        theme back under AA.
         """
         theme = self.tokens()["themes"]["light"]
-        assert theme["text-faint"] == "#625E57"
+        assert theme["text-faint"] == "#606266"
         assert theme["ok"] == "#276A3E"
         assert theme["warn"] == "#7A5413"
         assert theme["danger"] == "#A3334A"

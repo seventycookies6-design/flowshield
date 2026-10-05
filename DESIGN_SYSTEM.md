@@ -49,21 +49,23 @@ large, and nothing flashes for attention.
 Both themes share the same token names in the app and on the site. **Dark is the
 app's default; the site follows the visitor's system setting.**
 
-Values marked **change** differ from what ships today. They fix contrast
-failures measured on 14 September 2026 (see "Contrast" below).
+The neutrals are stone (#336): light is honed marble, a near-neutral white
+with a trace of warmth; dark is basalt, a charcoal with a faint blue cast,
+never pure black, so light text doesn't bloom. Values marked **change** fixed
+contrast failures measured on 14 September 2026 (see "Contrast" below).
 
 | Token | Dark | Light | Use |
 | --- | --- | --- | --- |
-| `bg` | `#121110` | `#E6E4DF` | Window and page background |
-| `bg-soft` | `#181716` | `#DDDBD5` | Navigation rail, alternating bands |
-| `surface` | `#1C1B19` | `#F4F3EF` | Cards, panels, dialogs |
-| `surface-2` | `#242220` | `#FAF9F6` | Controls, inputs, hover fills on surfaces |
-| `text` | `#F2F0EB` | `#1A1917` | Headings, primary text, large numbers |
-| `text-muted` | `#B0ADA5` | `#5C5954` | Body copy, labels |
-| `text-faint` | **change** `#7E7B73` → `#948F86` | **change** `#8A867E` → `#625E57` | Captions, hints, placeholders |
+| `bg` | `#141517` | `#ECEBE7` | Window and page background |
+| `bg-soft` | `#191A1C` | `#E2E1DC` | Navigation rail, alternating bands |
+| `surface` | `#1F2022` | `#F7F6F3` | Cards, panels, dialogs |
+| `surface-2` | `#27292B` | `#FCFBF9` | Controls, inputs, hover fills on surfaces |
+| `text` | `#EDEDEB` | `#1C1D1F` | Headings, primary text, large numbers |
+| `text-muted` | `#AEB0B3` | `#54565A` | Body copy, labels |
+| `text-faint` | `#909398` | `#606266` | Captions, hints, placeholders |
 | `primary` | `#3AA892` | `#0C6B5C` | Primary buttons, active states, the timer ring, focus |
 | `primary-hover` | `#4FBEA7` | `#095548` | Hover and pressed primary |
-| `primary-ink` | `#0B1F1B` | `#F4F3EF` | Text and icons on `primary` |
+| `primary-ink` | `#0B1F1B` | `#F7F6F3` | Text and icons on `primary` |
 | `primary-soft` | `#3AA892` at 20% | `#0C6B5C` at 12% | Selected chips, soft highlights |
 | `ok` | `#5EC987` | **change** `#2F7D4A` → `#276A3E` | Completed, success |
 | `warn` | `#E0B35A` | **change** `#9A6B1F` → `#7A5413` | Trial ending, "are you sure" |
@@ -89,19 +91,20 @@ failures measured on 14 September 2026 (see "Contrast" below).
 
 ### Contrast
 
-Measured against WCAG 2.1 on 14 September 2026 (normal text needs 4.5:1):
+Measured against WCAG 2.1 on 14 September 2026 (normal text needs 4.5:1), and
+again on 5 October 2026 for the stone neutrals (#336):
 
 | Pair | Dark | Light | Result |
 | --- | --- | --- | --- |
-| `text` on `bg` | 16.6 | 13.8 | Pass |
-| `text-muted` on `bg` | 8.4 | 5.5 | Pass |
-| `text-faint` on `surface` (current) | 4.07 | 3.27 | **Fails both** |
-| `text-faint` on `surface` (proposed) | 5.35 | 5.81 | Pass |
-| `primary` on `bg` | 6.5 | 5.1 | Pass |
-| `primary-ink` on `primary` | 5.9 | 5.8 | Pass |
-| `warn` on `bg` (light current → proposed) | — | 3.68 → 5.32 | **Fails**, fixed |
-| `ok` on `bg` (light current → proposed) | — | 3.98 → 5.14 | **Fails**, fixed |
-| `danger` on `bg` (light current → proposed) | — | 4.56 → 5.28 | Borderline, fixed |
+| `text` on `bg` | 15.6 | 14.1 | Pass |
+| `text-muted` on `bg` | 8.4 | 6.2 | Pass |
+| `text-muted` on `surface` | 7.5 | 6.8 | Pass |
+| `text-faint` on `surface` | 5.3 | 5.7 | Pass (failed both at 4.07 / 3.27 before 14 September) |
+| `primary` on `bg` | 6.3 | 5.4 | Pass |
+| `primary-ink` on `primary` | 5.9 | 5.9 | Pass |
+| `warn` on `bg` | 9.4 | 5.7 | Pass (light failed at 3.68 before 14 September) |
+| `ok` on `bg` | 8.9 | 5.5 | Pass (light failed at 3.98 before 14 September) |
+| `danger` on `bg` | 6.8 | 5.6 | Pass (light was borderline at 4.56) |
 
 Any new token or pairing gets measured the same way before it ships.
 
@@ -163,6 +166,10 @@ All roles are Inter.
 - **Spacing scale (4-based):** 4, 8, 12, 16, 24, 32, 48, 64. Padding and gaps use these values only. Card padding is 24, space between cards 16, page margins 32 in the app.
 - **Corner radius:** 6 for small chips and tags, 10 for buttons, inputs and toggles, 14 for cards and dialogs, and fully round for pills and the tier badge. Today's app used 8, 10, 11, 12, 13 and 14 interchangeably; normalised to this set (A2, issue #147).
 - **Where these values live:** spacing and corner-radius values are defined as resources in `DesktopApp/Styles/Theme.xaml` (app) and directly in `Website/styles.css` (site) — not in `design/tokens.json`, which is colour only (§14). Both sides implement the same numbers from this section by hand; a future issue may unify them the way colour is unified. (Corner radius is three named resources — `RadiusChip`/`RadiusControl`/`RadiusCard` — referenced from every `CornerRadius` in the app, and fully round elements set `inf:Pill.IsRound="True"`, because WPF draws an oversized radius such as 9999 as an ellipse rather than clamping it like CSS; the eight spacing numbers are applied as literals per element, the same way the site already does in `styles.css`.)
+- **Stone (site only, #336).** The product is named after basalt, so the site shows the material in two restrained ways, and nowhere else:
+  - **Grain** on the page ground (`body`, and the `bg-soft` bands) through `--texture-grain`: an inline SVG noise, under 1 KB, dark specks in light mode and pale ones in dark, each at most about 8% opaque. It never goes on a surface: cards, buttons and text boxes stay solid, so every contrast figure in §2 still holds.
+  - **Basalt columns**: one faint row of columns seen side-on, standing on the hero's bottom edge inside its padding (`.hero::after`). It is drawn in `text` at 13% through a mask, so it follows the theme, and it is never placed behind text or a control.
+  - No photographs of rock, marble veining behind copy, or stone effects in the app. Depth still comes from surface steps and shadows; this is texture, not a gradient, glow or glass.
 - **Borders:** 1 px `border` on cards and controls; `border-strong` on hover and focus.
 - **Shadows**, two levels only:
   - `soft` for cards on the site and for toasts;

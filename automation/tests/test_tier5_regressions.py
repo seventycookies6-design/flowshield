@@ -8309,15 +8309,15 @@ class TestTheThemeActuallySwitchesF21:
     nothing is shown, so it is safe to run beside a UI suite.
 
     Proven to fail first: restoring the Uri-equality line above makes
-    test_switching_to_light_changes_every_colour fail with Bg still #FF121110.
+    test_switching_to_light_changes_every_colour fail with Bg still #FF141517.
     """
 
     PROBE = THEME_PROBE
 
     #: A few tokens whose two themes are far apart, with their values from
     #: design/tokens.json. If these are right, the dictionary really was swapped.
-    EXPECTED_DARK = {"Bg": "#FF121110", "Ink": "#FFF2F0EB", "Primary": "#FF3AA892"}
-    EXPECTED_LIGHT = {"Bg": "#FFE6E4DF", "Ink": "#FF1A1917", "Primary": "#FF0C6B5C"}
+    EXPECTED_DARK = {"Bg": "#FF141517", "Ink": "#FFEDEDEB", "Primary": "#FF3AA892"}
+    EXPECTED_LIGHT = {"Bg": "#FFECEBE7", "Ink": "#FF1C1D1F", "Primary": "#FF0C6B5C"}
 
     @pytest.fixture()
     def probe(self, theme_probe):
@@ -8354,11 +8354,11 @@ class TestTheThemeActuallySwitchesF21:
         the reload is skipped the glyphs keep the dark theme's colours -- and a
         text-muted glyph on a light surface is close to invisible.
         """
-        assert probe["start"]["glyphSoft"] == "#FFB0ADA5"
-        assert probe["light"]["glyphSoft"] == "#FF5C5954", \
+        assert probe["start"]["glyphSoft"] == "#FFAEB0B3"
+        assert probe["light"]["glyphSoft"] == "#FF54565A", \
             "the Soft glyph kept its dark colour; ShieldGlyphs.xaml was not reloaded"
         assert probe["light"]["glyphFirm"] == "#FF0C6B5C"
-        assert probe["dark"]["glyphSoft"] == "#FFB0ADA5"
+        assert probe["dark"]["glyphSoft"] == "#FFAEB0B3"
 
     def test_the_heatmap_ramp_follows_the_theme(self, probe):
         """Mixed in code from surface-2 and primary, so it has to re-read them."""
@@ -10088,3 +10088,68 @@ class TestTheSuiteLeavesTheOwnersTrialAlone:
         guard.back_up()
         guard.restore()
         assert fake.values[self.key(guard)] == ("owner's", fake.REG_SZ)
+
+# ============================== the Basalt stone look (light marble, dark basalt)
+
+class TestStoneLook:
+    """
+    DESIGN_SYSTEM.md §2 and §4 "Stone": the neutrals read as cool marble in
+    light and basalt charcoal in dark, the page ground carries a fine grain,
+    and one row of basalt columns stands on the hero's bottom edge. The old
+    neutrals were warm beige and brown-black, which read as paper, not rock.
+    """
+
+    ROOT = Path(DESKTOP_DIR).parent
+    CSS = Path(WEBSITE_DIR) / "styles.css"
+
+    def _css(self) -> str:
+        return self.CSS.read_text(encoding="utf-8")
+
+    def _rule(self, selector: str) -> str:
+        css = self._css()
+        match = re.search(r"^" + re.escape(selector) + r" \{", css, re.M)
+        assert match, f"no top-level rule for {selector}"
+        return css[match.start():css.index("}", match.start())]
+
+    @pytest.mark.parametrize("theme_name", ("light", "dark"))
+    def test_the_neutrals_are_cool_stone_not_warm_sand(self, theme_name):
+        """
+        Marble is near-neutral white and basalt a blue-grey black; the old
+        beige (#E6E4DF, red 7 above blue) and brown-black (#121110) lean red.
+        Light may keep a trace of warmth (veined marble); dark grounds may not.
+        Text is left out: it is ink on the stone, not the stone.
+        """
+        theme = json.loads((self.ROOT / "design" / "tokens.json").read_text(encoding="utf-8"))["themes"][theme_name]
+        for token in ("bg", "bg-soft", "surface", "surface-2"):
+            value = theme[token].lstrip("#")
+            red, blue = int(value[0:2], 16), int(value[4:6], 16)
+            limit = 6 if theme_name == "light" else 0
+            assert red - blue <= limit, f"{theme_name} {token} #{value} leans warm, not stone"
+
+    def test_both_themes_define_a_small_inline_grain(self):
+        css = self._css()
+        grains = re.findall(r"--texture-grain:\s*(url\(\"data:image/svg\+xml,[^\"]+\"\));", css)
+        assert len(grains) == 2, "the light and dark themes each need their own grain"
+        assert grains[0] != grains[1], "dark mode needs pale specks, light mode dark ones"
+        for grain in grains:
+            assert len(grain) < 1024, "the grain must stay a tiny inline SVG, not an image"
+
+    def test_the_grain_is_on_the_page_ground_only(self):
+        """Text sits on solid surfaces above the grain, so contrast is unchanged."""
+        assert "var(--texture-grain)" in self._rule("body")
+        css = self._css()
+        for block in css.split("}"):
+            if "var(--texture-grain)" in block:
+                assert "--color-surface" not in block, (
+                    "the grain belongs on the page ground, never on a card or text box")
+
+    def test_basalt_columns_stand_inside_the_hero_padding(self):
+        hero = self._rule(".hero")
+        assert "position: relative" in hero
+        assert "var(--space-12)" in hero, "the columns rely on the hero's 48px bottom padding"
+        columns = self._rule(".hero::after")
+        assert "height: 40px" in columns, "taller than the 48px padding, they would reach the text"
+        assert "bottom: 0" in columns
+        assert "pointer-events: none" in columns
+        assert "background-color: var(--color-text)" in columns, "the motif follows the theme"
+        assert "mask:" in columns and "-webkit-mask:" in columns

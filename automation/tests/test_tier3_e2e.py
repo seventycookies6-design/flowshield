@@ -2670,8 +2670,8 @@ class TestLightTheme:
     window size.
     """
 
-    #: 0-255. The dark theme's bg is #121110 and its surfaces barely lighter;
-    #: the light theme's bg is #E6E4DF. Nothing legitimate lands between these.
+    #: 0-255. The dark theme's bg is #141517 and its surfaces barely lighter;
+    #: the light theme's bg is #ECEBE7. Nothing legitimate lands between these.
     DARK_CEILING = 110
     LIGHT_FLOOR = 170
 
