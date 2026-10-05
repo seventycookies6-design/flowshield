@@ -40,8 +40,12 @@ public record BlockEvent(
 /// window belongs to one, and null when it belongs to anything else — which is
 /// how the Soft notice knows to come down again. FlowShield's own windows are
 /// never reported at all, so the notice never reacts to itself.
+///
+/// <c>IsWebsite</c> is true when the name is a blocked website seen in
+/// a browser's title (F10 interim) rather than a blocked app. A website is only
+/// ever a notice: closing the browser would close every tab.
 /// </summary>
-public record ForegroundSighting(string? DisplayName, IntPtr Window, DateTime AtUtc);
+public record ForegroundSighting(string? DisplayName, IntPtr Window, DateTime AtUtc, bool IsWebsite = false);
 
 /// <summary>
 /// Background watcher that enforces the blocklist while a sprint is running or
@@ -93,6 +97,12 @@ public class AppBlockerService : IDisposable
     private List<BlockedApp> _targets = new();
 
     /// <summary>
+    /// The active profile's websites (F10 interim), copied for the same reason
+    /// as <see cref="_targets"/>: the UI thread edits the list itself.
+    /// </summary>
+    private List<string> _sites = new();
+
+    /// <summary>
     /// Blocklist entries that had at least one process running last sweep.
     ///
     /// "Distractions blocked" is a count the customer reads as "times something
@@ -119,8 +129,10 @@ public class AppBlockerService : IDisposable
 
     /// <summary>
     /// Raised each sweep while the Soft shield is up, saying whether a blocked
-    /// app is the foreground window (F7, roadmap 1.7). Never raised at Firm,
-    /// Sealed or with hard kill on: those close the app instead.
+    /// app is the foreground window (F7, roadmap 1.7). At Firm, Sealed or with
+    /// hard kill on, blocked apps are closed instead, so it is raised there only
+    /// when the profile has websites, and only ever names a website (F10
+    /// interim): a browser tab cannot be closed, so every shield gets the notice.
     /// </summary>
     public event EventHandler<ForegroundSighting>? SoftForeground;
 
@@ -143,6 +155,7 @@ public class AppBlockerService : IDisposable
         _settingsService = settingsService;
         _settings = settings;
         _targets = settings.ActiveProfile.Apps.ToList();
+        _sites = settings.ActiveProfile.Sites.ToList();
 
         _timer = new System.Timers.Timer(2000) { AutoReset = true };
         _timer.Elapsed += (_, _) => Tick();
@@ -160,6 +173,7 @@ public class AppBlockerService : IDisposable
         {
             _settings = settings;
             _targets = settings.ActiveProfile.Apps.ToList();
+            _sites = settings.ActiveProfile.Sites.ToList();
         }
     }
 
@@ -301,6 +315,7 @@ public class AppBlockerService : IDisposable
         bool enforcing;
         ShieldLevel shield;
         List<BlockedApp> candidates;
+        List<string> sites;
 
         lock (_gate)
         {
@@ -308,6 +323,7 @@ public class AppBlockerService : IDisposable
             enforcing = IsEnforcing;
             shield = ActiveShield;
             candidates = _targets;          // snapshot reference; never mutated in place
+            sites = _sites;
         }
 
         // The sleep window enforces on its own, without a running sprint.
@@ -350,6 +366,8 @@ public class AppBlockerService : IDisposable
                 _present.Clear();
                 _closingAt.Clear();
             }
+            // A profile of websites only still gets its notice during a sprint.
+            if (enforcing && sites.Count > 0) ReportForeground(targets, sites, reportApps: false);
             return;
         }
 
@@ -397,10 +415,14 @@ public class AppBlockerService : IDisposable
             var now = DateTime.UtcNow;
 
             // Soft's only intervention is the notice, so it is the only shield
-            // that looks at what is in front. Firm and Sealed close the app;
-            // asking them to also put a full-screen panel over it would be
-            // covering a window that is about to disappear.
-            if (!terminate) ReportForeground(targets);
+            // that looks for blocked apps in front. Firm and Sealed close the
+            // app; asking them to also put a full-screen panel over it would be
+            // covering a window that is about to disappear. Websites are the
+            // exception at every shield (F10 interim): the notice is all there
+            // is for a tab, because closing the browser would close every tab.
+            // Only during a sprint: the sleep window has nobody to tell.
+            if (!terminate || (enforcing && sites.Count > 0))
+                ReportForeground(targets, sites, reportApps: !terminate);
 
             foreach (var (key, entry) in running)
             {
@@ -491,6 +513,12 @@ public class AppBlockerService : IDisposable
     [DllImport("user32.dll")]
     private static extern uint GetWindowThreadProcessId(IntPtr window, out uint processId);
 
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern int GetWindowTextLength(IntPtr window);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern int GetWindowText(IntPtr window, System.Text.StringBuilder text, int maxCount);
+
     /// <summary>
     /// Says whether the foreground window belongs to a blocked app (F7,
     /// roadmap 1.7).
@@ -499,8 +527,16 @@ public class AppBlockerService : IDisposable
     /// which window has focus and which process owns it. No hooks, no injection
     /// into another process, nothing that needs a driver or admin rights — the
     /// same restraint as the rest of the blocker. It reads; it never acts.
+    ///
+    /// When the profile has websites and the window is a browser, it also reads
+    /// that window's title with <c>GetWindowText</c> (F10 interim), which for
+    /// another process's window returns the caption Windows already holds
+    /// without asking the browser anything. The title is matched and dropped:
+    /// never stored, never logged, never sent.
+    /// <paramref name="reportApps"/> is false above Soft, where blocked apps
+    /// are closed rather than noticed.
     /// </summary>
-    private void ReportForeground(Dictionary<string, BlockedApp> targets)
+    private void ReportForeground(Dictionary<string, BlockedApp> targets, List<string> sites, bool reportApps)
     {
         if (SoftForeground is null) return;
 
@@ -526,11 +562,36 @@ public class AppBlockerService : IDisposable
             return;
         }
 
-        var blocked = !CriticalProcesses.Contains(name) && targets.TryGetValue(name, out var app)
-            ? app.DisplayName
-            : null;
+        string? blocked = null;
+        var isWebsite = false;
+        if (reportApps && !CriticalProcesses.Contains(name) && targets.TryGetValue(name, out var app))
+        {
+            blocked = app.DisplayName;
+        }
+        else if (sites.Count > 0 && WebsiteTitleMatch.Browsers.Contains(name))
+        {
+            blocked = WebsiteTitleMatch.Match(name, WindowTitle(window), sites);
+            isWebsite = blocked is not null;
+        }
 
-        SoftForeground.Invoke(this, new ForegroundSighting(blocked, window, DateTime.UtcNow));
+        SoftForeground.Invoke(this, new ForegroundSighting(blocked, window, DateTime.UtcNow, isWebsite));
+    }
+
+    /// <summary>A window's title, or "" when it has none or has gone.</summary>
+    private static string WindowTitle(IntPtr window)
+    {
+        try
+        {
+            var length = GetWindowTextLength(window);
+            if (length <= 0) return "";
+            var text = new System.Text.StringBuilder(Math.Min(length, 1024) + 1);
+            GetWindowText(window, text, text.Capacity);
+            return text.ToString();
+        }
+        catch
+        {
+            return "";
+        }
     }
 
     private void KillAll(List<Process> processes, ShieldLevel shield)

@@ -70,6 +70,13 @@ internal static class Commands
                     .Select(c => (JsonNode)new JsonObject { ["text"] = c.Text, ["running"] = c.Running })
                     .ToArray()),
             },
+            "site-normalize" => SiteNormalize(request),
+            "site-match" => new JsonObject
+            {
+                ["site"] = WebsiteTitleMatch.Match((string?)request["process"], (string?)request["title"],
+                    request["sites"]!.AsArray().Select(x => (string)x!).ToList()),
+            },
+            "site-profile" => SiteProfile(request),
             _ => throw new ArgumentException($"unknown command '{cmd}'"),
         };
     }
@@ -140,6 +147,42 @@ internal static class Commands
             ["intention"] = SoftOverlayCopy.Intention((string?)request["intention"]),
             ["allow_label"] = SoftOverlayCopy.AllowLabel(TimeSpan.FromSeconds((double?)request["allow_left"] ?? 0)),
             ["close_note"] = SoftOverlayCopy.CloseNote,
+            ["website_eyebrow"] = SoftOverlayCopy.WebsiteEyebrow,
+            ["website_note"] = SoftOverlayCopy.WebsiteNote,
+        };
+    }
+
+    /// <summary>{"inputs": [...]} -> {"hosts": [...], "keywords": [...]}, null where the input is not a site.</summary>
+    private static JsonNode SiteNormalize(JsonObject request)
+    {
+        var hosts = request["inputs"]!.AsArray().Select(x => WebsiteTitleMatch.Normalize((string?)x)).ToList();
+        return new JsonObject
+        {
+            ["hosts"] = new JsonArray(hosts.Select(h => (JsonNode?)h).ToArray()),
+            ["keywords"] = new JsonArray(hosts.Select(h => (JsonNode?)(h is null ? null : WebsiteTitleMatch.Keyword(h))).ToArray()),
+        };
+    }
+
+    /// <summary>
+    /// {"settings"} -> the active profile's websites as loaded, a duplicate's,
+    /// a new profile's started from them, and whether editing the duplicate
+    /// left the original alone (F10 interim, profiles F9).
+    /// </summary>
+    private static JsonNode SiteProfile(JsonObject request)
+    {
+        var settings = SettingsOf(request);
+        var active = settings.ActiveProfile;
+        var duplicate = settings.DuplicateProfile(active.Id)!;
+        var added = settings.AddProfile("Probe", active.Apps, active.Sites);
+        duplicate.Sites.Add("probe.example");
+        static JsonArray Of(List<string> sites) => new(sites.Select(x => (JsonNode)x).ToArray());
+        return new JsonObject
+        {
+            ["sites"] = Of(active.Sites),
+            ["duplicate"] = Of(duplicate.Sites.Where(x => x != "probe.example").ToList()),
+            ["added"] = Of(added.Sites),
+            ["independent"] = !active.Sites.Contains("probe.example") && !added.Sites.Contains("probe.example"),
+            ["saved"] = JsonSerializer.SerializeToNode(active)!["Sites"]?.DeepClone(),
         };
     }
 

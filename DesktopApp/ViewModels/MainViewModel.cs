@@ -684,9 +684,14 @@ public class MainViewModel : ViewModelBase
     private readonly SoftOverlayPolicy _softOverlay = new();
 
     /// <summary>What MainWindow needs to put the Soft notice on screen.</summary>
+    /// <remarks>
+    /// <c>IsWebsite</c> (F10 interim): the name is a site seen in a browser's
+    /// title, so the notice offers no Close: closing the browser would close
+    /// every tab.
+    /// </remarks>
     public sealed record SoftOverlayRequest(
         string DisplayName, string Sentence, string TimeLeft, IntPtr Window,
-        string Intention, string TryLine, TimeSpan AllowWait);
+        string Intention, string TryLine, TimeSpan AllowWait, bool IsWebsite = false);
 
     /// <summary>Show the Soft notice for a blocked app that has just come to the front.</summary>
     public event EventHandler<SoftOverlayRequest>? SoftOverlayRequested;
@@ -740,7 +745,22 @@ public class MainViewModel : ViewModelBase
             if (ModalPanelVisible) return;
             if (!_softOverlay.ShouldShow(e.DisplayName, DateTime.UtcNow)) return;
 
-            Log.Info($"soft notice shown for {e.DisplayName}");
+            Log.Info(e.IsWebsite
+                ? $"website notice shown for {e.DisplayName}"
+                : $"soft notice shown for {e.DisplayName}");
+
+            // A blocked app is counted by the blocker's own one-per-app rule
+            // (#140). A website has no process to count, so its notice is the
+            // sighting: counted here, once per notice, as a nudge. That keeps
+            // "It still counted as a distraction" true after Allow.
+            if (e.IsWebsite)
+            {
+                Settings.RecordBlock();
+                Today.RecordBlock(terminated: false);
+                Today.RefreshStats();
+                SaveSettings();
+            }
+
             // ShouldShow has just counted this notice, so Tries is its own try number.
             SoftOverlayRequested?.Invoke(this, new SoftOverlayRequest(
                 e.DisplayName,
@@ -749,7 +769,8 @@ public class MainViewModel : ViewModelBase
                 e.Window,
                 SoftOverlayCopy.Intention(Today.IntentionDisplayText),
                 SoftOverlayCopy.TryLine(_softOverlay.Tries),
-                SoftOverlayPolicy.AllowWait(_softOverlay.Tries)));
+                SoftOverlayPolicy.AllowWait(_softOverlay.Tries),
+                e.IsWebsite));
         });
     }
 

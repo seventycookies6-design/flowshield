@@ -111,7 +111,7 @@ roadmap item below has exactly one owner. Tracking issues: #37 (Keenan) and
 | Roadmap 5.4 | Lost your key? (server) (done, #208) | S |
 | Roadmap 5.5 | Close the email-only unlock (server and email) | M |
 | Roadmap 5.7 | See and manage your devices (done, #229) | M |
-| After launch | F10 website blocking extension (owner decision first), F11 allow-only focus | L, M |
+| After launch | F10 website blocking extension (decided: after launch, #325), F11 allow-only focus | L, M |
 
 ### Miles (Codex and Cursor)
 
@@ -422,8 +422,10 @@ A summary of the research, to explain the choices below.
 
 ### F10 — Website blocking · **Owner decision** (Launch+ or Later) · L · Roadmap 2.6
 
-- [ ] Decision recorded
+- [x] Decision recorded
 - [ ] Done
+
+**Decision (5 October 2026, #325):** (b). Launch blocks desktop apps only and says so (F26); the extension is built first after launch, in the go-live batch (#166). Meanwhile the interim below ships: websites on a profile get the notice when a browser tab's title names them.
 
 **Assigned:** Keenan (seventycookies6-design), built with Claude Code
 
@@ -791,7 +793,7 @@ Recorded so nobody re-proposes these without new reasons.
 FlowShield is ready for launch when:
 
 - [x] Every **Launch** item above is ticked except F25: F1, F2, F3, F7, F8, F12, F18, F19, F20, F23, F24, F26 and F27 are all done (22 September 2026). F25 (code signing) is the only one left, waiting on the certificate purchase.
-- [ ] The owner has recorded a decision on F10 (website blocking).
+- [x] The owner has recorded a decision on F10 (website blocking): apps only at launch, the title notice now, the extension first after launch (5 October 2026, #325).
 - [ ] Roadmap Phase 1 (`CUSTOMER_EXPERIENCE_PROMPT.md`) is complete.
 - [ ] The app and site follow `DESIGN_SYSTEM.md`, including the accessibility fixes listed there.
 - [ ] The owner launch gates in `SELLING.md` are done: Stripe account activation, completed legal pages and a support email.
