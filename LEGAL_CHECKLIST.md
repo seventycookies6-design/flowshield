@@ -124,7 +124,7 @@ penalties run to about **$53,000 per violation**.
 | --- | --- | --- |
 | 5.1 | A privacy policy that matches the code | **Mostly OK** — but see 5.2 |
 | 5.2 | Every piece of personal data is disclosed | **OK** — the policy discloses the device identifier (a one-way hash of a Windows installation id) and the device name (`MachineName (UserName)`, which often contains a real name), and the site's FAQ says the same |
-| 5.3 | Blocklists, sessions and journals stay local | **OK** — DPAPI-encrypted in `%APPDATA%`, never uploaded; tier 3 proves the file is encrypted |
+| 5.3 | Blocklists, sessions and journals stay local | **OK** — DPAPI-encrypted in `%APPDATA%`, never uploaded; tier 3 proves the file is encrypted. The trial's start date is also kept in `HKCU\Software\FlowShield\Trial` so Delete everything can't restart the trial; it is never sent, and the privacy policy and the delete dialog both say it stays |
 | 5.4 | Access, correction and deletion requests answered | **Partly** — the policy promises 30 days. The app side is now built: Settings → Your data shows what is stored and where, with Export and Delete everything (F23, #211). Server-side requests (the licence record held by Stripe/Render) still have no process. |
 | 5.5 | Named subprocessors | **OK** — the policy names Stripe, Inc., Render Services, Inc. and Resend (Plus Five Five, Inc.) with their roles; tier 5 checks all three are there |
 | 5.6 | Retention periods | **OK** — the policy gives periods: the licence record while the licence exists plus 7 years for tax and accounting, device rows removed on deactivation, payment records under Stripe's own retention |

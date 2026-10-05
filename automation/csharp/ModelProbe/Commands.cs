@@ -82,6 +82,12 @@ internal static class Commands
                     request["sites"]!.AsArray().Select(x => (string)x!).ToList()),
             },
             "site-profile" => SiteProfile(request),
+            "trial-ensure" => TrialEnsure(request),
+            "trial-record-round-trip" => new JsonObject
+            {
+                ["text"] = TrialStart.Format(Utc((string)request["start"]!)),
+                ["back"] = Iso(TrialStart.Parse(TrialStart.Format(Utc((string)request["start"]!)))),
+            },
             _ => throw new ArgumentException($"unknown command '{cmd}'"),
         };
     }
@@ -220,6 +226,27 @@ internal static class Commands
     private static DateTime Utc(string text) =>
         DateTime.Parse(text, CultureInfo.InvariantCulture,
             DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal);
+
+    /// <summary>
+    /// {"settings": iso|null, "record": raw registry text|null, "now": iso} ->
+    /// {"started": bool, "start": iso, "access": bool}: AppSettings.EnsureTrialStarted
+    /// with the record read the way TrialRecord reads it, then HasAccessAt(now).
+    /// </summary>
+    private static JsonNode TrialEnsure(JsonObject request)
+    {
+        var now = Utc((string)request["now"]!);
+        var settings = new AppSettings
+        {
+            TrialStartedUtc = request["settings"] is { } s ? Utc((string)s!) : null,
+        };
+        var started = settings.EnsureTrialStarted(TrialStart.Parse((string?)request["record"]), now);
+        return new JsonObject
+        {
+            ["started"] = started,
+            ["start"] = Iso(settings.TrialStartedUtc),
+            ["access"] = settings.HasAccessAt(now),
+        };
+    }
 
     private static JsonNode? Iso(DateTime? utc) =>
         utc is { } t ? JsonValue.Create(t.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture)) : null;
