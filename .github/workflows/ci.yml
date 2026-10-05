@@ -56,6 +56,22 @@ jobs:
         working-directory: DesktopApp
         run: dotnet build -c Release -nologo
 
+      # The release ships a Windows on ARM build too (tools/build_release.ps1).
+      # The runner is x64, so this only proves it publishes and that the exe
+      # really is ARM64; running it needs an ARM machine.
+      - name: Publish Windows on ARM build
+        shell: pwsh
+        run: |
+          $out = Join-Path $env:RUNNER_TEMP 'publish-arm64'
+          dotnet publish DesktopApp/FlowShield.csproj -c Release -r win-arm64 --self-contained true -o $out --nologo -v minimal
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          # PE header: e_lfanew at 0x3C, then "PE\0\0", then the machine type.
+          $bytes = [IO.File]::ReadAllBytes((Join-Path $out 'FlowShield.exe'))
+          $pe = [BitConverter]::ToInt32($bytes, 0x3C)
+          $machine = [BitConverter]::ToUInt16($bytes, $pe + 4)
+          if ($machine -ne 0xAA64) { Write-Error ('FlowShield.exe is machine 0x{0:X4}, not ARM64 (0xAA64)' -f $machine); exit 1 }
+          Write-Host 'FlowShield.exe is ARM64'
+
       - name: Fast tests (no UI, no Stripe)
         run: python -m pytest automation/tests -m "not ui and not stripe" -q -p no:cacheprovider --color=yes
 
