@@ -108,5 +108,11 @@ envelope = {
 }
 with open(path, "w", encoding="utf-8") as f:
     json.dump(envelope, f, indent=2)
+
+# The app takes the earlier of this and the registry's trial record
+# (TrialRecord.cs), so set both, or an older record would show a different day.
+import winreg
+with winreg.CreateKeyEx(winreg.HKEY_CURRENT_USER, r"Software\FlowShield\Trial") as key:
+    winreg.SetValueEx(key, "StartedUtc", 0, winreg.REG_SZ, settings["TrialStartedUtc"])
 print(f"seeded {len(sessions)} sessions, momentum {score}, streak {streak}", flush=True)
 print(f"-> {path}", flush=True)

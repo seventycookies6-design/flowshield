@@ -21,9 +21,14 @@ public class MainViewModel : ViewModelBase
         Settings = settingsService.Load();
 
         // The trial clock starts on the first launch of a build that has one.
-        // App.OnStartup saves right after construction, so this persists.
-        if (Settings.EnsureTrialStarted())
+        // App.OnStartup saves right after construction, so this persists. The
+        // registry copy outlives Delete everything, so wiping settings doesn't
+        // restart the trial; whichever copy is missing is written back.
+        var recordedTrialStart = TrialRecord.Read();
+        if (Settings.EnsureTrialStarted(recordedTrialStart))
             Log.Info($"free trial started; ends {Settings.TrialEndsUtc:u}");
+        if (Settings.TrialStartedUtc is { } trialStart && recordedTrialStart != trialStart)
+            TrialRecord.Write(trialStart);
         _lastHasAccess = HasAccess;
 
         // F9: a settings file written before profiles existed has one blocklist;
