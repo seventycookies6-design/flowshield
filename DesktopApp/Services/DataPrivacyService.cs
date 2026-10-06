@@ -5,7 +5,7 @@ using FlowShield.Models;
 namespace FlowShield.Services;
 
 /// <summary>
-/// Backs Settings → Your data (F23): exactly what FlowShield stores, an export
+/// Backs Settings → Your data (F23): exactly what Basalt stores, an export
 /// of it, and a way to delete it. Every field this touches is also named in
 /// <c>Website/legal.html</c>'s privacy policy and checked against this file by
 /// the tier 5 claims test — change one, change the other in the same PR.
@@ -16,7 +16,7 @@ public static class DataPrivacyService
     /// Writes everything DPAPI-encrypted in settings.json to a plain JSON file
     /// at a path the customer chose, minus the licence key.
     ///
-    /// The key is a credential that activates FlowShield on another machine;
+    /// The key is a credential that activates Basalt on another machine;
     /// putting it in an export the customer might paste into a support ticket
     /// or a forum post would be a worse privacy mistake than not exporting it.
     /// </summary>
@@ -67,7 +67,7 @@ public static class DataPrivacyService
 
     /// <summary>
     /// Releases this machine's seat if one is held, then removes every trace
-    /// FlowShield keeps here: the encrypted settings file and the logs folder.
+    /// Basalt keeps here: the encrypted settings file and the logs folder.
     /// The caller is responsible for restarting into first run afterwards —
     /// this method only removes what is on disk.
     /// </summary>

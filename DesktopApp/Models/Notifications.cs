@@ -1,6 +1,6 @@
 namespace FlowShield.Models;
 
-/// <summary>Everything FlowShield may notify about (launch checklist F19).</summary>
+/// <summary>Everything Basalt may notify about (launch checklist F19).</summary>
 public enum NotificationKind
 {
     SprintStarted,
@@ -36,7 +36,7 @@ public enum NotificationAction { OpenApp, OpenJournal, OpenSettingsLicense, Open
 public record Notification(NotificationKind Kind, string Title, string Message, NotificationAction Action);
 
 /// <summary>
-/// When FlowShield is allowed to interrupt you (F19).
+/// When Basalt is allowed to interrupt you (F19).
 ///
 /// A blocker that nags is a blocker people turn off, so the rules are strict:
 /// everything is switchable, and nothing about money or the trial ever appears
@@ -71,15 +71,15 @@ public static class NotificationPolicy
         return $"Break · {(int)remaining.TotalMinutes}:{remaining.Seconds:00}";
     }
 
-    /// <summary>The tray tooltip: what FlowShield is doing right now.</summary>
+    /// <summary>The tray tooltip: what Basalt is doing right now.</summary>
     public static string TrayText(bool running, ShieldLevel shield, TimeSpan remaining, bool onBreak = false)
     {
         // A break says so instead of naming a shield: during one the shield is
         // down, and claiming otherwise in the tooltip would be a lie (F5).
-        if (onBreak) return $"FlowShield — {BreakLabel(remaining)}";
-        if (!running) return "FlowShield — no sprint running";
+        if (onBreak) return $"Basalt — {BreakLabel(remaining)}";
+        if (!running) return "Basalt — no sprint running";
         var minutes = Math.Max(1, (int)Math.Ceiling(remaining.TotalMinutes));
-        return $"FlowShield — {shield} shield, {minutes} minute{(minutes == 1 ? "" : "s")} left";
+        return $"Basalt — {shield} shield, {minutes} minute{(minutes == 1 ? "" : "s")} left";
     }
 
     /// <summary>What the countdown tray icon shows: minutes left, or hours over an hour.</summary>

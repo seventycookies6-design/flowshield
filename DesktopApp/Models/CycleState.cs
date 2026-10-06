@@ -1,6 +1,6 @@
 namespace FlowShield.Models;
 
-/// <summary>What FlowShield is doing right now, as far as a cycle is concerned.</summary>
+/// <summary>What Basalt is doing right now, as far as a cycle is concerned.</summary>
 public enum CyclePhase
 {
     /// <summary>Nothing is counting down.</summary>
@@ -152,13 +152,13 @@ public readonly record struct CycleState(
     public CycleState OnCycleFinished() => this with { Phase = CyclePhase.Idle, SprintsPlanned = 0, SprintsDone = 0 };
 }
 
-/// <summary>What to do with a saved break when FlowShield starts again.</summary>
+/// <summary>What to do with a saved break when Basalt starts again.</summary>
 public enum BreakResume
 {
     /// <summary>Time is left: carry on counting it down.</summary>
     Resume,
 
-    /// <summary>It ran out while FlowShield was closed; drop it without a word.</summary>
+    /// <summary>It ran out while Basalt was closed; drop it without a word.</summary>
     EndQuietly,
 }
 

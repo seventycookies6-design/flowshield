@@ -438,7 +438,7 @@
                                Foreground="{DynamicResource Amber}"
                                Visibility="{Binding SealedRestartHintVisible, Converter={StaticResource BoolVis}}"
                                AutomationProperties.AutomationId="SealedRestartHint"
-                               Text="If FlowShield closes, a Sealed sprint picks up again when it reopens. After a reboot that only happens by itself if FlowShield starts with Windows (Settings → Preferences)."/>
+                               Text="If Basalt closes, a Sealed sprint picks up again when it reopens. After a reboot that only happens by itself if Basalt starts with Windows (Settings → Preferences)."/>
                     <TextBlock Style="{StaticResource Caption}" Margin="0,8,0,0" TextWrapping="Wrap"
                                Foreground="{DynamicResource Amber}"
                                Visibility="{Binding SoftHardKillHintVisible, Converter={StaticResource BoolVis}}"

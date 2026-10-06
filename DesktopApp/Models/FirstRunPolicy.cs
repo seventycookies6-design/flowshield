@@ -21,7 +21,7 @@ public static class FirstRunPolicy
         && hasAccess
         && !sprintRunning;
 
-    /// <summary>Anyone with a blocklist or past sprints has already set FlowShield up.</summary>
+    /// <summary>Anyone with a blocklist or past sprints has already set Basalt up.</summary>
     public static bool IsExistingUser(AppSettings settings) =>
         settings.BlockedApps.Count > 0 || settings.Sessions.Count > 0 || settings.ActiveSprint is not null;
 

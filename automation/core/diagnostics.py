@@ -1,4 +1,4 @@
-"""Screenshot capture and structured step logging for the FlowShield suite."""
+"""Screenshot capture and structured step logging for the Basalt suite."""
 
 from __future__ import annotations
 
@@ -140,7 +140,7 @@ class DiagnosticLogger:
         self._current: StepRecord | None = None
         self._t0 = time.time()
 
-        self._write(f"=== FlowShield {run_name} run {self.stamp} ===")
+        self._write(f"=== Basalt {run_name} run {self.stamp} ===")
 
     # ------------------------------------------------------------- plumbing
 

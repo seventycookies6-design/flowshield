@@ -52,8 +52,8 @@ public static class Program
         if (instance is null)
         {
             Log.Info(SingleInstance.SendToRunningInstance(args)
-                ? "FlowShield is already running; brought it forward and exiting"
-                : "FlowShield is already running but didn't answer; exiting");
+                ? "Basalt is already running; brought it forward and exiting"
+                : "Basalt is already running but didn't answer; exiting");
             return;
         }
 

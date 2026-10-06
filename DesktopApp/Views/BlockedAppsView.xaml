@@ -174,7 +174,7 @@
 
                 <!-- ============================== websites (F10 interim)
                      Docked under the app list so the apps stay the page's main
-                     job. FlowShield can't block a site without the browser
+                     job. Basalt can't block a site without the browser
                      extension (after launch), so the caption says what it does
                      instead: a notice over the tab, at every shield. -->
                 <StackPanel DockPanel.Dock="Bottom" Margin="0,16,0,0">
@@ -215,7 +215,7 @@
                     </ItemsControl>
                     <TextBlock Style="{StaticResource Caption}" Margin="4,0,0,0" TextWrapping="Wrap"
                                AutomationProperties.AutomationId="SitesHint"
-                               Text="During a sprint, FlowShield shows its notice when the tab in front names one of these. It reads the tab's title only, so it can miss a page or catch a search, and it never closes your browser."/>
+                               Text="During a sprint, Basalt shows its notice when the tab in front names one of these. It reads the tab's title only, so it can miss a page or catch a search, and it never closes your browser."/>
                 </StackPanel>
 
                 <!-- the list -->

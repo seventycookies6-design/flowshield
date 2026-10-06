@@ -132,7 +132,7 @@ public static class JournalExport
         if (to < from) (from, to) = (to, from);
 
         var builder = new StringBuilder();
-        builder.Append("# FlowShield journal\r\n\r\n");
+        builder.Append("# Basalt journal\r\n\r\n");
         builder.Append(
             $"{from:yyyy-MM-dd} to {to:yyyy-MM-dd}. Times are local.\r\n\r\n");
 
@@ -188,7 +188,7 @@ public static class JournalExport
     // ----------------------------------------------------------- file names
 
     /// <summary>
-    /// "FlowShield journal 2026-09-01 to 2026-09-18.csv" — says what it is and
+    /// "Basalt journal 2026-09-01 to 2026-09-18.csv" — says what it is and
     /// what it covers, so a folder of them stays readable.
     /// </summary>
     public static string SuggestedFileName(
@@ -199,7 +199,7 @@ public static class JournalExport
         if (to < from) (from, to) = (to, from);
 
         var extension = format == ExportFormat.Csv ? "csv" : "md";
-        return $"FlowShield journal {from:yyyy-MM-dd} to {to:yyyy-MM-dd}.{extension}";
+        return $"Basalt journal {from:yyyy-MM-dd} to {to:yyyy-MM-dd}.{extension}";
     }
 
     // ------------------------------------------------------------- helpers

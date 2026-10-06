@@ -1,6 +1,10 @@
 <#
 .SYNOPSIS
-    Build a distributable FlowShield release: installer, portable zip, update feed.
+    Build a distributable Basalt release: installer, portable zip, update feed.
+
+    Basalt was called FlowShield (#321). The package id, the exe and the
+    artifact names keep the old name: a new package id would leave every
+    installed copy on its old version, because the updater looks for its own id.
 
 .DESCRIPTION
     Produces a self-contained build (no .NET runtime needed on the customer's
@@ -84,8 +88,8 @@ foreach ($t in $targets) {
         --packVersion $Version `
         --packDir $publishDir `
         --mainExe 'FlowShield.exe' `
-        --packTitle 'FlowShield' `
-        --packAuthors 'FlowShield' `
+        --packTitle 'Basalt' `
+        --packAuthors 'Basalt' `
         --icon 'DesktopApp\Assets\FlowShield.ico' `
         --runtime $t.Runtime `
         --channel $t.Channel `
@@ -108,7 +112,7 @@ if ($Publish) {
     Step "Publishing GitHub Release v$Version"
     if (-not (Get-Command gh -ErrorAction SilentlyContinue)) { Fail 'gh CLI not found' }
 
-    $notes = "FlowShield $Version`n`nDownload **FlowShield-win-Setup.exe** below. " +
+    $notes = "Basalt $Version`n`nDownload **FlowShield-win-Setup.exe** below. " +
              "On a Windows on ARM laptop (Snapdragon, for example), download " +
              "**FlowShield-win-arm64-Setup.exe** instead.`n`n" +
              "Windows SmartScreen will warn that the publisher is unknown, because " +
@@ -127,7 +131,7 @@ if ($Publish) {
         "dist\releases\FlowShield-$Version-win-arm64-full.nupkg" `
         'dist\releases\RELEASES-win-arm64' `
         'dist\releases\releases.win-arm64.json' `
-        --title "FlowShield $Version" --notes $notes
+        --title "Basalt $Version" --notes $notes
     if ($LASTEXITCODE -ne 0) { Fail 'gh release create failed' }
 
     Write-Host "`n  Published: https://github.com/seventycookies6-design/flowshield/releases/tag/v$Version" -ForegroundColor Green

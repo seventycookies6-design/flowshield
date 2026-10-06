@@ -1,7 +1,7 @@
 namespace FlowShield.Models;
 
 /// <summary>
-/// Which colour theme FlowShield draws in (F21, DESIGN_SYSTEM.md §12).
+/// Which colour theme Basalt draws in (F21, DESIGN_SYSTEM.md §12).
 ///
 /// Persisted in <see cref="AppSettings.Theme"/> as its numeric value, so
 /// <see cref="System"/> has to stay 0: that keeps every settings file written

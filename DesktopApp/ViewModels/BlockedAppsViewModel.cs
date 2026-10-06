@@ -242,7 +242,7 @@ public class BlockedAppsViewModel : ViewModelBase
         }
         if (_main.IsLocked)
         {
-            _main.Toast("Your free trial has ended. Buy FlowShield to edit the blocklist.");
+            _main.Toast("Your free trial has ended. Buy Basalt to edit the blocklist.");
             return false;
         }
         return true;
@@ -446,7 +446,7 @@ public class BlockedAppsViewModel : ViewModelBase
         }
         if (_main.IsLocked)
         {
-            _main.Toast("Your free trial has ended. Buy FlowShield to edit the blocklist.");
+            _main.Toast("Your free trial has ended. Buy Basalt to edit the blocklist.");
             return false;
         }
         return true;
@@ -566,7 +566,7 @@ public class BlockedAppsViewModel : ViewModelBase
     // ------------------------------------------- websites (F10 interim)
 
     /// <summary>
-    /// The active profile's websites. FlowShield can't block a site without a
+    /// The active profile's websites. Basalt can't block a site without a
     /// browser extension, so these get the notice when a browser tab's title
     /// names them, at every shield, and the browser is never closed.
     /// </summary>

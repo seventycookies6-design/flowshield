@@ -28,7 +28,7 @@ public partial class App : Application
 
         var args = e.Args ?? Array.Empty<string>();
         // Links are left out of the log: an activation link carries a licence key.
-        Log.Info($"FlowShield starting (args: {string.Join(' ', args.Select(a =>
+        Log.Info($"Basalt starting (args: {string.Join(' ', args.Select(a =>
             a.StartsWith(DeepLink.Scheme + ":", StringComparison.OrdinalIgnoreCase) ? "<link>" : a))})");
 
         // --short-timers shrinks F2's grace period and countdowns for the UI tests.
@@ -203,7 +203,7 @@ public partial class App : Application
             });
         });
 
-        // Opened by a flowshield:// link while FlowShield wasn't running.
+        // Opened by a flowshield:// link while Basalt wasn't running.
         ViewModel.HandleLink(DeepLink.FindLink(args));
         // Or by the Jump List, with the window already up.
         ViewModel.HandleStartSprintArg(args);
@@ -234,7 +234,7 @@ public partial class App : Application
         {
             Log.Error("shutdown cleanup failed", ex);
         }
-        Log.Info("FlowShield exited");
+        Log.Info("Basalt exited");
         base.OnExit(e);
     }
 }

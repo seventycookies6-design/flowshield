@@ -85,7 +85,7 @@ public class PickerEntry : INotifyPropertyChanged
 public static class AppPicker
 {
     public const string ProtectedMessage =
-        "FlowShield never closes Windows system processes, so your PC stays usable.";
+        "Basalt never closes Windows system processes, so your PC stays usable.";
 
     private sealed class SuggestionFile
     {
@@ -209,7 +209,7 @@ public static class AppPicker
         var result = suggestions.ToList();
         // A suggestion is listed only when this PC has it: that is what gives
         // every row the app's own icon from its installed exe, with no logos
-        // shipped in FlowShield.
+        // shipped in Basalt.
         var covered = new HashSet<PickerEntry>();
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var s in result) foreach (var p in s.Processes) seen.Add(p);

@@ -6,7 +6,7 @@ namespace FlowShield.Models;
 /// The website notice (launch checklist F10, the interim before the browser
 /// extension): which blocked website, if any, a browser window's title names.
 ///
-/// FlowShield cannot see inside a browser without an extension, and the timid
+/// Basalt cannot see inside a browser without an extension, and the timid
 /// blocker rules out the hosts file and DNS. What it can read is the title of
 /// the window in front, which browsers build from the page's own title and
 /// their name: "Lofi beats - YouTube - Google Chrome". So this matches a site

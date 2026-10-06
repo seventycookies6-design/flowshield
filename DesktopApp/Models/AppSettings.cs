@@ -4,7 +4,7 @@ using System.Text.Json.Serialization;
 
 namespace FlowShield.Models;
 
-/// <summary>How hard FlowShield pushes back when a blocked app appears.</summary>
+/// <summary>How hard Basalt pushes back when a blocked app appears.</summary>
 public enum ShieldLevel
 {
     /// <summary>Full-screen notice on its own screen; the blocked app keeps running unless you choose to close it.</summary>
@@ -133,7 +133,7 @@ public class FocusSession
     public string Journal { get; set; } = "";
 
     /// <summary>
-    /// FlowShield was closed for most of this sprint (a crash, a reboot, or
+    /// Basalt was closed for most of this sprint (a crash, a reboot, or
     /// quitting from Task Manager), so it was neither finished nor given up.
     /// Interrupted sprints don't change momentum.
     /// </summary>
@@ -152,7 +152,7 @@ public class FocusSession
 /// The sprint that is running right now, saved the moment it starts.
 ///
 /// A sprint used to live only in memory, so a crash, a reboot or ending
-/// FlowShield from Task Manager quietly ended it, which made even a Sealed
+/// Basalt from Task Manager quietly ended it, which made even a Sealed
 /// sprint trivially escapable. On the next launch this is read back and the
 /// sprint resumes with its shield (and a Sealed blocklist lock) intact.
 /// </summary>
@@ -191,17 +191,17 @@ public class RunningSprint
     /// </summary>
     public int? TemplateBreakMinutes { get; set; }
 
-    /// <summary>Last time FlowShield confirmed it was still running this sprint.</summary>
+    /// <summary>Last time Basalt confirmed it was still running this sprint.</summary>
     public DateTime LastSeenUtc { get; set; }
 
     /// <summary>
-    /// Minutes FlowShield has actually been running this sprint, accumulated
+    /// Minutes Basalt has actually been running this sprint, accumulated
     /// across restarts.
     ///
     /// Kept as a running total rather than inferred from
     /// <see cref="LastSeenUtc"/> minus <see cref="StartedUtc"/>, because
     /// resuming refreshes LastSeenUtc — so that subtraction counted every
-    /// minute FlowShield was *closed* before the resume as watched, and
+    /// minute Basalt was *closed* before the resume as watched, and
     /// reopening the app for a second near the end turned any abandoned sprint
     /// into a completed one.
     ///
@@ -214,7 +214,7 @@ public class RunningSprint
     public DateTime EndsUtc => StartedUtc.AddMinutes(PlannedMinutes);
 
     /// <summary>
-    /// Records another stretch of FlowShield watching this sprint, and moves
+    /// Records another stretch of Basalt watching this sprint, and moves
     /// <see cref="LastSeenUtc"/> up to <paramref name="nowUtc"/>.
     ///
     /// The stretch is capped: if the heartbeat did not fire for an hour the
@@ -230,7 +230,7 @@ public class RunningSprint
     }
 
     /// <summary>
-    /// Minutes FlowShield has watched this sprint, as every judgement of it
+    /// Minutes Basalt has watched this sprint, as every judgement of it
     /// should read them. Falls back to the old LastSeenUtc estimate for a
     /// sprint saved before <see cref="WatchedMinutes"/> existed, and is clamped
     /// to 0..PlannedMinutes so a hand-edited or damaged file can't produce a
@@ -241,14 +241,14 @@ public class RunningSprint
         WatchedMinutes ?? (Min(LastSeenUtc, EndsUtc) - StartedUtc).TotalMinutes,
         0, Math.Max(PlannedMinutes, 0));
 
-    /// <summary>What to do with this sprint when FlowShield starts again.</summary>
+    /// <summary>What to do with this sprint when Basalt starts again.</summary>
     public SprintResume Decide(DateTime nowUtc)
     {
         if (PlannedMinutes <= 0) return SprintResume.Discard;
         if (nowUtc < EndsUtc) return SprintResume.Resume;
 
-        // The time ran out while FlowShield was closed. It counts as finished
-        // only if FlowShield was watching for at least half of it; otherwise
+        // The time ran out while Basalt was closed. It counts as finished
+        // only if Basalt was watching for at least half of it; otherwise
         // nothing was actually enforced, so it's recorded as interrupted.
         var watched = WatchedSoFar;
         return watched >= PlannedMinutes * CompletedIfWatchedFraction
@@ -256,7 +256,7 @@ public class RunningSprint
             : SprintResume.RecordInterrupted;
     }
 
-    /// <summary>Share of a sprint FlowShield must have been running for it to count as finished.</summary>
+    /// <summary>Share of a sprint Basalt must have been running for it to count as finished.</summary>
     public const double CompletedIfWatchedFraction = 0.5;
 
     /// <summary>
@@ -264,7 +264,7 @@ public class RunningSprint
     /// <see cref="FocusSession.ActualMinutes"/> — the summary card, the minutes
     /// goal, History, the heatmap and the journal export — measures.
     ///
-    /// An interrupted sprint ends where FlowShield stopped watching it (#203).
+    /// An interrupted sprint ends where Basalt stopped watching it (#203).
     /// Any other end is now, but never after the planned end: a
     /// DispatcherTimer doesn't tick while the PC sleeps, so the tick that
     /// finishes a sprint can come hours late, and the nap would count as focus
@@ -294,9 +294,9 @@ public enum SprintResume
 {
     /// <summary>Time is left: carry on with the same shield and lock.</summary>
     Resume,
-    /// <summary>Ended while closed, but FlowShield ran for most of it.</summary>
+    /// <summary>Ended while closed, but Basalt ran for most of it.</summary>
     RecordCompleted,
-    /// <summary>Ended while closed, and FlowShield wasn't running for most of it.</summary>
+    /// <summary>Ended while closed, and Basalt wasn't running for most of it.</summary>
     RecordInterrupted,
     /// <summary>Unreadable record; drop it.</summary>
     Discard,
@@ -660,7 +660,7 @@ public class AppSettings
 
     /// <summary>
     /// Which colour theme the app draws in (F21, DESIGN_SYSTEM.md §12).
-    /// <see cref="AppTheme.System"/> by default: FlowShield then follows
+    /// <see cref="AppTheme.System"/> by default: Basalt then follows
     /// Windows' own app theme and changes with it, without a restart. Stored
     /// here like every other preference — it never leaves the PC.
     /// </summary>
@@ -683,7 +683,7 @@ public class AppSettings
 
     // ---- notifications (F19) --------------------------------------------
 
-    /// <summary>The master switch. Off means FlowShield never notifies.</summary>
+    /// <summary>The master switch. Off means Basalt never notifies.</summary>
     public bool NotificationsEnabled { get; set; } = true;
 
     /// <summary>Which notifications are on. Anything missing counts as on.</summary>
@@ -695,7 +695,7 @@ public class AppSettings
     /// <summary>
     /// When the scheduler last looked (F6), stamped on every tick and kept by
     /// whatever save follows. The next launch counts from it, so a start
-    /// missed while FlowShield was closed is offered, never started. Not user
+    /// missed while Basalt was closed is offered, never started. Not user
     /// data: it is not part of the Your data export. Null before the first
     /// run of a build that has it.
     /// </summary>
@@ -712,7 +712,7 @@ public class AppSettings
     public string LicenseEmail { get; set; } = "";
 
     /// <summary>
-    /// True once a licence has been activated: FlowShield was bought. The name
+    /// True once a licence has been activated: Basalt was bought. The name
     /// predates the one-time purchase (it meant "Pro subscriber") and is kept so
     /// existing settings files still load.
     /// </summary>
@@ -827,7 +827,7 @@ public class AppSettings
 
     /// <summary>
     /// Length of the free trial. Everything is unlocked during it; afterwards the
-    /// app is locked until FlowShield is bought. There is no free tier.
+    /// app is locked until Basalt is bought. There is no free tier.
     /// </summary>
     public const int TrialDays = 7;
 

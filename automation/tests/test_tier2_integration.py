@@ -56,7 +56,7 @@ def corrupt_key() -> str:
 class TestServiceDescriptor:
     def test_root_describes_the_service(self, server):
         body = requests.get(f"{server}/", timeout=10).json()
-        assert body["service"] == "FlowShield License Server"
+        assert body["service"] == "Basalt License Server"
         assert body["status"] == "ok"
         assert any("/create-checkout" in e for e in body["endpoints"])
 
@@ -386,7 +386,7 @@ class TestCreateCheckout:
         assert check["reason"] == "license_pending"
 
     def test_checkout_is_a_one_time_payment(self, server, needs_stripe):
-        """FlowShield is bought once; the session must not start a subscription."""
+        """Basalt is bought once; the session must not start a subscription."""
         body = requests.post(f"{server}/create-checkout", json={}, timeout=45).json()
         script = (
             "const {loadKeys}=require('./keys');const k=loadKeys();"

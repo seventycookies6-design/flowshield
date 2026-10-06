@@ -34,7 +34,7 @@ public class SleepBlockingViewModel : ViewModelBase
         {
             if (value && _main.IsLocked)
             {
-                _main.Toast("Your free trial has ended. Buy FlowShield to use sleep blocking.");
+                _main.Toast("Your free trial has ended. Buy Basalt to use sleep blocking.");
                 Raise();               // snap the toggle back
                 return;
             }
@@ -100,7 +100,7 @@ public class SleepBlockingViewModel : ViewModelBase
     {
         if (_main.IsLocked)
         {
-            _main.Toast("Your free trial has ended. Buy FlowShield to use sleep blocking.");
+            _main.Toast("Your free trial has ended. Buy Basalt to use sleep blocking.");
             return;
         }
 
@@ -142,7 +142,7 @@ public class SleepBlockingViewModel : ViewModelBase
         WindowStartAngle = -90 + _main.Settings.SleepBlockStartTime.TotalMinutes / TimeSpan.FromDays(1).TotalMinutes * 360.0;
 
         StatusText = _main.IsLocked
-            ? "Your free trial has ended. Buy FlowShield to schedule a nightly shield."
+            ? "Your free trial has ended. Buy Basalt to schedule a nightly shield."
             : !enabled
                 ? "Scheduled blocking is off."
                 : inWindow

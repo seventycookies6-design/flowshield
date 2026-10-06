@@ -534,7 +534,7 @@ class TestSchedulePlanner:
         out = self.decide([schedule()], last, now, shown=[], short=True)
         assert [a["kind"] for a in out["actions"]] == kinds
 
-    # R21: a start missed while FlowShield was closed. The service saves the
+    # R21: a start missed while Basalt was closed. The service saves the
     # time of its last check and counts from it on the next launch.
 
     def seed(self, last, now="2026-09-28T21:00:00Z"):
@@ -635,7 +635,7 @@ class TestScheduleService:
 
     def test_the_last_check_is_stamped_before_anything_is_raised(self):
         """
-        R21: a start missed while FlowShield was closed is offered on launch.
+        R21: a start missed while Basalt was closed is offered on launch.
         Every tick stamps its time on the settings first, so any save that
         follows (a scheduled start saves; exit saves) keeps it, and Start()
         counts from the stamp, clamped, instead of from now.
@@ -1104,7 +1104,7 @@ class TestStartSprintArg:
         """
         The id goes into a command line. One with a space or a quote would
         split into extra arguments (--reset among them), so it gets no entry
-        rather than a broken one. Every id FlowShield makes is 32 hex digits.
+        rather than a broken one. Every id Basalt makes is 32 hex digits.
         """
         assert probe({"cmd": "start-arg-for", "id": template_id})["arg"] is None
 
@@ -1184,7 +1184,7 @@ class TestRingCaptions:
         idle = {c["text"] for c in self.captions() if not c["running"]}
         for expected in ("Ready when you are", "Sprint cancelled", "Break over", "Sprint complete",
                          "Sprint interrupted", "Sprint ended early",
-                         "Sprint finished while FlowShield was closed"):
+                         "Sprint finished while Basalt was closed"):
             assert expected in idle, f"{expected!r} is not measured"
 
 
@@ -1193,7 +1193,7 @@ class TestRingCaptions:
 class TestWebsiteTitleMatch:
     """
     F10's interim before the browser extension: a website on the active
-    profile gets FlowShield's notice when the browser tab in front names it.
+    profile gets Basalt's notice when the browser tab in front names it.
     These run the real matcher (Models/WebsiteTitleMatch.cs).
     """
 

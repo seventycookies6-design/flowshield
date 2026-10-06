@@ -137,7 +137,7 @@ public class ScheduleViewModel : ViewModelBase
     private bool EnsureCanEdit()
     {
         if (CanEdit) return true;
-        _main.Toast(IsSealed ? SealedText : "Your free trial has ended. Buy FlowShield to change your schedules.");
+        _main.Toast(IsSealed ? SealedText : "Your free trial has ended. Buy Basalt to change your schedules.");
         return false;
     }
 

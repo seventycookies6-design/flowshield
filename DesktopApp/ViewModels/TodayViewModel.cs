@@ -484,7 +484,7 @@ public class TodayViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// A Sealed sprint survives a reboot only if FlowShield starts again at
+    /// A Sealed sprint survives a reboot only if Basalt starts again at
     /// sign-in, so say so before someone relies on it.
     /// </summary>
     public bool SealedRestartHintVisible =>
@@ -831,9 +831,9 @@ public class TodayViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// Pick up a break that was running when FlowShield last closed (F5).
+    /// Pick up a break that was running when Basalt last closed (F5).
     ///
-    /// A break whose time ran out while FlowShield was closed simply goes away:
+    /// A break whose time ran out while Basalt was closed simply goes away:
     /// there is nothing to enforce, nothing to record and nobody to tell — a
     /// "break over" notice hours later would be noise. A cycle waiting behind it
     /// does not start a sprint by itself either; that needs someone at the desk.
@@ -1395,7 +1395,7 @@ public class TodayViewModel : ViewModelBase
     /// because the point of this panel is the chance to save first.
     /// </summary>
     public string RunningAppsExplanation => SelectedShield == ShieldLevel.Soft
-        ? "At Soft they stay open — FlowShield will just note them."
+        ? "At Soft they stay open — Basalt will just note them."
         : $"They will be asked to close when the sprint starts, with " +
           $"{GracefulClose.Grace.TotalSeconds:0} seconds to save.";
 
@@ -1460,7 +1460,7 @@ public class TodayViewModel : ViewModelBase
         // menu and keyboard can still reach it.
         if (_main.IsLocked)
         {
-            _main.Toast("Your free trial has ended. Buy FlowShield to start a sprint.");
+            _main.Toast("Your free trial has ended. Buy Basalt to start a sprint.");
             return;
         }
 
@@ -1576,7 +1576,7 @@ public class TodayViewModel : ViewModelBase
         StartClock();
     }
 
-    /// <summary>How often a running sprint re-saves that FlowShield is still watching it.</summary>
+    /// <summary>How often a running sprint re-saves that Basalt is still watching it.</summary>
     public static readonly TimeSpan HeartbeatInterval = TimeSpan.FromSeconds(30);
 
     /// <summary>
@@ -1585,7 +1585,7 @@ public class TodayViewModel : ViewModelBase
     /// far longer than the interval is time nothing was enforced for.
     ///
     /// The cap is also all that tells sleep apart, so it can't tell sleep from
-    /// an awake FlowShield whose UI thread stalled (#319), and it isn't meant
+    /// an awake Basalt whose UI thread stalled (#319), and it isn't meant
     /// to. Since the clock runs at Normal priority, input and rendering can't
     /// hold it back; a gap this long means the UI thread was hung. The
     /// blocker's events wait on a hung thread too (they reach it through
@@ -1600,11 +1600,11 @@ public class TodayViewModel : ViewModelBase
     private bool _endingSoonNotified;
 
     /// <summary>
-    /// Pick up a sprint that was running when FlowShield last closed (F3).
+    /// Pick up a sprint that was running when Basalt last closed (F3).
     ///
     /// Called once at startup. With time left, the sprint carries on with its
     /// shield, so a Sealed blocklist stays locked. If the time ran out while
-    /// FlowShield was closed, it is recorded as finished or interrupted
+    /// Basalt was closed, it is recorded as finished or interrupted
     /// according to <see cref="RunningSprint.Decide"/>.
     /// </summary>
     public void ResumeInterruptedSprint(DateTime? nowUtc = null)
@@ -1654,7 +1654,7 @@ public class TodayViewModel : ViewModelBase
 
                 // A sprint resumes on the blocklist it started with (F9).
                 // Otherwise a Sealed sprint could come back enforcing a profile
-                // swapped in while FlowShield was closed, which is the lock
+                // swapped in while Basalt was closed, which is the lock
                 // undone by a restart.
                 if (S.SetActiveProfile(saved.ActiveProfileId))
                 {
@@ -1682,7 +1682,7 @@ public class TodayViewModel : ViewModelBase
                 saved.WatchedMinutes ??= saved.WatchedSoFar;
 
                 // LastSeenUtc moves up, but the gap it spans is deliberately
-                // not added to WatchedMinutes: FlowShield was closed for it.
+                // not added to WatchedMinutes: Basalt was closed for it.
                 saved.LastSeenUtc = now;
                 // A sprint and a break cannot both be running; the sprint wins.
                 S.ActiveBreak = null;
@@ -1712,7 +1712,7 @@ public class TodayViewModel : ViewModelBase
                     Completed = completed,
                     Interrupted = !completed,
                     // TurnedBack stays 0: that count lived in memory, in the
-                    // FlowShield that was closed.
+                    // Basalt that was closed.
                 };
                 // Added first, for the same reason as in EndSprint: the goal
                 // rules count S.Sessions. And skipped under --short-sprints for
@@ -1736,14 +1736,14 @@ public class TodayViewModel : ViewModelBase
 
                 SessionStateText = completed ? RingCaption.FinishedWhileClosed : RingCaption.Interrupted;
                 _main.Toast(completed
-                    ? "Your last sprint finished while FlowShield was closed."
-                    : "Your last sprint was interrupted — FlowShield wasn't running for most of it.");
+                    ? "Your last sprint finished while Basalt was closed."
+                    : "Your last sprint was interrupted — Basalt wasn't running for most of it.");
                 _main.Notify(
                     completed ? NotificationKind.SprintComplete : NotificationKind.SprintInterrupted,
                     completed ? "Sprint complete" : "Sprint interrupted",
                     completed
-                        ? $"{session.PlannedMinutes} minutes finished while FlowShield was closed."
-                        : "FlowShield wasn't running for most of it, so nothing was enforced.");
+                        ? $"{session.PlannedMinutes} minutes finished while Basalt was closed."
+                        : "Basalt wasn't running for most of it, so nothing was enforced.");
                 break;
 
             default:
@@ -1781,8 +1781,8 @@ public class TodayViewModel : ViewModelBase
             // (#203). A DispatcherTimer doesn't tick while the PC sleeps, so the
             // first tick after waking lands here with the whole nap behind it,
             // and so does winding the clock forward. Judge it the way F3 judges
-            // a sprint that ran out while FlowShield was closed: finished only
-            // if FlowShield was watching for at least half of it. The final
+            // a sprint that ran out while Basalt was closed: finished only
+            // if Basalt was watching for at least half of it. The final
             // stretch goes through the same cap as every heartbeat, which is
             // what stops the gap itself from counting as watched.
             if (S.ActiveSprint is { } saved && CycleState.SprintCountsAsProgress)
@@ -1806,7 +1806,7 @@ public class TodayViewModel : ViewModelBase
         {
             _lastHeartbeatUtc = now;
             // Adds the stretch just watched as well as moving LastSeenUtc, so
-            // F3's "running for at least half of it" measures time FlowShield
+            // F3's "running for at least half of it" measures time Basalt
             // was actually up rather than the span between two timestamps.
             S.ActiveSprint.NoteStillWatching(now, WatchedStretchCap);
             _main.SaveSettings();
@@ -1870,8 +1870,8 @@ public class TodayViewModel : ViewModelBase
     }
 
     /// <param name="interrupted">
-    /// The time ran out but FlowShield wasn't watching for most of it (#203):
-    /// the PC slept, the clock jumped, or FlowShield was closed for most of a
+    /// The time ran out but Basalt wasn't watching for most of it (#203):
+    /// the PC slept, the clock jumped, or Basalt was closed for most of a
     /// sprint it later resumed. Recorded exactly as F3 records the same thing on
     /// startup — neither finished nor given up, so no momentum either way, no
     /// break and no summary card — and only the minutes actually watched count
@@ -1885,7 +1885,7 @@ public class TodayViewModel : ViewModelBase
         CloseEndPanel(keepGoing: false);
         IsRunning = false;
 
-        // An interrupted sprint "ends" where FlowShield stopped watching it, and
+        // An interrupted sprint "ends" where Basalt stopped watching it, and
         // any other end no later than planned, so ActualMinutes — what the
         // minutes goal and the focus tiles add up — is the time the shield was
         // actually up, not the hours asleep (#203, #300). An End click handled
@@ -1988,9 +1988,9 @@ public class TodayViewModel : ViewModelBase
         }
         else if (interrupted)
         {
-            _main.Toast("Sprint interrupted — FlowShield wasn't watching for most of it.");
+            _main.Toast("Sprint interrupted — Basalt wasn't watching for most of it.");
             _main.Notify(NotificationKind.SprintInterrupted, "Sprint interrupted",
-                "The PC was asleep or FlowShield was closed for most of it, so it doesn't count as finished.");
+                "The PC was asleep or Basalt was closed for most of it, so it doesn't count as finished.");
         }
 
         if (!interrupted) OfferBreakIfEarned(completed);

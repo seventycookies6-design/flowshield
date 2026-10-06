@@ -1,10 +1,10 @@
 """
 Keep the owner's real settings and Windows startup entry out of the suite's way.
 
-The dev build and an installed FlowShield share one settings file in Roaming
+The dev build and an installed Basalt share one settings file in Roaming
 AppData, and the suite wipes and rewrites it constantly — leaving it pointed at
 http://localhost:3000. Without this, running the tests on a machine that also
-has FlowShield installed quietly breaks that install's licence checks.
+has Basalt installed quietly breaks that install's licence checks.
 
 `preserve_user_settings()` copies the file aside before a run and puts it back
 afterwards. The backup is written only once: if a previous run was killed before

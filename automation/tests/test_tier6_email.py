@@ -47,7 +47,7 @@ def capture_server(tmp_path_factory):
         "PORT": str(CAPTURE_PORT),
         "EMAIL_CAPTURE_DIR": str(outbox),
         "FLOWSHIELD_DB": str(db_path),
-        "EMAIL_FROM": "FlowShield <test@flowshield.invalid>",
+        "EMAIL_FROM": "Basalt <test@flowshield.invalid>",
     })
 
     if not _free(CAPTURE_PORT):

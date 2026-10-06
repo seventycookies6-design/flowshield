@@ -1,4 +1,4 @@
-/* FlowShield — checkout + license retrieval glue.
+/* Basalt — checkout + license retrieval glue.
    Talks to the license server; no Stripe.js needed since Checkout is hosted. */
 
 (function () {
@@ -244,8 +244,8 @@
         blurb.innerHTML =
           // No receipt claim either: whether Stripe emails one depends on the
           // account's receipt settings, which this page can't see.
-          'FlowShield is yours to keep. ' +
-          'To activate it, open <b>FlowShield → Settings</b>, enter the email address you ' +
+          'Basalt is yours to keep. ' +
+          'To activate it, open <b>Basalt → Settings</b>, enter the email address you ' +
           'used at checkout, and click <b>Activate licence</b>.' +
           (CONFIG.supportEmail
             ? ' Trouble activating? Email <b>' + escapeHtml(CONFIG.supportEmail) +
@@ -269,7 +269,7 @@
         seal.className = 'seal';
         seal.innerHTML = iconCheck();
       }
-      if (title) title.textContent = 'FlowShield is yours';
+      if (title) title.textContent = 'Basalt is yours';
       var canEmail = !!result.email && result.emailConfigured !== false;
       if (blurb) {
         // Only claim an email was sent when the server actually reports one.
@@ -419,7 +419,7 @@
     // separate from the success page's "Email me this key" above: this one has
     // no checkout session to anchor to, just an email address the visitor
     // types in. Same endpoint, same safety property: the response never says
-    // whether that address bought FlowShield, and the key itself never
+    // whether that address bought Basalt, and the key itself never
     // appears here — it only ever goes to the inbox it was bought with.
     var lostKeyForm = document.getElementById('lost-key-form');
     if (lostKeyForm) {
@@ -456,7 +456,7 @@
           // Same message on every outcome except a hard client error (missing
           // email) or the server being unreachable: differing wording for
           // "found" vs "not found" would turn this into an oracle for who has
-          // bought FlowShield, which /resend-license is deliberately built to
+          // bought Basalt, which /resend-license is deliberately built to
           // avoid on the server side too.
           if (res.ok && payload && payload.message) {
             if (note) note.textContent = payload.message;
@@ -464,7 +464,7 @@
           } else if (res.status === 400) {
             if (note) note.textContent = 'Enter a valid email address.';
           } else {
-            if (note) note.textContent = 'If that address bought FlowShield, the licence key is on its way.';
+            if (note) note.textContent = 'If that address bought Basalt, the licence key is on its way.';
           }
         } catch (err) {
           if (note) note.textContent = 'Could not reach the license server. Please try again.';

@@ -460,9 +460,9 @@ class TestStartWithWindowsBehaviour:
             time.sleep(2.0)
 
             assert ctrl.pid and psutil.pid_exists(ctrl.pid), \
-                "FlowShield exited instead of staying available in the tray"
+                "Basalt exited instead of staying available in the tray"
             assert not ctrl.main_window_is_visible(), \
-                "--tray displayed FlowShield's main window"
+                "--tray displayed Basalt's main window"
 
             tray_icon = ctrl.find_tray_icon()
             assert tray_icon is not None, "FlowShield's notification-area icon is missing"
@@ -470,7 +470,7 @@ class TestStartWithWindowsBehaviour:
             tray_icon.double_click_input()
             ctrl.connect_window()
             assert ctrl.main_window_is_visible(), \
-                "double-clicking the tray icon did not restore FlowShield"
+                "double-clicking the tray icon did not restore Basalt"
         finally:
             ctrl.close_app()
 
@@ -679,7 +679,7 @@ class TestFirmWarnsBeforeItCloses:
         )
 
     def test_the_warning_notification_can_be_turned_off_like_every_other(self):
-        """F19's rule: everything FlowShield can interrupt with is switchable."""
+        """F19's rule: everything Basalt can interrupt with is switchable."""
         settings_xaml = (Path(DESKTOP_DIR) / "Views" / "SettingsView.xaml").read_text(
             encoding="utf-8")
         assert 'AutomationId="NotifyAppClosingToggle"' in settings_xaml
@@ -722,7 +722,7 @@ class TestSoftShieldWording:
         assert "Soft records the" in legal and "leaves the application running" in legal
         assert "unless you choose Close on its notice" in legal
         assert "Firm and Sealed close it" in legal
-        assert "Any unsaved work in an application FlowShield closes may be lost" in legal
+        assert "Any unsaved work in an application Basalt closes may be lost" in legal
 
     def test_the_site_and_the_legal_page_name_every_button_on_the_notice(self):
         """
@@ -1182,7 +1182,7 @@ class TestSettingsLocation:
 
 class TestSuiteLeavesUserSettingsAlone:
     """
-    The dev build and an installed FlowShield share one settings file. The
+    The dev build and an installed Basalt share one settings file. The
     suite wiped and rewrote it and never put it back, so after a run on the
     owner's machine their installed copy was pointed at http://localhost:3000.
     """
@@ -1479,7 +1479,7 @@ class TestSuccessPageHonesty:
         assert "on its way to the email" not in branch, \
             "the page must not promise a licence-key email that is never sent"
         assert "Activate licence" in branch, \
-            "it should tell the buyer how to actually activate FlowShield"
+            "it should tell the buyer how to actually activate Basalt"
 
 
 # ============ what a buyer reads while paying is true (found in a test purchase)
@@ -1577,7 +1577,7 @@ class TestPersistenceAcrossRestart:
 
 class TestTrialThenOneTimePurchase:
     """
-    FlowShield moved from a free tier plus a $4.99/month subscription to a
+    Basalt moved from a free tier plus a $4.99/month subscription to a
     7-day trial with everything unlocked and a one-time $4.99 purchase. Each
     check here guards a way that change could silently come undone.
     """
@@ -1733,11 +1733,11 @@ class TestDesignTokensStayInSync:
         assert "--color-primary: #123456;" in dark_css
 
 
-# ============ a sprint can't be escaped by closing FlowShield (F3, #43)
+# ============ a sprint can't be escaped by closing Basalt (F3, #43)
 
 class TestSprintSurvivesRestart:
     """
-    A running sprint lived only in memory, so killing FlowShield from Task
+    A running sprint lived only in memory, so killing Basalt from Task
     Manager, a crash or a reboot ended it silently, even a Sealed one.
     """
 
@@ -1868,12 +1868,12 @@ class TestNoOneClickEscape:
         deadline = time.time() + 10
         while time.time() < deadline and psutil.pid_exists(fresh_app.pid):
             time.sleep(0.4)
-        assert not psutil.pid_exists(fresh_app.pid), "FlowShield didn't quit after the sprint ended"
+        assert not psutil.pid_exists(fresh_app.pid), "Basalt didn't quit after the sprint ended"
 
 
 class TestQuitEndsAnyRunningSprint:
     """
-    #204: closing FlowShield during a Soft sprint skipped RequestEnd and left
+    #204: closing Basalt during a Soft sprint skipped RequestEnd and left
     the saved sprint active, so the next launch resumed it.
     """
 
@@ -2033,7 +2033,7 @@ class TestDeepLinkRegistrationRecovery:
         assert ".OnAfterUpdateFastCallback(_ => RegisterLink())" in program
 
 
-# ============ FlowShield never nagged, and never told you anything either (F19, #95)
+# ============ Basalt never nagged, and never told you anything either (F19, #95)
 
 class TestNotificationsStayQuiet:
     """
@@ -2081,12 +2081,12 @@ class TestNotificationsStayQuiet:
         assert "NotificationPolicy.TrayIconText(remaining)" in update
         # F5 put a break ahead of the sprint countdown in the same expression:
         # "Break · 4:59" while one runs, the sprint's time left otherwise.
-        assert 'running ? $"FlowShield — {Vm?.Today.RemainingText}"' in update
-        assert ': "FlowShield";' in update
-        assert 'onBreak ? $"FlowShield — {NotificationPolicy.BreakLabel(remaining)}"' in update
+        assert 'running ? $"Basalt — {Vm?.Today.RemainingText}"' in update
+        assert ': "Basalt";' in update
+        assert 'onBreak ? $"Basalt — {NotificationPolicy.BreakLabel(remaining)}"' in update
 
     def test_the_tray_search_only_trusts_explorer(self):
-        # A Claude desktop session titled "FlowShield …" was double-clicked as
+        # A Claude desktop session titled "Basalt …" was double-clicked as
         # if it were the tray icon; any app can show a button with that name.
         controller = (Path(DESKTOP_DIR).parent / "automation" / "desktop" / "app_controller.py").read_text(
             encoding="utf-8")
@@ -2365,7 +2365,7 @@ class TestUninstallCleansUp:
                     winreg.SetValueEx(k, "URL Protocol", 0, winreg.REG_SZ, "")
 
 
-# ============ opening FlowShield twice ran two copies (roadmap 1.3, #49)
+# ============ opening Basalt twice ran two copies (roadmap 1.3, #49)
 
 class TestOneInstanceOnly:
     """
@@ -2392,7 +2392,7 @@ class TestOneInstanceOnly:
         single = (Path(DESKTOP_DIR) / "Services" / "SingleInstance.cs").read_text(encoding="utf-8")
         assert "Environment.UserName" in single
         assert "catch (AbandonedMutexException) { owned = true; }" in single, \
-            "a copy killed from Task Manager would stop FlowShield ever opening again"
+            "a copy killed from Task Manager would stop Basalt ever opening again"
 
     @pytest.mark.ui
     def test_a_second_launch_mid_sprint_changes_nothing(self, fresh_app):
@@ -2416,7 +2416,7 @@ class TestOneInstanceOnly:
 
         names = [p.pid for p in psutil.process_iter(["name"])
                  if (p.info["name"] or "").lower() == "flowshield.exe"]
-        assert names == [fresh_app.pid], "a second FlowShield kept running"
+        assert names == [fresh_app.pid], "a second Basalt kept running"
         after = verify.read_settings()
         # LastSeenUtc moves with the heartbeat, so compare what defines the sprint.
         assert after.get("ActiveSprint") and all(
@@ -2430,7 +2430,7 @@ class TestOneInstanceOnly:
 
 class TestDeleteEverythingRestartRegressions:
     """
-    #271: deleting everything cleared the settings file and restarted FlowShield,
+    #271: deleting everything cleared the settings file and restarted Basalt,
     but shutdown could save the old in-memory settings back over the deletion,
     and the new --reset process could lose the mutex race with the old process.
     """
@@ -2588,7 +2588,7 @@ class TestFriendlyErrorDialog:
     message and a log path. It now shows a calm dialog that copies the details
     and links to support.
 
-    The first draft of the dialog said "FlowShield is still guarding your
+    The first draft of the dialog said "Basalt is still guarding your
     sprint" and "Your sprint and blocklist are safe". Nothing in the handler
     can verify either after an arbitrary exception, so the dialog may not
     promise it (CLAUDE.md: never claim what the build can't back up).
@@ -2601,7 +2601,7 @@ class TestFriendlyErrorDialog:
         code_behind = (Path(DESKTOP_DIR) / "Views" / "FriendlyErrorDialog.xaml.cs").read_text(
             encoding="utf-8")
 
-        assert "FlowShield hit an unexpected error" not in app, \
+        assert "Basalt hit an unexpected error" not in app, \
             "the raw exception MessageBox must be gone"
         assert "FriendlyErrorDialog" in app, \
             "App.xaml.cs must show the friendly dialog on an unhandled exception"
@@ -2733,7 +2733,7 @@ class TestSmallScreenLayout:
         """
         The first draft set NavBuyButton.Visibility from OnSizeChanged. A local
         value replaces the element's {Binding IsNotPro} binding, so after one
-        resize a paying customer saw "Buy FlowShield" again. Code-behind may
+        resize a paying customer saw "Buy Basalt" again. Code-behind may
         only toggle Visibility on elements whose Visibility isn't data-bound.
         """
         import re
@@ -3132,7 +3132,7 @@ class TestNoDeveloperTextOnCustomerSurfaces:
 
 # ============ the site is keyboard-accessible and motion-safe (roadmap 6.7)
 
-# ================= the site says what FlowShield doesn't do (F26) and what it
+# ================= the site says what Basalt doesn't do (F26) and what it
 # ================= costs compared with the category (F24)
 class TestHonestLimitsAndPriceComparison:
     """
@@ -3268,8 +3268,8 @@ class TestSuccessPageKeyRecovery:
         source = (Path(WEBSITE_DIR) / "success.html").read_text(encoding="utf-8")
         assert 'id="copy-key"' in source, "the Copy license key button is missing"
         assert 'id="email-key"' in source, "the Email me this key button is missing"
-        assert 'id="activate-link"' in source, "the Activate in FlowShield button is missing"
-        assert 'id="download-link"' in source, "the Download FlowShield button is missing"
+        assert 'id="activate-link"' in source, "the Activate in Basalt button is missing"
+        assert 'id="download-link"' in source, "the Download Basalt button is missing"
         assert "resend-license" not in source or "checkout.js" in source, \
             "the email handler must live in checkout.js, not inline in the HTML"
 
@@ -5754,7 +5754,7 @@ class TestTheGoalSeesTheSprintThatJustFinished:
 class TestTheTrendLeavesAnInterruptedSprintAlone:
     """
     #195. MomentumTrend.After branched on Completed alone, so a sprint recorded
-    as Interrupted -- FlowShield was not running for most of it, nothing was
+    as Interrupted -- Basalt was not running for most of it, nothing was
     enforced -- was charged the ended-early decay on replay. ApplyMomentum is
     never called for one, so the drawn line sank below the MomentumText printed
     beside it, and TrendDescription (the only thing a screen reader gets)
@@ -5923,8 +5923,8 @@ class TestTheSleepWindowNeverDropsBelowFirm:
 
 class TestResumingDoesNotCreditTimeFlowShieldWasClosed:
     """
-    #198. F3 records a sprint whose time ran out while FlowShield was closed as
-    finished only if FlowShield was watching for at least half of it -- but
+    #198. F3 records a sprint whose time ran out while Basalt was closed as
+    finished only if Basalt was watching for at least half of it -- but
     Decide measured that as LastSeenUtc minus StartedUtc, and
     ResumeInterruptedSprint refreshes LastSeenUtc. Reopening the app for one
     second near the end of a 60-minute sprint therefore counted all 60 minutes
@@ -5981,7 +5981,7 @@ class TestResumingDoesNotCreditTimeFlowShieldWasClosed:
         resume = vm.split("case SprintResume.Resume:", 1)[1].split("break;", 1)[0]
         assert "saved.LastSeenUtc = now;" in resume
         assert "NoteStillWatching" not in resume, (
-            "resuming must not credit the sprint with the time FlowShield was closed "
+            "resuming must not credit the sprint with the time Basalt was closed "
             "-- that is the whole bug"
         )
 
@@ -6292,7 +6292,7 @@ class TestHistoryPage:
         """
         Everything counted on this page is derived from AppSettings.Sessions
         through HistoryStats. The one exception is named out loud: the
-        most-blocked app is the per-entry count FlowShield already keeps on the
+        most-blocked app is the per-entry count Basalt already keeps on the
         blocklist, because a sprint records how many distractions it caught and
         never which app they were — and the card says so rather than implying
         the count is this week's.
@@ -7232,7 +7232,7 @@ class TestBlocklistProfilesKeepTheirPromises:
         """
         `BlockedApps` is the only blocklist a pre-F9 settings file has. It must
         still be a serialized property (not [JsonIgnore], not renamed), or every
-        existing customer opens FlowShield to an empty blocklist.
+        existing customer opens Basalt to an empty blocklist.
         """
         blocked = self.APP_SETTINGS.split("public List<BlockedApp> BlockedApps")[1].split("\n    }")[0]
         assert "set => _legacyBlockedApps = value;" in blocked
@@ -7506,7 +7506,7 @@ class TestBreakCopyTracksScheduledSleepWindow:
         A line wider than the ring at that height painted across the stroke,
         and one wider than the whole ring was clipped at both ends: #301's
         first wording showed as "eak resumed — the sleep shield is still u",
-        and "Sprint finished while FlowShield was closed" (247.6 px) and
+        and "Sprint finished while Basalt was closed" (247.6 px) and
         "Break resumed — the shield is down" (206.5 px) still overran the
         ring's ~177 px at the caption line.
 
@@ -7551,7 +7551,7 @@ class TestBreakCopyTracksScheduledSleepWindow:
         texts = {" ".join(e["text"].split()) for e in entries}
         for text in ("Break — the shield is down", "Break resumed — the shield is down",
                      "Break — sleep shield still up", "Break resumed — sleep shield still up",
-                     "Sprint finished while FlowShield was closed", "Sprint resumed — shield III"):
+                     "Sprint finished while Basalt was closed", "Sprint resumed — shield III"):
             assert text in texts, f"#304: {text!r} was not laid out"
         assert {e["below"] for e in entries} == {"none", "cycle"}
         assert all((e["glyph"] is not None) == e["running"] for e in entries), (
@@ -8599,7 +8599,7 @@ class TestACompletedSprintDoesNotCountTheSleep300:
     """
     #300. A DispatcherTimer does not tick while the PC sleeps, so the first
     tick after waking reaches OnTick's time-up branch with the nap behind it.
-    Since #203 a sprint FlowShield watched at least half of still finishes
+    Since #203 a sprint Basalt watched at least half of still finishes
     there, which is right -- but EndSprint stamped its end with DateTime.UtcNow,
     the moment of waking, and FocusSession.ActualMinutes is EndedUtc minus
     StartedUtc. Eight hours asleep became eight hours focused: on the summary
@@ -9401,7 +9401,7 @@ class TestTheJumpListStartsLikeTheTray:
             if depth == 0:
                 break
         listen, after = app[start:end], app[end:]
-        assert "ViewModel.HandleStartSprintArg(launchArgs);" in listen, "a launch while FlowShield runs"
+        assert "ViewModel.HandleStartSprintArg(launchArgs);" in listen, "a launch while Basalt runs"
         assert "ViewModel.HandleStartSprintArg(args);" in after, "a cold launch from the Jump List"
         assert app.index("window.Show();") < app.index("ViewModel.RebuildJumpList();")
         # #275's retry is for --reset; every other argument, --start-sprint
@@ -9691,6 +9691,97 @@ class TestTheSprintClockIsNotStarved319:
 
         # The tick's own work stays silent per tick.
         assert "Log." not in self.member(code, "private void OnTick()")
+
+
+class TestTheRenameToBasaltKeepsWhatCustomersHave321:
+    """
+    #321: an earlier Windows focus app already sold as FlowShield, so the
+    product became Basalt. Customers see the new name; everything a customer's
+    machine or a past purchase already depends on keeps the old one. Changing
+    the settings entropy or folder would make every saved setting unreadable,
+    the Run value or scheme would orphan a registration, the device salt would
+    count each PC as a new seat, and the Stripe tag would stop a pre-rename
+    purchase being found by "resend my key".
+    """
+
+    MAIN = Path(DESKTOP_DIR) / "MainWindow.xaml"
+    MAIN_CODE = Path(DESKTOP_DIR) / "MainWindow.xaml.cs"
+    SERVICES = Path(DESKTOP_DIR) / "Services"
+    SERVER = Path(SERVER_DIR) / "server.js"
+    EMAIL = Path(SERVER_DIR) / "email.js"
+
+    code = staticmethod(TestTheJumpListStartsLikeTheTray.code)
+
+    def test_the_window_the_tray_and_the_nav_say_basalt(self):
+        window = self.MAIN.read_text(encoding="utf-8")
+        assert re.search(r'<Window\b[^>]*\bTitle="Basalt"', window)
+        assert re.search(r'x:Name="NavBrandText" Text="Basalt"', window)
+        tray = self.code(self.MAIN_CODE)
+        assert 'Text = "Basalt",' in tray, "the tray icon's tooltip"
+        assert 'ShowBalloonTip(2500, "Basalt",' in tray
+
+    def test_no_text_on_screen_still_says_flowshield(self):
+        shown = re.compile(r'\b(?:Text|Content|Title|ToolTip|AutomationProperties\.Name)="([^"]*)"')
+        leftovers = []
+        for path in Path(DESKTOP_DIR).rglob("*.xaml"):
+            for value in shown.findall(path.read_text(encoding="utf-8")):
+                if "FlowShield" in value:
+                    leftovers.append(f"{path.name}: {value}")
+        # A string literal with a space in it is prose: a toast, a dialog, a
+        # log line. Identifiers ("FlowShield.v1", "FlowShield") have none.
+        prose = re.compile(r'"([^"\n]*FlowShield[^"\n]*)"')
+        for path in Path(DESKTOP_DIR).rglob("*.cs"):
+            for value in prose.findall(self.code(path)):
+                if " " in value:
+                    leftovers.append(f"{path.name}: {value}")
+        assert not leftovers, leftovers
+
+    def test_the_site_says_basalt_outside_links_and_the_changelog_note(self):
+        class Text(HTMLParser):
+            def __init__(self):
+                super().__init__()
+                self.parts = []
+
+            def handle_data(self, data):
+                self.parts.append(data)
+
+        for page in Path(WEBSITE_DIR).glob("*.html"):
+            parser = Text()
+            parser.feed(page.read_text(encoding="utf-8"))
+            text = " ".join(parser.parts)
+            if page.name == "changelog.html":
+                # The one place the old name belongs: saying it changed.
+                text = text.replace("Basalt was called FlowShield", "")
+                text = text.replace("FlowShield is now called Basalt", "")
+                text = text.split("1.0.10", 1)[0]
+            assert "FlowShield" not in text, page.name
+        assert "<title>Basalt" in (Path(WEBSITE_DIR) / "index.html").read_text(encoding="utf-8")
+
+    def test_what_a_customers_machine_depends_on_keeps_the_old_name(self):
+        settings = (self.SERVICES / "SettingsService.cs").read_text(encoding="utf-8")
+        assert 'EntropyLabel = "FlowShield.v1";' in settings, "saved settings must stay readable"
+        assert settings.count('"FlowShield");') == 2, "the settings folder and its legacy path"
+        assert 'ValueName = "FlowShield";' in (self.SERVICES / "StartupEntry.cs").read_text(encoding="utf-8")
+        assert 'Salt = "FlowShield.device.v1";' in (self.SERVICES / "DeviceIdentity.cs").read_text(encoding="utf-8")
+        assert 'Scheme = "flowshield";' in (self.SERVICES / "DeepLink.cs").read_text(encoding="utf-8")
+        assert '"FlowShield", "logs"' in (self.SERVICES / "Log.cs").read_text(encoding="utf-8")
+        assert r'KeyPath = @"Software\FlowShield\Trial";' in (self.SERVICES / "TrialRecord.cs").read_text(
+            encoding="utf-8"
+        ), "a new key would hand everyone a fresh trial"
+        project = (Path(DESKTOP_DIR) / "FlowShield.csproj").read_text(encoding="utf-8")
+        assert "<AssemblyName>FlowShield</AssemblyName>" in project, "the installed exe and the update feed"
+        release = (Path(DESKTOP_DIR).parent / "tools" / "build_release.ps1").read_text(encoding="utf-8")
+        assert "--packId FlowShield" in release, "a new id would strand every install on its old version"
+        assert "--packTitle 'Basalt'" in release, "the Start menu and Installed apps show the new name"
+
+    def test_the_server_names_basalt_but_still_finds_flowshield_purchases(self):
+        server = self.SERVER.read_text(encoding="utf-8")
+        assert "const APP_NAME = 'Basalt';" in server
+        assert "const APP_ID = 'FlowShield';" in server
+        assert "payment.metadata?.app !== APP_ID" in server
+        tags = re.findall(r"\bapp: (\w+)", server)
+        assert tags and set(tags) == {"APP_ID"}, f"every purchase is tagged with the old id: {tags}"
+        assert "const APP_NAME = 'Basalt';" in self.EMAIL.read_text(encoding="utf-8")
 
 
 # ============================== the window opens inside the work area (#296)

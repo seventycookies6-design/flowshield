@@ -1,9 +1,9 @@
 'use strict';
 
 /**
- * FlowShield licence server.
+ * Basalt licence server.
  *
- * FlowShield is sold as a one-time purchase after a 7-day in-app trial. A
+ * Basalt is sold as a one-time purchase after a 7-day in-app trial. A
  * purchase is a Checkout Session in payment mode; its PaymentIntent carries the
  * licence key in metadata. Licences bought on the old monthly plan are
  * subscriptions and keep working through the same routes.
@@ -39,7 +39,10 @@ const PORT = Number(process.env.PORT || 3000);
  */
 const DEVICE_LIMIT = Number(process.env.DEVICE_LIMIT ?? 3);
 const WEBSITE_URL = (process.env.WEBSITE_URL || 'http://localhost:5500').replace(/\/$/, '');
-const APP_NAME = 'FlowShield';
+const APP_NAME = 'Basalt';
+// Tags this app's Stripe payments. It predates the rename to Basalt and stays
+// as it is, or purchases made before the rename stop being recognised (#321).
+const APP_ID = 'FlowShield';
 
 const keys = loadKeys();
 const keyReport = describe(keys);
@@ -174,8 +177,8 @@ async function recoverFromStripe({ key, email }) {
         });
         for (const payment of payments.data) {
           if (payment.status !== 'succeeded') continue;
-          // Only FlowShield purchases: the same Stripe account may sell other things.
-          if (payment.metadata?.app !== APP_NAME && !payment.metadata?.license_key) continue;
+          // Only this app's purchases: the same Stripe account may sell other things.
+          if (payment.metadata?.app !== APP_ID && !payment.metadata?.license_key) continue;
           candidates.push({ payment, customer });
         }
 
@@ -279,11 +282,11 @@ async function stampLicenseKey({ payment, subscription }, licenseKey) {
   try {
     if (payment && payment.metadata?.license_key !== licenseKey) {
       await stripe.paymentIntents.update(payment.id, {
-        metadata: { ...(payment.metadata || {}), license_key: licenseKey, app: APP_NAME },
+        metadata: { ...(payment.metadata || {}), license_key: licenseKey, app: APP_ID },
       });
     } else if (subscription && subscription.metadata?.license_key !== licenseKey) {
       await stripe.subscriptions.update(subscription.id, {
-        metadata: { ...(subscription.metadata || {}), license_key: licenseKey, app: APP_NAME },
+        metadata: { ...(subscription.metadata || {}), license_key: licenseKey, app: APP_ID },
       });
     }
   } catch (err) {
@@ -515,8 +518,8 @@ app.post('/create-checkout', async (req, res) => {
       allow_promotion_codes: true,
       success_url: `${WEBSITE_URL}/success.html?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${WEBSITE_URL}/index.html?checkout=cancelled`,
-      payment_intent_data: { metadata: { license_key: licenseKeyValue, app: APP_NAME } },
-      metadata: { license_key: licenseKeyValue, app: APP_NAME },
+      payment_intent_data: { metadata: { license_key: licenseKeyValue, app: APP_ID } },
+      metadata: { license_key: licenseKeyValue, app: APP_ID },
       // The buyer ticks a box agreeing to the terms, and Stripe stores that
       // with the payment. A liability limit nobody agreed to is worth little
       // (legal checklist 2.2). The box links to the terms-of-service URL set
@@ -747,7 +750,7 @@ app.post('/validate', limiter.middleware('validate'), async (req, res) => {
         deviceLimit: seat.limit,
         message:
           `This licence is already active on ${seat.count} devices, the maximum per ` +
-          `licence. Deactivate FlowShield on a machine you no longer use, then try again.`,
+          `licence. Deactivate Basalt on a machine you no longer use, then try again.`,
       });
     }
 
@@ -775,7 +778,7 @@ app.post('/resend-license', limiter.middleware('resend-license'), async (req, re
   const sessionId = typeof req.body?.sessionId === 'string' ? req.body.sessionId.trim() : '';
   const generic = {
     ok: true,
-    message: 'If that address bought FlowShield, the licence key is on its way.',
+    message: 'If that address bought Basalt, the licence key is on its way.',
   };
 
   if (!email) {

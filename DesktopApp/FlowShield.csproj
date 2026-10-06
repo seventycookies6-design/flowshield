@@ -11,8 +11,8 @@
     <RootNamespace>FlowShield</RootNamespace>
     <ApplicationIcon>Assets\FlowShield.ico</ApplicationIcon>
     <Version>1.0.0</Version>
-    <Product>FlowShield</Product>
-    <Company>FlowShield</Company>
+    <Product>Basalt</Product>
+    <Company>Basalt</Company>
     <!-- Single-instance + tray behaviour relies on STA; default for WPF. -->
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
 

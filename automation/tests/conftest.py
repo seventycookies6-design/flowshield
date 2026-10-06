@@ -1,4 +1,4 @@
-"""Shared pytest fixtures for the FlowShield suite."""
+"""Shared pytest fixtures for the Basalt suite."""
 
 from __future__ import annotations
 
@@ -89,11 +89,11 @@ def needs_webhook_secret():
 @pytest.fixture
 def fresh_app(logger):
     """
-    A throwaway FlowShield with settings wiped, torn down after each test.
+    A throwaway Basalt with settings wiped, torn down after each test.
 
     Deliberately function-scoped. A session-scoped instance would be cheaper
     (~15s per cold launch + UIA attach), but launch_app() clears stray
-    FlowShield processes so that a crashed earlier run can't poison the next —
+    Basalt processes so that a crashed earlier run can't poison the next —
     which means the first per-test launch would silently kill a shared one, and
     every later test using it would fail for reasons unrelated to the code under
     test. Per-test isolation is worth the wall-clock.
@@ -133,7 +133,7 @@ def schedule_app(logger):
 
 @pytest.fixture
 def expired_app(logger):
-    """A fresh FlowShield whose 7-day trial has already run out, with no licence."""
+    """A fresh Basalt whose 7-day trial has already run out, with no licence."""
     if not Path(APP_EXE).exists():
         pytest.skip(f"{APP_EXE} not built")
 
@@ -155,7 +155,7 @@ def app(fresh_app):
 @pytest.fixture
 def trial_expiring_soon_app(logger):
     """
-    A fresh FlowShield whose trial is still active at launch but runs out a
+    A fresh Basalt whose trial is still active at launch but runs out a
     short while later — for F20's "expires mid-sprint" scenario, where the
     lock must wait for the running sprint (and its summary card) rather than
     interrupting either.

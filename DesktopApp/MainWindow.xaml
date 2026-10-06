@@ -4,7 +4,7 @@
         xmlns:views="clr-namespace:FlowShield.Views"
         xmlns:vm="clr-namespace:FlowShield.ViewModels"
         xmlns:models="clr-namespace:FlowShield.Models"
-        Title="FlowShield" Icon="Assets/FlowShield.ico"
+        Title="Basalt" Icon="Assets/FlowShield.ico"
         Height="760" Width="1180"
         MinHeight="540" MinWidth="800"
         WindowStartupLocation="CenterScreen"
@@ -61,7 +61,7 @@
                               Stroke="{DynamicResource Primary}" StrokeThickness="1.9"
                               StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
                     </Canvas>
-                    <TextBlock x:Name="NavBrandText" Text="FlowShield" Style="{StaticResource H2}"
+                    <TextBlock x:Name="NavBrandText" Text="Basalt" Style="{StaticResource H2}"
                                VerticalAlignment="Center" Margin="12,0,0,0"/>
                 </StackPanel>
 
@@ -71,10 +71,10 @@
                      that binding and show the button to paying customers. -->
                 <StackPanel x:Name="NavBottomPanel" DockPanel.Dock="Bottom">
                     <Button Style="{StaticResource BtnPrimary}"
-                            Content="Buy FlowShield — $4.99"
+                            Content="Buy Basalt — $4.99"
                             Command="{Binding GetProCommand}"
                             AutomationProperties.AutomationId="GetProNavButton"
-                            AutomationProperties.Name="Buy FlowShield"
+                            AutomationProperties.Name="Buy Basalt"
                             Visibility="{Binding IsNotPro, Converter={StaticResource BoolVis}}"
                             Margin="0,0,0,12"/>
 
@@ -208,17 +208,17 @@
                         HorizontalAlignment="Center" VerticalAlignment="Center">
                     <StackPanel>
                         <TextBlock Text="FREE TRIAL ENDED" Style="{StaticResource Eyebrow}"/>
-                        <TextBlock Text="Keep FlowShield for $4.99" Style="{StaticResource H1}"
+                        <TextBlock Text="Keep Basalt for $4.99" Style="{StaticResource H1}"
                                    Margin="0,8,0,0"/>
                         <TextBlock Text="{Binding TrialEndedText}" Style="{StaticResource Body}"
                                    TextWrapping="Wrap" Margin="0,12,0,0"
                                    AutomationProperties.AutomationId="TrialEndedText"/>
 
-                        <Button Style="{StaticResource BtnPrimary}" Content="Buy FlowShield — $4.99"
+                        <Button Style="{StaticResource BtnPrimary}" Content="Buy Basalt — $4.99"
                                 Command="{Binding GetProCommand}" Padding="24,12" Margin="0,24,0,0"
                                 HorizontalAlignment="Left"
                                 AutomationProperties.AutomationId="LockBuyButton"
-                                AutomationProperties.Name="Buy FlowShield"/>
+                                AutomationProperties.Name="Buy Basalt"/>
 
                         <Border Height="1" Background="{DynamicResource Edge}" Margin="0,24,0,16"/>
 
@@ -294,7 +294,7 @@
                                 <StackPanel DockPanel.Dock="Top">
                                     <TextBlock Text="What pulls you away?" Style="{StaticResource H1}"/>
                                     <TextBlock Style="{StaticResource Body}" TextWrapping="Wrap" Margin="0,8,0,16"
-                                               Text="Tick the apps FlowShield should block during a sprint. The ones on this PC are ticked for you to confirm."/>
+                                               Text="Tick the apps Basalt should block during a sprint. The ones on this PC are ticked for you to confirm."/>
                                     <TextBox Style="{StaticResource Field}" Margin="0,0,0,12"
                                              Text="{Binding Query, UpdateSourceTrigger=PropertyChanged}"
                                              AutomationProperties.AutomationId="FirstRunSearchInput"
@@ -408,9 +408,9 @@
                                 <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding StartWithWindows}"
                                           Margin="0,24,0,0"
                                           AutomationProperties.AutomationId="FirstRunStartWithWindows"
-                                          AutomationProperties.Name="Start FlowShield with Windows">
+                                          AutomationProperties.Name="Start Basalt with Windows">
                                     <StackPanel>
-                                        <TextBlock Text="Start FlowShield with Windows" Foreground="{DynamicResource Ink}"/>
+                                        <TextBlock Text="Start Basalt with Windows" Foreground="{DynamicResource Ink}"/>
                                         <TextBlock Text="Opens quietly in the tray when you sign in, so a sprint survives a restart."
                                                    Style="{StaticResource Caption}" TextWrapping="Wrap"/>
                                     </StackPanel>
@@ -440,7 +440,7 @@
                                    Foreground="{DynamicResource Ink}" FontSize="14" Margin="0,12,0,0"
                                    AutomationProperties.AutomationId="ActivationLinkKey"/>
                         <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,8,0,0"
-                                   Text="FlowShield will check this key with the licence server and unlock this device."/>
+                                   Text="Basalt will check this key with the licence server and unlock this device."/>
                         <StackPanel Orientation="Horizontal" Margin="0,24,0,0">
                             <Button Style="{StaticResource BtnPrimary}" Content="Activate" Padding="24,12"
                                     Command="{Binding ConfirmActivationCommand}"
@@ -457,7 +457,7 @@
 
             <!-- ============================================ terms gate (legal 2.3) -->
             <!-- Above every other panel, including the lock screen: nothing in
-                 FlowShield should be usable before this is accepted. -->
+                 Basalt should be usable before this is accepted. -->
             <Border Grid.Row="0" Grid.RowSpan="2" Background="{DynamicResource Scrim}"
                     Visibility="{Binding TermsGateVisible, Converter={StaticResource BoolVis}}"
                     KeyboardNavigation.TabNavigation="Cycle"
@@ -467,7 +467,7 @@
                         HorizontalAlignment="Center" VerticalAlignment="Center">
                     <StackPanel>
                         <TextBlock Text="BEFORE YOU START" Style="{StaticResource Eyebrow}"/>
-                        <TextBlock Text="FlowShield closes programs" Style="{StaticResource H1}" Margin="0,8,0,0"/>
+                        <TextBlock Text="Basalt closes programs" Style="{StaticResource H1}" Margin="0,8,0,0"/>
 
                         <TextBlock Text="{Binding TermsDataLossWarning}" Style="{StaticResource Body}"
                                    TextWrapping="Wrap" Margin="0,16,0,0"
@@ -497,7 +497,7 @@
                                 AutomationProperties.Name="I understand and agree"/>
 
                         <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,12,0,0"
-                                   Text="If you don't agree, close FlowShield and uninstall it; if you have bought it, ask for a refund."/>
+                                   Text="If you don't agree, close Basalt and uninstall it; if you have bought it, ask for a refund."/>
                     </StackPanel>
                 </Border>
             </Border>

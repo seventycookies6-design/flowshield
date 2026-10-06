@@ -1,4 +1,4 @@
-"""Whether an app is installed on this PC, the way FlowShield's picker finds it.
+"""Whether an app is installed on this PC, the way Basalt's picker finds it.
 
 Since the picker lists a suggested app only when it is installed (so every row
 carries the app's own icon), UI tests that click a suggestion skip on a PC

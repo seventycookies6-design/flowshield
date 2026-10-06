@@ -46,7 +46,7 @@ public class BlocklistProfile : INotifyPropertyChanged
     private List<string> _sites = new();
 
     /// <summary>
-    /// Websites on this list, as normalised hosts ("youtube.com"). FlowShield
+    /// Websites on this list, as normalised hosts ("youtube.com"). Basalt
     /// cannot block them without a browser extension (F10, after launch), so
     /// during a sprint it shows its notice when a browser's title names one
     /// (<see cref="WebsiteTitleMatch"/>). Never null: an older settings file

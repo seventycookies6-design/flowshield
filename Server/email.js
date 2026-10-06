@@ -15,9 +15,9 @@
  * Every failure path here returns a result object; none of them throw.
  */
 
-const APP_NAME = 'FlowShield';
+const APP_NAME = 'Basalt';
 
-const FROM = process.env.EMAIL_FROM || 'FlowShield <onboarding@resend.dev>';
+const FROM = process.env.EMAIL_FROM || 'Basalt <onboarding@resend.dev>';
 const REPLY_TO = process.env.EMAIL_REPLY_TO || '';
 const SITE_URL = (process.env.WEBSITE_URL || 'https://seventycookies6-design.github.io/flowshield')
   .replace(/\/$/, '');

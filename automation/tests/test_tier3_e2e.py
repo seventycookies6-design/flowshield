@@ -514,7 +514,7 @@ class TestSoftShowsTheNotice:
     @pytest.fixture
     def real_wait_app(self, logger):
         """
-        A fresh FlowShield with the real Soft waits, not --short-timers.
+        A fresh Basalt with the real Soft waits, not --short-timers.
 
         Under --short-timers Allow's wait is three seconds, still under the
         floor the suite can see into: a UIA lookup plus an IsEnabled read can
@@ -648,7 +648,7 @@ class TestSoftShowsTheNotice:
 
         # The notice's whole trigger is the decoy being the foreground window
         # (class docstring), but arming just spent several clicks and an F7
-        # answer inside FlowShield's own window, which is what actually holds
+        # answer inside Basalt's own window, which is what actually holds
         # focus now. Hand it back.
         self._bring_forward(process)
 
@@ -1266,7 +1266,7 @@ class TestTrialExpiringDuringASprint:
         app = trial_expiring_soon_app
         app.navigate_to_tab("Today")
 
-        # The shortest sprint FlowShield offers (5 minutes) comfortably
+        # The shortest sprint Basalt offers (5 minutes) comfortably
         # outlasts the trial set by --expire-trial-in (see the fixture).
         # Custom length is Pro-gated, so this only works while the trial is
         # still live — which is why the fixture's runway has to cover the
@@ -1295,7 +1295,7 @@ class TestTrialExpiringDuringASprint:
         assert app.text_of("SummaryTitle") == "Sprint complete"
 
         # The summary/journal card is up: the lock must still be held off so
-        # "what moved?" is never interrupted by "buy FlowShield".
+        # "what moved?" is never interrupted by "buy Basalt".
         time.sleep(2)
         assert not app.exists("LockBuyButton", timeout=1.5), \
             "the lock must wait until the summary card is dismissed"
@@ -1372,7 +1372,7 @@ class TestPurchaseToActivation:
 @pytest.mark.stripe
 @pytest.mark.e2e
 class TestPurchaseUnlocksAnExpiredTrial:
-    """Buying FlowShield after the trial has ended must lift the lock."""
+    """Buying Basalt after the trial has ended must lift the lock."""
 
     def test_a_licence_unlocks_the_locked_app(self, expired_app, server,
                                               needs_stripe, logger):
@@ -1597,7 +1597,7 @@ def current_terms_version() -> str:
 
 
 class TestTermsGate:
-    """A clean install must agree to the terms before FlowShield can do anything."""
+    """A clean install must agree to the terms before Basalt can do anything."""
 
     def _launch(self, logger, clean=True):
         from desktop.app_controller import DesktopController
@@ -1707,7 +1707,7 @@ class TestNotificationSettings:
         fresh_app.start_sprint()
         time.sleep(1.5)
         title = fresh_app.window.window_text()
-        assert title.startswith("FlowShield —"), title
+        assert title.startswith("Basalt —"), title
         assert ":" in title, title
 
 
@@ -1848,7 +1848,7 @@ class TestFirstRun:
 # ======================================================= one instance (1.3)
 
 def launch_again(*extra: str) -> int:
-    """Start a second FlowShield without closing the first; returns its exit code."""
+    """Start a second Basalt without closing the first; returns its exit code."""
     import subprocess
     from pathlib import Path
 
@@ -1877,7 +1877,7 @@ class TestOneInstance:
         launch_again()
         time.sleep(1.5)
 
-        assert flowshield_pids() == [fresh_app.pid], "a second FlowShield kept running"
+        assert flowshield_pids() == [fresh_app.pid], "a second Basalt kept running"
         assert win32gui.IsWindowVisible(hwnd), "the running copy wasn't brought back"
 
 
@@ -2174,7 +2174,7 @@ class TestJournalExport:
 
         text = target.read_text(encoding="utf-8")
         assert not text.startswith("﻿"), "a BOM shows up as stray characters in Markdown"
-        assert text.startswith("# FlowShield journal")
+        assert text.startswith("# Basalt journal")
         assert f"## {datetime.now():%Y-%m-%d}" in text, "sessions must be grouped under their day"
         assert "wrote the exporter" in text
 
@@ -3371,11 +3371,11 @@ class TestScheduledSprints:
 
 class TestJumpList:
     """
-    Spec 5: right-clicking FlowShield on the taskbar offers Start sprint and
+    Spec 5: right-clicking Basalt on the taskbar offers Start sprint and
     Start <template>, which run FlowShield.exe --start-sprint and
     --start-sprint=<templateId>. An entry does nothing but run its command
     line, so these run the command lines rather than the shell's menu. A cold
-    launch handles the argument after startup; a launch while FlowShield runs
+    launch handles the argument after startup; a launch while Basalt runs
     hands it over the single-instance pipe.
     """
 
