@@ -86,6 +86,11 @@ public static class DataPrivacyService
 
         settingsService.Reset();
 
+        // The trial's start date in the registry (TrialRecord) is deliberately
+        // left alone: it is the one thing that stops this button handing out a
+        // new free trial. It holds that date only, never leaves the PC, and the
+        // confirmation dialog and the privacy policy both say it stays.
+
         try
         {
             var logsDir = Path.GetDirectoryName(Log.Path);

@@ -21,7 +21,7 @@
             <TextBlock x:Name="QuestionText" Text="Delete everything on this PC."
                        Style="{StaticResource H2}" TextWrapping="Wrap"
                        AutomationProperties.AutomationId="ConfirmDeleteText"/>
-            <TextBlock x:Name="DetailText" Text="This removes your sessions, journal, blocklist profiles, templates, schedules, momentum and licence from this computer, and empties Basalt's taskbar Jump List. If Basalt is licensed here, that seat is freed for another machine first. This cannot be undone."
+            <TextBlock x:Name="DetailText" Text="This removes your sessions, journal, blocklist profiles, templates, schedules, momentum and licence from this computer, and empties Basalt's taskbar Jump List. If Basalt is licensed here, that seat is freed for another machine first. The date your free trial started stays, so deleting doesn't restart it; it never leaves this PC. This cannot be undone."
                        Style="{StaticResource Body}" Margin="0,12,0,0" TextWrapping="Wrap"
                        AutomationProperties.AutomationId="ConfirmDeleteDetailText"/>
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,24,0,0">

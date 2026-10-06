@@ -31,6 +31,7 @@ from config import (
     WEBSITE_URL,
     WINDOW_CONNECT_TIMEOUT,
 )
+from core.settings_guard import clear_trial_record
 
 # A running sprint puts the countdown in the title ("Basalt — 14:32", F19),
 # so windows are matched on the prefix rather than the exact title.
@@ -189,6 +190,13 @@ class DesktopController:
                     SETTINGS_PATH.unlink()
             except OSError as exc:
                 self._say(f"could not delete settings file: {exc}")
+            # The trial's start date also lives in the registry, where --reset
+            # (also Delete everything's relaunch) deliberately leaves it. A
+            # clean install has neither copy; the guard restores the owner's.
+            try:
+                clear_trial_record()
+            except OSError as exc:
+                self._say(f"could not clear the trial record: {exc}")
 
         if not use_defaults:
             args.append(f"--server={SERVER_URL}")

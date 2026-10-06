@@ -1617,7 +1617,7 @@ class TestTrialThenOneTimePurchase:
     def test_the_trial_starts_on_first_launch_and_is_saved(self):
         main = self.read("DesktopApp", "ViewModels", "MainViewModel.cs")
         app = self.read("DesktopApp", "App.xaml.cs")
-        assert "Settings.EnsureTrialStarted()" in main
+        assert "Settings.EnsureTrialStarted(recordedTrialStart)" in main
         assert app.index("new MainViewModel(") < app.index("ViewModel.SaveSettings();"), \
             "the trial start must be persisted straight away"
 
@@ -9454,17 +9454,17 @@ class TestTheJumpListStartsLikeTheTray:
         assert "Log.Warn(" in handler and "e.RejectedItems.Count" in handler and "e.RejectionReasons" in handler
         assert 'Log.Info($"jump list: {list.JumpItems.Count} entries");' in rebuild[applied:]
 
-    def test_an_ampersand_in_a_template_name_is_not_a_mnemonic(self):
+    def test_an_ampersand_in_a_template_name_is_not_doubled(self):
         """
-        Titles are shell menu text: one & marks a mnemonic and is not drawn,
-        so "Maths & Physics" showed as "Maths Physics" (review). The title
-        comes from JumpListText, which tier 1 probes; the tooltip stays as typed.
+        A JumpTask title is drawn as written, so escaping & as && showed
+        "Maths && Physics" on Windows 11 (VM, 1.0.11). The title comes from
+        JumpListText, which tier 1 probes; the tooltip stays as typed.
         """
         code = self.code(self.SERVICE)
         assert "Title = JumpListText.Title(t.Name)," in code
         assert 'Description = $"{t.SprintMinutes} minutes at {t.Shield}",' in code
         text = self.code(Path(DESKTOP_DIR) / "Models" / "JumpListText.cs")
-        assert 'Replace("&", "&&")' in self.member(text, "public static string Title(")
+        assert '"&&"' not in self.member(text, "public static string Title(")
 
     def test_the_new_copy_keeps_to_the_house_voice(self):
         """DESIGN_SYSTEM 9: no exclamation marks, and ASCII-only C# literals."""
@@ -9765,6 +9765,9 @@ class TestTheRenameToBasaltKeepsWhatCustomersHave321:
         assert 'Salt = "FlowShield.device.v1";' in (self.SERVICES / "DeviceIdentity.cs").read_text(encoding="utf-8")
         assert 'Scheme = "flowshield";' in (self.SERVICES / "DeepLink.cs").read_text(encoding="utf-8")
         assert '"FlowShield", "logs"' in (self.SERVICES / "Log.cs").read_text(encoding="utf-8")
+        assert r'KeyPath = @"Software\FlowShield\Trial";' in (self.SERVICES / "TrialRecord.cs").read_text(
+            encoding="utf-8"
+        ), "a new key would hand everyone a fresh trial"
         project = (Path(DESKTOP_DIR) / "FlowShield.csproj").read_text(encoding="utf-8")
         assert "<AssemblyName>FlowShield</AssemblyName>" in project, "the installed exe and the update feed"
         release = (Path(DESKTOP_DIR).parent / "tools" / "build_release.ps1").read_text(encoding="utf-8")
@@ -9919,3 +9922,169 @@ class TestTodayDeclutter147:
         for auto_id in ("TemplateShield_Soft", "TemplateCycle_2", "FirstRunShield_Sealed",
                         "StartSprintButton", "SprintOptionsToggle", "IntentionInput"):
             assert not is_sprint_option(auto_id), auto_id
+
+
+# ============ Delete everything must not restart the free trial (1.0.11 VM run)
+
+class TestDeleteEverythingKeepsTheTrialStart:
+    """
+    On the 1.0.11 VM run, Settings → Delete everything restarted the 7-day
+    trial: the start date lived only in settings.json, which the delete
+    removes, so the relaunch saw a first launch. A copy now lives in the
+    registry (TrialRecord.cs), the earlier of the two wins (tier 1 runs that
+    rule in .NET), and nothing that deletes local data touches the copy.
+    Comments are stripped, so a call left only in a comment can't satisfy these.
+    """
+
+    MAIN = Path(DESKTOP_DIR) / "ViewModels" / "MainViewModel.cs"
+    APP = Path(DESKTOP_DIR) / "App.xaml.cs"
+    PRIVACY = Path(DESKTOP_DIR) / "Services" / "DataPrivacyService.cs"
+    SETTINGS_SERVICE = Path(DESKTOP_DIR) / "Services" / "SettingsService.cs"
+    RECORD = Path(DESKTOP_DIR) / "Services" / "TrialRecord.cs"
+    DIALOG = Path(DESKTOP_DIR) / "Views" / "ConfirmDeleteDialog.xaml"
+
+    code = staticmethod(TestTheJumpListStartsLikeTheTray.code)
+    member = staticmethod(TestTheJumpListStartsLikeTheTray.member)
+
+    def test_startup_reads_the_record_before_settling_the_trial_and_writes_it_back(self):
+        ctor = self.member(self.code(self.MAIN), "public MainViewModel(")
+        read = ctor.index("var recordedTrialStart = TrialRecord.Read();")
+        ensure = ctor.index("Settings.EnsureTrialStarted(recordedTrialStart)")
+        write = ctor.index("TrialRecord.Write(trialStart);")
+        assert read < ensure < write, "read the record, settle the start, then write the copy back"
+
+    def test_the_record_is_per_user_and_never_needs_admin(self):
+        record = self.code(self.RECORD)
+        assert "Registry.CurrentUser" in record and "Registry.LocalMachine" not in record, \
+            "CLAUDE.md: no admin rights, so the record lives in HKCU"
+        assert '@"Software\\FlowShield\\Trial"' in record, \
+            "keep the internal name, or a rename resets everyone's trial"
+        # A broken registry must never stop the app starting.
+        for method in ("public static DateTime? Read()", "public static void Write("):
+            body = self.member(record, method)
+            assert "catch (Exception ex)" in body and "throw" not in body, method
+
+    def test_nothing_that_deletes_local_data_removes_the_record(self):
+        """Delete everything and --reset (its relaunch) must both leave it."""
+        for path in (self.PRIVACY, self.SETTINGS_SERVICE, self.APP):
+            code = self.code(path)
+            assert "TrialRecord" not in code and "DeleteValue" not in code \
+                and "DeleteSubKey" not in code, f"{path.name} must not remove the trial record"
+        users = sorted(path.name for path in Path(DESKTOP_DIR).rglob("*.cs")
+                       if not {"bin", "obj"} & set(path.relative_to(DESKTOP_DIR).parts)
+                       and "TrialRecord." in self.code(path))
+        assert users == ["MainViewModel.cs"], users
+
+    def test_the_delete_dialog_says_the_trial_date_stays(self):
+        xaml = self.DIALOG.read_text(encoding="utf-8")
+        detail = re.search(r'<TextBlock x:Name="DetailText" Text="([^"]*)"', xaml).group(1)
+        assert "free trial started stays" in detail, detail
+        assert "never leaves this PC" in detail, detail
+
+    def test_the_privacy_policy_discloses_the_record(self):
+        legal = (Path(WEBSITE_DIR) / "legal.html").read_text(encoding="utf-8")
+        stays = legal.split("What stays on your computer", 1)[1].split("<h3>", 1)[0]
+        assert "free trial started" in stays and "Windows registry" in stays
+        assert "Delete everything leaves it in place" in stays
+
+    def test_clean_test_launches_clear_the_record_and_the_guard_restores_it(self):
+        automation = Path(__file__).resolve().parent.parent
+        controller = (automation / "desktop" / "app_controller.py").read_text(encoding="utf-8")
+        clean = controller.split("if clean_state:", 1)[1].split("if not use_defaults:", 1)[0]
+        assert "clear_trial_record()" in clean, "a clean install has no trial record either"
+        guard = (automation / "core" / "settings_guard.py").read_text(encoding="utf-8")
+        assert "_back_up_trial_record()" in guard.split("def back_up()", 1)[1].split("\ndef ", 1)[0]
+        assert "_restore_trial_record()" in guard.split("def restore()", 1)[1].split("\ndef ", 1)[0]
+
+
+class _FakeWinreg:
+    """Just enough of winreg for the guard: one dict of (subkey, name) -> (value, type)."""
+
+    HKEY_CURRENT_USER = "HKCU"
+    REG_SZ = 1
+    KEY_SET_VALUE = 2
+
+    def __init__(self):
+        self.values = {}
+
+    class _Key:
+        def __init__(self, subkey):
+            self.subkey = subkey
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+    def OpenKey(self, root, subkey, *args):
+        if not any(k == subkey for k, _ in self.values):
+            raise FileNotFoundError(subkey)
+        return self._Key(subkey)
+
+    def CreateKeyEx(self, root, subkey, *args, **kwargs):
+        return self._Key(subkey)
+
+    def QueryValueEx(self, key, name):
+        if (key.subkey, name) not in self.values:
+            raise FileNotFoundError(name)
+        return self.values[(key.subkey, name)]
+
+    def SetValueEx(self, key, name, reserved, value_type, value):
+        self.values[(key.subkey, name)] = (value, value_type)
+
+    def DeleteValue(self, key, name):
+        if self.values.pop((key.subkey, name), None) is None:
+            raise FileNotFoundError(name)
+
+
+class TestTheSuiteLeavesTheOwnersTrialAlone:
+    """
+    Clean launches delete the trial record and --expire-trial backdates it.
+    Without a restore, one test run would leave the owner's real trial
+    expired, or restarted.
+    """
+
+    @pytest.fixture
+    def guard(self, tmp_path, monkeypatch):
+        from core import settings_guard
+
+        settings = tmp_path / "settings.json"
+        monkeypatch.setattr(settings_guard, "SETTINGS_PATH", settings)
+        monkeypatch.setattr(settings_guard, "BACKUP_PATH", tmp_path / "settings.json.pre-tests")
+        monkeypatch.setattr(settings_guard, "STARTUP_BACKUP_PATH", tmp_path / "startup.pre-tests.json")
+        monkeypatch.setattr(settings_guard, "TRIAL_BACKUP_PATH", tmp_path / "trial.pre-tests.json")
+        monkeypatch.setattr(settings_guard, "_stop_dev_build", lambda: None)
+        fake = _FakeWinreg()
+        monkeypatch.setattr(settings_guard, "winreg", fake)
+        return settings_guard, fake
+
+    def key(self, guard):
+        return (guard.TRIAL_KEY, guard.TRIAL_VALUE_NAME)
+
+    def test_the_owners_trial_start_comes_back(self, guard):
+        guard, fake = guard
+        fake.values[self.key(guard)] = ("2026-09-30T10:00:00.0000000Z", fake.REG_SZ)
+        guard.back_up()
+        guard.clear_trial_record()
+        assert self.key(guard) not in fake.values
+        fake.values[self.key(guard)] = ("2026-09-01T00:00:00.0000000Z", fake.REG_SZ)  # --expire-trial
+        guard.restore()
+        assert fake.values[self.key(guard)] == ("2026-09-30T10:00:00.0000000Z", fake.REG_SZ)
+        assert not guard.TRIAL_BACKUP_PATH.exists()
+
+    def test_no_record_before_means_none_after(self, guard):
+        guard, fake = guard
+        guard.back_up()
+        fake.values[self.key(guard)] = ("2026-10-05T00:00:00.0000000Z", fake.REG_SZ)
+        guard.restore()
+        assert self.key(guard) not in fake.values
+
+    def test_an_interrupted_run_keeps_the_first_backup(self, guard):
+        guard, fake = guard
+        fake.values[self.key(guard)] = ("owner's", fake.REG_SZ)
+        guard.back_up()
+        fake.values[self.key(guard)] = ("left by a killed run", fake.REG_SZ)
+        guard.back_up()
+        guard.restore()
+        assert fake.values[self.key(guard)] == ("owner's", fake.REG_SZ)

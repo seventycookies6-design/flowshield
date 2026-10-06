@@ -34,7 +34,7 @@ public static class JumpListService
                 }
                 list.JumpItems.Add(new JumpTask
                 {
-                    Title = JumpListText.Title(t.Name),   // menu text: & would be a mnemonic
+                    Title = JumpListText.Title(t.Name),   // drawn as written: no & escape
                     Description = $"{t.SprintMinutes} minutes at {t.Shield}",
                     ApplicationPath = exePath,
                     Arguments = arguments,

@@ -1111,18 +1111,17 @@ class TestStartSprintArg:
 
 class TestJumpListText:
     """
-    Spec 5: a template's entry reads "Start <template>". Entries are shell
-    menu text, where one & marks a keyboard mnemonic and is not drawn, so
-    "Maths & Physics" would show as "Maths Physics" with the P underlined.
-    JumpListText escapes it the shell's way (&&); the tooltip stays as typed.
+    Spec 5: a template's entry reads "Start <template>". A JumpTask's Title is
+    drawn exactly as written, so an & must not be doubled: "Maths & Physics"
+    showed as "Maths && Physics" on Windows 11 (VM, 1.0.11).
     """
 
     @pytest.mark.parametrize("name,title", [
         ("Light study", "Start Light study"),
-        ("Maths & Physics", "Start Maths && Physics"),
-        ("R&D && more", "Start R&&D &&&& more"),
+        ("Maths & Physics", "Start Maths & Physics"),
+        ("R&D && more", "Start R&D && more"),
     ])
-    def test_a_templates_title_escapes_the_shells_mnemonic(self, name, title):
+    def test_a_templates_title_is_shown_as_typed(self, name, title):
         assert probe({"cmd": "jump-title", "name": name})["title"] == title
 
 
@@ -1360,3 +1359,54 @@ class TestWebsiteNoticeWiring:
         page = self.PAGE.read_text(encoding="utf-8")
         for automation_id in ('"NewSiteInput"', '"AddSiteButton"', "StringFormat=RemoveSite_{0}", '"SitesHint"'):
             assert automation_id in page, automation_id
+
+
+# ================== the trial survives Delete everything (1.0.11 VM run)
+
+class TestTrialStartSurvivesDeleteEverything:
+    """
+    The trial's start date lived only in settings.json, so Delete everything,
+    which removes that file, handed out a fresh 7-day trial on the next launch.
+    A copy now lives in the registry (TrialRecord.cs) and the earlier of the
+    two wins. These run the real AppSettings.EnsureTrialStarted.
+    """
+
+    NOW = "2026-10-05T12:00:00Z"
+
+    def ensure(self, settings=None, record=None, now=NOW):
+        return probe({"cmd": "trial-ensure", "settings": settings, "record": record, "now": now})
+
+    def test_a_first_launch_starts_the_trial_now(self):
+        out = self.ensure()
+        assert out == {"started": True, "start": self.NOW, "access": True}
+
+    def test_deleted_settings_take_the_start_from_the_record(self):
+        """The VM finding: settings gone, record kept. No new trial."""
+        out = self.ensure(record="2026-09-20T08:00:00.0000000Z")
+        assert out["started"] is False
+        assert out["start"] == "2026-09-20T08:00:00Z"
+        assert out["access"] is False, "a trial that ended before the delete must stay ended"
+
+    def test_a_missing_record_falls_back_to_settings(self):
+        out = self.ensure(settings="2026-10-03T08:00:00Z")
+        assert out == {"started": False, "start": "2026-10-03T08:00:00Z", "access": True}
+
+    @pytest.mark.parametrize("settings,record", [
+        ("2026-10-01T00:00:00Z", "2026-10-04T00:00:00.0000000Z"),
+        ("2026-10-04T00:00:00Z", "2026-10-01T00:00:00.0000000Z"),
+    ])
+    def test_the_earlier_start_wins_either_way(self, settings, record):
+        out = self.ensure(settings=settings, record=record)
+        assert out["start"] == "2026-10-01T00:00:00Z"
+        assert out["started"] is False
+
+    @pytest.mark.parametrize("record", ["", "not a date", "   "])
+    def test_an_unreadable_record_is_no_record(self, record):
+        assert self.ensure(record=record)["started"] is True
+        assert self.ensure(settings="2026-10-03T08:00:00Z", record=record)["start"] == \
+            "2026-10-03T08:00:00Z"
+
+    def test_the_registry_text_round_trips_in_utc(self):
+        out = probe({"cmd": "trial-record-round-trip", "start": "2026-10-05T22:19:21Z"})
+        assert out["text"].startswith("2026-10-05T22:19:21") and out["text"].endswith("Z")
+        assert out["back"] == "2026-10-05T22:19:21Z"

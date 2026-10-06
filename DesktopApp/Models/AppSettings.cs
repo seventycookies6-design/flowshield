@@ -831,10 +831,20 @@ public class AppSettings
     /// </summary>
     public const int TrialDays = 7;
 
-    /// <summary>Starts the trial clock on first launch. Returns true if it was just started.</summary>
-    public bool EnsureTrialStarted(DateTime? nowUtc = null)
+    /// <summary>
+    /// Settles when the trial began: the earlier of the date in settings and
+    /// <paramref name="recordedStartUtc"/>, the copy kept outside them, or now
+    /// on a true first launch. Returns true if the trial was just started.
+    /// The earlier date wins so that removing either copy never restarts the
+    /// trial (<see cref="TrialStart"/>).
+    /// </summary>
+    public bool EnsureTrialStarted(DateTime? recordedStartUtc = null, DateTime? nowUtc = null)
     {
-        if (TrialStartedUtc is not null) return false;
+        if (TrialStart.Earliest(TrialStartedUtc, recordedStartUtc) is { } known)
+        {
+            TrialStartedUtc = known;
+            return false;
+        }
         TrialStartedUtc = nowUtc ?? DateTime.UtcNow;
         return true;
     }
