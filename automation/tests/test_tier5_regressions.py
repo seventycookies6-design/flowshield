@@ -10361,3 +10361,54 @@ class TestResendCooldown:
         assert route.index("resendCooldown.tryAcquire") < route.index("deliverLicenseEmail")
         assert route.rstrip().endswith("return res.json(generic);"), \
             "a cooled-down address must get the same answer, or the route becomes an oracle"
+
+
+# ========== #290 — the last three findings from the 1.0.9 pre-release review
+
+class TestLastReviewFindings:
+    DESKTOP = Path(DESKTOP_DIR)
+
+    def _read(self, *parts) -> str:
+        return self.DESKTOP.joinpath(*parts).read_text(encoding="utf-8")
+
+    def test_theme_refresh_reaches_template_bindings_like_the_heatmap(self):
+        theme = self._read("Services", "ThemeService.cs")
+        walk = theme.split("public static void RefreshConverterBindings(", 1)[1] \
+            .split("private static readonly DependencyProperty[] ColourProperties", 1)[0]
+        # the local-value walk alone misses a binding set by a ControlTemplate
+        assert "BindingOperations.GetBindingExpression(root, property)" in walk
+        assert "foreach (var property in ColourProperties)" in walk
+        props = theme.split("ColourProperties = new[]", 1)[1].split("};", 1)[0]
+        # the heatmap cell's Background="{Binding Step, Converter={StaticResource HeatStep}}"
+        assert "Border.BackgroundProperty" in props
+        xaml = self._read("Styles", "Theme.xaml")
+        assert "<Border x:Name=\"Cell\"" in xaml and "Converter={StaticResource HeatStep}" in xaml
+
+    def test_waking_up_copy_is_reported_on_time_not_when_an_attempt_times_out(self):
+        service = self._read("Services", "LicenseService.cs")
+        validate = service.split("public async Task<LicenseResult> ValidateAsync(", 1)[1] \
+            .split("public async Task RefreshAsync(", 1)[0]
+        assert "_ = ReportWakingUpLaterAsync(progress, waiting.Token);" in validate
+        assert validate.index("ReportWakingUpLaterAsync(progress") < validate.index("for (var attempt = 1")
+        assert "waiting.Cancel();" in validate.split("finally", )[-1], "stop the timer once answered"
+        timer = validate.split("private static async Task ReportWakingUpLaterAsync(", 1)[1]
+        assert "LicenseWaitCopy.WakingUpAfterSeconds" in timer
+        assert "progress.Report(LicenseWaitCopy.WakingUpMessage)" in timer
+        assert "WakingUpAfterSeconds = 8.0" in self._read("Services", "LicenseWaitCopy.cs")
+
+    def test_a_late_waking_up_report_cannot_overwrite_the_answer(self):
+        vm = self._read("ViewModels", "SettingsViewModel.cs")
+        activate = vm.split("private async Task ActivateAsync()", 1)[1].split("finally", 1)[0]
+        assert "if (!answered) LicenseStatusText = message;" in activate
+        assert activate.index("await _license.ValidateAsync(") < activate.index("answered = true;")
+
+    def test_a_stale_devices_response_is_dropped(self):
+        vm = self._read("ViewModels", "SettingsViewModel.cs")
+        load = vm.split("private async Task LoadDevicesAsync(bool force)", 1)[1] \
+            .split("private async Task ReleaseDeviceAsync(", 1)[0]
+        assert "var generation = ++_devicesGeneration;" in load
+        check = load.index("if (generation != _devicesGeneration) return;")
+        assert load.index("await _license.ListDevicesAsync(") < check < load.index("Devices.Clear();")
+        release = vm.split("private async Task ReleaseDeviceAsync(", 1)[1].split("// ------", 1)[0]
+        # a list asked for before the release may still contain the device
+        assert release.index("_devicesGeneration++;") < release.index("await _license.ReleaseDeviceAsync(")
