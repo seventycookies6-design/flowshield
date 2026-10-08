@@ -195,7 +195,7 @@ All roles are Inter.
 - **Use one outline icon set** at 1.75 px stroke on a 24 px grid, the same on the site and in the app. [Lucide](https://lucide.dev) fits the style and is ISC-licensed, which permits this use; confirm the licence and keep its notice when adopting it. Convert the icons used to XAML `Path` geometry, and to inline SVG on the site.
 - **Sizes:** 16 px inline with text, 20 px in navigation and buttons, 24 px for feature headings.
 - **Icons inherit** the text colour of their context; only an active item's icon is `primary`.
-- **The FlowShield shield mark** is the only filled brand icon. Keep it identical everywhere: the site favicon, the app's title bar and taskbar icon (Roadmap 1.6), the tray icon and the installer.
+- **The Causeway mark** (three basalt columns; source SVGs and spec in `design/brand/`) is the only filled brand icon. Keep it identical everywhere: the site favicon and header, the app's navigation, title bar and taskbar icon (Roadmap 1.6), the tray icon and the installer. Copy it from `design/brand/`, never redraw it; `tools/build_icons.py` builds the app's `.ico` files from those SVGs. The tile (`basalt-icon.svg`) is the same in both themes; the bare mark beside the wordmark swaps between its on-light and on-dark copies. Lit column tops (teal) mean a sprint is running: `FlowShield.Running.ico` is the Firm tile, the tray's fallback when its minute countdown can't be drawn. The shield-level glyphs in §6 stay shields.
 
 ---
 
