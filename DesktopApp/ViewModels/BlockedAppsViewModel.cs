@@ -140,7 +140,7 @@ public class BlockedAppsViewModel : ViewModelBase
         // promise has to hold in the view model.
         if (IsSealed)
         {
-            _main.Toast("The blocklist is sealed until this sprint ends.");
+            _main.Toast(SealedToast());
             RefreshProfiles();
             return;
         }
@@ -245,7 +245,7 @@ public class BlockedAppsViewModel : ViewModelBase
     {
         if (IsSealed)
         {
-            _main.Toast("The blocklist is sealed until this sprint ends.");
+            _main.Toast(SealedToast());
             return false;
         }
         if (_main.IsLocked)
@@ -445,11 +445,22 @@ public class BlockedAppsViewModel : ViewModelBase
         return changed;
     }
 
+    /// <summary>
+    /// The refusal while a Sealed sprint runs. Names the app when the user
+    /// touched one already on the list (#324); adding an app, a website or a
+    /// profile switch keeps the general sentence, since there's no listed app
+    /// to name.
+    /// </summary>
+    public static string SealedToast(string? appName = null) =>
+        string.IsNullOrWhiteSpace(appName)
+            ? "The blocklist is sealed until this sprint ends."
+            : $"{appName} and other blocklisted apps are sealed until this sprint ends.";
+
     private bool CanEdit()
     {
         if (IsSealed)
         {
-            _main.Toast("The blocklist is sealed until this sprint ends.");
+            _main.Toast(SealedToast());
             return false;
         }
         if (_main.IsLocked)
@@ -528,7 +539,7 @@ public class BlockedAppsViewModel : ViewModelBase
         if (app is null) return;
         if (IsSealed)
         {
-            _main.Toast("The blocklist is sealed until this sprint ends.");
+            _main.Toast(SealedToast(app.DisplayName));
             return;
         }
 
@@ -546,7 +557,7 @@ public class BlockedAppsViewModel : ViewModelBase
         if (app is null) return;
         if (IsSealed)
         {
-            _main.Toast("The blocklist is sealed until this sprint ends.");
+            _main.Toast(SealedToast(app.DisplayName));
             return;
         }
         // The switch's two-way IsChecked binding has already written the new
@@ -626,7 +637,7 @@ public class BlockedAppsViewModel : ViewModelBase
         if (host is null) return;
         if (IsSealed)
         {
-            _main.Toast("The blocklist is sealed until this sprint ends.");
+            _main.Toast(SealedToast());
             return;
         }
 

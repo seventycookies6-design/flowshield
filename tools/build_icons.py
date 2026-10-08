@@ -1,5 +1,13 @@
-"""Generate FlowShield's multi-resolution Windows icons."""
+"""Generate Basalt's multi-resolution Windows icons from the Causeway logo.
 
+The shapes and colours are read from the approved SVGs in `design/brand/`
+(the source of truth for the logo), so the icons are never redrawn by hand.
+The file names keep the old internal name: installs, the .csproj and
+`MainWindow.xaml.cs` `LoadIcon` depend on them.
+"""
+
+import shutil
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 from PIL import Image, ImageDraw
@@ -7,51 +15,47 @@ from PIL import Image, ImageDraw
 
 ROOT = Path(__file__).resolve().parent.parent
 ASSETS = ROOT / "DesktopApp" / "Assets"
+BRAND = ROOT / "design" / "brand"
 SIZES = (16, 20, 24, 32, 40, 48, 64, 128, 256)
-SCALE = 4
+SVG_NS = "{http://www.w3.org/2000/svg}"
+CANVAS = 1024  # supersampled, then reduced to each icon size
+
+# icon file stem -> Causeway tile. Running is the Firm tile (design/brand/README.md).
+ICONS = {
+    "FlowShield": "basalt-icon.svg",
+    "FlowShield.Running": "basalt-icon-firm.svg",
+}
 
 
-def points(values):
-    return [(round(x * SCALE), round(y * SCALE)) for x, y in values]
-
-
-def render(*, running: bool) -> Image.Image:
-    size = 256 * SCALE
-    image = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+def render(svg: Path) -> Image.Image:
+    root = ET.parse(svg).getroot()
+    _, _, width, _ = (float(v) for v in root.get("viewBox").split())
+    k = CANVAS / width
+    image = Image.new("RGBA", (CANVAS, CANVAS), (0, 0, 0, 0))
     draw = ImageDraw.Draw(image)
-    background = "#3AA892" if running else "#121110"
-    shield = "#F2F0EB" if running else "#3AA892"
-    check = "#0B1F1B" if running else "#F2F0EB"
 
-    draw.rounded_rectangle((0, 0, size - 1, size - 1), radius=48 * SCALE, fill=background)
-    outline = [(128, 20), (36, 56), (36, 129.6)]
-    for index in range(1, 25):
-        t = index / 24
-        mt = 1 - t
-        outline.append((
-            mt**3 * 36 + 3 * mt**2 * t * 36 + 3 * mt * t**2 * 73.6 + t**3 * 128,
-            mt**3 * 129.6 + 3 * mt**2 * t * 182.4 + 3 * mt * t**2 * 222.4 + t**3 * 236,
-        ))
-    for index in range(1, 25):
-        t = index / 24
-        mt = 1 - t
-        outline.append((
-            mt**3 * 128 + 3 * mt**2 * t * 182.4 + 3 * mt * t**2 * 220 + t**3 * 220,
-            mt**3 * 236 + 3 * mt**2 * t * 222.4 + 3 * mt * t**2 * 182.4 + t**3 * 129.6,
-        ))
-    outline.extend([(220, 56), (128, 20)])
-    draw.polygon(points(outline), fill=shield)
-    draw.line(points([(84, 132), (113, 161), (172, 98)]), fill=check, width=18 * SCALE, joint="curve")
+    tile = root.find(f"{SVG_NS}rect")
+    radius = float(tile.get("rx")) * k
+    draw.rounded_rectangle((0, 0, CANVAS - 1, CANVAS - 1), radius=radius, fill=tile.get("fill"))
+
+    for group in root.iter(f"{SVG_NS}g"):
+        joint = group.get("stroke")
+        joint_width = max(1, round(float(group.get("stroke-width")) * k))
+        for polygon in group.iter(f"{SVG_NS}polygon"):
+            pts = [tuple(float(v) * k for v in pair.split(",")) for pair in polygon.get("points").split()]
+            draw.polygon(pts, fill=polygon.get("fill"), outline=joint, width=joint_width)
     return image
 
 
-def save_icon(name: str, *, running: bool) -> None:
-    target = ASSETS / name
-    render(running=running).save(target, format="ICO", sizes=[(size, size) for size in SIZES])
-    print(f"wrote {target.relative_to(ROOT)}")
+def save_icon(stem: str, source: str) -> None:
+    svg = BRAND / source
+    target = ASSETS / f"{stem}.ico"
+    render(svg).save(target, format="ICO", sizes=[(size, size) for size in SIZES])
+    shutil.copyfile(svg, ASSETS / f"{stem}.svg")
+    print(f"wrote {target.relative_to(ROOT)} and {stem}.svg from design/brand/{source}")
 
 
 if __name__ == "__main__":
     ASSETS.mkdir(parents=True, exist_ok=True)
-    save_icon("FlowShield.ico", running=False)
-    save_icon("FlowShield.Running.ico", running=True)
+    for stem, source in ICONS.items():
+        save_icon(stem, source)

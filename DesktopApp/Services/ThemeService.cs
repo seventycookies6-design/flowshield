@@ -185,6 +185,14 @@ public static class ThemeService
     /// — produced its value before the swap, and nothing tells WPF to ask again.
     /// Converters that have nothing to do with colour are re-run too; they are
     /// pure functions of their source, so the value simply comes back the same.
+    ///
+    /// Local values are not the whole story: a binding written inside a
+    /// <c>ControlTemplate</c> or a style setter — the History heatmap's
+    /// <c>HeatStep</c> cells in <c>Theme.xaml</c> — is not a local value, so
+    /// the local-value walk never sees it and the cells kept the old theme's
+    /// colours (#290). Those are found by asking for the binding on each of
+    /// <see cref="ColourProperties"/> directly, which does see template and
+    /// style bindings.
     /// </summary>
     public static void RefreshConverterBindings(DependencyObject? root)
     {
@@ -197,11 +205,39 @@ public static class ThemeService
                 binding.UpdateTarget();
         }
 
+        foreach (var property in ColourProperties)
+        {
+            if (BindingOperations.GetBindingExpression(root, property)
+                is { ParentBinding.Converter: not null } templated)
+                templated.UpdateTarget();
+        }
+
         if (root is not Visual && root is not System.Windows.Media.Media3D.Visual3D) return;
         var children = VisualTreeHelper.GetChildrenCount(root);
         for (var i = 0; i < children; i++)
             RefreshConverterBindings(VisualTreeHelper.GetChild(root, i));
     }
+
+    /// <summary>
+    /// The properties a colour-producing converter can feed. Each is checked on
+    /// every element for a binding that came from a template or a style, which
+    /// the local-value walk cannot see. Some of these are one property shared
+    /// through AddOwner (Control.Foreground is TextElement.Foreground), so the
+    /// list is de-duplicated rather than trusted to be distinct.
+    /// </summary>
+    private static readonly DependencyProperty[] ColourProperties = new[]
+    {
+        System.Windows.Controls.Border.BackgroundProperty,
+        System.Windows.Controls.Border.BorderBrushProperty,
+        System.Windows.Controls.Panel.BackgroundProperty,
+        System.Windows.Controls.Control.BackgroundProperty,
+        System.Windows.Controls.Control.ForegroundProperty,
+        System.Windows.Controls.Control.BorderBrushProperty,
+        System.Windows.Controls.TextBlock.ForegroundProperty,
+        System.Windows.Shapes.Shape.FillProperty,
+        System.Windows.Shapes.Shape.StrokeProperty,
+        System.Windows.Controls.Image.SourceProperty,
+    }.Distinct().ToArray();
 
     /// <summary>
     /// A themed colour for code that has to draw rather than bind — the tray's
