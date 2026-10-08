@@ -473,6 +473,16 @@
                                        Margin="0,2,0,0"
                                        Visibility="{Binding SummaryTurnedBackVisible, Converter={StaticResource BoolVis}}"
                                        AutomationProperties.AutomationId="SummaryTurnedBackText"/>
+                            <!-- #349: which apps were stopped, not just how
+                                 many. Hidden when nothing was caught. -->
+                            <TextBlock Text="{Binding SummaryStoppedTitle}" Style="{StaticResource Caption}"
+                                       FontWeight="SemiBold" Margin="0,8,0,0"
+                                       Visibility="{Binding SummaryStoppedVisible, Converter={StaticResource BoolVis}}"
+                                       AutomationProperties.AutomationId="SummaryStoppedTitle"/>
+                            <TextBlock Text="{Binding SummaryStoppedText}" Style="{StaticResource Body}"
+                                       Margin="0,2,0,4" TextWrapping="Wrap"
+                                       Visibility="{Binding SummaryStoppedVisible, Converter={StaticResource BoolVis}}"
+                                       AutomationProperties.AutomationId="SummaryStoppedList"/>
                             <TextBlock Text="{Binding SummaryMomentumText}" Style="{StaticResource Body}"
                                        Margin="0,4,0,0"
                                        AutomationProperties.AutomationId="SummaryMomentumText"/>

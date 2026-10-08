@@ -1336,7 +1336,7 @@ class TestWebsiteNoticeWiring:
     def test_a_website_notice_counts_once_as_a_nudge(self):
         handler = self.MAIN_VM.read_text(encoding="utf-8").split("private void OnSoftForeground", 1)[1].split("\n    }", 1)[0]
         counted = handler.split("if (e.IsWebsite)\n", 1)[1].split("}", 1)[0]
-        assert "Today.RecordBlock(terminated: false);" in counted
+        assert "Today.RecordBlock(terminated: false, e.DisplayName);" in counted
         assert "Settings.RecordBlock();" in counted
         assert handler.index("_softOverlay.ShouldShow") < handler.index("if (e.IsWebsite)\n"), (
             "counted when the notice shows, so an Allow window or a repeat sweep doesn't count it again"
@@ -1410,3 +1410,107 @@ class TestTrialStartSurvivesDeleteEverything:
         out = probe({"cmd": "trial-record-round-trip", "start": "2026-10-05T22:19:21Z"})
         assert out["text"].startswith("2026-10-05T22:19:21") and out["text"].endswith("Z")
         assert out["back"] == "2026-10-05T22:19:21Z"
+
+
+# ============== the summary card's "What Basalt stopped this sprint" (#349)
+
+class TestStoppedApps:
+    """
+    Competitor gap 7: "it silently stopped blocking" is the top complaint
+    about Freedom and Cold Turkey, so the summary card names what the shield
+    stopped, app by app. The list lives in memory only (StoppedApps).
+    """
+
+    @staticmethod
+    def stopped(*steps, clear=False):
+        return probe({"cmd": "stopped-apps", "clear": clear,
+                      "steps": [{"app": app, "closed": closed} for app, closed in steps]})
+
+    def test_nothing_caught_is_nothing_to_list(self):
+        assert self.stopped() == {"any": False, "title": "", "text": ""}
+
+    def test_one_line_per_app_with_its_count(self):
+        out = self.stopped(("Discord", True), ("Discord", True), ("Discord", True), ("Steam", True))
+        assert out["any"] is True
+        assert out["title"] == "What Basalt stopped this sprint"
+        assert out["text"] == "Discord · closed 3 times\nSteam · closed once"
+
+    def test_a_sprint_that_only_nudged_says_caught_not_stopped(self):
+        """Soft never closes anything, so the heading must not claim it did."""
+        out = self.stopped(("YouTube", False), ("YouTube", False), ("Discord", False))
+        assert out["title"] == "What Basalt caught this sprint"
+        assert out["text"] == "YouTube · 2 nudges\nDiscord · 1 nudge"
+
+    def test_closes_and_nudges_for_one_app_share_its_line(self):
+        out = self.stopped(("Steam", False), ("Steam", True))
+        assert out["title"] == "What Basalt stopped this sprint"
+        assert out["text"] == "Steam · closed once, 1 nudge"
+
+    def test_most_stopped_first_and_ties_keep_the_order_they_happened(self):
+        out = self.stopped(("Steam", True), ("Discord", True), ("Spotify", True), ("Discord", True))
+        assert out["text"].splitlines() == [
+            "Discord · closed 2 times", "Steam · closed once", "Spotify · closed once"]
+
+    def test_the_same_app_is_one_line_whatever_the_capitalisation(self):
+        out = self.stopped(("Discord", True), ("discord ", True))
+        assert out["text"] == "Discord · closed 2 times"
+
+    def test_a_nameless_sighting_is_not_listed(self):
+        assert self.stopped(("", True), ("   ", False))["any"] is False
+
+    @pytest.mark.parametrize("apps,tail", [(6, "and 1 more app"), (8, "and 3 more apps")])
+    def test_five_lines_then_the_rest_fold_away(self, apps, tail):
+        lines = self.stopped(*[(f"App{i}", True) for i in range(apps)])["text"].splitlines()
+        assert len(lines) == 6 and lines[-1] == tail
+
+    def test_clear_empties_it_for_the_next_sprint(self):
+        assert self.stopped(("Discord", True), clear=True)["any"] is False
+
+
+class TestStoppedAppsWiring:
+    """#349: where the list is filled, cleared and shown."""
+
+    TODAY_VM = DESKTOP / "ViewModels" / "TodayViewModel.cs"
+    MAIN_VM = DESKTOP / "ViewModels" / "MainViewModel.cs"
+    TODAY_XAML = DESKTOP / "Views" / "TodayView.xaml"
+
+    @staticmethod
+    def _method(source: str, signature: str) -> str:
+        return source.split(signature, 1)[1].split("\n    }", 1)[0]
+
+    def test_every_counted_block_names_its_app(self):
+        vm = self.TODAY_VM.read_text(encoding="utf-8")
+        record = self._method(vm, "public void RecordBlock(")
+        assert "_stoppedThisSprint.Record(name, terminated);" in record
+        assert record.index("if (!IsRunning) return;") < record.index("_stoppedThisSprint.Record"), \
+            "a block outside a sprint must not reach the next sprint's card"
+        main = self.MAIN_VM.read_text(encoding="utf-8")
+        calls = re.findall(r"Today\.RecordBlock\(([^;]*)\);", main)
+        assert len(calls) == 2 and all("DisplayName" in c for c in calls), calls
+
+    def test_a_new_sprint_starts_an_empty_list(self):
+        vm = self.TODAY_VM.read_text(encoding="utf-8")
+        assert "_stoppedThisSprint.Clear();" in self._method(vm, "private void BeginRunning(")
+
+    def test_the_card_takes_title_text_and_visibility_from_it(self):
+        vm = self.TODAY_VM.read_text(encoding="utf-8")
+        card = self._method(vm, "private void UpdateSummaryCard(")
+        assert "SummaryStoppedTitle = _stoppedThisSprint.Title;" in card
+        assert "SummaryStoppedText = _stoppedThisSprint.Text;" in card
+        assert "SummaryStoppedVisible = _stoppedThisSprint.Any;" in card
+
+    @pytest.mark.parametrize("auto_id,binding", [
+        ("SummaryStoppedTitle", "SummaryStoppedTitle"),
+        ("SummaryStoppedList", "SummaryStoppedText"),
+    ])
+    def test_both_lines_are_ids_on_real_text_blocks_under_the_distractions_line(self, auto_id, binding):
+        today = self.TODAY_XAML.read_text(encoding="utf-8")
+        card = today[today.find("sprint summary"):]
+        card = card[:card.find("journal prompt")]
+        marker = f'AutomationProperties.AutomationId="{auto_id}"'
+        assert marker in card, f"the summary card has no {auto_id}"
+        element = card.split(marker, 1)[0].rsplit("<", 1)[1]
+        assert element.startswith("TextBlock"), "the id must sit on the TextBlock itself (#134)"
+        assert f'Text="{{Binding {binding}}}"' in element
+        assert 'Visibility="{Binding SummaryStoppedVisible, Converter={StaticResource BoolVis}}"' in element
+        assert card.index("SummaryDistractionsValue") < card.index(marker)

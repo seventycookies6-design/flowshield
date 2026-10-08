@@ -1393,7 +1393,7 @@ class TestSprintSummaryCard:
 
     def test_blocks_are_counted_as_closed_or_nudged(self):
         source = self.VIEWMODEL.read_text(encoding="utf-8")
-        assert "public void RecordBlock(bool terminated)" in source
+        assert "public void RecordBlock(bool terminated, string name)" in source
         assert "_closedThisSprint++" in source and "_nudgesThisSprint++" in source
         assert "MomentumAtStart = S.MomentumScore" in source
 

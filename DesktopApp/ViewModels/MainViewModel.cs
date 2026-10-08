@@ -775,7 +775,7 @@ public class MainViewModel : ViewModelBase
             if (e.IsWebsite)
             {
                 Settings.RecordBlock();
-                Today.RecordBlock(terminated: false);
+                Today.RecordBlock(terminated: false, e.DisplayName);
                 Today.RefreshStats();
                 SaveSettings();
             }
@@ -848,7 +848,8 @@ public class MainViewModel : ViewModelBase
             {
                 e.App.BlockCount++;
                 Settings.RecordBlock();
-                Today.RecordBlock(e.Terminated);
+                Today.RecordBlock(e.Terminated,
+                    string.IsNullOrWhiteSpace(e.DisplayName) ? e.ProcessName : e.DisplayName);
                 Today.RefreshStats();
                 SaveSettings();
             }
