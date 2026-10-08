@@ -1514,3 +1514,160 @@ class TestStoppedAppsWiring:
         assert f'Text="{{Binding {binding}}}"' in element
         assert 'Visibility="{Binding SummaryStoppedVisible, Converter={StaticResource BoolVis}}"' in element
         assert card.index("SummaryDistractionsValue") < card.index(marker)
+# ======================================= Blocked Apps' counter label (#347)
+
+class TestAppsOnShieldLabel:
+    """The words beside Blocked Apps' big number agree with it: "1 app", never "01 apps"."""
+
+    @pytest.mark.parametrize("n,label", [(0, "apps on the shield"), (1, "app on the shield"),
+                                         (2, "apps on the shield"), (12, "apps on the shield")])
+    def test_the_label_agrees_with_the_count(self, n, label):
+        assert probe({"cmd": "apps-on-shield", "n": n})["label"] == label
+# ================================ Store apps in the picker (#348)
+
+STORE_ROOT = r"C:\Program Files\WindowsApps\5319275A.WhatsAppDesktop_2.2540.5.0_x64__cv1g1gvanyjgm"
+STORE_FULL = "5319275A.WhatsAppDesktop_2.2540.5.0_x64__cv1g1gvanyjgm"
+
+
+def manifest(applications: str, *, properties: str = "", identity: str = "5319275A.WhatsAppDesktop") -> str:
+    """A trimmed AppxManifest.xml in the shape Windows ships, namespaces and all."""
+    return f"""<?xml version="1.0" encoding="utf-8"?>
+<Package xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+         xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+         xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities">
+  <Identity Name="{identity}" Publisher="CN=Example" Version="2.2540.5.0" ProcessorArchitecture="x64"/>
+  <Properties>
+    <DisplayName>ms-resource:AppName</DisplayName>
+    <PublisherDisplayName>Example</PublisherDisplayName>
+    <Logo>Assets\\StoreLogo.png</Logo>
+    {properties}
+  </Properties>
+  <Applications>{applications}</Applications>
+</Package>"""
+
+
+def app_element(executable: str | None, *, name: str = "ms-resource:AppName", hidden: bool = False) -> str:
+    exe = f' Executable="{executable}"' if executable is not None else ' StartPage="index.html"'
+    entry = ' AppListEntry="none"' if hidden else ""
+    return (f'<Application Id="App"{exe} EntryPoint="Windows.FullTrustApplication">'
+            f'<uap:VisualElements DisplayName="{name}" Description="x" BackgroundColor="transparent"'
+            f' Square150x150Logo="a.png" Square44x44Logo="b.png"{entry}/></Application>')
+
+
+class TestPackagedApps:
+    """
+    #348: Store apps have no Start Menu shortcut and no Uninstall key, so the
+    picker never offered them. Their manifest names the exe each one runs as;
+    blocking by that name works like any other app. These run the real parser.
+    """
+
+    def apps(self, manifest_xml: str, *, game: str | None = None, names: dict | None = None) -> dict:
+        return probe({"cmd": "packaged-apps", "manifest": manifest_xml, "game": game,
+                      "root": STORE_ROOT, "fullName": STORE_FULL,
+                      "names": names if names is not None else {}})
+
+    def indirect(self, key: str, identity: str = "5319275A.WhatsAppDesktop") -> str:
+        return f"@{{{STORE_FULL}?ms-resource://{identity}/Resources/{key}}}"
+
+    def test_a_store_app_becomes_its_exe_and_its_start_menu_name(self):
+        out = self.apps(manifest(app_element(r"WhatsApp.Root.exe")),
+                        names={self.indirect("AppName"): "WhatsApp"})
+        assert out["apps"] == [{"name": "WhatsApp", "processes": ["WhatsApp.Root"],
+                                "exe": STORE_ROOT + r"\WhatsApp.Root.exe"}]
+
+    def test_an_exe_in_a_subfolder_keeps_only_its_process_name(self):
+        out = self.apps(manifest(app_element(r"app\Spotify.exe", name="Spotify")))
+        assert out["apps"][0]["processes"] == ["Spotify"]
+        assert out["apps"][0]["exe"] == STORE_ROOT + r"\app\Spotify.exe"
+
+    @pytest.mark.parametrize("key,uri", [
+        ("ms-resource:AppName", "ms-resource://Pkg/Resources/AppName"),
+        ("ms-resource:/Strings/Title", "ms-resource://Pkg/Strings/Title"),
+        # Keys that name their own map, as Notepad, Camera and Xbox Console
+        # Companion ship them (#348, checked on Windows 11).
+        ("ms-resource:Resources/AppStoreName", "ms-resource://Pkg/Resources/AppStoreName"),
+        ("ms-resource:LensSDK/Resources/AppTitle", "ms-resource://Pkg/LensSDK/Resources/AppTitle"),
+        ("ms-resource://Other/Resources/X", "ms-resource://Other/Resources/X"),
+    ])
+    def test_resource_names_use_the_documented_lookup(self, key, uri):
+        out = self.apps(manifest(app_element("A.exe", name=key), identity="Pkg"))
+        assert f"@{{{STORE_FULL}?{uri}}}" in out["asked"]
+
+    def test_a_name_windows_cannot_resolve_is_not_shown(self):
+        """'ms-resource:AppName' in the picker is worse than no row."""
+        assert self.apps(manifest(app_element("A.exe")))["apps"] == []
+
+    def test_the_package_name_stands_in_for_a_missing_app_name(self):
+        out = self.apps(manifest(app_element("A.exe", name="")),
+                        names={self.indirect("AppName"): "Example App"})
+        assert [a["name"] for a in out["apps"]] == ["Example App"]
+
+    @pytest.mark.parametrize("properties", [
+        "<Framework>true</Framework>", "<ResourcePackage>true</ResourcePackage>",
+    ])
+    def test_frameworks_and_resource_packages_are_not_apps(self, properties):
+        out = self.apps(manifest(app_element("A.exe", name="A"), properties=properties))
+        assert out["apps"] == []
+
+    def test_a_web_app_with_no_exe_of_its_own_is_left_out(self):
+        """Its process is WWAHost, shared by every web-based Store app."""
+        assert self.apps(manifest(app_element(None, name="Web")))["apps"] == []
+
+    def test_a_helper_hidden_from_the_start_menu_is_left_out(self):
+        out = self.apps(manifest(app_element("Helper.exe", name="Helper", hidden=True)
+                                 + app_element("Main.exe", name="Main")))
+        assert [a["name"] for a in out["apps"]] == ["Main"]
+
+    def test_a_hidden_entry_with_the_same_name_is_the_same_app(self):
+        """
+        The Xbox app as Windows 11 ships it (#348): the Start menu entry runs
+        XboxPcAppCE, the window people see runs as XboxPcApp (hidden, also
+        "XBOX"), and the Game Bar widgets are a hidden helper with another name.
+        """
+        out = self.apps(manifest(
+            app_element("XboxPcAppCE.exe", name="XBOX")
+            + app_element("XboxPcApp.exe", name="XBOX", hidden=True)
+            + app_element("XboxGameBarWidgets.exe", name="XBOX Game Bar Widgets", hidden=True),
+            identity="Microsoft.GamingApp"))
+        assert [(a["name"], a["processes"]) for a in out["apps"]] == \
+            [("XBOX", ["XboxPcAppCE", "XboxPcApp"])]
+
+    def test_two_entries_for_one_exe_are_one_row(self):
+        out = self.apps(manifest(app_element("Main.exe", name="Main") + app_element("Main.exe", name="Main 2")))
+        assert len(out["apps"]) == 1
+
+    def test_a_game_pass_title_is_its_game_not_the_shared_launcher(self):
+        """
+        Every Game Pass title starts through its own gamelaunchhelper.exe.
+        Blocking that name for one game would close every game's launcher, and
+        the game itself runs as the exes MicrosoftGame.config lists.
+        """
+        game = """<?xml version="1.0" encoding="utf-8"?>
+<Game configVersion="1">
+  <Identity Name="Studio.Game" Publisher="CN=Studio" Version="1.0.0.0"/>
+  <ExecutableList>
+    <Executable Name="gamelaunchhelper.exe" Id="Launcher"/>
+    <Executable Name="Binaries\\Win64\\Game-Win64-Shipping.exe" Id="Game"/>
+    <Executable Name="Game.exe" Id="Boot"/>
+  </ExecutableList>
+  <ShellVisuals DefaultDisplayName="Great Game" PublisherDisplayName="Studio"/>
+</Game>"""
+        out = self.apps(manifest(app_element("gamelaunchhelper.exe")), game=game)
+        assert out["apps"] == [{
+            "name": "Great Game",
+            "processes": ["Game-Win64-Shipping", "Game"],
+            "exe": STORE_ROOT + r"\Binaries\Win64\Game-Win64-Shipping.exe",
+        }]
+
+    def test_the_shared_launcher_alone_is_never_offered(self):
+        assert self.apps(manifest(app_element("gamelaunchhelper.exe", name="Game")))["apps"] == []
+
+    @pytest.mark.parametrize("exe,process", [
+        ("WhatsApp.exe", "WhatsApp"),
+        (r"app\Spotify.exe", "Spotify"),
+        ("Binaries/Win64/Game.exe", "Game"),
+        ("", None),
+        ("index.html", None),
+    ])
+    def test_process_names(self, exe, process):
+        assert probe({"cmd": "packaged-process", "exe": exe})["process"] == process

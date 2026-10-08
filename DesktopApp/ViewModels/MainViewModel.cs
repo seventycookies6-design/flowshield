@@ -84,6 +84,7 @@ public class MainViewModel : ViewModelBase
         Scheduler = new ScheduleService(Settings);
         Scheduler.Action += (_, action) => OnScheduleAction(action);
         Scheduler.Ticked += (_, now) => Today.DropStaleHeadsUp(now);
+        Scheduler.Ticked += (_, now) => Today.RefreshStatsOnNewDay(now);
         Scheduler.Start();
         Schedule.TemplatesChanged += (_, _) => Today.RefreshTemplates();
         Schedule.TemplatesChanged += (_, _) => RebuildJumpList();
@@ -706,10 +707,11 @@ public class MainViewModel : ViewModelBase
     /// <remarks>
     /// <c>IsWebsite</c> (F10 interim): the name is a site seen in a browser's
     /// title, so the notice offers no Close: closing the browser would close
-    /// every tab.
+    /// every tab. <c>Remaining</c> is read again every second while the
+    /// notice is up, so its "minutes left" counts down (#347).
     /// </remarks>
     public sealed record SoftOverlayRequest(
-        string DisplayName, string Sentence, string TimeLeft, IntPtr Window,
+        string DisplayName, string Sentence, Func<TimeSpan> Remaining, IntPtr Window,
         string Intention, string TryLine, TimeSpan AllowWait, bool IsWebsite = false);
 
     /// <summary>Show the Soft notice for a blocked app that has just come to the front.</summary>
@@ -784,7 +786,7 @@ public class MainViewModel : ViewModelBase
             SoftOverlayRequested?.Invoke(this, new SoftOverlayRequest(
                 e.DisplayName,
                 SoftOverlayCopy.Sentence(e.DisplayName, Today.EndsAtUtc.ToLocalTime(), _softOverlay.Tries),
-                SoftOverlayCopy.TimeLeft(Today.Remaining),
+                () => Today.Remaining,
                 e.Window,
                 SoftOverlayCopy.Intention(Today.IntentionDisplayText),
                 SoftOverlayCopy.TryLine(_softOverlay.Tries),

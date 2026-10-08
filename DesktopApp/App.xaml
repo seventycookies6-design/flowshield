@@ -12,11 +12,15 @@
 
                  ShieldGlyphs.xaml comes next and is reloaded on a theme change:
                  its brushes live inside DrawingImages, and a DynamicResource
-                 inside a Freezable resolves once and never again. -->
+                 inside a Freezable resolves once and never again.
+
+                 BrandMark.xaml (the Causeway tile) has fixed colours and is
+                 never reloaded. -->
             <ResourceDictionary.MergedDictionaries>
                 <ResourceDictionary Source="Styles/Tokens.xaml"/>
                 <ResourceDictionary Source="Styles/ShieldGlyphs.xaml"/>
                 <ResourceDictionary Source="Styles/Theme.xaml"/>
+                <ResourceDictionary Source="Styles/BrandMark.xaml"/>
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
     </Application.Resources>

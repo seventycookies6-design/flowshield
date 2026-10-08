@@ -23,13 +23,12 @@
 
             <!-- ============================================= heads-up (F6) -->
             <!-- "Homework evening starts at 17:00", or "You missed ...". No
-                 AutomationId on the Border (#134): the title, the line and the
+                 AutomationId on the card (#134): the title, the line and the
                  two buttons are the real controls. Start now is Secondary and
                  Skip today Quiet: Start sprint below stays the view's one
                  Primary (DESIGN_SYSTEM section 7). -->
-            <Border Style="{StaticResource Card}" Padding="20" Margin="0,0,0,16"
-                    Background="{DynamicResource PrimarySoft}" BorderBrush="{DynamicResource Primary}"
-                    Visibility="{Binding HeadsUpVisible, Converter={StaticResource BoolVis}}">
+            <ContentControl Style="{StaticResource CardTinted}" Padding="20" Margin="0,0,0,16"
+                            Visibility="{Binding HeadsUpVisible, Converter={StaticResource BoolVis}}">
                 <StackPanel>
                     <TextBlock Text="{Binding HeadsUpTitle}" Style="{StaticResource H2}" TextWrapping="Wrap"
                                AutomationProperties.AutomationId="HeadsUpCard"/>
@@ -46,7 +45,7 @@
                                 AutomationProperties.Name="Skip today"/>
                     </StackPanel>
                 </StackPanel>
-            </Border>
+            </ContentControl>
 
             <!-- ==================================================== timer card -->
             <Border x:Name="TimerCard" Style="{StaticResource Card}" Padding="24">

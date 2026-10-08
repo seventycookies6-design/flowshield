@@ -71,6 +71,7 @@ public class AppBlockerService : IDisposable
         "lsass", "svchost", "dwm", "explorer", "fontdrvhost", "sihost", "ctfmon",
         "runtimebroker", "shellexperiencehost", "startmenuexperiencehost", "searchhost",
         "audiodg", "conhost", "openconsole", "windowsterminal",
+        "applicationframehost",                        // frames every Store app window at once (#348)
         "cmd", "powershell", "pwsh", "wsl", "wslhost",
         "flowshield",                                  // never shoot ourselves
         "python", "pythonw", "node", "dotnet", "msbuild", "devenv", "code", "claude",
@@ -253,7 +254,7 @@ public class AppBlockerService : IDisposable
             {
                 var name = process.ProcessName;
                 if (CriticalProcesses.Contains(name) || !names.Contains(name)) continue;
-                if (process.CloseMainWindow())
+                if (process.CloseMainWindow() || PackagedWindows.CloseFramesOf(process.Id))
                 {
                     asked++;
                     Log.Info($"soft: asked {name} (pid {process.Id}) to close, as the user chose");
@@ -477,12 +478,15 @@ public class AppBlockerService : IDisposable
                     // Ask first. CloseMainWindow sends the same request the
                     // window's own close button does, so an app with unsaved
                     // work gets to put its "save before closing?" prompt up.
+                    // A classic Store app's window belongs to
+                    // ApplicationFrameHost, so its own process has no main
+                    // window; its frame is asked instead (#348).
                     if (!StillEnforcing()) break;
                     foreach (var process in processes)
                     {
                         try
                         {
-                            if (process.CloseMainWindow())
+                            if (process.CloseMainWindow() || PackagedWindows.CloseFramesOf(process.Id))
                                 Log.Info($"asked {process.ProcessName} (pid {process.Id}) to close");
                         }
                         catch (Exception ex)
@@ -565,6 +569,10 @@ public class AppBlockerService : IDisposable
         if (window == IntPtr.Zero) return;
 
         if (GetWindowThreadProcessId(window, out var pid) == 0 || pid == 0) return;
+
+        // A Store app's window in front belongs to ApplicationFrameHost; the
+        // app it frames is the one to name (#348).
+        if (PackagedWindows.AppProcessBehind(window) is { } framed) pid = framed;
 
         // Basalt's own windows — including the notice itself — are not a
         // sighting and not an absence of one. Reporting them would make the

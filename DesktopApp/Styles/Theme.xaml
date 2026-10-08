@@ -68,6 +68,7 @@
     <inf:ResourceKeyToBrushConverter x:Key="ResourceKeyToBrush"/>
     <!-- History's heatmap (F16): five steps mixed from surface-2 to primary. -->
     <inf:HeatStepToBrushConverter x:Key="HeatStep" Steps="5"/>
+    <inf:AppsOnShieldLabelConverter x:Key="AppsOnShieldLabel"/>
 
     <!-- ======================================================== focus ring
          DESIGN_SYSTEM.md §13: "Every interactive element is reachable and
@@ -231,6 +232,35 @@
         <Setter Property="Effect">
             <Setter.Value>
                 <DropShadowEffect BlurRadius="24" ShadowDepth="6" Direction="270" Opacity="0.45" Color="{StaticResource ShadowColor}"/>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- A card tinted with primary-soft: the schedule heads-up on Today and
+         the sleep page's trial-ended notice (#347). primary-soft is
+         translucent, and a DropShadowEffect is drawn from the alpha of
+         everything inside the element, so a Card with that background cast a
+         blurred shadow from every line of text and both buttons through it.
+         Here the shadow sits on an opaque surface layer and the tint is
+         painted inside it, so only the card's outline casts one. -->
+    <Style x:Key="CardTinted" TargetType="ContentControl">
+        <Setter Property="Focusable" Value="False"/>
+        <Setter Property="IsTabStop" Value="False"/>
+        <Setter Property="Padding" Value="24"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ContentControl">
+                    <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Primary}"
+                            BorderThickness="1" CornerRadius="{StaticResource RadiusCard}">
+                        <Border.Effect>
+                            <DropShadowEffect BlurRadius="24" ShadowDepth="6" Direction="270" Opacity="0.45" Color="{StaticResource ShadowColor}"/>
+                        </Border.Effect>
+                        <Border Background="{DynamicResource PrimarySoft}" CornerRadius="{StaticResource RadiusCard}"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter/>
+                        </Border>
+                    </Border>
+                </ControlTemplate>
             </Setter.Value>
         </Setter>
     </Style>

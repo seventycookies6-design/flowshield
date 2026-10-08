@@ -29,8 +29,9 @@
                      Today's stat cards, applied here. text, not teal;
                      teal stays reserved for state/selection/progress. -->
                 <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,24" VerticalAlignment="Bottom">
-                    <TextBlock Style="{StaticResource Stat}" Text="{Binding Apps.Count, StringFormat={}{0:00}}"/>
-                    <TextBlock Text="apps on the shield" Style="{StaticResource Body}" Foreground="{DynamicResource InkDim}"
+                    <TextBlock Style="{StaticResource Stat}" Text="{Binding Apps.Count}"/>
+                    <TextBlock Text="{Binding Apps.Count, Converter={StaticResource AppsOnShieldLabel}}"
+                               Style="{StaticResource Body}" Foreground="{DynamicResource InkDim}"
                                VerticalAlignment="Bottom" Margin="12,0,0,4"/>
                 </StackPanel>
 

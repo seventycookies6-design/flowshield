@@ -8143,6 +8143,10 @@ class TestKeyboardAndFocusF21:
             # The heatmap legend's five swatches are decoration beside the
             # "Less"/"More" captions, which carry the meaning.
             "HeatLegendItem",
+            # The tinted card (#347) is a ContentControl only so it can paint
+            # its shadow and its tint on separate layers. It is a container,
+            # like a Border; the buttons inside keep their tab stops.
+            "CardTinted",
         }
         allowed_ids = {
             # The same legend's own list: not hit-testable either, and every
@@ -10361,3 +10365,243 @@ class TestResendCooldown:
         assert route.index("resendCooldown.tryAcquire") < route.index("deliverLicenseEmail")
         assert route.rstrip().endswith("return res.json(generic);"), \
             "a cooled-down address must get the same answer, or the route becomes an oracle"
+
+
+class TestTodayPolishFromThe1011VmRun:
+    """
+    #347 and #290: three findings from the 1.0.11 VM run, and Today's stats
+    going stale overnight. Each test fails against 1.0.10's code.
+    """
+
+    VIEWS = Path(DESKTOP_DIR) / "Views"
+    THEME = Path(DESKTOP_DIR) / "Styles" / "Theme.xaml"
+    MAIN_VM = Path(DESKTOP_DIR) / "ViewModels" / "MainViewModel.cs"
+    TODAY_VM = Path(DESKTOP_DIR) / "ViewModels" / "TodayViewModel.cs"
+    OVERLAY = Path(DESKTOP_DIR) / "Views" / "SoftOverlayWindow.xaml.cs"
+
+    def _xaml_files(self):
+        return sorted(self.VIEWS.glob("*.xaml")) + [Path(DESKTOP_DIR) / "MainWindow.xaml"]
+
+    def test_no_shadowed_card_has_a_translucent_background(self):
+        """
+        The Card style's DropShadowEffect is drawn from the alpha of all the
+        element's content, so a Card painted with the translucent PrimarySoft
+        cast a blurred shadow from every line of text and both buttons of the
+        heads-up card. A tinted card is CardTinted, which keeps the shadow on
+        an opaque layer.
+        """
+        offenders = []
+        for path in self._xaml_files():
+            text = path.read_text(encoding="utf-8")
+            for tag in re.findall(r"<Border\b[^>]*>", text, flags=re.S):
+                if 'Style="{StaticResource Card}"' in tag and "PrimarySoft" in tag:
+                    offenders.append(f"{path.name}: {' '.join(tag.split())[:120]}")
+        assert not offenders, offenders
+
+    def test_the_tinted_card_shadows_an_opaque_surface(self):
+        theme = self.THEME.read_text(encoding="utf-8")
+        style = theme.split('<Style x:Key="CardTinted"', 1)[1].split("</Style>", 1)[0]
+        outer = style.split("<Border.Effect>", 1)[0]
+        outer_tag = outer[outer.rindex("<Border "):]
+        assert 'Background="{DynamicResource Surface}"' in outer_tag, \
+            "the shadow must sit on the opaque surface, not on the tint"
+        inner = style.split("</Border.Effect>", 1)[1]
+        assert 'Background="{DynamicResource PrimarySoft}"' in inner
+        heads_up = (self.VIEWS / "TodayView.xaml").read_text(encoding="utf-8")
+        card = heads_up.split("HeadsUpVisible", 1)[0].rsplit("<", 1)[1]
+        assert card.startswith('ContentControl Style="{StaticResource CardTinted}"'), card[:80]
+
+    def test_the_website_notice_counts_its_minutes_down(self):
+        """It showed the minutes left when it opened and never again (328-notice-youtube.png)."""
+        handler = self.MAIN_VM.read_text(encoding="utf-8").split("private void OnSoftForeground", 1)[1]
+        handler = handler.split("\n    }", 1)[0]
+        assert "SoftOverlayCopy.TimeLeft(Today.Remaining)" not in handler, \
+            "a string worked out once can't count down"
+        assert "() => Today.Remaining" in handler
+        overlay = self.OVERLAY.read_text(encoding="utf-8")
+        configure = overlay.split("public void Configure(", 1)[1].split("\n    }", 1)[0]
+        assert "Func<TimeSpan> remaining" in configure
+        ticks = re.search(r"_timeLeftTimer\.Tick \+= .*SoftOverlayCopy\.TimeLeft\(remaining\(\)\)", configure)
+        assert ticks, "a timer must re-read the time left while the notice is up"
+        closed = overlay.split("protected override void OnClosed", 1)[1].split("\n    }", 1)[0]
+        assert "_timeLeftTimer?.Stop();" in closed
+
+    def test_the_blocked_apps_counter_is_not_zero_padded(self):
+        xaml = (self.VIEWS / "BlockedAppsView.xaml").read_text(encoding="utf-8")
+        assert "Apps.Count, StringFormat={}{0:00}" not in xaml, '"01 apps"'
+        assert 'Text="apps on the shield"' not in xaml, "the label must agree with the count"
+        assert "Converter={StaticResource AppsOnShieldLabel}" in xaml
+
+    def test_todays_stats_move_to_the_new_day_while_left_open(self):
+        """#290: idle on Today across midnight, nothing re-ran RefreshStats."""
+        main = self.MAIN_VM.read_text(encoding="utf-8")
+        assert re.search(r"Scheduler\.Ticked \+= \(_, now\) => Today\.RefreshStatsOnNewDay\(now\);", main)
+        today = self.TODAY_VM.read_text(encoding="utf-8")
+        on_new_day = today.split("public void RefreshStatsOnNewDay(DateTime nowUtc)", 1)[1].split("\n    }", 1)[0]
+        assert "nowUtc.ToLocalTime().Date == _statsDay" in on_new_day, "the day is the local one"
+        assert "RefreshStats();" in on_new_day
+        refresh = today.split("public void RefreshStats()", 1)[1].split("\n    }", 1)[0]
+        assert "_statsDay = today;" in refresh
+# ========== #290 — the last three findings from the 1.0.9 pre-release review
+
+class TestLastReviewFindings:
+    DESKTOP = Path(DESKTOP_DIR)
+
+    def _read(self, *parts) -> str:
+        return self.DESKTOP.joinpath(*parts).read_text(encoding="utf-8")
+
+    def test_theme_refresh_reaches_template_bindings_like_the_heatmap(self):
+        theme = self._read("Services", "ThemeService.cs")
+        walk = theme.split("public static void RefreshConverterBindings(", 1)[1] \
+            .split("private static readonly DependencyProperty[] ColourProperties", 1)[0]
+        # the local-value walk alone misses a binding set by a ControlTemplate
+        assert "BindingOperations.GetBindingExpression(root, property)" in walk
+        assert "foreach (var property in ColourProperties)" in walk
+        props = theme.split("ColourProperties = new[]", 1)[1].split("};", 1)[0]
+        # the heatmap cell's Background="{Binding Step, Converter={StaticResource HeatStep}}"
+        assert "Border.BackgroundProperty" in props
+        xaml = self._read("Styles", "Theme.xaml")
+        assert "<Border x:Name=\"Cell\"" in xaml and "Converter={StaticResource HeatStep}" in xaml
+
+    def test_waking_up_copy_is_reported_on_time_not_when_an_attempt_times_out(self):
+        service = self._read("Services", "LicenseService.cs")
+        validate = service.split("public async Task<LicenseResult> ValidateAsync(", 1)[1] \
+            .split("public async Task RefreshAsync(", 1)[0]
+        assert "_ = ReportWakingUpLaterAsync(progress, waiting.Token);" in validate
+        assert validate.index("ReportWakingUpLaterAsync(progress") < validate.index("for (var attempt = 1")
+        assert "waiting.Cancel();" in validate.split("finally", )[-1], "stop the timer once answered"
+        timer = validate.split("private static async Task ReportWakingUpLaterAsync(", 1)[1]
+        assert "LicenseWaitCopy.WakingUpAfterSeconds" in timer
+        assert "progress.Report(LicenseWaitCopy.WakingUpMessage)" in timer
+        assert "WakingUpAfterSeconds = 8.0" in self._read("Services", "LicenseWaitCopy.cs")
+
+    def test_a_late_waking_up_report_cannot_overwrite_the_answer(self):
+        vm = self._read("ViewModels", "SettingsViewModel.cs")
+        activate = vm.split("private async Task ActivateAsync()", 1)[1].split("finally", 1)[0]
+        assert "if (!answered) LicenseStatusText = message;" in activate
+        assert activate.index("await _license.ValidateAsync(") < activate.index("answered = true;")
+
+    def test_a_stale_devices_response_is_dropped(self):
+        vm = self._read("ViewModels", "SettingsViewModel.cs")
+        load = vm.split("private async Task LoadDevicesAsync(bool force)", 1)[1] \
+            .split("private async Task ReleaseDeviceAsync(", 1)[0]
+        assert "var generation = ++_devicesGeneration;" in load
+        check = load.index("if (generation != _devicesGeneration) return;")
+        assert load.index("await _license.ListDevicesAsync(") < check < load.index("Devices.Clear();")
+        release = vm.split("private async Task ReleaseDeviceAsync(", 1)[1].split("// ------", 1)[0]
+        # a list asked for before the release may still contain the device
+        assert release.index("_devicesGeneration++;") < release.index("await _license.ReleaseDeviceAsync(")
+class TestSealedToastNamesTheApp:
+    """#324: removing or switching off a listed app mid-sprint names it in the refusal."""
+
+    SOURCE = Path(DESKTOP_DIR) / "ViewModels" / "BlockedAppsViewModel.cs"
+
+    def _source(self):
+        return self.SOURCE.read_text(encoding="utf-8")
+
+    def _method(self, signature):
+        return self._source().split(signature, 1)[1].split("\n    }", 1)[0]
+
+    def test_the_named_and_general_sentences(self):
+        helper = self._method("public static string SealedToast(")
+        assert '$"{appName} and other blocklisted apps are sealed until this sprint ends."' in helper
+        assert '"The blocklist is sealed until this sprint ends."' in helper
+        assert "string.IsNullOrWhiteSpace(appName)" in helper, "no name falls back to the general sentence"
+
+    @pytest.mark.parametrize("signature", [
+        "private void RemoveApp(BlockedApp? app)",
+        "public void ToggleApp(BlockedApp? app)",
+    ])
+    def test_listed_app_actions_pass_its_name(self, signature):
+        assert "_main.Toast(SealedToast(app.DisplayName));" in self._method(signature)
+
+    def test_every_sealed_refusal_goes_through_the_helper(self):
+        source = self._source()
+        assert source.count("sealed until this sprint ends") == 2, "only the helper's two sentences"
+        assert source.count("_main.Toast(SealedToast(") == 6
+# =========== the Causeway logo replaces the FlowShield shield everywhere (#338)
+
+class TestCausewayLogoIsTheBrandMark:
+    """
+    After the rename to Basalt the app icon, the tray, the installer, the app's
+    navigation and the site's favicon and header still drew the FlowShield
+    shield in the old colours. They now use the approved Causeway mark, copied
+    from `design/brand/` rather than redrawn.
+    """
+
+    BRAND = Path(DESKTOP_DIR).parent / "design" / "brand"
+    PAGES = ("index.html", "legal.html", "support.html", "success.html", "changelog.html")
+
+    @classmethod
+    def polygons(cls, name: str) -> list[str]:
+        svg = (cls.BRAND / name).read_text(encoding="utf-8")
+        return re.findall(r'<polygon points="([^"]+)"', svg)
+
+    @staticmethod
+    def frame(path: Path, size: int):
+        from PIL import Image
+
+        icon = Image.open(path)
+        icon.size = (size, size)
+        icon.load()
+        return icon.convert("RGBA")
+
+    def test_icon_files_are_the_causeway_tiles(self):
+        assets = Path(DESKTOP_DIR) / "Assets"
+        assert (assets / "FlowShield.svg").read_text(encoding="utf-8") == \
+            (self.BRAND / "basalt-icon.svg").read_text(encoding="utf-8")
+        assert (assets / "FlowShield.Running.svg").read_text(encoding="utf-8") == \
+            (self.BRAND / "basalt-icon-firm.svg").read_text(encoding="utf-8"), \
+            "the running icon is the Firm tile"
+
+        idle = self.frame(assets / "FlowShield.ico", 256)
+        running = self.frame(assets / "FlowShield.Running.ico", 256)
+        ground = (0x17, 0x18, 0x1B, 255)
+        # Tile coordinates are 0-100; the frame is 256 px.
+        at = lambda image, x, y: image.getpixel((round(x * 2.56), round(y * 2.56)))
+        assert at(idle, 1, 1)[3] == 0, "the tile's rounded corner is transparent"
+        assert at(idle, 50, 8) == ground and at(running, 50, 8) == ground
+        # Centre of the front column's top face: grey when idle, teal mid-sprint.
+        assert at(idle, 61.25, 56.5) == (0xE6, 0xE6, 0xE3, 255)
+        assert at(running, 61.25, 56.5) == (0x3A, 0xA8, 0x92, 255)
+        # The back column's top stays grey on Firm.
+        assert at(running, 61.25, 25.5) == (0xE6, 0xE6, 0xE3, 255)
+
+    def test_icon_script_reads_the_brand_svgs(self):
+        script = (Path(DESKTOP_DIR).parent / "tools" / "build_icons.py").read_text(encoding="utf-8")
+        assert '"basalt-icon.svg"' in script and '"basalt-icon-firm.svg"' in script
+        assert '"FlowShield"' in script and '"FlowShield.Running"' in script, \
+            "installs, the .csproj and LoadIcon depend on the old file names"
+
+    def test_app_navigation_draws_the_causeway_tile(self):
+        xaml = (Path(DESKTOP_DIR) / "MainWindow.xaml").read_text(encoding="utf-8-sig")
+        nav = xaml[xaml.index('x:Name="NavBrand"'):xaml.index('x:Name="NavBrandText"')]
+        assert "{StaticResource BrandMarkTile}" in nav
+        assert "M13 1.6" not in xaml, "the old shield brand mark is gone"
+
+        # The fixed brand greys live in their own dictionary, so the views stay
+        # free of hex colours (TestNoHardcodedColoursA3).
+        mark = (Path(DESKTOP_DIR) / "Styles" / "BrandMark.xaml").read_text(encoding="utf-8")
+        assert 'x:Key="BrandMarkTile"' in mark
+        for points in self.polygons("basalt-icon.svg"):
+            first, *rest = points.split()
+            assert f'Geometry="M{first} L{" ".join(rest)} Z"' in mark, points
+        app = (Path(DESKTOP_DIR) / "App.xaml").read_text(encoding="utf-8")
+        assert '<ResourceDictionary Source="Styles/BrandMark.xaml"/>' in app
+
+    def test_site_favicon_and_header_use_the_mark(self):
+        tile = self.polygons("basalt-icon.svg")
+        for page in self.PAGES:
+            html = (Path(WEBSITE_DIR) / page).read_text(encoding="utf-8")
+            favicon = re.search(r'<link rel="icon" href="([^"]+)"', html).group(1)
+            assert "%230c6b5c" not in favicon, f"{page} still has the old shield favicon"
+            for points in tile:
+                assert f"points='{points}'" in favicon, page
+
+        index = (Path(WEBSITE_DIR) / "index.html").read_text(encoding="utf-8")
+        brand = index[index.index('<a class="brand"'):index.index("</a>", index.index('<a class="brand"'))]
+        assert 'stroke="#ECEBE7"' in brand and 'stroke="#141517"' in brand, \
+            "the header carries the on-light and on-dark copies of the bare mark"
+        css = (Path(WEBSITE_DIR) / "styles.css").read_text(encoding="utf-8")
+        assert 'html[data-theme="dark"] .brand .brand-mark-light { display: none; }' in css
+        assert 'html[data-theme="dark"] .brand .brand-mark-dark { display: block; }' in css

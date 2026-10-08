@@ -467,3 +467,43 @@ class TestEmailAloneGrantsNothing:
         body = requests.post(f"{server}/validate",
                              json={"licenseKey": other, "email": self.EMAIL}, timeout=20).json()
         assert seeded not in json.dumps(body), body
+
+
+# ======================================= hostile Store packages (#348)
+
+class TestHostilePackages:
+    """
+    #348 reads every package's manifest to fill the picker. A package is
+    someone else's file: a broken or hostile one must give no row, never a
+    crash, and never a name that reaches outside the package or onto a
+    process the blocker must not touch.
+    """
+
+    ROOT = r"C:\Program Files\WindowsApps\Evil_1.0.0.0_x64__abc"
+
+    def apps(self, manifest_xml: str, game: str | None = None) -> list:
+        from core.model_probe import probe
+        return probe({"cmd": "packaged-apps", "manifest": manifest_xml, "game": game,
+                      "root": self.ROOT, "fullName": "Evil_1.0.0.0_x64__abc", "names": {}})["apps"]
+
+    @staticmethod
+    def package(executable: str) -> str:
+        return ('<Package xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10">'
+                '<Identity Name="Evil"/><Properties><DisplayName>Evil</DisplayName></Properties>'
+                f'<Applications><Application Id="App" Executable="{executable}"/></Applications></Package>')
+
+    @pytest.mark.parametrize("manifest_xml", [
+        "", "not xml", "<Package>", "<?xml version='1.0'?><!DOCTYPE x [<!ENTITY a 'b'>]><Package/>",
+    ])
+    def test_a_broken_manifest_is_no_app(self, manifest_xml):
+        assert self.apps(manifest_xml) == []
+
+    @pytest.mark.parametrize("executable", [
+        r"..\..\Windows\explorer.exe", r"C:\Windows\System32\cmd.exe", r"\\server\share\x.exe",
+        "$targetnametoken$.exe", "ApplicationFrameHost.exe", "WWAHost.exe", "gamelaunchhelper.exe",
+    ])
+    def test_a_name_outside_the_package_or_a_shared_host_is_refused(self, executable):
+        assert self.apps(self.package(executable)) == []
+
+    def test_a_broken_game_config_falls_back_to_nothing_not_the_launcher(self):
+        assert self.apps(self.package("gamelaunchhelper.exe"), game="<Game><ExecutableList>") == []

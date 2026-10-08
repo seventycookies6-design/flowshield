@@ -5,7 +5,7 @@
 | | |
 | --- | --- |
 | Host | Render, free plan, Docker, region `oregon` |
-| Config | `render.yaml` (in git) + four secrets entered in the dashboard |
+| Config | `render.yaml` (in git) + five secrets entered in the dashboard |
 | Health | <https://flowshield-license-server.onrender.com/health> |
 | Webhook | `/webhook`, enabled, signature-verified, delivering |
 | Database | `node:sqlite` at `/data/licenses.db` — a cache of Stripe |
@@ -59,6 +59,28 @@ Messages are written to `./outbox` as JSON instead of being sent. Capture takes
 priority over real credentials specifically so a test run can never email an
 actual customer — `tier6` relies on that.
 
+## Device release tokens
+
+The app's "Your devices" list releases another machine's seat with a token the
+server signs using `DEVICE_TOKEN_SECRET` (an HMAC, #234). Add it once in
+Render → Environment as any random string of at least 32 characters, for
+example the output of:
+
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
+Then **Manual Deploy** and confirm `/health` reports
+`"deviceTokens": {"configured": true, "source": "env"}`.
+
+Without it the server fails closed: list rows carry no token and releasing
+another device answers `503 device_tokens_not_configured`. Activation,
+validation, deactivating the current machine and *release all* are
+unaffected. Changing the secret later only invalidates device lists the app
+is showing at that moment; it fetches fresh ones. Outside production
+(`NODE_ENV` not `production`) a fixed development secret is used, so local runs
+and the tests need nothing set.
+
 ## Redeploying
 
 ```bash
@@ -101,7 +123,8 @@ recovery round-trip; uncomment the `disk:` block in `render.yaml`.
 
 Nothing here is Render-specific beyond `render.yaml` — the `Dockerfile` is
 plain Node. Fly.io, Railway and Google Cloud Run all work; set the same
-environment variables (`WEBSITE_URL`, `ALLOWED_ORIGINS`, `STRIPE_*`) and point
+environment variables (`WEBSITE_URL`, `ALLOWED_ORIGINS`, `STRIPE_*`,
+`DEVICE_TOKEN_SECRET`) and point
 the health check at `/health`.
 
 ## Before real money
