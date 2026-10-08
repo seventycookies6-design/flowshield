@@ -4609,3 +4609,85 @@ class TestWindowFitsTheWorkArea:
         assert "Math.Max(minHeight, Math.Min(window.Height, workArea.Height))" in source
         assert "Math.Max(workArea.Left, Math.Min(window.Left, workArea.Right - width))" in source
         assert "Math.Max(workArea.Top, Math.Min(window.Top, workArea.Bottom - height))" in source
+
+
+# ================================== Store and Xbox apps (#348)
+
+class TestStoreAppsAreBlockedTimidly:
+    """
+    #348. A classic Store app's window belongs to ApplicationFrameHost, which
+    frames every Store app at once; the app's own process has no main window.
+    The blocker finds the app behind the frame, asks the frame to close, and
+    never touches the frame host itself.
+    """
+
+    DESKTOP = Path(SERVER_DIR).parent / "DesktopApp"
+    BLOCKER = DESKTOP / "Services" / "AppBlockerService.cs"
+    WINDOWS = DESKTOP / "Services" / "PackagedWindows.cs"
+    CATALOG = DESKTOP / "Services" / "AppCatalog.cs"
+    MODEL = DESKTOP / "Models" / "PackagedApp.cs"
+
+    def critical(self) -> set[str]:
+        import re
+        source = self.BLOCKER.read_text(encoding="utf-8")
+        start = source.index("HashSet<string> CriticalProcesses")
+        block = source[source.index("{", start):source.index("};", start)]
+        return {name.lower() for name in re.findall(r'"([^"]+)"', block)}
+
+    def shared_hosts(self) -> set[str]:
+        import re
+        source = self.MODEL.read_text(encoding="utf-8")
+        start = source.index("HashSet<string> SharedHosts")
+        block = source[source.index("{", start):source.index("};", start)]
+        return {name.lower() for name in re.findall(r'"([^"]+)"', block)}
+
+    def test_the_frame_host_is_never_closed(self):
+        assert "applicationframehost" in self.critical()
+        assert "applicationframehost" in self.shared_hosts()
+
+    def test_no_suggestion_is_a_shared_host(self):
+        import json
+        data = json.loads((self.DESKTOP / "Data" / "app_suggestions.json").read_text(encoding="utf-8"))
+        hosts = self.shared_hosts()
+        assert {"gamelaunchhelper", "wwahost"} <= hosts
+        for group in data["groups"]:
+            for app in group["apps"]:
+                for process in app["processes"]:
+                    assert process.lower() not in hosts, f"{app['name']} suggests shared host {process}"
+
+    def test_the_frame_lookup_only_reads_and_asks(self):
+        source = self.WINDOWS.read_text(encoding="utf-8")
+        for forbidden in ("Kill(", "TerminateProcess", "OpenProcess", "SendMessage(", "Process."):
+            assert forbidden not in source, f"PackagedWindows must not use {forbidden}"
+        assert "WM_CLOSE = 0x0010" in source and "PostMessage(frame, WM_CLOSE" in source
+
+    def test_graceful_close_falls_back_to_the_frame(self):
+        source = self.BLOCKER.read_text(encoding="utf-8")
+        ask = "process.CloseMainWindow() || PackagedWindows.CloseFramesOf(process.Id)"
+        sweep = source.split("private void Tick", 1)[1].split("if (!graceful)", 1)[1]
+        assert sweep.index(ask) < sweep.index("KillAll(processes, shield);", sweep.index(ask))
+        soft = source.split("public int AskToClose(", 1)[1].split("\n    }", 1)[0]
+        assert ask in soft
+
+    def test_the_soft_notice_names_the_app_inside_a_frame(self):
+        source = self.BLOCKER.read_text(encoding="utf-8")
+        body = source.split("private void ReportForeground(", 1)[1].split("\n    }", 1)[0]
+        resolve = body.index("PackagedWindows.AppProcessBehind(window)")
+        assert resolve < body.index("Process.GetProcessById((int)pid)")
+        # Basalt's own windows are still checked after the swap.
+        assert resolve < body.index("pid == (uint)Environment.ProcessId")
+
+    def test_the_picker_reads_store_apps_per_user_and_skips_windows(self):
+        source = self.CATALOG.read_text(encoding="utf-8")
+        assert 'Safely("Store apps", () => found.AddRange(StoreApps()))' in source
+        body = source.split("private static IEnumerable<PickerEntry> StoreApps()", 1)[1].split("\n    }\n", 1)[0]
+        assert "Registry.CurrentUser" in body and "Registry.LocalMachine" not in body
+        assert "IsUnderWindows(folder)" in body
+        assert "AppPicker.IsNotAnApp(" in body
+
+    def test_running_store_apps_are_found_through_their_frames(self):
+        source = self.CATALOG.read_text(encoding="utf-8")
+        running = source.split("private static IEnumerable<PickerEntry> Running()", 1)[1].split(
+            "private static IEnumerable<PickerEntry> StoreApps()", 1)[0]
+        assert "PackagedWindows.Frames()" in running
+        assert "IsUnderWindows(path)" in running.split("PackagedWindows.Frames()", 1)[1]
