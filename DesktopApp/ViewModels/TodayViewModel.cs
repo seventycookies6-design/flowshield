@@ -2141,9 +2141,25 @@ public class TodayViewModel : ViewModelBase
         else _nudgesThisSprint++;
     }
 
+    /// <summary>The local day the stats on Today were last worked out for.</summary>
+    private DateTime _statsDay;
+
+    /// <summary>
+    /// Works the stats out again once the local day has turned over (#290).
+    /// Run on every scheduler tick: left open on Today across midnight,
+    /// nothing else refreshes them, because re-selecting Today is no change
+    /// of page, so yesterday's totals, goal and streak stayed up.
+    /// </summary>
+    public void RefreshStatsOnNewDay(DateTime nowUtc)
+    {
+        if (nowUtc.ToLocalTime().Date == _statsDay) return;
+        RefreshStats();
+    }
+
     public void RefreshStats()
     {
         var today = DateTime.Now.Date;
+        _statsDay = today;
         var todays = S.Sessions.Where(s => s.StartedUtc.ToLocalTime().Date == today).ToList();
 
         SessionsToday = todays.Count(s => s.Completed);

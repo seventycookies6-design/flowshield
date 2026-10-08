@@ -201,3 +201,16 @@ public class ShieldLevelToGlyphConverter : IValueConverter
 
     public object ConvertBack(object value, Type t, object p, CultureInfo c) => Binding.DoNothing;
 }
+
+/// <summary>
+/// Blocked Apps' count to the label beside it, so one app reads "1 app on the
+/// shield" rather than "01 apps" (#347). The wording lives in
+/// <see cref="Models.BlocklistCopy"/>, where tier 1 runs it.
+/// </summary>
+public class AppsOnShieldLabelConverter : IValueConverter
+{
+    public object Convert(object value, Type t, object p, CultureInfo c) =>
+        Models.BlocklistCopy.AppsOnShield(value is int n ? n : 0);
+
+    public object ConvertBack(object value, Type t, object p, CultureInfo c) => Binding.DoNothing;
+}
