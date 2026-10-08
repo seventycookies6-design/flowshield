@@ -118,3 +118,6 @@ the health check at `/health`.
   the success page stop telling buyers their key is shown only once.
 - The customer-facing endpoints are rate limited per client IP
   (`RATE_LIMIT_PER_MINUTE`, default 30 per route; 0 disables).
+- `/resend-license` also allows one email per address per 10 minutes
+  (`RESEND_COOLDOWN_SECONDS`, default 600; 0 disables), so a buyer's inbox
+  can't be flooded from many IPs. The answer is the same either way.
