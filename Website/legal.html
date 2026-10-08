@@ -156,6 +156,14 @@
   <ul>
     <li><strong>Your email address</strong>, given at checkout, so we can send
         your licence key and contact you about your purchase.</li>
+    <li><strong>An email address typed into “Lost your key?”</strong> on the
+        support page. It is sent to our licence server, which looks it up in
+        Stripe to find a matching purchase and, if there is one, emails the
+        key to that address. This happens for any address typed in, including
+        one that never bought anything. If no purchase matches, the address is
+        written to the server's log and kept there only as long as the
+        hosting provider retains logs; it is not added to any list or used
+        for anything else.</li>
     <li><strong>Your licence key and purchase status</strong>, so we can tell
         whether your licence is active.</li>
     <li><strong>Payment records</strong> held by Stripe. We receive confirmation

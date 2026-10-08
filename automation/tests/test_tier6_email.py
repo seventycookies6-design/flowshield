@@ -48,6 +48,7 @@ def capture_server(tmp_path_factory):
         "EMAIL_CAPTURE_DIR": str(outbox),
         "FLOWSHIELD_DB": str(db_path),
         "EMAIL_FROM": "Basalt <test@flowshield.invalid>",
+        "RESEND_COOLDOWN_SECONDS": "0",  # tests resend to one address repeatedly (#286)
     })
 
     if not _free(CAPTURE_PORT):
