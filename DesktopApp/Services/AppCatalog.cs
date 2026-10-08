@@ -1,5 +1,7 @@
 using System.Diagnostics;
 using System.IO;
+using System.Runtime.InteropServices;
+using System.Text;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
@@ -10,8 +12,9 @@ namespace FlowShield.Services;
 
 /// <summary>
 /// Finds the apps on this PC for the picker (F8): Start Menu shortcuts, the
-/// installed-programs registry keys, and windows open right now. Everything is
-/// read-only and needs no admin rights; anything unreadable is skipped.
+/// installed-programs registry keys, Store apps (#348), and windows open right
+/// now. Everything is read-only and needs no admin rights; anything unreadable
+/// is skipped.
 /// </summary>
 public static class AppCatalog
 {
@@ -25,6 +28,7 @@ public static class AppCatalog
         Safely("running apps", () => found.AddRange(Running()));
         Safely("Start Menu shortcuts", () => found.AddRange(StartMenu()));
         Safely("installed programs", () => found.AddRange(Registered()));
+        Safely("Store apps", () => found.AddRange(StoreApps()));
         return found;
     }
 
@@ -59,6 +63,95 @@ public static class AppCatalog
 
             if (entry is not null) yield return entry;
         }
+
+        // A classic Store app's window belongs to ApplicationFrameHost, under
+        // Windows, and the app's own process has no main window, so neither
+        // pass above offers it. Each frame names the app inside it (#348).
+        foreach (var (_, pid) in PackagedWindows.Frames())
+        {
+            PickerEntry? entry = null;
+            try
+            {
+                using var process = Process.GetProcessById((int)pid);
+                var path = process.MainModule?.FileName;
+                if (path is null || IsUnderWindows(path)) continue;
+                var title = FileVersionInfo.GetVersionInfo(path).FileDescription;
+                var name = string.IsNullOrWhiteSpace(title) ? process.ProcessName : title.Trim();
+                if (AppPicker.IsNotAnApp(name, process.ProcessName)) continue;
+                entry = new PickerEntry
+                {
+                    Name = name,
+                    Processes = new() { process.ProcessName },
+                    Source = PickerSource.Running,
+                    ExePath = path,
+                };
+            }
+            catch { /* exited, or a module we may not read */ }
+
+            if (entry is not null) yield return entry;
+        }
+    }
+
+    /// <summary>
+    /// The packages Windows has installed for this user, from the per-user
+    /// list it keeps in the registry (readable without admin rights), read
+    /// through each package's own manifest (#348). Store apps have no Start
+    /// Menu shortcut and no Uninstall key, so this is the only way they appear
+    /// before they are running.
+    /// </summary>
+    private static IEnumerable<PickerEntry> StoreApps()
+    {
+        const string repository =
+            @"Software\Classes\Local Settings\Software\Microsoft\Windows\CurrentVersion\AppModel\Repository\Packages";
+        using var root = Registry.CurrentUser.OpenSubKey(repository);
+        if (root is null) yield break;
+
+        foreach (var fullName in root.GetSubKeyNames())
+        {
+            List<PackagedAppInfo> apps;
+            try
+            {
+                using var key = root.OpenSubKey(fullName);
+                var folder = key?.GetValue("PackageRootFolder") as string;
+                // SystemApps and the inbox apps under Windows are part of
+                // the OS, the same rule every other source here applies.
+                if (string.IsNullOrWhiteSpace(folder) || IsUnderWindows(folder)) continue;
+                var manifest = Path.Combine(folder, "AppxManifest.xml");
+                if (!File.Exists(manifest)) continue;
+                var gameConfig = Path.Combine(folder, "MicrosoftGame.config");
+                apps = PackagedApp.FromManifest(
+                    File.ReadAllText(manifest),
+                    File.Exists(gameConfig) ? File.ReadAllText(gameConfig) : null,
+                    folder, fullName, LoadIndirect);
+            }
+            catch
+            {
+                continue;   // a package being installed or removed right now
+            }
+
+            foreach (var app in apps)
+            {
+                var process = app.Processes[0];
+                if (AppPicker.IsNotAnApp(app.Name, process)) continue;
+                yield return new PickerEntry
+                {
+                    Name = app.Name,
+                    Processes = app.Processes,
+                    Source = PickerSource.Installed,
+                    ExePath = app.ExePath,
+                };
+            }
+        }
+    }
+
+    [DllImport("shlwapi.dll", CharSet = CharSet.Unicode)]
+    private static extern int SHLoadIndirectString(string source, StringBuilder output, int size, IntPtr reserved);
+
+    /// <summary>A manifest's ms-resource: name, as the Start menu shows it; null if Windows can't say.</summary>
+    private static string? LoadIndirect(string source)
+    {
+        var text = new StringBuilder(512);
+        return SHLoadIndirectString(source, text, text.Capacity, IntPtr.Zero) == 0 ? text.ToString() : null;
     }
 
     private static IEnumerable<PickerEntry> StartMenu()

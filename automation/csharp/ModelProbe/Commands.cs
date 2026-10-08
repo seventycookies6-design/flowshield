@@ -88,7 +88,42 @@ internal static class Commands
                 ["text"] = TrialStart.Format(Utc((string)request["start"]!)),
                 ["back"] = Iso(TrialStart.Parse(TrialStart.Format(Utc((string)request["start"]!)))),
             },
+            "packaged-apps" => PackagedApps(request),
+            "packaged-process" => new JsonObject
+            {
+                ["process"] = PackagedApp.ProcessName((string?)request["exe"]),
+            },
             _ => throw new ArgumentException($"unknown command '{cmd}'"),
+        };
+    }
+
+    /// <summary>
+    /// PackagedApp.FromManifest (#348) on {"manifest", "game"?, "root",
+    /// "fullName", "names": {indirect string: text}}. An indirect string
+    /// missing from "names" resolves to null, as when Windows can't load it.
+    /// "asked" lists every indirect string the parser asked for.
+    /// </summary>
+    private static JsonObject PackagedApps(JsonObject request)
+    {
+        var names = request["names"]?.AsObject();
+        var asked = new JsonArray();
+        var apps = PackagedApp.FromManifest(
+            (string)request["manifest"]!, (string?)request["game"], (string)request["root"]!,
+            (string)request["fullName"]!,
+            source =>
+            {
+                asked.Add(source);
+                return names is not null && names.TryGetPropertyValue(source, out var text) ? (string?)text : null;
+            });
+        return new JsonObject
+        {
+            ["apps"] = new JsonArray(apps.Select(a => (JsonNode)new JsonObject
+            {
+                ["name"] = a.Name,
+                ["processes"] = new JsonArray(a.Processes.Select(p => (JsonNode)p!).ToArray()),
+                ["exe"] = a.ExePath,
+            }).ToArray()),
+            ["asked"] = asked,
         };
     }
 
