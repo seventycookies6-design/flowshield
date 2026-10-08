@@ -10361,3 +10361,33 @@ class TestResendCooldown:
         assert route.index("resendCooldown.tryAcquire") < route.index("deliverLicenseEmail")
         assert route.rstrip().endswith("return res.json(generic);"), \
             "a cooled-down address must get the same answer, or the route becomes an oracle"
+
+
+class TestSealedToastNamesTheApp:
+    """#324: removing or switching off a listed app mid-sprint names it in the refusal."""
+
+    SOURCE = Path(DESKTOP_DIR) / "ViewModels" / "BlockedAppsViewModel.cs"
+
+    def _source(self):
+        return self.SOURCE.read_text(encoding="utf-8")
+
+    def _method(self, signature):
+        return self._source().split(signature, 1)[1].split("\n    }", 1)[0]
+
+    def test_the_named_and_general_sentences(self):
+        helper = self._method("public static string SealedToast(")
+        assert '$"{appName} and other blocklisted apps are sealed until this sprint ends."' in helper
+        assert '"The blocklist is sealed until this sprint ends."' in helper
+        assert "string.IsNullOrWhiteSpace(appName)" in helper, "no name falls back to the general sentence"
+
+    @pytest.mark.parametrize("signature", [
+        "private void RemoveApp(BlockedApp? app)",
+        "public void ToggleApp(BlockedApp? app)",
+    ])
+    def test_listed_app_actions_pass_its_name(self, signature):
+        assert "_main.Toast(SealedToast(app.DisplayName));" in self._method(signature)
+
+    def test_every_sealed_refusal_goes_through_the_helper(self):
+        source = self._source()
+        assert source.count("sealed until this sprint ends") == 2, "only the helper's two sentences"
+        assert source.count("_main.Toast(SealedToast(") == 6
