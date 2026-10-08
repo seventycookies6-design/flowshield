@@ -61,6 +61,7 @@ internal static class Commands
             {
                 ["text"] = HistoryStats.TurnedBackText((int)request["n"]!),
             },
+            "stopped-apps" => StoppedAppsList(request),
             "sprint-options-summary" => new JsonObject
             {
                 ["text"] = SprintOptionsCopy.Summary((int)request["minutes"]!,
@@ -524,5 +525,15 @@ internal static class Commands
     {
         action();
         return null;
+    }
+
+    /// <summary>Feeds a sprint's distractions to StoppedApps and returns the card's list (#349).</summary>
+    private static JsonNode StoppedAppsList(JsonObject request)
+    {
+        var stopped = new StoppedApps();
+        foreach (var step in request["steps"]!.AsArray())
+            stopped.Record((string?)step!["app"], (bool)step["closed"]!);
+        if (request["clear"] is { } clear && (bool)clear) stopped.Clear();
+        return new JsonObject { ["any"] = stopped.Any, ["title"] = stopped.Title, ["text"] = stopped.Text };
     }
 }

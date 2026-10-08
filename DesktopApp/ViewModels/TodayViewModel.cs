@@ -25,6 +25,7 @@ public class TodayViewModel : ViewModelBase
     private int _blocksThisSprint;
     private int _closedThisSprint;
     private int _nudgesThisSprint;
+    private readonly StoppedApps _stoppedThisSprint = new();
 
     public TodayViewModel(MainViewModel main)
     {
@@ -585,6 +586,17 @@ public class TodayViewModel : ViewModelBase
 
     private bool _summaryTurnedBackVisible;
     public bool SummaryTurnedBackVisible { get => _summaryTurnedBackVisible; private set => Set(ref _summaryTurnedBackVisible, value); }
+
+    private string _summaryStoppedTitle = "";
+    /// <summary>"What Basalt stopped this sprint", or "caught" for a sprint that only nudged (#349).</summary>
+    public string SummaryStoppedTitle { get => _summaryStoppedTitle; private set => Set(ref _summaryStoppedTitle, value); }
+
+    private string _summaryStoppedText = "";
+    /// <summary>"Discord · closed 3 times", one app per line (#349).</summary>
+    public string SummaryStoppedText { get => _summaryStoppedText; private set => Set(ref _summaryStoppedText, value); }
+
+    private bool _summaryStoppedVisible;
+    public bool SummaryStoppedVisible { get => _summaryStoppedVisible; private set => Set(ref _summaryStoppedVisible, value); }
 
     // ------------------------------------------ breaks and cycles (F5)
 
@@ -1562,6 +1574,7 @@ public class TodayViewModel : ViewModelBase
         _blocksThisSprint = 0;
         _closedThisSprint = 0;
         _nudgesThisSprint = 0;
+        _stoppedThisSprint.Clear();
         _endingSoonNotified = false;
         IsRunning = true;
         SessionStateText = stateText;
@@ -2069,6 +2082,12 @@ public class TodayViewModel : ViewModelBase
         // Above zero only at Soft, the one shield with the notice that counts it.
         SummaryTurnedBackText = HistoryStats.TurnedBackText(session.TurnedBack);
         SummaryTurnedBackVisible = session.TurnedBack > 0;
+
+        // #349: which apps, not just how many, so "it silently stopped
+        // blocking" can't happen without the card showing it. In memory only.
+        SummaryStoppedTitle = _stoppedThisSprint.Title;
+        SummaryStoppedText = _stoppedThisSprint.Text;
+        SummaryStoppedVisible = _stoppedThisSprint.Any;
     }
 
     private static string DistractionSummary(FocusSession session)
@@ -2132,13 +2151,17 @@ public class TodayViewModel : ViewModelBase
         Progress = 0;
     }
 
-    /// <summary>Counts one enforcement against the running sprint.</summary>
-    public void RecordBlock(bool terminated)
+    /// <summary>
+    /// Counts one enforcement against the running sprint, and against
+    /// <paramref name="name"/> on the summary card's list (#349).
+    /// </summary>
+    public void RecordBlock(bool terminated, string name)
     {
         if (!IsRunning) return;
         _blocksThisSprint++;
         if (terminated) _closedThisSprint++;
         else _nudgesThisSprint++;
+        _stoppedThisSprint.Record(name, terminated);
     }
 
     /// <summary>The local day the stats on Today were last worked out for.</summary>
