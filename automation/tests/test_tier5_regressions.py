@@ -63,6 +63,21 @@ class TestLegalPagesMatchTheProduct:
             "the privacy policy must disclose the device identifier and device name"
         assert "email address" in policy
 
+    def test_the_privacy_policy_discloses_the_lost_key_lookup(self):
+        """
+        #287: an address typed into Lost your key is sent to the licence server
+        and looked up in Stripe, even if it never bought anything, and an
+        unmatched one is logged. The policy must say so.
+        """
+        server = (self.ROOT / "Server" / "server.js").read_text(encoding="utf-8")
+        assert "recoverFromStripe({ email })" in server, "the lookup moved; update this test"
+
+        policy = " ".join(self.LEGAL.read_text(encoding="utf-8").lower().split())
+        assert "lost your key" in policy
+        assert "looks it up in stripe" in policy
+        assert "never bought anything" in policy
+        assert "written to the server's log" in policy
+
     def test_no_placeholder_is_left_unflagged_on_a_customer_page(self):
         """
         `[operator name]` and friends are still on the site. That is a known gap
