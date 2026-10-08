@@ -10153,3 +10153,35 @@ class TestStoneLook:
         assert "pointer-events: none" in columns
         assert "background-color: var(--color-text)" in columns, "the motif follows the theme"
         assert "mask:" in columns and "-webkit-mask:" in columns
+
+
+class TestResendCooldown:
+    """#286: /resend-license needs a per-address cooldown, not only a per-IP limit."""
+
+    def _run(self, script):
+        result = subprocess.run([NODE_EXE, "-e", script], cwd=str(SERVER_DIR),
+                                capture_output=True, text=True, timeout=60)
+        assert result.returncode == 0, result.stderr[:400]
+        return json.loads(result.stdout.strip().splitlines()[-1])
+
+    def test_one_send_per_address_per_window_across_case(self):
+        out = self._run(
+            "let t=0;const c=require('./cooldown').createCooldown({windowMs:600000,now:()=>t});"
+            "const r=[c.tryAcquire('a@x.com'),c.tryAcquire(' A@X.com '),c.tryAcquire('b@x.com')];"
+            "t=599999;r.push(c.tryAcquire('a@x.com'));"
+            "t=600000;r.push(c.tryAcquire('a@x.com'));"
+            "console.log(JSON.stringify(r));")
+        assert out == [True, False, True, False, True]
+
+    def test_a_zero_window_disables_it(self):
+        out = self._run(
+            "const c=require('./cooldown').createCooldown({windowMs:0});"
+            "console.log(JSON.stringify([c.tryAcquire('a@x.com'),c.tryAcquire('a@x.com')]));")
+        assert out == [True, True]
+
+    def test_the_route_applies_it_before_sending_and_answers_generically(self):
+        source = (Path(SERVER_DIR) / "server.js").read_text(encoding="utf-8")
+        route = source.split("app.post('/resend-license'")[1].split("\n});")[0]
+        assert route.index("resendCooldown.tryAcquire") < route.index("deliverLicenseEmail")
+        assert route.rstrip().endswith("return res.json(generic);"), \
+            "a cooled-down address must get the same answer, or the route becomes an oracle"
