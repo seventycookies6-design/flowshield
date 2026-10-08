@@ -1359,6 +1359,47 @@ class TestDeviceToken:
         assert not device_id.startswith(token)
         assert not token.startswith(device_id[:16])
 
+    # ---- keyed with a server secret (#234)
+
+    def _keyed(self, secret: str, production: bool) -> dict:
+        return node_eval(
+            "const {createDeviceTokens}=require('./devicetoken');"
+            f"const t=createDeviceTokens({{secret:{secret!r},production:{str(production).lower()}}});"
+            "console.log(JSON.stringify({configured:t.configured,source:t.source,"
+            "t:t.token('FS-AAAA-BBBB-CCCC-DDDD','device-1')}))"
+        )
+
+    def test_is_an_hmac_of_the_pair_under_the_server_secret(self):
+        """Someone holding a raw device id and the licence key can no longer
+        mint a token without the server's secret."""
+        import hashlib
+        import hmac
+
+        secret = "s" * 40
+        out = self._keyed(secret, production=True)
+        expected = hmac.new(
+            secret.encode(), b"devicetoken|FS-AAAA-BBBB-CCCC-DDDD|device-1", hashlib.sha256
+        ).hexdigest()[:16]
+        plain = hashlib.sha256(b"devicetoken|FS-AAAA-BBBB-CCCC-DDDD|device-1").hexdigest()[:16]
+        assert out == {"configured": True, "source": "env", "t": expected}
+        assert out["t"] != plain, "still the unkeyed hash anyone could compute"
+
+    def test_a_different_secret_gives_a_different_token(self):
+        assert self._keyed("a" * 40, True)["t"] != self._keyed("b" * 40, True)["t"]
+
+    def test_production_without_a_secret_fails_closed(self):
+        out = self._keyed("", production=True)
+        assert out == {"configured": False, "source": "missing", "t": None}
+
+    def test_production_refuses_a_short_secret(self):
+        out = self._keyed("too-short", production=True)
+        assert out["configured"] is False and out["t"] is None
+
+    def test_development_falls_back_to_a_fixed_secret(self):
+        out = self._keyed("", production=False)
+        assert out["configured"] is True and out["source"] == "development"
+        assert out["t"] == self._keyed("", production=False)["t"]
+
 
 # ============================================= sprint summary card (F12)
 

@@ -173,11 +173,18 @@ public class SettingsViewModel : ViewModelBase
         LicenseStatusText = LicenseWaitCopy.MessageFor(0);
         LicenseDetailText = "";
 
-        var progress = new Progress<string>(message => LicenseStatusText = message);
+        // Progress<T> posts to the UI thread, so a report made just before the
+        // answer arrived can land after it; once the answer is in, ignore it.
+        var answered = false;
+        var progress = new Progress<string>(message =>
+        {
+            if (!answered) LicenseStatusText = message;
+        });
 
         try
         {
             var result = await _license.ValidateAsync(LicenseKeyInput, LicenseEmailInput, _main.Settings, progress);
+            answered = true;
 
             if (result.IsPro)
             {
@@ -294,6 +301,14 @@ public class SettingsViewModel : ViewModelBase
     private bool _devicesLoadedOnce;
 
     /// <summary>
+    /// Bumped by every list fetch and every release. A response is applied only
+    /// if nothing newer started while it was in flight, so a slow Refresh that
+    /// lands after a Release and its reload cannot bring the released device
+    /// back (#290).
+    /// </summary>
+    private int _devicesGeneration;
+
+    /// <summary>
     /// Roadmap 5.7: the list is fetched only when the card is expanded (the
     /// first time) or the Refresh button is pressed — never on a timer or in
     /// the background. Collapsing and re-expanding does not re-fetch.
@@ -311,11 +326,13 @@ public class SettingsViewModel : ViewModelBase
     {
         if (!force && _devicesLoadedOnce) return;
 
+        var generation = ++_devicesGeneration;
         IsLoadingDevices = true;
         DevicesStatusText = "";
         try
         {
             var result = await _license.ListDevicesAsync(_main.Settings);
+            if (generation != _devicesGeneration) return;
             _devicesLoadedOnce = true;
 
             Devices.Clear();
@@ -337,7 +354,7 @@ public class SettingsViewModel : ViewModelBase
         }
         finally
         {
-            IsLoadingDevices = false;
+            if (generation == _devicesGeneration) IsLoadingDevices = false;
         }
     }
 
@@ -345,6 +362,10 @@ public class SettingsViewModel : ViewModelBase
     {
         if (device is null || !device.CanRelease) return;
 
+        // Any list already in flight was asked for before this release, so it
+        // may still contain the device: let it go stale.
+        _devicesGeneration++;
+        IsLoadingDevices = false;
         device.IsReleasing = true;
         try
         {

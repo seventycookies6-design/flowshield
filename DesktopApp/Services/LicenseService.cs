@@ -112,8 +112,11 @@ public class LicenseService
     ///
     /// <paramref name="progress"/>, if given, is reported with the copy ladder
     /// message (<see cref="LicenseWaitCopy.MessageFor"/>) each time a wait
-    /// begins, so a caller such as <c>SettingsViewModel</c> can show honest,
-    /// time-aware status while a sleeping licence server wakes up.
+    /// begins, and once more when the wait passes
+    /// <see cref="LicenseWaitCopy.WakingUpAfterSeconds"/>, so a caller such as
+    /// <c>SettingsViewModel</c> can show honest, time-aware status while a
+    /// sleeping licence server wakes up. Without that timed report the
+    /// "waking up" line only appeared when the 35 s first attempt gave up (#290).
     /// </summary>
     public async Task<LicenseResult> ValidateAsync(
         string licenseKey, string email, AppSettings settings, IProgress<string>? progress = null)
@@ -125,6 +128,10 @@ public class LicenseService
             return LicenseResult.Failure("Enter your license key (or the email you used at checkout).");
 
         var url = settings.LicenseServerUrl.TrimEnd('/') + "/validate";
+
+        using var waiting = new CancellationTokenSource();
+        if (progress is not null)
+            _ = ReportWakingUpLaterAsync(progress, waiting.Token);
 
         try
         {
@@ -268,6 +275,33 @@ public class LicenseService
             Log.Error("license validation failed", ex);
             return LicenseResult.Failure($"Validation failed: {ex.Message}");
         }
+        finally
+        {
+            // The answer is in (or we gave up): the wait is over, so the
+            // "waking up" line must not arrive after it.
+            waiting.Cancel();
+        }
+    }
+
+    /// <summary>
+    /// Reports <see cref="LicenseWaitCopy.WakingUpMessage"/> once the wait
+    /// reaches <see cref="LicenseWaitCopy.WakingUpAfterSeconds"/>, unless
+    /// <paramref name="stop"/> fires first. An attempt only starts every 35 s
+    /// or so, so this is what makes the copy switch on time.
+    /// </summary>
+    private static async Task ReportWakingUpLaterAsync(IProgress<string> progress, CancellationToken stop)
+    {
+        try
+        {
+            await Task.Delay(TimeSpan.FromSeconds(LicenseWaitCopy.WakingUpAfterSeconds), stop);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        if (!stop.IsCancellationRequested)
+            progress.Report(LicenseWaitCopy.WakingUpMessage);
     }
 
     /// <summary>Silent re-check at startup. Leaves cached state alone on any error.</summary>

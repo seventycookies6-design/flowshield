@@ -303,7 +303,12 @@ html { scroll-padding-top: 88px; }
   color: var(--color-text);
   text-decoration: none;
 }
-.brand svg { width: 28px; height: 28px; flex: none; }
+/* The Causeway mark (design/brand/README.md): bare, 56x66, about 1.35x the
+   wordmark's cap height. Each theme shows the copy drawn for its ground. */
+.brand .brand-mark { width: auto; height: 30px; flex: none; }
+.brand .brand-mark-dark { display: none; }
+html[data-theme="dark"] .brand .brand-mark-light { display: none; }
+html[data-theme="dark"] .brand .brand-mark-dark { display: block; }
 
 .nav-links {
   display: flex;
