@@ -10153,3 +10153,44 @@ class TestStoneLook:
         assert "pointer-events: none" in columns
         assert "background-color: var(--color-text)" in columns, "the motif follows the theme"
         assert "mask:" in columns and "-webkit-mask:" in columns
+
+
+# ============ #284 — the lock screen waits for a resumed sprint or break
+
+class TestLockScreenWaitsForResumedFocus:
+    """
+    A sprint or break saved while the trial was active and resumed after it
+    expired was covered by the lock screen at once, while the blocker kept
+    enforcing underneath. The cover now waits for focus and its summary prompt;
+    IsLocked itself stays true so every refusal still holds.
+    """
+
+    DESKTOP = Path(DESKTOP_DIR)
+
+    def _main(self) -> str:
+        return (self.DESKTOP / "ViewModels" / "MainViewModel.cs").read_text(encoding="utf-8")
+
+    def test_the_overlay_binds_to_the_new_property_not_the_refusal(self):
+        xaml = (self.DESKTOP / "MainWindow.xaml").read_text(encoding="utf-8")
+        panel = xaml.split('AutomationProperties.AutomationId="TrialEndedPanel"', 1)[0]
+        assert 'Visibility="{Binding ShowLockScreen,' in panel.rsplit("<Border", 1)[1]
+
+    def test_the_cover_waits_for_focus_and_the_summary(self):
+        main = self._main()
+        line = next(l for l in main.splitlines() if "public bool ShowLockScreen" in l)
+        for part in ("IsLocked", "!IsFocusInProgress", "!Today.JournalPromptVisible"):
+            assert part in line, f"ShowLockScreen must include {part}"
+
+    def test_islocked_still_refuses_while_focus_is_under_way(self):
+        main = self._main()
+        assert "public bool IsLocked => !HasAccess;" in main, \
+            "start and edit refusals read IsLocked; only the cover may wait"
+
+    def test_the_cover_is_re_evaluated_when_focus_or_the_prompt_ends(self):
+        main = self._main()
+        changed = main.split("public void OnSprintStateChanged()", 1)[1].split("\n    }", 1)[0]
+        assert "Raise(nameof(ShowLockScreen))" in changed
+        assert "Raise(nameof(ShowLockScreen))" in main.split("public void OnTierChanged()", 1)[1].split("\n    }", 1)[0]
+        today = (self.DESKTOP / "ViewModels" / "TodayViewModel.cs").read_text(encoding="utf-8")
+        setter = today.split("public bool JournalPromptVisible", 1)[1].split("private string _journalText", 1)[0]
+        assert "_main.RefreshLockScreen()" in setter

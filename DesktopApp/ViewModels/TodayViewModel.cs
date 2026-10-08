@@ -507,7 +507,11 @@ public class TodayViewModel : ViewModelBase
     public bool JournalPromptVisible
     {
         get => _journalPromptVisible;
-        private set => Set(ref _journalPromptVisible, value);
+        private set
+        {
+            if (!Set(ref _journalPromptVisible, value)) return;
+            _main.RefreshLockScreen();
+        }
     }
 
     private string _journalText = "";
