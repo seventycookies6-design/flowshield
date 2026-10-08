@@ -42,9 +42,13 @@ public static class AppCatalog
                 if (path is not null && IsUnderWindows(path)) continue;
 
                 var title = path is null ? null : FileVersionInfo.GetVersionInfo(path).FileDescription;
+                var name = string.IsNullOrWhiteSpace(title) ? process.ProcessName : title.Trim();
+                // Same filter FromExe applies, so a visible Update.exe outside
+                // Windows isn't offered as a running app (#290).
+                if (AppPicker.IsNotAnApp(name, process.ProcessName)) continue;
                 entry = new PickerEntry
                 {
-                    Name = string.IsNullOrWhiteSpace(title) ? process.ProcessName : title.Trim(),
+                    Name = name,
                     Processes = new() { process.ProcessName },
                     Source = PickerSource.Running,
                     ExePath = path,

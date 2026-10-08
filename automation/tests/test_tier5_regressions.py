@@ -7270,7 +7270,7 @@ class TestBlocklistProfilesKeepTheirPromises:
             "the Sealed check must come before the switch, not after it"
 
     def test_the_switcher_is_also_disabled_while_sealed(self):
-        assert "public bool CanSwitchProfile => !IsSealed;" in self.BLOCKED_VM
+        assert "public bool CanSwitchProfile => !IsSealed && !_main.IsLocked;" in self.BLOCKED_VM
         assert 'IsEnabled="{Binding CanSwitchProfile}"' in self.BLOCKED_XAML
         assert 'IsEnabled="{Binding CanSwitchProfile}"' in self.TODAY_XAML
 
@@ -10153,3 +10153,38 @@ class TestStoneLook:
         assert "pointer-events: none" in columns
         assert "background-color: var(--color-text)" in columns, "the motif follows the theme"
         assert "mask:" in columns and "-webkit-mask:" in columns
+
+
+# ================== #290 — minor findings from the 1.0.9 pre-release review
+
+class TestMinorReviewFindings:
+    DESKTOP = Path(DESKTOP_DIR)
+
+    def _read(self, *parts) -> str:
+        return self.DESKTOP.joinpath(*parts).read_text(encoding="utf-8")
+
+    def test_lost_key_form_rejects_a_malformed_address_before_sending(self):
+        js = (Path(WEBSITE_DIR) / "checkout.js").read_text(encoding="utf-8")
+        handler = js.split("lost-key-form", 1)[1].split("addEventListener", 1)[1]
+        handler = handler.split("\n    var nav")[0]
+        check = handler.index("test(email)")
+        assert check < handler.index("/resend-license"), "validate before the request"
+        assert "Enter a valid email address." in handler[check:handler.index("/resend-license")]
+        # the emptiness check stays first, so a blank field keeps its own wording
+        assert handler.index("if (!email)") < check
+
+    def test_the_data_export_includes_a_running_sprint(self):
+        export = self._read("Services", "DataPrivacyService.cs")
+        assert "activeSprint = settings.ActiveSprint" in export
+
+    def test_profile_switching_is_refused_when_the_trial_has_ended(self):
+        vm = self._read("ViewModels", "BlockedAppsViewModel.cs")
+        select = vm.split("private void SelectProfile(", 1)[1].split("private void NewProfile", 1)[0]
+        assert "_main.IsLocked" in select, "refuse in the view model, not only by a disabled chip"
+        assert select.index("_main.IsLocked") < select.index("SetActiveProfile")
+
+    def test_running_apps_apply_the_same_not_an_app_filter_as_installed_ones(self):
+        catalog = self._read("Services", "AppCatalog.cs")
+        running = catalog.split("private static IEnumerable<PickerEntry> Running()", 1)[1] \
+            .split("private static IEnumerable<PickerEntry> StartMenu()", 1)[0]
+        assert "AppPicker.IsNotAnApp(" in running
