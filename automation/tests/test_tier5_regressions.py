@@ -10153,3 +10153,53 @@ class TestStoneLook:
         assert "pointer-events: none" in columns
         assert "background-color: var(--color-text)" in columns, "the motif follows the theme"
         assert "mask:" in columns and "-webkit-mask:" in columns
+
+
+# ============ the ?server= override must not redirect a customer's email (#285)
+
+class TestSiteServerOverrideIsLocalOnly:
+    """
+    `Website/checkout.js` used to take the licence server from `?server=` on
+    any host, so a shared link such as `support.html?server=https://attacker`
+    made the Lost-your-key form post the typed email to that server. The
+    override is for tests: it is honoured only on a localhost copy and only
+    toward a loopback address. Runs the real script in node with a stub DOM.
+    """
+
+    HARNESS = r"""
+    const fs = require('fs'), vm = require('vm');
+    const [host, search, src] = process.argv.slice(1);
+    const sandbox = {
+      window: {
+        location: { hostname: host, search: search },
+        FLOWSHIELD_CONFIG: { licenseServerUrl: 'https://licence.example.test' },
+      },
+      document: { getElementById: () => null, querySelector: () => null,
+                  querySelectorAll: () => [], addEventListener: () => {} },
+      URLSearchParams, URL, console, setTimeout, fetch: () => Promise.reject(new Error('x')),
+    };
+    vm.createContext(sandbox);
+    vm.runInContext(fs.readFileSync(src, 'utf8'), sandbox);
+    process.stdout.write(sandbox.window.FlowShield.SERVER);
+    """
+
+    def _server(self, host: str, search: str) -> str:
+        result = subprocess.run(
+            [NODE_EXE, "-e", self.HARNESS, host, search,
+             str(Path(WEBSITE_DIR) / "checkout.js")],
+            capture_output=True, text=True, timeout=30)
+        assert result.returncode == 0, result.stderr
+        return result.stdout
+
+    def test_production_host_ignores_the_override(self):
+        got = self._server("basalt.example", "?server=https://attacker.example")
+        assert got == "https://licence.example.test"
+
+    def test_localhost_only_accepts_a_loopback_target(self):
+        assert self._server("localhost", "?server=http://localhost:3999") == "http://localhost:3999"
+        assert self._server("localhost", "?server=https://attacker.example") \
+            == "https://licence.example.test"
+
+    def test_non_urls_are_ignored(self):
+        assert self._server("localhost", "?server=javascript:alert(1)") \
+            == "https://licence.example.test"

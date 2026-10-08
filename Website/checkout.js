@@ -18,7 +18,8 @@
    *      This is what the published static site uses, because GitHub Pages
    *      can't run a server and a visitor's browser can't reach localhost.
    *
-   * An explicit ?server= always wins so the automation suite can force path 1.
+   * An explicit ?server= wins so the automation suite can force path 1, but
+   * only on a localhost copy and only toward a loopback address (see below).
    */
   /*
    * Served from localhost with nothing configured? Then this is a development
@@ -33,7 +34,30 @@
     return isLocal ? 'http://localhost:3000' : '';
   }
 
-  var SERVER = (params.get('server') || CONFIG.licenseServerUrl || localDefaultServer())
+  function isLoopbackHost(host) {
+    return host === 'localhost' || host === '127.0.0.1' || host === '[::1]';
+  }
+
+  /*
+   * ?server= exists for the automation suite and local development only. On
+   * any real hostname it is ignored, and even on localhost it may only point
+   * at another loopback address: otherwise a shared link such as
+   * support.html?server=https://attacker.example would send the email typed
+   * into the Lost-your-key form (and checkout requests) to that server (#285).
+   */
+  function serverOverride() {
+    var raw = params.get('server');
+    if (!raw || !isLoopbackHost(window.location.hostname)) return '';
+    try {
+      var url = new URL(raw);
+      if ((url.protocol === 'http:' || url.protocol === 'https:') && isLoopbackHost(url.hostname)) {
+        return raw;
+      }
+    } catch (e) { /* not a URL: ignore */ }
+    return '';
+  }
+
+  var SERVER = (serverOverride() || CONFIG.licenseServerUrl || localDefaultServer())
     .replace(/\/$/, '');
   var PAYMENT_LINK = CONFIG.paymentLink || '';
   var HAS_SERVER = SERVER.length > 0;
