@@ -69,6 +69,7 @@ public static class PackagedApp
         }
 
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var hidden = new List<(string Process, string Name)>();
         foreach (var app in Descendants(Child(package, "Applications"), "Application"))
         {
             var exe = app.Attribute("Executable")?.Value;
@@ -76,15 +77,31 @@ public static class PackagedApp
             if (process is null || SharedHosts.Contains(process)) continue;
 
             var visuals = Descendants(app, "VisualElements").FirstOrDefault();
-            // AppListEntry="none" is a helper the package keeps out of the
-            // Start menu: not something anyone opens, so not something to block.
-            if (string.Equals(visuals?.Attribute("AppListEntry")?.Value, "none", StringComparison.OrdinalIgnoreCase))
-                continue;
-
             var name = Name(visuals?.Attribute("DisplayName")?.Value) ?? packageName;
-            if (name is null || !seen.Add(process)) continue;
+            if (name is null) continue;
+
+            // AppListEntry="none" keeps an entry out of the Start menu. Most
+            // are helpers nobody opens, so they are not offered on their own.
+            if (string.Equals(visuals?.Attribute("AppListEntry")?.Value, "none", StringComparison.OrdinalIgnoreCase))
+            {
+                hidden.Add((process, name));
+                continue;
+            }
+            if (!seen.Add(process)) continue;
 
             found.Add(new PackagedAppInfo(name, new() { process }, Path.Combine(packageRoot, exe!)));
+        }
+
+        // A hidden entry with the same name as a visible one is that app's
+        // other face, not a helper. The Xbox app's Start menu entry starts
+        // XboxPcAppCE, but the window people see runs as XboxPcApp, a hidden
+        // entry also named "XBOX" (seen on Windows 11 in #348); blocking only
+        // the first would never catch the app.
+        foreach (var (process, name) in hidden)
+        {
+            var visible = found.FirstOrDefault(f => string.Equals(f.Name, name, StringComparison.OrdinalIgnoreCase));
+            if (visible is null || !seen.Add(process)) continue;
+            visible.Processes.Add(process);
         }
         return found;
     }
@@ -132,15 +149,20 @@ public static class PackagedApp
 
     /// <summary>
     /// The string SHLoadIndirectString needs for a manifest's
-    /// <c>ms-resource:</c> name, using the documented forms: a bare key lives
-    /// under the package's Resources map, "/x/y" is relative to the package,
-    /// and "//x" is already a full URI.
+    /// <c>ms-resource:</c> name: a bare key lives under the package's
+    /// Resources map, "x/y" and "/x/y" are relative to the package, and
+    /// "//x" is already a full URI.
     /// </summary>
     public static string IndirectString(string packageFullName, string identityName, string raw)
     {
         var key = raw["ms-resource:".Length..];
+        // A key that already names its resource map ("Resources/AppName",
+        // "LensSDK/Resources/AppTitle") is relative to the package; only a
+        // bare key lives in the default Resources map. Checked on Windows 11
+        // in #348: Notepad, Camera and Xbox Console Companion need the former.
         var uri = key.StartsWith("//") ? "ms-resource:" + key
             : key.StartsWith("/") ? $"ms-resource://{identityName}{key}"
+            : key.Contains('/') ? $"ms-resource://{identityName}/{key}"
             : $"ms-resource://{identityName}/Resources/{key}";
         return $"@{{{packageFullName}?{uri}}}";
     }

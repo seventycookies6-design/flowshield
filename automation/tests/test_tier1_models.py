@@ -1472,6 +1472,10 @@ class TestPackagedApps:
     @pytest.mark.parametrize("key,uri", [
         ("ms-resource:AppName", "ms-resource://Pkg/Resources/AppName"),
         ("ms-resource:/Strings/Title", "ms-resource://Pkg/Strings/Title"),
+        # Keys that name their own map, as Notepad, Camera and Xbox Console
+        # Companion ship them (#348, checked on Windows 11).
+        ("ms-resource:Resources/AppStoreName", "ms-resource://Pkg/Resources/AppStoreName"),
+        ("ms-resource:LensSDK/Resources/AppTitle", "ms-resource://Pkg/LensSDK/Resources/AppTitle"),
         ("ms-resource://Other/Resources/X", "ms-resource://Other/Resources/X"),
     ])
     def test_resource_names_use_the_documented_lookup(self, key, uri):
@@ -1502,6 +1506,20 @@ class TestPackagedApps:
         out = self.apps(manifest(app_element("Helper.exe", name="Helper", hidden=True)
                                  + app_element("Main.exe", name="Main")))
         assert [a["name"] for a in out["apps"]] == ["Main"]
+
+    def test_a_hidden_entry_with_the_same_name_is_the_same_app(self):
+        """
+        The Xbox app as Windows 11 ships it (#348): the Start menu entry runs
+        XboxPcAppCE, the window people see runs as XboxPcApp (hidden, also
+        "XBOX"), and the Game Bar widgets are a hidden helper with another name.
+        """
+        out = self.apps(manifest(
+            app_element("XboxPcAppCE.exe", name="XBOX")
+            + app_element("XboxPcApp.exe", name="XBOX", hidden=True)
+            + app_element("XboxGameBarWidgets.exe", name="XBOX Game Bar Widgets", hidden=True),
+            identity="Microsoft.GamingApp"))
+        assert [(a["name"], a["processes"]) for a in out["apps"]] == \
+            [("XBOX", ["XboxPcAppCE", "XboxPcApp"])]
 
     def test_two_entries_for_one_exe_are_one_row(self):
         out = self.apps(manifest(app_element("Main.exe", name="Main") + app_element("Main.exe", name="Main 2")))

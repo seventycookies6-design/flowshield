@@ -984,8 +984,11 @@ class TestAppSuggestions:
     def test_xbox_uses_the_names_seen_on_a_clean_install(self):
         # Checked on Miles's VM in #53: the Xbox app runs as XboxPcApp with an XboxPcTray helper.
         # XboxPcAppAdminServer is left out: it runs elevated, and the timid blocker can't close it.
+        # #348, on Windows 11 (DESKTOP-QI8SG30): the Start menu's XBOX entry is
+        # XboxPcAppCE in the package manifest, so the Store scan finds the app by
+        # that name; listing it here folds that row into this suggestion.
         xbox = next(a for _, a in self.apps() if a["name"] == "Xbox app")
-        assert xbox["processes"] == ["XboxPcApp", "XboxPcTray"] and xbox["verified"] is True
+        assert xbox["processes"] == ["XboxPcApp", "XboxPcAppCE", "XboxPcTray"] and xbox["verified"] is True
 
     def test_browsers_warn_that_the_whole_browser_closes(self):
         browsers = next(g for g in self.data()["groups"] if g["name"] == "Browsers")
