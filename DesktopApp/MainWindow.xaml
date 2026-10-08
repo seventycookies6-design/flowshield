@@ -54,13 +54,10 @@
 
                 <!-- brand -->
                 <StackPanel x:Name="NavBrand" DockPanel.Dock="Top" Orientation="Horizontal" Margin="8,0,0,24">
-                    <Canvas Width="26" Height="26" VerticalAlignment="Center">
-                        <Path Data="M13 1.6 3.2 5.4v7.6c0 5.5 3.9 9.7 9.8 11.1 5.9-1.4 9.8-5.6 9.8-11.1V5.4L13 1.6Z"
-                              Fill="{DynamicResource PrimarySoft}" Stroke="{DynamicResource Primary}" StrokeThickness="1.4"/>
-                        <Path Data="M8.9 13.3 11.8 16.2 17.6 9.9"
-                              Stroke="{DynamicResource Primary}" StrokeThickness="1.9"
-                              StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
-                    </Canvas>
+                    <!-- Causeway brand mark (DESIGN_SYSTEM.md §5), the same in both themes;
+                         drawn in Styles/BrandMark.xaml from design/brand/basalt-icon.svg. -->
+                    <Image x:Name="NavBrandMark" Source="{StaticResource BrandMarkTile}"
+                           Width="28" Height="28" VerticalAlignment="Center"/>
                     <TextBlock x:Name="NavBrandText" Text="Basalt" Style="{StaticResource H2}"
                                VerticalAlignment="Center" Margin="12,0,0,0"/>
                 </StackPanel>

@@ -27,7 +27,7 @@ const mail = require('./email');
 const { loadKeys, describe, KEYS_PATH } = require('./keys');
 const { createLimiter } = require('./ratelimit');
 const { createCooldown } = require('./cooldown');
-const { deviceToken } = require('./devicetoken');
+const { deviceToken, deviceTokensConfigured, deviceTokenSource } = require('./devicetoken');
 
 const PORT = Number(process.env.PORT || 3000);
 
@@ -488,6 +488,9 @@ app.get('/health', (_req, res) => {
     email: { configured: mail.isConfigured, provider: mail.providerName, from: mail.FROM },
     // null until the first checkout; false means Stripe refused the terms box.
     termsConsent: { working: tosConsent.working, lastError: tosConsent.lastError },
+    // Never the secret — only whether one is set. "missing" means releasing
+    // another device from the app's devices list is switched off (#234).
+    deviceTokens: { configured: deviceTokensConfigured, source: deviceTokenSource },
   });
 });
 
@@ -884,6 +887,14 @@ app.post('/devices', limiter.middleware('devices'), async (req, res) => {
     // "Your devices" list, Roadmap 5.7 — the list never hands back a raw id).
     let targetId = deviceId;
     if (!targetId && releaseToken) {
+      // Fail closed without DEVICE_TOKEN_SECRET in production (#234): no
+      // token can be checked, so none is accepted.
+      if (!deviceTokensConfigured) {
+        return res.status(503).json({
+          error: 'device_tokens_not_configured',
+          message: 'Releasing another device is unavailable right now. Try again later.',
+        });
+      }
       const match = db.listDevices(row.license_key)
         .find((d) => deviceToken(row.license_key, d.device_id) === releaseToken);
       targetId = match?.device_id || '';
@@ -903,9 +914,10 @@ app.post('/devices', limiter.middleware('devices'), async (req, res) => {
   }
 
   // Names only, never the raw ids — those are the client's to hold. Each row
-  // does carry a deviceToken, a one-way, per-licence value derived from the
-  // raw id (see deviceToken above), so the app can target a specific *other*
-  // device for release without ever being told its real device id.
+  // does carry a deviceToken, a one-way, per-licence HMAC of the raw id (see
+  // devicetoken.js), so the app can target a specific *other* device for
+  // release without ever being told its real device id. null when the server
+  // has no DEVICE_TOKEN_SECRET in production.
   const devices = db.listDevices(row.license_key).map((d) => ({
     name: d.device_name || 'Unnamed device',
     firstSeen: d.first_seen,
@@ -1060,6 +1072,11 @@ const server = app.listen(PORT, () => {
   } else {
     log(`Stripe NOT configured — missing: ${keyReport.missing.join(', ')}`);
     log(`Populate ${KEYS_PATH} and restart to enable payment routes.`);
+  }
+  if (deviceTokenSource === 'missing') {
+    log('DEVICE_TOKEN_SECRET missing or under 32 characters — releasing another device is off.');
+  } else if (deviceTokenSource === 'development') {
+    log('DEVICE_TOKEN_SECRET not set — using the development secret (fine outside production).');
   }
 });
 

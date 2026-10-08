@@ -347,6 +347,17 @@ class TestDeviceTokenIsWiredIntoTheRoute:
             "client can target a device other than its own without the raw id"
         )
 
+    def test_release_by_token_is_refused_without_a_secret(self):
+        """#234: in production with no DEVICE_TOKEN_SECRET, no token can be
+        checked, so releasing by token must refuse rather than match."""
+        source = (Path(SERVER_DIR) / "server.js").read_text(encoding="utf-8")
+        devices_route = source.split("app.post('/devices'")[1].split("app.post(")[0]
+        token_branch = devices_route.split("if (!targetId && releaseToken)")[1]
+        gate = token_branch.index("if (!deviceTokensConfigured)")
+        lookup = token_branch.index("deviceToken(row.license_key")
+        assert gate < lookup
+        assert "device_tokens_not_configured" in token_branch[gate:lookup]
+
 
 # ========================================================== checkout (live)
 

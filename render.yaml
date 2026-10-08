@@ -52,6 +52,12 @@ services:
       - key: STRIPE_WEBHOOK_SECRET
         sync: false
 
+      # Keys the release tokens in the app's devices list (#234). Any random
+      # string of 32+ characters; without it, releasing another device from
+      # the app is switched off. Changing it later is harmless.
+      - key: DEVICE_TOKEN_SECRET
+        sync: false
+
       # Email delivery. Set ONE of these groups; leave the rest blank.
       # With none set, licence emails are skipped and everything else still
       # works — the key is shown on the success page regardless.
