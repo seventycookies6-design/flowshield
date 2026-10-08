@@ -10420,9 +10420,18 @@ class TestCausewayLogoIsTheBrandMark:
     def test_app_navigation_draws_the_causeway_tile(self):
         xaml = (Path(DESKTOP_DIR) / "MainWindow.xaml").read_text(encoding="utf-8-sig")
         nav = xaml[xaml.index('x:Name="NavBrand"'):xaml.index('x:Name="NavBrandText"')]
-        for points in self.polygons("basalt-icon.svg"):
-            assert f'Points="{points}"' in nav
+        assert "{StaticResource BrandMarkTile}" in nav
         assert "M13 1.6" not in xaml, "the old shield brand mark is gone"
+
+        # The fixed brand greys live in their own dictionary, so the views stay
+        # free of hex colours (TestNoHardcodedColoursA3).
+        mark = (Path(DESKTOP_DIR) / "Styles" / "BrandMark.xaml").read_text(encoding="utf-8")
+        assert 'x:Key="BrandMarkTile"' in mark
+        for points in self.polygons("basalt-icon.svg"):
+            first, *rest = points.split()
+            assert f'Geometry="M{first} L{" ".join(rest)} Z"' in mark, points
+        app = (Path(DESKTOP_DIR) / "App.xaml").read_text(encoding="utf-8")
+        assert '<ResourceDictionary Source="Styles/BrandMark.xaml"/>' in app
 
     def test_site_favicon_and_header_use_the_mark(self):
         tile = self.polygons("basalt-icon.svg")

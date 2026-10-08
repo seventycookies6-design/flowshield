@@ -54,25 +54,10 @@
 
                 <!-- brand -->
                 <StackPanel x:Name="NavBrand" DockPanel.Dock="Top" Orientation="Horizontal" Margin="8,0,0,24">
-                    <!-- Causeway brand mark: the idle tile from design/brand/basalt-icon.svg,
-                         identical in both themes (DESIGN_SYSTEM.md §5). -->
-                    <Viewbox x:Name="NavBrandMark" Width="28" Height="28" VerticalAlignment="Center">
-                        <Canvas Width="100" Height="100">
-                            <Rectangle Width="100" Height="100" RadiusX="19" RadiusY="19" Fill="#17181B"/>
-                            <Polygon Points="46.25,25.5 53.75,32 53.75,68 46.25,61.5" Fill="#A3A6AA" Stroke="#17181B" StrokeThickness="1" StrokeLineJoin="Round"/>
-                            <Polygon Points="53.75,32 68.75,32 68.75,68 53.75,68" Fill="#74777C" Stroke="#17181B" StrokeThickness="1" StrokeLineJoin="Round"/>
-                            <Polygon Points="68.75,32 76.25,25.5 76.25,61.5 68.75,68" Fill="#4B4E53" Stroke="#17181B" StrokeThickness="1" StrokeLineJoin="Round"/>
-                            <Polygon Points="76.25,25.5 68.75,32 53.75,32 46.25,25.5 53.75,19 68.75,19" Fill="#E6E6E3" Stroke="#17181B" StrokeThickness="1" StrokeLineJoin="Round"/>
-                            <Polygon Points="23.75,41 31.25,47.5 31.25,74.5 23.75,68" Fill="#A3A6AA" Stroke="#17181B" StrokeThickness="1" StrokeLineJoin="Round"/>
-                            <Polygon Points="31.25,47.5 46.25,47.5 46.25,74.5 31.25,74.5" Fill="#74777C" Stroke="#17181B" StrokeThickness="1" StrokeLineJoin="Round"/>
-                            <Polygon Points="46.25,47.5 53.75,41 53.75,68 46.25,74.5" Fill="#4B4E53" Stroke="#17181B" StrokeThickness="1" StrokeLineJoin="Round"/>
-                            <Polygon Points="53.75,41 46.25,47.5 31.25,47.5 23.75,41 31.25,34.5 46.25,34.5" Fill="#E6E6E3" Stroke="#17181B" StrokeThickness="1" StrokeLineJoin="Round"/>
-                            <Polygon Points="46.25,56.5 53.75,63 53.75,81 46.25,74.5" Fill="#A3A6AA" Stroke="#17181B" StrokeThickness="1" StrokeLineJoin="Round"/>
-                            <Polygon Points="53.75,63 68.75,63 68.75,81 53.75,81" Fill="#74777C" Stroke="#17181B" StrokeThickness="1" StrokeLineJoin="Round"/>
-                            <Polygon Points="68.75,63 76.25,56.5 76.25,74.5 68.75,81" Fill="#4B4E53" Stroke="#17181B" StrokeThickness="1" StrokeLineJoin="Round"/>
-                            <Polygon Points="76.25,56.5 68.75,63 53.75,63 46.25,56.5 53.75,50 68.75,50" Fill="#E6E6E3" Stroke="#17181B" StrokeThickness="1" StrokeLineJoin="Round"/>
-                        </Canvas>
-                    </Viewbox>
+                    <!-- Causeway brand mark (DESIGN_SYSTEM.md §5), the same in both themes;
+                         drawn in Styles/BrandMark.xaml from design/brand/basalt-icon.svg. -->
+                    <Image x:Name="NavBrandMark" Source="{StaticResource BrandMarkTile}"
+                           Width="28" Height="28" VerticalAlignment="Center"/>
                     <TextBlock x:Name="NavBrandText" Text="Basalt" Style="{StaticResource H2}"
                                VerticalAlignment="Center" Margin="12,0,0,0"/>
                 </StackPanel>
