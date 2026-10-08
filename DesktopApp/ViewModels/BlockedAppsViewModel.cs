@@ -90,7 +90,7 @@ public class BlockedAppsViewModel : ViewModelBase
     /// the list: swapping the list a Sealed sprint enforces would be the same
     /// escape hatch as editing it, by another route.
     /// </summary>
-    public bool CanSwitchProfile => !IsSealed;
+    public bool CanSwitchProfile => !IsSealed && !_main.IsLocked;
 
     /// <summary>Rename, duplicate and new: the same lock, plus the trial gate.</summary>
     public bool CanEditProfiles => !IsSealed && !_main.IsLocked;
@@ -141,6 +141,14 @@ public class BlockedAppsViewModel : ViewModelBase
         if (IsSealed)
         {
             _main.Toast("The blocklist is sealed until this sprint ends.");
+            RefreshProfiles();
+            return;
+        }
+        // Same for the ended trial (#290): the lock screen covers the chip,
+        // but automation can still reach it.
+        if (_main.IsLocked)
+        {
+            _main.Toast("Your free trial has ended. Buy Basalt to switch profiles.");
             RefreshProfiles();
             return;
         }

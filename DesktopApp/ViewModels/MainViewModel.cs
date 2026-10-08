@@ -123,6 +123,18 @@ public class MainViewModel : ViewModelBase
     /// <summary>The trial has ended without a purchase; the lock screen is up.</summary>
     public bool IsLocked => !HasAccess;
 
+    /// <summary>
+    /// The lock overlay is drawn. <see cref="IsLocked"/> stays true whenever
+    /// the trial has ended, so every refusal still holds, but the cover itself
+    /// waits for a sprint or break in progress and for its summary prompt (F20).
+    /// Without this a sprint saved before the trial ended and resumed after it
+    /// was covered at once, while the blocker kept enforcing underneath (#284).
+    /// </summary>
+    public bool ShowLockScreen => IsLocked && !IsFocusInProgress && !Today.JournalPromptVisible;
+
+    /// <summary>Re-evaluates the lock overlay when focus or its summary prompt starts or ends.</summary>
+    public void RefreshLockScreen() => Raise(nameof(ShowLockScreen));
+
     public bool IsTrial => !IsPro && HasAccess;
 
     public int TrialDaysLeft => Settings.TrialDaysLeftAt(DateTime.UtcNow);
@@ -519,6 +531,7 @@ public class MainViewModel : ViewModelBase
         Raise(nameof(IsNotPro));
         Raise(nameof(HasAccess));
         Raise(nameof(IsLocked));
+        Raise(nameof(ShowLockScreen));
         Raise(nameof(IsTrial));
         Raise(nameof(TrialDaysLeft));
         Raise(nameof(TierBadge));
@@ -672,6 +685,7 @@ public class MainViewModel : ViewModelBase
     {
         Raise(nameof(IsSprintRunning));
         Raise(nameof(IsFocusInProgress));
+        Raise(nameof(ShowLockScreen));
         BlockedApps.RefreshStatus();
 
         // So the page's Sealed lock follows the sprint. Null-safe: this can run

@@ -44,6 +44,8 @@ public static class DataPrivacyService
                 end = settings.SleepBlockEndTime,
             },
             sessions = settings.Sessions,
+            // A sprint still running is local data too (#290).
+            activeSprint = settings.ActiveSprint,
             momentumScore = settings.MomentumScore,
             currentStreak = settings.CurrentStreak,
             dailyGoal = new

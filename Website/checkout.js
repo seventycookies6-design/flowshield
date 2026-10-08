@@ -458,6 +458,13 @@
           if (note) note.textContent = 'Enter the email address you used at checkout.';
           return;
         }
+        // The form has novalidate, so catch the obvious typos here (a doubled
+        // @, no domain) instead of showing the generic success message and
+        // clearing the field. The server still decides what is a real address.
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+          if (note) note.textContent = 'Enter a valid email address.';
+          return;
+        }
         if (!HAS_SERVER) {
           if (note) note.textContent = 'Key recovery is not available on this build.';
           return;
