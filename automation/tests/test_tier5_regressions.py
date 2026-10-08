@@ -63,6 +63,21 @@ class TestLegalPagesMatchTheProduct:
             "the privacy policy must disclose the device identifier and device name"
         assert "email address" in policy
 
+    def test_the_privacy_policy_discloses_the_lost_key_lookup(self):
+        """
+        #287: an address typed into Lost your key is sent to the licence server
+        and looked up in Stripe, even if it never bought anything, and an
+        unmatched one is logged. The policy must say so.
+        """
+        server = (self.ROOT / "Server" / "server.js").read_text(encoding="utf-8")
+        assert "recoverFromStripe({ email })" in server, "the lookup moved; update this test"
+
+        policy = " ".join(self.LEGAL.read_text(encoding="utf-8").lower().split())
+        assert "lost your key" in policy
+        assert "looks it up in stripe" in policy
+        assert "never bought anything" in policy
+        assert "written to the server's log" in policy
+
     def test_no_placeholder_is_left_unflagged_on_a_customer_page(self):
         """
         `[operator name]` and friends are still on the site. That is a known gap
@@ -10188,3 +10203,111 @@ class TestMinorReviewFindings:
         running = catalog.split("private static IEnumerable<PickerEntry> Running()", 1)[1] \
             .split("private static IEnumerable<PickerEntry> StartMenu()", 1)[0]
         assert "AppPicker.IsNotAnApp(" in running
+
+
+# ============ #284 — the lock screen waits for a resumed sprint or break
+
+class TestLockScreenWaitsForResumedFocus:
+    """
+    A sprint or break saved while the trial was active and resumed after it
+    expired was covered by the lock screen at once, while the blocker kept
+    enforcing underneath. The cover now waits for focus and its summary prompt;
+    IsLocked itself stays true so every refusal still holds.
+    """
+
+    DESKTOP = Path(DESKTOP_DIR)
+
+    def _main(self) -> str:
+        return (self.DESKTOP / "ViewModels" / "MainViewModel.cs").read_text(encoding="utf-8")
+
+    def test_the_overlay_binds_to_the_new_property_not_the_refusal(self):
+        xaml = (self.DESKTOP / "MainWindow.xaml").read_text(encoding="utf-8")
+        panel = xaml.split('AutomationProperties.AutomationId="TrialEndedPanel"', 1)[0]
+        assert 'Visibility="{Binding ShowLockScreen,' in panel.rsplit("<Border", 1)[1]
+
+    def test_the_cover_waits_for_focus_and_the_summary(self):
+        main = self._main()
+        line = next(l for l in main.splitlines() if "public bool ShowLockScreen" in l)
+        for part in ("IsLocked", "!IsFocusInProgress", "!Today.JournalPromptVisible"):
+            assert part in line, f"ShowLockScreen must include {part}"
+
+    def test_islocked_still_refuses_while_focus_is_under_way(self):
+        main = self._main()
+        assert "public bool IsLocked => !HasAccess;" in main, \
+            "start and edit refusals read IsLocked; only the cover may wait"
+
+    def test_the_cover_is_re_evaluated_when_focus_or_the_prompt_ends(self):
+        main = self._main()
+        changed = main.split("public void OnSprintStateChanged()", 1)[1].split("\n    }", 1)[0]
+        assert "Raise(nameof(ShowLockScreen))" in changed
+        assert "Raise(nameof(ShowLockScreen))" in main.split("public void OnTierChanged()", 1)[1].split("\n    }", 1)[0]
+        today = (self.DESKTOP / "ViewModels" / "TodayViewModel.cs").read_text(encoding="utf-8")
+        setter = today.split("public bool JournalPromptVisible", 1)[1].split("private string _journalText", 1)[0]
+        assert "_main.RefreshLockScreen()" in setter
+
+
+# ============================== #289 — a sweep that outlives its sprint
+
+class TestBlockerSweepStopsWhenEnforcementEnds:
+    """
+    Tick copies IsEnforcing before it lists processes. A sprint ending
+    (StopEnforcing) mid-sweep left that sweep closing apps during the break.
+    Every close and kill must ask again, under the gate.
+    """
+
+    SOURCE = Path(DESKTOP_DIR) / "Services" / "AppBlockerService.cs"
+
+    def _tick(self) -> str:
+        source = self.SOURCE.read_text(encoding="utf-8")
+        return source.split("private void Tick()", 1)[1].split("private ", 1)[0]
+
+    def test_the_recheck_reads_enforcement_under_the_gate(self):
+        source = self.SOURCE.read_text(encoding="utf-8")
+        helper = source.split("private bool StillEnforcing()", 1)[1].split("private void Tick()", 1)[0]
+        assert "lock (_gate)" in helper and "IsEnforcing" in helper
+        assert "IsWithinSleepWindow" in helper, "the sleep window enforces without a sprint"
+
+    def test_every_close_and_kill_is_preceded_by_the_recheck(self):
+        tick = self._tick()
+        for needle in ("KillAll(processes, shield);", "process.CloseMainWindow()"):
+            for match in re.finditer(re.escape(needle), tick):
+                before = tick[:match.start()]
+                assert "StillEnforcing()" in before[-600:], (
+                    f"{needle} must be preceded by a StillEnforcing() check (#289)")
+
+    def test_the_sweep_rechecks_before_reporting_each_app(self):
+        tick = self._tick()
+        loop = tick.split("foreach (var (key, entry) in running)", 1)[1]
+        assert "StillEnforcing()" in loop.split("bool firstSighting;", 1)[0]
+
+
+class TestResendCooldown:
+    """#286: /resend-license needs a per-address cooldown, not only a per-IP limit."""
+
+    def _run(self, script):
+        result = subprocess.run([NODE_EXE, "-e", script], cwd=str(SERVER_DIR),
+                                capture_output=True, text=True, timeout=60)
+        assert result.returncode == 0, result.stderr[:400]
+        return json.loads(result.stdout.strip().splitlines()[-1])
+
+    def test_one_send_per_address_per_window_across_case(self):
+        out = self._run(
+            "let t=0;const c=require('./cooldown').createCooldown({windowMs:600000,now:()=>t});"
+            "const r=[c.tryAcquire('a@x.com'),c.tryAcquire(' A@X.com '),c.tryAcquire('b@x.com')];"
+            "t=599999;r.push(c.tryAcquire('a@x.com'));"
+            "t=600000;r.push(c.tryAcquire('a@x.com'));"
+            "console.log(JSON.stringify(r));")
+        assert out == [True, False, True, False, True]
+
+    def test_a_zero_window_disables_it(self):
+        out = self._run(
+            "const c=require('./cooldown').createCooldown({windowMs:0});"
+            "console.log(JSON.stringify([c.tryAcquire('a@x.com'),c.tryAcquire('a@x.com')]));")
+        assert out == [True, True]
+
+    def test_the_route_applies_it_before_sending_and_answers_generically(self):
+        source = (Path(SERVER_DIR) / "server.js").read_text(encoding="utf-8")
+        route = source.split("app.post('/resend-license'")[1].split("\n});")[0]
+        assert route.index("resendCooldown.tryAcquire") < route.index("deliverLicenseEmail")
+        assert route.rstrip().endswith("return res.json(generic);"), \
+            "a cooled-down address must get the same answer, or the route becomes an oracle"

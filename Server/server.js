@@ -26,6 +26,7 @@ const licensekey = require('./licensekey');
 const mail = require('./email');
 const { loadKeys, describe, KEYS_PATH } = require('./keys');
 const { createLimiter } = require('./ratelimit');
+const { createCooldown } = require('./cooldown');
 const { deviceToken } = require('./devicetoken');
 
 const PORT = Number(process.env.PORT || 3000);
@@ -104,6 +105,11 @@ app.use(express.json({ limit: '256kb' }));
 // Per-IP, per-route limit on the endpoints that answer questions about
 // customers. See ratelimit.js; loopback (the test suite) is exempt.
 const limiter = createLimiter({ limit: Number(process.env.RATE_LIMIT_PER_MINUTE ?? 30) });
+// One licence resend per address per window (default 10 minutes), however many
+// IPs the requests come from. RESEND_COOLDOWN_SECONDS=0 disables it. (#286)
+const resendCooldown = createCooldown({
+  windowMs: Number(process.env.RESEND_COOLDOWN_SECONDS ?? 600) * 1000,
+});
 
 /* ------------------------------------------------------------------ helpers */
 
@@ -812,7 +818,12 @@ app.post('/resend-license', limiter.middleware('resend-license'), async (req, re
   }
 
   if (row && db.isPro(row)) {
-    await deliverLicenseEmail(row, { force: true });
+    // Same generic answer either way, so the cooldown is not an oracle.
+    if (resendCooldown.tryAcquire(row.email || email)) {
+      await deliverLicenseEmail(row, { force: true });
+    } else {
+      log(`resend for ${email} skipped: cooldown`);
+    }
   } else {
     log(`resend requested for ${email} with no active licence`);
   }
