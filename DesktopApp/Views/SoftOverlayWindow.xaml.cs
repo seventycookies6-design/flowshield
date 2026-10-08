@@ -53,6 +53,13 @@ public partial class SoftOverlayWindow : Window
     /// </summary>
     private long _allowAtTick;
 
+    /// <summary>
+    /// Keeps "N minutes left in this sprint" current while the notice is up
+    /// (#347). It read the time left once, so a notice left open said "25
+    /// minutes left" for as long as it stayed.
+    /// </summary>
+    private DispatcherTimer? _timeLeftTimer;
+
     public SoftOverlayWindow()
     {
         InitializeComponent();
@@ -65,11 +72,14 @@ public partial class SoftOverlayWindow : Window
     /// close would close every tab, so the button is collapsed rather than
     /// disabled and nothing can raise <see cref="CloseIt"/>.
     /// </remarks>
-    public void Configure(string displayName, string sentence, string timeLeft, IntPtr anchor,
+    public void Configure(string displayName, string sentence, Func<TimeSpan> remaining, IntPtr anchor,
                           string intention, string tryLine, TimeSpan allowWait, bool isWebsite = false)
     {
         SentenceText.Text = sentence;
-        TimeLeftText.Text = timeLeft;
+        TimeLeftText.Text = SoftOverlayCopy.TimeLeft(remaining());
+        _timeLeftTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+        _timeLeftTimer.Tick += (_, _) => TimeLeftText.Text = SoftOverlayCopy.TimeLeft(remaining());
+        _timeLeftTimer.Start();
         IntentionText.Text = intention;
         IntentionText.Visibility = intention.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
         TryLineText.Text = tryLine;
@@ -107,6 +117,7 @@ public partial class SoftOverlayWindow : Window
     protected override void OnClosed(EventArgs e)
     {
         _allowTimer?.Stop();
+        _timeLeftTimer?.Stop();
         base.OnClosed(e);
     }
 

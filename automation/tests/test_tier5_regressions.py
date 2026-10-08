@@ -8143,6 +8143,10 @@ class TestKeyboardAndFocusF21:
             # The heatmap legend's five swatches are decoration beside the
             # "Less"/"More" captions, which carry the meaning.
             "HeatLegendItem",
+            # The tinted card (#347) is a ContentControl only so it can paint
+            # its shadow and its tint on separate layers. It is a container,
+            # like a Border; the buttons inside keep their tab stops.
+            "CardTinted",
         }
         allowed_ids = {
             # The same legend's own list: not hit-testable either, and every
@@ -10363,6 +10367,81 @@ class TestResendCooldown:
             "a cooled-down address must get the same answer, or the route becomes an oracle"
 
 
+class TestTodayPolishFromThe1011VmRun:
+    """
+    #347 and #290: three findings from the 1.0.11 VM run, and Today's stats
+    going stale overnight. Each test fails against 1.0.10's code.
+    """
+
+    VIEWS = Path(DESKTOP_DIR) / "Views"
+    THEME = Path(DESKTOP_DIR) / "Styles" / "Theme.xaml"
+    MAIN_VM = Path(DESKTOP_DIR) / "ViewModels" / "MainViewModel.cs"
+    TODAY_VM = Path(DESKTOP_DIR) / "ViewModels" / "TodayViewModel.cs"
+    OVERLAY = Path(DESKTOP_DIR) / "Views" / "SoftOverlayWindow.xaml.cs"
+
+    def _xaml_files(self):
+        return sorted(self.VIEWS.glob("*.xaml")) + [Path(DESKTOP_DIR) / "MainWindow.xaml"]
+
+    def test_no_shadowed_card_has_a_translucent_background(self):
+        """
+        The Card style's DropShadowEffect is drawn from the alpha of all the
+        element's content, so a Card painted with the translucent PrimarySoft
+        cast a blurred shadow from every line of text and both buttons of the
+        heads-up card. A tinted card is CardTinted, which keeps the shadow on
+        an opaque layer.
+        """
+        offenders = []
+        for path in self._xaml_files():
+            text = path.read_text(encoding="utf-8")
+            for tag in re.findall(r"<Border\b[^>]*>", text, flags=re.S):
+                if 'Style="{StaticResource Card}"' in tag and "PrimarySoft" in tag:
+                    offenders.append(f"{path.name}: {' '.join(tag.split())[:120]}")
+        assert not offenders, offenders
+
+    def test_the_tinted_card_shadows_an_opaque_surface(self):
+        theme = self.THEME.read_text(encoding="utf-8")
+        style = theme.split('<Style x:Key="CardTinted"', 1)[1].split("</Style>", 1)[0]
+        outer = style.split("<Border.Effect>", 1)[0]
+        outer_tag = outer[outer.rindex("<Border "):]
+        assert 'Background="{DynamicResource Surface}"' in outer_tag, \
+            "the shadow must sit on the opaque surface, not on the tint"
+        inner = style.split("</Border.Effect>", 1)[1]
+        assert 'Background="{DynamicResource PrimarySoft}"' in inner
+        heads_up = (self.VIEWS / "TodayView.xaml").read_text(encoding="utf-8")
+        card = heads_up.split("HeadsUpVisible", 1)[0].rsplit("<", 1)[1]
+        assert card.startswith('ContentControl Style="{StaticResource CardTinted}"'), card[:80]
+
+    def test_the_website_notice_counts_its_minutes_down(self):
+        """It showed the minutes left when it opened and never again (328-notice-youtube.png)."""
+        handler = self.MAIN_VM.read_text(encoding="utf-8").split("private void OnSoftForeground", 1)[1]
+        handler = handler.split("\n    }", 1)[0]
+        assert "SoftOverlayCopy.TimeLeft(Today.Remaining)" not in handler, \
+            "a string worked out once can't count down"
+        assert "() => Today.Remaining" in handler
+        overlay = self.OVERLAY.read_text(encoding="utf-8")
+        configure = overlay.split("public void Configure(", 1)[1].split("\n    }", 1)[0]
+        assert "Func<TimeSpan> remaining" in configure
+        ticks = re.search(r"_timeLeftTimer\.Tick \+= .*SoftOverlayCopy\.TimeLeft\(remaining\(\)\)", configure)
+        assert ticks, "a timer must re-read the time left while the notice is up"
+        closed = overlay.split("protected override void OnClosed", 1)[1].split("\n    }", 1)[0]
+        assert "_timeLeftTimer?.Stop();" in closed
+
+    def test_the_blocked_apps_counter_is_not_zero_padded(self):
+        xaml = (self.VIEWS / "BlockedAppsView.xaml").read_text(encoding="utf-8")
+        assert "Apps.Count, StringFormat={}{0:00}" not in xaml, '"01 apps"'
+        assert 'Text="apps on the shield"' not in xaml, "the label must agree with the count"
+        assert "Converter={StaticResource AppsOnShieldLabel}" in xaml
+
+    def test_todays_stats_move_to_the_new_day_while_left_open(self):
+        """#290: idle on Today across midnight, nothing re-ran RefreshStats."""
+        main = self.MAIN_VM.read_text(encoding="utf-8")
+        assert re.search(r"Scheduler\.Ticked \+= \(_, now\) => Today\.RefreshStatsOnNewDay\(now\);", main)
+        today = self.TODAY_VM.read_text(encoding="utf-8")
+        on_new_day = today.split("public void RefreshStatsOnNewDay(DateTime nowUtc)", 1)[1].split("\n    }", 1)[0]
+        assert "nowUtc.ToLocalTime().Date == _statsDay" in on_new_day, "the day is the local one"
+        assert "RefreshStats();" in on_new_day
+        refresh = today.split("public void RefreshStats()", 1)[1].split("\n    }", 1)[0]
+        assert "_statsDay = today;" in refresh
 # ========== #290 — the last three findings from the 1.0.9 pre-release review
 
 class TestLastReviewFindings:

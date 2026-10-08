@@ -1412,6 +1412,15 @@ class TestTrialStartSurvivesDeleteEverything:
         assert out["back"] == "2026-10-05T22:19:21Z"
 
 
+# ======================================= Blocked Apps' counter label (#347)
+
+class TestAppsOnShieldLabel:
+    """The words beside Blocked Apps' big number agree with it: "1 app", never "01 apps"."""
+
+    @pytest.mark.parametrize("n,label", [(0, "apps on the shield"), (1, "app on the shield"),
+                                         (2, "apps on the shield"), (12, "apps on the shield")])
+    def test_the_label_agrees_with_the_count(self, n, label):
+        assert probe({"cmd": "apps-on-shield", "n": n})["label"] == label
 # ================================ Store apps in the picker (#348)
 
 STORE_ROOT = r"C:\Program Files\WindowsApps\5319275A.WhatsAppDesktop_2.2540.5.0_x64__cv1g1gvanyjgm"

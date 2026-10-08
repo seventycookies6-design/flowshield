@@ -53,6 +53,10 @@ internal static class Commands
             "settings-profile-for" => SettingsProfileFor(request),
             "settings-unique-template-name" => SettingsUniqueTemplateName(request),
             "history-week" => HistoryWeek(request),
+            "apps-on-shield" => new JsonObject
+            {
+                ["label"] = BlocklistCopy.AppsOnShield((int)request["n"]!),
+            },
             "turned-back-text" => new JsonObject
             {
                 ["text"] = HistoryStats.TurnedBackText((int)request["n"]!),

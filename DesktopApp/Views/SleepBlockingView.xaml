@@ -10,9 +10,8 @@
         <StackPanel Margin="0,0,8,0">
 
             <!-- trial-ended gate (the window-wide lock screen normally covers this) -->
-            <Border Style="{StaticResource Card}" Padding="24" Margin="0,0,0,16"
-                    Background="{DynamicResource PrimarySoft}" BorderBrush="{DynamicResource Primary}"
-                    Visibility="{Binding IsLocked, Converter={StaticResource BoolVis}}">
+            <ContentControl Style="{StaticResource CardTinted}" Margin="0,0,0,16"
+                            Visibility="{Binding IsLocked, Converter={StaticResource BoolVis}}">
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
@@ -27,7 +26,7 @@
                             VerticalAlignment="Center" Command="{Binding GetProCommand}"
                             AutomationProperties.AutomationId="SleepGetProButton"/>
                 </Grid>
-            </Border>
+            </ContentControl>
 
             <inf:AdaptiveColumns MinColumnWidth="400" MaxColumns="2" Spacing="16">
 
