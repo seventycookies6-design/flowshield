@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="Basalt, Firm sprint running">
+  <rect width="100" height="100" rx="19" fill="#17181B"/>
+  <g stroke="#17181B" stroke-width="1" stroke-linejoin="round">
+    <polygon points="46.25,25.5 53.75,32 53.75,68 46.25,61.5" fill="#A3A6AA"/>
+    <polygon points="53.75,32 68.75,32 68.75,68 53.75,68" fill="#74777C"/>
+    <polygon points="68.75,32 76.25,25.5 76.25,61.5 68.75,68" fill="#4B4E53"/>
+    <polygon points="76.25,25.5 68.75,32 53.75,32 46.25,25.5 53.75,19 68.75,19" fill="#E6E6E3"/>
+    <polygon points="23.75,41 31.25,47.5 31.25,74.5 23.75,68" fill="#A3A6AA"/>
+    <polygon points="31.25,47.5 46.25,47.5 46.25,74.5 31.25,74.5" fill="#74777C"/>
+    <polygon points="46.25,47.5 53.75,41 53.75,68 46.25,74.5" fill="#4B4E53"/>
+    <polygon points="53.75,41 46.25,47.5 31.25,47.5 23.75,41 31.25,34.5 46.25,34.5" fill="#3AA892"/>
+    <polygon points="46.25,56.5 53.75,63 53.75,81 46.25,74.5" fill="#A3A6AA"/>
+    <polygon points="53.75,63 68.75,63 68.75,81 53.75,81" fill="#74777C"/>
+    <polygon points="68.75,63 76.25,56.5 76.25,74.5 68.75,81" fill="#4B4E53"/>
+    <polygon points="76.25,56.5 68.75,63 53.75,63 46.25,56.5 53.75,50 68.75,50" fill="#3AA892"/>
+  </g>
+</svg>
