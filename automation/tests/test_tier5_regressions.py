@@ -10361,3 +10361,82 @@ class TestResendCooldown:
         assert route.index("resendCooldown.tryAcquire") < route.index("deliverLicenseEmail")
         assert route.rstrip().endswith("return res.json(generic);"), \
             "a cooled-down address must get the same answer, or the route becomes an oracle"
+
+
+# =========== the Causeway logo replaces the FlowShield shield everywhere (#338)
+
+class TestCausewayLogoIsTheBrandMark:
+    """
+    After the rename to Basalt the app icon, the tray, the installer, the app's
+    navigation and the site's favicon and header still drew the FlowShield
+    shield in the old colours. They now use the approved Causeway mark, copied
+    from `design/brand/` rather than redrawn.
+    """
+
+    BRAND = Path(DESKTOP_DIR).parent / "design" / "brand"
+    PAGES = ("index.html", "legal.html", "support.html", "success.html", "changelog.html")
+
+    @classmethod
+    def polygons(cls, name: str) -> list[str]:
+        svg = (cls.BRAND / name).read_text(encoding="utf-8")
+        return re.findall(r'<polygon points="([^"]+)"', svg)
+
+    @staticmethod
+    def frame(path: Path, size: int):
+        from PIL import Image
+
+        icon = Image.open(path)
+        icon.size = (size, size)
+        icon.load()
+        return icon.convert("RGBA")
+
+    def test_icon_files_are_the_causeway_tiles(self):
+        assets = Path(DESKTOP_DIR) / "Assets"
+        assert (assets / "FlowShield.svg").read_text(encoding="utf-8") == \
+            (self.BRAND / "basalt-icon.svg").read_text(encoding="utf-8")
+        assert (assets / "FlowShield.Running.svg").read_text(encoding="utf-8") == \
+            (self.BRAND / "basalt-icon-firm.svg").read_text(encoding="utf-8"), \
+            "the running icon is the Firm tile"
+
+        idle = self.frame(assets / "FlowShield.ico", 256)
+        running = self.frame(assets / "FlowShield.Running.ico", 256)
+        ground = (0x17, 0x18, 0x1B, 255)
+        # Tile coordinates are 0-100; the frame is 256 px.
+        at = lambda image, x, y: image.getpixel((round(x * 2.56), round(y * 2.56)))
+        assert at(idle, 1, 1)[3] == 0, "the tile's rounded corner is transparent"
+        assert at(idle, 50, 8) == ground and at(running, 50, 8) == ground
+        # Centre of the front column's top face: grey when idle, teal mid-sprint.
+        assert at(idle, 61.25, 56.5) == (0xE6, 0xE6, 0xE3, 255)
+        assert at(running, 61.25, 56.5) == (0x3A, 0xA8, 0x92, 255)
+        # The back column's top stays grey on Firm.
+        assert at(running, 61.25, 25.5) == (0xE6, 0xE6, 0xE3, 255)
+
+    def test_icon_script_reads_the_brand_svgs(self):
+        script = (Path(DESKTOP_DIR).parent / "tools" / "build_icons.py").read_text(encoding="utf-8")
+        assert '"basalt-icon.svg"' in script and '"basalt-icon-firm.svg"' in script
+        assert '"FlowShield"' in script and '"FlowShield.Running"' in script, \
+            "installs, the .csproj and LoadIcon depend on the old file names"
+
+    def test_app_navigation_draws_the_causeway_tile(self):
+        xaml = (Path(DESKTOP_DIR) / "MainWindow.xaml").read_text(encoding="utf-8-sig")
+        nav = xaml[xaml.index('x:Name="NavBrand"'):xaml.index('x:Name="NavBrandText"')]
+        for points in self.polygons("basalt-icon.svg"):
+            assert f'Points="{points}"' in nav
+        assert "M13 1.6" not in xaml, "the old shield brand mark is gone"
+
+    def test_site_favicon_and_header_use_the_mark(self):
+        tile = self.polygons("basalt-icon.svg")
+        for page in self.PAGES:
+            html = (Path(WEBSITE_DIR) / page).read_text(encoding="utf-8")
+            favicon = re.search(r'<link rel="icon" href="([^"]+)"', html).group(1)
+            assert "%230c6b5c" not in favicon, f"{page} still has the old shield favicon"
+            for points in tile:
+                assert f"points='{points}'" in favicon, page
+
+        index = (Path(WEBSITE_DIR) / "index.html").read_text(encoding="utf-8")
+        brand = index[index.index('<a class="brand"'):index.index("</a>", index.index('<a class="brand"'))]
+        assert 'stroke="#ECEBE7"' in brand and 'stroke="#141517"' in brand, \
+            "the header carries the on-light and on-dark copies of the bare mark"
+        css = (Path(WEBSITE_DIR) / "styles.css").read_text(encoding="utf-8")
+        assert 'html[data-theme="dark"] .brand .brand-mark-light { display: none; }' in css
+        assert 'html[data-theme="dark"] .brand .brand-mark-dark { display: block; }' in css
