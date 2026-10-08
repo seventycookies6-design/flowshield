@@ -309,6 +309,21 @@ public class AppBlockerService : IDisposable
             : now >= start || now < end;
     }
 
+    /// <summary>
+    /// Whether anything is still being enforced right now. <see cref="Tick"/>
+    /// copies <see cref="IsEnforcing"/> before it lists processes, so a sweep
+    /// that began just before <see cref="StopEnforcing"/> (a sprint ending, a
+    /// break starting) carries a stale answer. Asked again under the gate
+    /// before every close or kill, so a break never closes an app (#289).
+    /// </summary>
+    private bool StillEnforcing()
+    {
+        lock (_gate)
+        {
+            return IsEnforcing || IsWithinSleepWindow(_settings);
+        }
+    }
+
     private void Tick()
     {
         AppSettings settings;
@@ -429,6 +444,9 @@ public class AppBlockerService : IDisposable
                 var app = entry.App;
                 var processes = entry.Processes;
 
+                // The sprint may have ended since this sweep began (#289).
+                if (!StillEnforcing()) break;
+
                 bool firstSighting;
                 lock (_gate) firstSighting = _present.Add(key);
 
@@ -444,6 +462,7 @@ public class AppBlockerService : IDisposable
                 {
                     // Hard kill is instant by design: someone who turned it on
                     // asked for no way round it, and ten seconds is a way round it.
+                    if (!StillEnforcing()) break;
                     KillAll(processes, shield);
                     if (firstSighting) Report(app, processes, shield, BlockOutcome.Closed, counts: true);
                     continue;
@@ -458,6 +477,7 @@ public class AppBlockerService : IDisposable
                     // Ask first. CloseMainWindow sends the same request the
                     // window's own close button does, so an app with unsaved
                     // work gets to put its "save before closing?" prompt up.
+                    if (!StillEnforcing()) break;
                     foreach (var process in processes)
                     {
                         try
@@ -483,6 +503,7 @@ public class AppBlockerService : IDisposable
 
                 if (now < deadline) continue;   // still saving; leave it alone
 
+                if (!StillEnforcing()) break;
                 KillAll(processes, shield);
                 lock (_gate) _closingAt.Remove(key);
                 // Not counted again: the sighting was counted when it was warned.

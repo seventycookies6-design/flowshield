@@ -10170,6 +10170,41 @@ class TestStoneLook:
         assert "mask:" in columns and "-webkit-mask:" in columns
 
 
+# ============================== #289 — a sweep that outlives its sprint
+
+class TestBlockerSweepStopsWhenEnforcementEnds:
+    """
+    Tick copies IsEnforcing before it lists processes. A sprint ending
+    (StopEnforcing) mid-sweep left that sweep closing apps during the break.
+    Every close and kill must ask again, under the gate.
+    """
+
+    SOURCE = Path(DESKTOP_DIR) / "Services" / "AppBlockerService.cs"
+
+    def _tick(self) -> str:
+        source = self.SOURCE.read_text(encoding="utf-8")
+        return source.split("private void Tick()", 1)[1].split("private ", 1)[0]
+
+    def test_the_recheck_reads_enforcement_under_the_gate(self):
+        source = self.SOURCE.read_text(encoding="utf-8")
+        helper = source.split("private bool StillEnforcing()", 1)[1].split("private void Tick()", 1)[0]
+        assert "lock (_gate)" in helper and "IsEnforcing" in helper
+        assert "IsWithinSleepWindow" in helper, "the sleep window enforces without a sprint"
+
+    def test_every_close_and_kill_is_preceded_by_the_recheck(self):
+        tick = self._tick()
+        for needle in ("KillAll(processes, shield);", "process.CloseMainWindow()"):
+            for match in re.finditer(re.escape(needle), tick):
+                before = tick[:match.start()]
+                assert "StillEnforcing()" in before[-600:], (
+                    f"{needle} must be preceded by a StillEnforcing() check (#289)")
+
+    def test_the_sweep_rechecks_before_reporting_each_app(self):
+        tick = self._tick()
+        loop = tick.split("foreach (var (key, entry) in running)", 1)[1]
+        assert "StillEnforcing()" in loop.split("bool firstSighting;", 1)[0]
+
+
 class TestResendCooldown:
     """#286: /resend-license needs a per-address cooldown, not only a per-IP limit."""
 
