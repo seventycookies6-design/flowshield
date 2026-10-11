@@ -6327,8 +6327,9 @@ class TestHistoryPage:
         touched = set(re.findall(r'\bS\.(\w+)', vm))
         # Profiles joined the list with F9: the most-blocked count is summed
         # across every profile, so the card's answer does not change when the
-        # active blocklist does.
-        assert touched <= {"Sessions", "BlockedApps", "Profiles"}, \
+        # active blocklist does. EarnedMilestones (F14) is listed, not derived:
+        # the History list shows each milestone once, with the day it was earned.
+        assert touched <= {"Sessions", "BlockedApps", "Profiles", "EarnedMilestones"}, \
             f"History reads more of the settings than it should: {sorted(touched)}"
         assert "MostBlockedNoteText" in vm, \
             "the most-blocked card must state that its count is not this week's"
