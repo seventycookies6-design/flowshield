@@ -1619,3 +1619,9 @@ img,
   }
   html { scroll-behavior: auto; }
 }
+
+/* Causeway mark beside the "← Basalt" back link on the secondary pages */
+.back .brand-mark { width: auto; height: 1.1em; flex: none; vertical-align: -0.2em; margin-right: 0.35em; }
+.back .brand-mark-dark { display: none; }
+html[data-theme="dark"] .back .brand-mark-light { display: none; }
+html[data-theme="dark"] .back .brand-mark-dark { display: inline-block; }
