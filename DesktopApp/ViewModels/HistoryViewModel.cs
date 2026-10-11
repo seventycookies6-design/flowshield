@@ -64,6 +64,23 @@ public class HistoryRow
     public string AccessibleName { get; }
 }
 
+/// <summary>One milestone in the History list (F14): its name, its sentence and the day it was earned.</summary>
+public class MilestoneRow
+{
+    public MilestoneRow(MilestoneKind kind, DateTime earnedUtc)
+    {
+        TitleText = Milestones.Title(kind);
+        SentenceText = Milestones.Sentence(kind);
+        EarnedText = earnedUtc.ToLocalTime().ToString("d MMM yyyy");
+        AccessibleName = $"{TitleText}, earned {EarnedText}. {SentenceText}";
+    }
+
+    public string TitleText { get; }
+    public string SentenceText { get; }
+    public string EarnedText { get; }
+    public string AccessibleName { get; }
+}
+
 /// <summary>
 /// The History page (launch checklist F16, roadmap 3.1 and 3.6): this week's
 /// figures, a 30-day heatmap of focus minutes, and every sprint with its
@@ -217,10 +234,20 @@ public class HistoryViewModel : ViewModelBase
 
     public bool HasNoRows => !HasRows;
 
-    /// <summary>Held for F14's milestones (#133), which are listed here once they exist.</summary>
-    public string MilestonesPlaceholderText =>
-        "Milestones will be listed here once they land — a first Sealed sprint, "
-        + "ten hours focused, a week of hitting your goal.";
+    // ----------------------------------------------------------- milestones (F14)
+
+    /// <summary>Every milestone earned so far, newest first. Each is listed once, and never removed.</summary>
+    public ObservableCollection<MilestoneRow> MilestoneRows { get; } = new();
+
+    private bool _hasMilestones;
+    public bool HasMilestones { get => _hasMilestones; private set => Set(ref _hasMilestones, value); }
+
+    public bool HasNoMilestones => !HasMilestones;
+
+    /// <summary>What the list says before anything is earned: the four goals, not an apology.</summary>
+    public string MilestonesEmptyText =>
+        "None yet. A first Sealed sprint, ten hours focused, seven days in a row "
+        + "and momentum at 100 are listed here as you reach them.";
 
     // -------------------------------------------------------------- refresh
 
@@ -261,5 +288,16 @@ public class HistoryViewModel : ViewModelBase
 
         HasRows = Rows.Count > 0;
         Raise(nameof(HasNoRows));
+
+        MilestoneRows.Clear();
+        foreach (var record in S.EarnedMilestones.OrderByDescending(r => r.EarnedUtc))
+        {
+            // An id this build does not know (a newer build wrote it) is left out,
+            // not guessed at.
+            if (Enum.TryParse<MilestoneKind>(record.Id, out var kind))
+                MilestoneRows.Add(new MilestoneRow(kind, record.EarnedUtc));
+        }
+        HasMilestones = MilestoneRows.Count > 0;
+        Raise(nameof(HasNoMilestones));
     }
 }

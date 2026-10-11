@@ -53,6 +53,7 @@ internal static class Commands
             "settings-profile-for" => SettingsProfileFor(request),
             "settings-unique-template-name" => SettingsUniqueTemplateName(request),
             "history-week" => HistoryWeek(request),
+            "milestones" => MilestonesStep(request),
             "apps-on-shield" => new JsonObject
             {
                 ["label"] = BlocklistCopy.AppsOnShield((int)request["n"]!),
@@ -512,6 +513,25 @@ internal static class Commands
         JsonSerializer.SerializeToNode(HistoryStats.ForWeek(
             request["sessions"].Deserialize<List<FocusSession>>()!,
             DateTime.Parse((string)request["now"]!, CultureInfo.InvariantCulture)))!;
+
+    /// <summary>
+    /// {"step": "launch" | "sprint-end", "now", "settings"} -> {"Newly", "Records"}:
+    /// what Milestones.Seed and Milestones.Record leave behind for the card and History.
+    /// </summary>
+    private static JsonNode MilestonesStep(JsonObject request)
+    {
+        var settings = request["settings"].Deserialize<AppSettings>()!;
+        var now = DateTime.Parse((string)request["now"]!, CultureInfo.InvariantCulture,
+            DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal);
+
+        var newly = new List<string>();
+        if ((string)request["step"]! == "launch")
+            Milestones.Seed(settings, now);
+        else
+            newly = Milestones.Record(settings, now).Select(r => r.Id).ToList();
+
+        return JsonSerializer.SerializeToNode(new { Newly = newly, Records = settings.EarnedMilestones })!;
+    }
 
     /// <summary>{"args": [...]} -> {"found", "id"}: what StartSprintArg.TryFind reads from a command line.</summary>
     private static JsonNode StartArg(JsonObject request)

@@ -1671,3 +1671,89 @@ class TestPackagedApps:
     ])
     def test_process_names(self, exe, process):
         assert probe({"cmd": "packaged-process", "exe": exe})["process"] == process
+
+
+# ============================ quiet milestones (F14, #133) ==================
+
+class TestMilestones:
+    """
+    Four quiet milestones, each earned once and listed on History. The rules
+    run through ModelProbe's "milestones" command, so the C# decides them.
+    """
+
+    NOW = "2026-10-11T12:00:00Z"
+
+    @staticmethod
+    def sprint(started_utc: str, minutes: int = 25, shield: int = 2,
+               completed: bool = True, interrupted: bool = False) -> dict:
+        start = datetime.fromisoformat(started_utc.replace("Z", "+00:00"))
+        end = start + timedelta(minutes=minutes)
+        return {"StartedUtc": started_utc, "EndedUtc": end.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "PlannedMinutes": minutes, "Shield": shield, "Completed": completed,
+                "Interrupted": interrupted, "BlocksEnforced": 0}
+
+    @staticmethod
+    def settings(sessions=(), momentum=0.0, streak=0, seeded=True, records=()) -> dict:
+        return {"Sessions": list(sessions), "MomentumScore": momentum, "CurrentStreak": streak,
+                "MilestonesSeeded": seeded, "EarnedMilestones": list(records)}
+
+    def step(self, step: str, settings: dict) -> dict:
+        return probe({"cmd": "milestones", "step": step, "now": self.NOW, "settings": settings})
+
+    def test_the_first_sealed_sprint_is_noticed_once(self):
+        s = self.settings(sessions=[self.sprint("2026-10-11T09:00:00Z", shield=3)])
+        first = self.step("sprint-end", s)
+        assert first["Newly"] == ["FirstSealed"]
+
+        again = self.step("sprint-end", self.settings(
+            sessions=[self.sprint("2026-10-11T09:00:00Z", shield=3)], records=first["Records"]))
+        assert again["Newly"] == [], "an earned milestone never gets a second card"
+        assert [r["Id"] for r in again["Records"]] == ["FirstSealed"]
+
+    def test_a_sealed_sprint_that_was_not_finished_does_not_count(self):
+        out = self.step("sprint-end", self.settings(
+            sessions=[self.sprint("2026-10-11T09:00:00Z", shield=3, completed=False)]))
+        assert out["Newly"] == []
+
+    def test_ten_hours_leaves_out_interrupted_sprints(self):
+        sessions = [self.sprint(f"2026-10-0{d}T09:00:00Z", minutes=120) for d in range(1, 6)]  # 10 h
+        sessions.append(self.sprint("2026-10-10T09:00:00Z", minutes=120, interrupted=True))
+        out = self.step("sprint-end", self.settings(sessions=sessions))
+        assert out["Newly"] == ["TenHours"]
+
+        short = [self.sprint(f"2026-10-0{d}T09:00:00Z", minutes=120) for d in range(1, 5)]  # 8 h
+        short.append(self.sprint("2026-10-10T09:00:00Z", minutes=120, interrupted=True))
+        assert self.step("sprint-end", self.settings(sessions=short))["Newly"] == []
+
+    def test_seven_days_is_the_streak_and_six_is_not(self):
+        assert self.step("sprint-end", self.settings(streak=6))["Newly"] == []
+        assert self.step("sprint-end", self.settings(streak=7))["Newly"] == ["SevenDayStreak"]
+
+    def test_momentum_must_reach_100(self):
+        assert self.step("sprint-end", self.settings(momentum=99.9))["Newly"] == []
+        assert self.step("sprint-end", self.settings(momentum=100))["Newly"] == ["MomentumHundred"]
+
+    def test_a_broken_streak_keeps_the_milestone(self):
+        first = self.step("sprint-end", self.settings(streak=7))
+        after = self.step("sprint-end", self.settings(streak=0, records=first["Records"]))
+        assert [r["Id"] for r in after["Records"]] == ["SevenDayStreak"]
+
+    def test_an_upgrade_lists_what_was_already_earned_without_cards(self):
+        """Seeding runs once at launch: old milestones are listed, not shown as new cards."""
+        seeded = self.step("launch", self.settings(
+            seeded=False, sessions=[self.sprint("2026-10-01T09:00:00Z", shield=3)], momentum=120))
+        assert {r["Id"] for r in seeded["Records"]} == {"FirstSealed", "MomentumHundred"}
+        assert all(r["Shown"] for r in seeded["Records"])
+
+        later = self.step("sprint-end", self.settings(
+            seeded=True, sessions=[self.sprint("2026-10-01T09:00:00Z", shield=3)],
+            momentum=120, records=seeded["Records"]))
+        assert later["Newly"] == []
+
+    def test_a_new_persons_first_sealed_sprint_still_gets_its_card(self):
+        """Seeding at launch means a brand-new settings file is seeded before its first sprint."""
+        seeded = self.step("launch", self.settings(seeded=False))
+        assert seeded["Records"] == []
+        out = self.step("sprint-end", self.settings(
+            sessions=[self.sprint("2026-10-11T09:00:00Z", shield=3)], records=seeded["Records"]))
+        assert out["Newly"] == ["FirstSealed"]

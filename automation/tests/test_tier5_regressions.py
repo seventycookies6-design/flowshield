@@ -6249,7 +6249,7 @@ class TestHistoryPage:
             "WeekFocusHours", "WeekRangeText", "WeekSprintsValue",
             "WeekDistractionsValue", "MostBlockedApp", "MostBlockedNote",
             "FocusHeatmap", "HeatmapLegend", "HeatmapRange", "HeatmapPeak",
-            "MilestonesPlaceholder", "HistoryExportButton",
+            "MilestonesEmptyText", "HistoryExportButton",
             "HistoryRowHeading", "HistoryRowOutcome", "HistoryRowJournal",
             "HistoryEmptyText",
         ):
@@ -6399,12 +6399,14 @@ class TestHistoryPage:
         assert "{StaticResource ShieldGlyph}" in xaml, \
             "§6: one glyph resource, not a per-page copy"
 
-    def test_a_place_is_held_for_the_milestones(self):
-        """F14's milestones (#133) are listed here; the slot exists already so
-        adding them does not mean rearranging the page."""
+    def test_the_milestones_are_listed_here_with_their_ids(self):
+        """F14's quiet milestones are listed on History, each with its name,
+        sentence and date, and the empty line says what to expect."""
         xaml = self._read(self.XAML)
-        assert 'AutomationProperties.AutomationId="MilestonesPlaceholder"' in xaml
         assert "MILESTONES" in xaml
+        assert "{Binding MilestoneRows}" in xaml
+        assert 'AutomationProperties.AutomationId="MilestoneTitle"' in xaml
+        assert 'AutomationProperties.AutomationId="MilestonesEmptyText"' in xaml
 
     def test_the_journal_export_stays_reachable_with_its_ids_intact(self):
         """

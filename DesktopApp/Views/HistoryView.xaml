@@ -172,15 +172,33 @@
             </Border>
 
             <!-- ================================================ milestones -->
-            <!-- Empty for now on purpose. F14's quiet milestones (#133) are
-                 listed here; the place is held so the page does not have to be
-                 rearranged to add them. -->
+            <!-- F14's quiet milestones, each listed once. No AutomationId on the
+                 ItemsControl itself (#134); the ids are on the text inside. -->
             <Border Style="{StaticResource Card}" Padding="24" Margin="0,16,0,0">
                 <StackPanel>
                     <TextBlock Text="MILESTONES" Style="{StaticResource Eyebrow}"/>
-                    <TextBlock Text="{Binding MilestonesPlaceholderText}" Style="{StaticResource Body}"
+                    <TextBlock Text="{Binding MilestonesEmptyText}" Style="{StaticResource Body}"
                                TextWrapping="Wrap" Margin="0,8,0,0"
-                               AutomationProperties.AutomationId="MilestonesPlaceholder"/>
+                               Visibility="{Binding HasNoMilestones, Converter={StaticResource BoolVis}}"
+                               AutomationProperties.AutomationId="MilestonesEmptyText"/>
+                    <ItemsControl ItemsSource="{Binding MilestoneRows}"
+                                  Visibility="{Binding HasMilestones, Converter={StaticResource BoolVis}}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Margin="0,12,0,0"
+                                            AutomationProperties.Name="{Binding AccessibleName}">
+                                    <TextBlock Text="{Binding TitleText}" Style="{StaticResource Body}"
+                                               FontWeight="SemiBold" TextWrapping="Wrap"
+                                               AutomationProperties.AutomationId="MilestoneTitle"/>
+                                    <TextBlock Text="{Binding SentenceText}" Style="{StaticResource Caption}"
+                                               TextWrapping="Wrap" Margin="0,2,0,0"/>
+                                    <TextBlock Text="{Binding EarnedText}" Style="{StaticResource Caption}"
+                                               Margin="0,2,0,0"
+                                               AutomationProperties.AutomationId="MilestoneEarnedText"/>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
                 </StackPanel>
             </Border>
 

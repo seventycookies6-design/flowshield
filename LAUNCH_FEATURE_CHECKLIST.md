@@ -516,8 +516,8 @@ The recommendation is (b) plus the honest message (F26), unless early users say 
 
 ### F14 — Momentum you can understand, with quiet milestones · **Launch+** · M · Roadmap 3.2
 
-- [ ] Done — the explainer and the 30-day trend chart shipped in #132;
-      the quiet milestones wait on F16's History list (#133)
+- [x] Done — the explainer and the 30-day trend chart shipped in #132;
+      the quiet milestones (#133) are listed on History, each shown once
 
 **Assigned:** Miles (milessmart6-pixel), built with Codex and Cursor
 
