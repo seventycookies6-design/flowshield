@@ -47,7 +47,7 @@ timer, and apps on your blocklist are dealt with until it ends.
 | --- | --- | --- |
 | Desktop app | `DesktopApp/`, .NET 8 WPF, MVVM | **v1.0.10** on GitHub Releases (23 September 2026). Velopack installer (per-user, no admin, self-contained — no .NET needed), in-app update check. Settings DPAPI-encrypted in `%APPDATA%\FlowShield`; the app installs to `%LOCALAPPDATA%\FlowShield`. |
 | Licence server | `Server/`, Node 24 + Express + SQLite | Live at https://flowshield-license-server.onrender.com (Render free plan, Docker, `render.yaml`). Sleeps when idle; first request takes ~50 s. |
-| Website | `Website/`, static | Live at https://seventycookies6-design.github.io/flowshield/ from the `gh-pages` branch. Redesigned in #27 (teal theme, light/dark toggle, Soft/Firm/Sealed explained through a student's day). Checkout goes through the licence server. |
+| Website | `Website/`, static | Offline during the internal beta (#165), moving to a host that allows selling before launch (#166); preview locally with `python -m http.server 5500 -d Website`. Redesigned in #27 (teal theme, light/dark toggle, Soft/Firm/Sealed explained through a student's day). Checkout goes through the licence server. |
 | Payments | Stripe | **Test mode only.** Account named FlowShield. |
 | Tests | `automation/`, pytest + pywinauto + Playwright, tiers 1–7 | 1000+ tests as of 22 September 2026 (`automation/tests -m "not ui and not stripe"` alone: 991 passed, 16 skipped). See Phase 2 for the current baselines. |
 | Tools | `tools/` | `setup_stripe_store.js`, `publish_site.ps1`, `build_release.ps1`, `db_admin.js`, `fix_mojibake.py`, and `doc_steward/` (keeps the docs consistent with the code; see "Doc steward" in `CLAUDE.md`) |
@@ -217,7 +217,7 @@ Also check the live services:
 
 - `https://flowshield-license-server.onrender.com/health` returns `ok` (the first
   request after idle can take ~50 seconds).
-- The site returns HTTP 200.
+- The site is offline during the internal beta (#165), so don't expect HTTP 200 from the Pages URL; preview it locally with `python -m http.server 5500 -d Website`.
 - `gh release view --repo seventycookies6-design/flowshield` shows v1.0.10.
 
 ## Phase 3: Remote Control
@@ -299,7 +299,7 @@ go-ahead.
    roadmap 5.5 (email-only unlock, needs an
    email provider), 3.7 (sleep schedule, needs F6), 4.3 (in-app Get help),
    the #144 capture refresh (now that the visual language and features have
-   landed), bugs #203/#204, #234 (device-token HMAC), History list
+   landed), bugs #203/#204, History list
    virtualisation, and the F25/owner gates.
 2. **Stripe business name** (owner; found in a test purchase on 13 September
    2026). Checkout and the billing portal show "Focus Unlock sandbox". The
