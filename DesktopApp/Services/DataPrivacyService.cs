@@ -48,6 +48,8 @@ public static class DataPrivacyService
             activeSprint = settings.ActiveSprint,
             momentumScore = settings.MomentumScore,
             currentStreak = settings.CurrentStreak,
+            // F14: the milestones are kept, not derived, so they are local data too.
+            earnedMilestones = settings.EarnedMilestones,
             dailyGoal = new
             {
                 kind = settings.DailyGoalKind.ToString(),

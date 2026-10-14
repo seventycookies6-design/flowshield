@@ -10608,3 +10608,15 @@ class TestCausewayLogoIsTheBrandMark:
         css = (Path(WEBSITE_DIR) / "styles.css").read_text(encoding="utf-8")
         assert 'html[data-theme="dark"] .brand .brand-mark-light { display: none; }' in css
         assert 'html[data-theme="dark"] .brand .brand-mark-dark { display: block; }' in css
+
+
+class TestMilestoneCardClearsOnTheNextSprint:
+    """#359 review: the F14 milestone card is cleared when the next sprint
+    starts, with the summary card, instead of staying up while it runs (the
+    setup column it sits in stays visible during a sprint)."""
+
+    def test_begin_running_hides_the_milestone_card(self):
+        today = (Path(DESKTOP_DIR) / "ViewModels" / "TodayViewModel.cs").read_text(encoding="utf-8")
+        begin = today.split("private void BeginRunning(")[1].split("\n    }\n")[0]
+        assert "JournalPromptVisible = false;" in begin
+        assert "MilestoneNoticeVisible = false;" in begin

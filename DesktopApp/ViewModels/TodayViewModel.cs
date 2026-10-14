@@ -1592,6 +1592,9 @@ public class TodayViewModel : ViewModelBase
         IsRunning = true;
         SessionStateText = stateText;
         JournalPromptVisible = false;
+        // F14: the last sprint's milestone card goes with its summary card,
+        // rather than staying up through the next sprint. It stays on History.
+        MilestoneNoticeVisible = false;
         IntentionDisplayText = string.IsNullOrWhiteSpace(_current.Intention) ? "" : _current.Intention;
         IntentionDisplayVisible = IntentionDisplayText.Length > 0;
 
