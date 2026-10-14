@@ -795,6 +795,14 @@ public class AppSettings
     /// <summary>Planned days off. See <see cref="DailyGoal.SkipsPerWeek"/>.</summary>
     public List<DateTime> SkipDatesLocal { get; set; } = new();
 
+    // ---- quiet milestones (F14) -----------------------------------------
+
+    /// <summary>The milestones earned so far, listed on History. See <see cref="Milestones"/>.</summary>
+    public List<MilestoneRecord> EarnedMilestones { get; set; } = new();
+
+    /// <summary>Set at the first launch that checks for milestones, so ones reached before F14 are listed without cards.</summary>
+    public bool MilestonesSeeded { get; set; }
+
     /// <summary>
     /// Enforcement actions taken today, with the day they belong to.
     ///

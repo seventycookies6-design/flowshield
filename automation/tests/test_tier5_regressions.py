@@ -6249,7 +6249,7 @@ class TestHistoryPage:
             "WeekFocusHours", "WeekRangeText", "WeekSprintsValue",
             "WeekDistractionsValue", "MostBlockedApp", "MostBlockedNote",
             "FocusHeatmap", "HeatmapLegend", "HeatmapRange", "HeatmapPeak",
-            "MilestonesPlaceholder", "HistoryExportButton",
+            "MilestonesEmptyText", "HistoryExportButton",
             "HistoryRowHeading", "HistoryRowOutcome", "HistoryRowJournal",
             "HistoryEmptyText",
         ):
@@ -6327,8 +6327,9 @@ class TestHistoryPage:
         touched = set(re.findall(r'\bS\.(\w+)', vm))
         # Profiles joined the list with F9: the most-blocked count is summed
         # across every profile, so the card's answer does not change when the
-        # active blocklist does.
-        assert touched <= {"Sessions", "BlockedApps", "Profiles"}, \
+        # active blocklist does. EarnedMilestones (F14) is listed, not derived:
+        # the History list shows each milestone once, with the day it was earned.
+        assert touched <= {"Sessions", "BlockedApps", "Profiles", "EarnedMilestones"}, \
             f"History reads more of the settings than it should: {sorted(touched)}"
         assert "MostBlockedNoteText" in vm, \
             "the most-blocked card must state that its count is not this week's"
@@ -6399,12 +6400,14 @@ class TestHistoryPage:
         assert "{StaticResource ShieldGlyph}" in xaml, \
             "§6: one glyph resource, not a per-page copy"
 
-    def test_a_place_is_held_for_the_milestones(self):
-        """F14's milestones (#133) are listed here; the slot exists already so
-        adding them does not mean rearranging the page."""
+    def test_the_milestones_are_listed_here_with_their_ids(self):
+        """F14's quiet milestones are listed on History, each with its name,
+        sentence and date, and the empty line says what to expect."""
         xaml = self._read(self.XAML)
-        assert 'AutomationProperties.AutomationId="MilestonesPlaceholder"' in xaml
         assert "MILESTONES" in xaml
+        assert "{Binding MilestoneRows}" in xaml
+        assert 'AutomationProperties.AutomationId="MilestoneTitle"' in xaml
+        assert 'AutomationProperties.AutomationId="MilestonesEmptyText"' in xaml
 
     def test_the_journal_export_stays_reachable_with_its_ids_intact(self):
         """
@@ -10605,3 +10608,15 @@ class TestCausewayLogoIsTheBrandMark:
         css = (Path(WEBSITE_DIR) / "styles.css").read_text(encoding="utf-8")
         assert 'html[data-theme="dark"] .brand .brand-mark-light { display: none; }' in css
         assert 'html[data-theme="dark"] .brand .brand-mark-dark { display: block; }' in css
+
+
+class TestMilestoneCardClearsOnTheNextSprint:
+    """#359 review: the F14 milestone card is cleared when the next sprint
+    starts, with the summary card, instead of staying up while it runs (the
+    setup column it sits in stays visible during a sprint)."""
+
+    def test_begin_running_hides_the_milestone_card(self):
+        today = (Path(DESKTOP_DIR) / "ViewModels" / "TodayViewModel.cs").read_text(encoding="utf-8")
+        begin = today.split("private void BeginRunning(")[1].split("\n    }\n")[0]
+        assert "JournalPromptVisible = false;" in begin
+        assert "MilestoneNoticeVisible = false;" in begin

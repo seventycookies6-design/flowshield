@@ -454,6 +454,21 @@
                     <TextBlock Text="Optional. It's shown on the timer and again when the sprint ends."
                                Style="{StaticResource Caption}" Margin="0,8,0,0"/>
 
+                    <!-- quiet milestone (F14): one small card, shown once, then only listed on History -->
+                    <Border Style="{StaticResource RowCard}" Margin="0,24,0,0" Padding="16"
+                            Visibility="{Binding MilestoneNoticeVisible, Converter={StaticResource BoolVis}}">
+                        <StackPanel>
+                            <TextBlock Text="MILESTONE" Style="{StaticResource Eyebrow}"/>
+                            <TextBlock Text="{Binding MilestoneNoticeText}" Style="{StaticResource Body}"
+                                       Margin="0,8,0,0" TextWrapping="Wrap"
+                                       AutomationProperties.AutomationId="MilestoneNoticeText"/>
+                            <Button Style="{StaticResource BtnQuiet}" HorizontalAlignment="Left"
+                                    Margin="-12,8,0,0" Content="Dismiss"
+                                    Command="{Binding DismissMilestoneCommand}"
+                                    AutomationProperties.AutomationId="MilestoneDismissButton"/>
+                        </StackPanel>
+                    </Border>
+
                     <!-- sprint summary (F12) -->
                     <Border Style="{StaticResource RowCard}" Margin="0,24,0,0" Padding="16"
                             Visibility="{Binding JournalPromptVisible, Converter={StaticResource BoolVis}}">

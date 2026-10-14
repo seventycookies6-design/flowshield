@@ -36,6 +36,11 @@ public class MainViewModel : ViewModelBase
         if (Settings.EnsureProfiles())
             Log.Info($"blocklist profiles ready: {Settings.Profiles.Count}, active \"{Settings.ActiveProfile.Name}\"");
 
+        // F14: milestones reached before this launch are listed without a card.
+        // Done here, not at the first sprint end, so a sprint that is the first
+        // of its kind still gets its card.
+        Milestones.Seed(Settings, DateTime.UtcNow);
+
         // F6: the three built-in templates arrive once, and a schedule whose
         // template is gone is dropped before anything reads it.
         if (Settings.EnsureTemplates())

@@ -42,6 +42,7 @@ public class TodayViewModel : ViewModelBase
         StartCommand = new RelayCommand(StartSprint, CanStart);
         StopCommand = new RelayCommand(() => RequestEnd(), () => IsRunning);
         KeepGoingCommand = new RelayCommand(() => CloseEndPanel(keepGoing: true));
+        DismissMilestoneCommand = new RelayCommand(() => MilestoneNoticeVisible = false);
         EndAnywayCommand = new RelayCommand(EndAnyway);
         SaveJournalCommand = new RelayCommand(SaveJournal, () => JournalPromptVisible);
         GetProCommand = new RelayCommand(() => _main.OpenUpgradePage());
@@ -85,6 +86,9 @@ public class TodayViewModel : ViewModelBase
     public RelayCommand StopCommand { get; }
 
     public RelayCommand KeepGoingCommand { get; }
+
+    /// <summary>Closes the milestone card. The milestone stays listed on History.</summary>
+    public RelayCommand DismissMilestoneCommand { get; }
     public RelayCommand EndAnywayCommand { get; }
     public RelayCommand SaveJournalCommand { get; }
 
@@ -564,6 +568,15 @@ public class TodayViewModel : ViewModelBase
 
     private string _summaryDistractionsText = "";
     public string SummaryDistractionsText { get => _summaryDistractionsText; private set => Set(ref _summaryDistractionsText, value); }
+
+    // ---- quiet milestone card (F14) ---------------------------------------
+
+    private string _milestoneNoticeText = "";
+    /// <summary>The milestones this sprint earned, one sentence each. Shown once.</summary>
+    public string MilestoneNoticeText { get => _milestoneNoticeText; private set => Set(ref _milestoneNoticeText, value); }
+
+    private bool _milestoneNoticeVisible;
+    public bool MilestoneNoticeVisible { get => _milestoneNoticeVisible; private set => Set(ref _milestoneNoticeVisible, value); }
 
     private string _summaryMomentumText = "";
     public string SummaryMomentumText { get => _summaryMomentumText; private set => Set(ref _summaryMomentumText, value); }
@@ -1579,6 +1592,9 @@ public class TodayViewModel : ViewModelBase
         IsRunning = true;
         SessionStateText = stateText;
         JournalPromptVisible = false;
+        // F14: the last sprint's milestone card goes with its summary card,
+        // rather than staying up through the next sprint. It stays on History.
+        MilestoneNoticeVisible = false;
         IntentionDisplayText = string.IsNullOrWhiteSpace(_current.Intention) ? "" : _current.Intention;
         IntentionDisplayVisible = IntentionDisplayText.Length > 0;
 
@@ -1966,6 +1982,10 @@ public class TodayViewModel : ViewModelBase
         }
 
         S.ActiveSprint = null;
+
+        // F14: after the sprint is counted, so a milestone this sprint reached
+        // (its streak day, its tenth hour) is recorded in the same save.
+        ShowNewMilestones(Milestones.Record(S, DateTime.UtcNow));
         _main.SaveSettings();
 
         // Before the card, not after it. The card shows the streak, and since
@@ -2055,6 +2075,25 @@ public class TodayViewModel : ViewModelBase
             Raise(nameof(CycleProgressVisible));
             _main.Toast($"Cycle done — {ran} sprints.");
         }
+    }
+
+    /// <summary>
+    /// Puts the milestones a sprint just earned on the card, and marks them
+    /// shown so they are never put on it again. Nothing happens for a sprint
+    /// that earned none.
+    /// </summary>
+    private void ShowNewMilestones(IReadOnlyList<MilestoneRecord> fresh)
+    {
+        if (fresh.Count == 0) return;
+
+        MilestoneNoticeText = string.Join("\n", fresh.Select(r =>
+        {
+            var kind = Enum.Parse<MilestoneKind>(r.Id);
+            return $"{Milestones.Title(kind)}. {Milestones.Sentence(kind)}";
+        }));
+        MilestoneNoticeVisible = true;
+
+        foreach (var record in fresh) record.Shown = true;
     }
 
     /// <summary>Fills the post-sprint card (F12) with what just happened.</summary>
