@@ -379,8 +379,8 @@ mostly use "licence".)
   - Keep the standard Windows title bar for now.
   - A custom title bar is out of scope; it's easy to get wrong with snapping and accessibility.
 - **Tray icon:**
-  - A monochrome shield that follows the taskbar theme.
-  - It becomes filled `primary` with a progress notch during a sprint.
+  - The app's Causeway tile (`FlowShield.ico`, built from `design/brand/basalt-icon.svg`).
+  - During a sprint it counts down the minutes left, drawn in `primary` on `primary-ink` so it follows the app theme; the running tile (`FlowShield.Running.ico`, the Firm variant) is its fallback.
 
 ---
 
