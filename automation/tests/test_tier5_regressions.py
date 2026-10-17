@@ -8236,6 +8236,134 @@ class TestTheUiSuiteCanObserveWhatItAsserts:
     # see into, so a test asserting on it is really asserting on its own speed.
     OBSERVABLE_SECONDS = 5.0
 
+    @pytest.mark.parametrize("phantom_question", [False, True])
+    def test_break_check_rejects_a_question_before_the_decoy_exists(
+        self, monkeypatch, tmp_path, phantom_question,
+    ):
+        """#249: exercise the real UI test against a five-second sprint bench.
+
+        A ten-second close grace cannot finish inside that sprint. The test
+        must observe enforcement's warning, and must not silently answer an
+        unexpected question on the first start. Only the UI/OS boundary is fake.
+        """
+        from types import SimpleNamespace
+        from tests import test_tier3_e2e as tier3
+
+        clock = [0.0]
+        monkeypatch.setattr(tier3, "time", SimpleNamespace(
+            time=lambda: clock[0],
+            sleep=lambda seconds: clock.__setitem__(0, clock[0] + seconds),
+        ))
+        state = {"next_started": None, "warned": False, "dead": False,
+                 "question": phantom_question}
+        decoy = SimpleNamespace(
+            poll=lambda: 0 if state["dead"] else None,
+            kill=lambda: state.update(dead=True),
+        )
+
+        def click(auto_id):
+            if auto_id == "StartNextSprintButton":
+                state["next_started"] = clock[0]
+                state["question"] = True
+
+        def answer_open_apps_question():
+            asked = state["question"]
+            state["question"] = False
+            return asked
+
+        def start_sprint(confirm_open_apps=True):
+            if confirm_open_apps:
+                answer_open_apps_question()
+
+        def text_of(auto_id, **kwargs):
+            if auto_id == "BreakPanelTitle":
+                return "On a break"
+            if auto_id == "ToastText" and clock[0] - state["next_started"] < 5:
+                state["warned"] = True
+                return "Blocked at shield Firm; closing in 10 s"
+            return ""
+
+        app = SimpleNamespace(
+            navigate_to_tab=lambda tab: None,
+            add_blocked_app=lambda name: True,
+            select_shield=lambda shield: None,
+            select_sprint_length=lambda minutes: None,
+            start_sprint=start_sprint,
+            exists=lambda auto_id, **kwargs: auto_id == "StartBreakButton",
+            click=click,
+            text_of=text_of,
+            answer_open_apps_question=answer_open_apps_question,
+        )
+        test = tier3.TestBreaksAndCycles()
+        monkeypatch.setattr(test, "_decoy", lambda path: decoy)
+        if phantom_question:
+            with pytest.raises(AssertionError, match="before.*decoy"):
+                test.test_nothing_is_blocked_during_the_break(app, tmp_path)
+        else:
+            test.test_nothing_is_blocked_during_the_break(app, tmp_path)
+            assert state["warned"], "check enforcement before the short sprint ends"
+
+    @pytest.mark.parametrize("focus_result", ["accepted", "refused", "error", "attach_error"])
+    def test_soft_refocus_handles_foreground_lock_and_always_detaches(
+        self, monkeypatch, focus_result,
+    ):
+        """#250: a successful API call is not proof of OS foreground ownership.
+
+        Model Windows refusing an unattached background caller, then exercise
+        the actual Soft-test helper. No real input queues or windows are used.
+        """
+        from types import SimpleNamespace
+        import pywintypes
+        import win32api
+        import win32gui
+        import win32process
+        from tests import test_tier3_e2e as tier3
+
+        clock = [0.0]
+        monkeypatch.setattr(tier3, "time", SimpleNamespace(
+            time=lambda: clock[0], monotonic=lambda: clock[0],
+            sleep=lambda seconds: clock.__setitem__(0, clock[0] + seconds),
+        ))
+        foreground = [100]
+        attached = set()
+        thread_for = {100: 11, 200: 22}
+        monkeypatch.setattr(win32api, "GetCurrentThreadId", lambda: 33)
+        monkeypatch.setattr(win32gui, "PeekMessage", lambda *args: None)
+        monkeypatch.setattr(win32gui, "GetForegroundWindow", lambda: foreground[0])
+        monkeypatch.setattr(win32gui, "IsIconic", lambda hwnd: False)
+        monkeypatch.setattr(win32process, "GetWindowThreadProcessId",
+                            lambda hwnd: (thread_for[hwnd], hwnd))
+
+        def attach(caller, other, enabled):
+            if enabled:
+                if focus_result == "attach_error" and other == 22:
+                    raise pywintypes.error(5, "AttachThreadInput", "refused by bench")
+                attached.add((caller, other))
+            else:
+                attached.remove((caller, other))
+
+        def request_focus(hwnd):
+            if focus_result == "error":
+                raise pywintypes.error(5, "SetForegroundWindow", "refused by bench")
+            if focus_result == "accepted" and attached == {(33, 11), (33, 22)}:
+                foreground[0] = hwnd
+
+        monkeypatch.setattr(win32process, "AttachThreadInput", attach)
+        monkeypatch.setattr(win32gui, "SetForegroundWindow", request_focus)
+        test = tier3.TestSoftShowsTheNotice()
+        monkeypatch.setattr(test, "_foreground_pid", lambda: foreground[0])
+        monkeypatch.setattr(test, "_decoy_windows", lambda process: [SimpleNamespace(
+            handle=200, set_focus=lambda: request_focus(200),
+        )])
+        if focus_result == "accepted":
+            test._bring_forward(SimpleNamespace(pid=200))
+            assert foreground[0] == 200
+        else:
+            with pytest.raises(pytest.fail.Exception, match="foreground"):
+                test._bring_forward(SimpleNamespace(pid=200))
+            assert foreground[0] == 100
+        assert not attached, "input queues must be detached on success and failure"
+
     def test_every_shortened_wait_is_long_enough_to_observe(self):
         for name in ("GracePeriod", "FirmConfirmDelay", "SealedCountdown"):
             seconds = self._short_seconds(name)
