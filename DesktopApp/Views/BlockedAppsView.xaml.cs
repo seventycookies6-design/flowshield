@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 
 namespace FlowShield.Views;
 
@@ -13,6 +14,19 @@ public partial class BlockedAppsView : UserControl
     public const double StackPickerBelow = 780;
 
     public BlockedAppsView() => InitializeComponent();
+
+    // In the stacked layout the page owns scrolling. The card has no scroll
+    // range there, but its ScrollViewer would still swallow wheel input.
+    private void OnBlocklistPreviewMouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        if (e.Handled || PageScroll.VerticalScrollBarVisibility != ScrollBarVisibility.Auto) return;
+        e.Handled = true;
+        PageScroll.RaiseEvent(new MouseWheelEventArgs(e.MouseDevice, e.Timestamp, e.Delta)
+        {
+            RoutedEvent = MouseWheelEvent,
+            Source = sender,
+        });
+    }
 
     /// <summary>Keyed on the view's own width, like TodayView.</summary>
     private void OnSizeChanged(object sender, SizeChangedEventArgs e)
@@ -41,7 +55,7 @@ public partial class BlockedAppsView : UserControl
             PickerColumn.Width = new GridLength(0.65, GridUnitType.Star);
             PickerColumn.MinWidth = 260;
             // Disabled, not Auto: each card gets the page's real height and
-            // scrolls its own list, as before.
+            // scrolls its own content.
             PageScroll.VerticalScrollBarVisibility = ScrollBarVisibility.Disabled;
             PickerCard.MaxHeight = double.PositiveInfinity;
             ListRow.Height = new GridLength(1, GridUnitType.Star);

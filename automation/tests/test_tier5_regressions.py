@@ -10496,3 +10496,68 @@ class TestMilestoneCardClearsOnTheNextSprint:
         begin = today.split("private void BeginRunning(")[1].split("\n    }\n")[0]
         assert "JournalPromptVisible = false;" in begin
         assert "MilestoneNoticeVisible = false;" in begin
+
+
+@pytest.mark.ui
+class TestBlockedAppsListKeepsItsViewport:
+    """#377: profiles and websites consumed the default card's entire height.
+
+    All five apps were saved, but the zero-height list exposed one stale UIA
+    row and customers could not reach any of the apps they had added.
+    """
+
+    @pytest.mark.parametrize("compact", [False, True], ids=["default", "compact"])
+    def test_the_fifth_app_can_be_seen_and_removed(self, fresh_app, compact):
+        if compact:
+            import ctypes
+
+            scale = ctypes.windll.user32.GetDpiForWindow(fresh_app.window.handle) / 96
+            fresh_app.window.wrapper_object().iface_transform.Resize(800 * scale, 540 * scale)
+        fresh_app.navigate_to_tab("Blocked Apps")
+        expected = {f"limit-probe-{index}" for index in range(5)}
+        for process in sorted(expected):
+            assert fresh_app.add_blocked_app(process), f"Add disabled for {process}"
+
+        def saved_apps():
+            return {app["ProcessName"] for app in verify.read_settings()["BlockedApps"]}
+
+        assert saved_apps() == expected, "every distinct blocked app must be persisted"
+        bounds = fresh_app.element("BlockedAppsList").rectangle()
+        assert bounds.height() > 0 and bounds.width() > 0, "the blocked-app list has no viewport"
+        assert len(fresh_app.blocked_app_names()) == 5
+
+        scroll_id = "BlockedAppsPageScroll" if compact else "BlockedAppsScroll"
+        scroll = fresh_app.element(scroll_id).iface_scroll
+        last_id = "RemoveApp_limit-probe-4"
+
+        def reveal_last_app():
+            # In the stacked layout the picker follows the apps, so the last
+            # app is reached before the bottom of the whole page.
+            for percent in range(0, 101, 5):
+                scroll.SetScrollPercent(-1, percent)
+                button = fresh_app.element(last_id)
+                if fresh_app._is_on_screen(button):
+                    return button
+                time.sleep(0.1)
+            pytest.fail("the fifth row is still clipped after scrolling")
+
+        button = reveal_last_app()
+
+        # Wheel input over a row must scroll back to the add controls, too.
+        # An inner ListBox ScrollViewer can swallow it even when it cannot scroll.
+        from pywinauto import mouse
+
+        centre = button.rectangle().mid_point()
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline and not fresh_app._is_on_screen(fresh_app.element("AddAppButton")):
+            mouse.scroll(coords=(centre.x, centre.y), wheel_dist=1)
+        assert fresh_app._is_on_screen(fresh_app.element("AddAppButton")), "wheel input is trapped in the app list"
+
+        button = reveal_last_app()
+        # A real click proves reachability; Invoke can act on a clipped control.
+        button.click_input()
+
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline and saved_apps() != expected - {"limit-probe-4"}:
+            time.sleep(0.1)
+        assert saved_apps() == expected - {"limit-probe-4"}
