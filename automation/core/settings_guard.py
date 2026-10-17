@@ -10,6 +10,9 @@ has Basalt installed quietly breaks that install's licence checks.
 afterwards. The backup is written only once: if a previous run was killed before
 restoring, the backup on disk is still the owner's file, so it is kept rather
 than overwritten with whatever the dead run left behind.
+All suite-launched and non-installed FlowShield processes must exit before
+restore. Backups survive until the file hash and registry values stay verified
+after settling; a failed restore leaves them available for recovery.
 
 The Start-with-Windows Run value receives the same treatment because Phase 1.2
 tests deliberately enable and corrupt it before checking that launch repairs it.
@@ -21,9 +24,11 @@ the owner's own trial expired, or restarted.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import shutil
+import subprocess
 import time
 from contextlib import contextmanager
 from pathlib import Path
@@ -50,25 +55,81 @@ TRIAL_VALUE_NAME = "StartedUtc"
 _NO_SETTINGS = b""
 
 _depth = 0
+_launched_apps: dict[int, psutil.Process] = {}
+_EXIT_TIMEOUT = 10
+_RESTORE_ATTEMPTS = 3
+_RESTORE_SETTLE = 0.75
+
+
+def launch_app_process(*args, **kwargs) -> subprocess.Popen:
+    """Start and retain the identity of every suite-launched app, even mid-exit."""
+    process = subprocess.Popen(*args, **kwargs)
+    try:
+        # Retaining Process also retains its creation time: a reused PID must
+        # never turn into permission to kill an unrelated process later.
+        _launched_apps[process.pid] = psutil.Process(process.pid)
+    except psutil.NoSuchProcess:
+        pass  # a short-lived second-instance/uninstall launch already exited
+    return process
+
+
+def run_app_process(args, *, timeout: float, **kwargs) -> subprocess.CompletedProcess:
+    """The suite's synchronous app launches must be tracked too."""
+    with launch_app_process(args, **kwargs) as process:
+        try:
+            returncode = process.wait(timeout=timeout)
+        except BaseException:
+            process.kill()
+            process.wait()
+            raise
+    return subprocess.CompletedProcess(args, returncode)
+
+
+def _is_installed(exe: str | None) -> bool:
+    if not exe:
+        return False
+    path = Path(exe).resolve()
+    roots = [Path(os.environ[name]) for name in ("ProgramFiles", "ProgramFiles(x86)", "ProgramW6432")
+             if os.environ.get(name)]
+    if os.environ.get("LOCALAPPDATA"):
+        roots.append(Path(os.environ["LOCALAPPDATA"]) / "FlowShield")
+    return any(path.is_relative_to(root.resolve()) for root in roots)
 
 
 def _stop_dev_build() -> None:
-    """
-    Close any copy of the dev build still running, so it can't save settings
-    over the restored file on its way out. Only the dev build: an installed copy
-    lives elsewhere and isn't ours to kill.
-    """
+    """Stop all suite writers and confirm exit; never kill an installed copy."""
     target = os.path.normcase(str(Path(APP_EXE).resolve()))
-    stopped = False
-    for proc in psutil.process_iter(["exe"]):
+    candidates = dict(_launched_apps)
+    for proc in psutil.process_iter(["name", "exe"]):
+        info = proc.info
+        exe = info.get("exe")
+        if ((info.get("name") or "").lower() == "flowshield.exe"
+                or (exe and os.path.normcase(exe) == target)):
+            candidates[proc.pid] = proc
+    stopped = []
+    for proc in candidates.values():
         try:
-            if proc.info["exe"] and os.path.normcase(proc.info["exe"]) == target:
-                proc.kill()
-                stopped = True
-        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            try:
+                info = getattr(proc, "info", None)
+                exe = info.get("exe") if info is not None else proc.exe()
+            except psutil.AccessDenied:
+                exe = None
+            if _is_installed(exe):
+                continue
+            proc.kill()
+            stopped.append(proc)
+        except psutil.NoSuchProcess:
             continue
-    if stopped:
-        time.sleep(1.2)
+        except psutil.AccessDenied as exc:
+            raise RuntimeError(f"Cannot stop app PID {proc.pid}; backups retained") from exc
+    for proc in stopped:
+        try:
+            proc.wait(timeout=_EXIT_TIMEOUT)
+        except psutil.NoSuchProcess:
+            pass
+        except (psutil.TimeoutExpired, psutil.AccessDenied) as exc:
+            raise RuntimeError(f"Cannot confirm exit of app PID {proc.pid}; backups retained") from exc
+    _launched_apps.clear()
 
 
 def back_up() -> None:
@@ -88,16 +149,18 @@ def _back_up_registry_value(subkey: str, name: str, backup_path: Path) -> None:
     if winreg is None or backup_path.exists():
         return
 
-    backup = {"present": False, "value": None, "type": winreg.REG_SZ}
+    backup = _read_registry_value(subkey, name)
+    backup_path.parent.mkdir(parents=True, exist_ok=True)
+    backup_path.write_text(json.dumps(backup), encoding="utf-8")
+
+
+def _read_registry_value(subkey: str, name: str) -> dict:
     try:
         with winreg.OpenKey(winreg.HKEY_CURRENT_USER, subkey) as key:
             value, value_type = winreg.QueryValueEx(key, name)
-            backup = {"present": True, "value": value, "type": value_type}
+            return {"present": True, "value": value, "type": value_type}
     except FileNotFoundError:
-        pass
-
-    backup_path.parent.mkdir(parents=True, exist_ok=True)
-    backup_path.write_text(json.dumps(backup), encoding="utf-8")
+        return {"present": False, "value": None, "type": winreg.REG_SZ}
 
 
 def _restore_registry_value(subkey: str, name: str, backup_path: Path) -> None:
@@ -116,7 +179,6 @@ def _restore_registry_value(subkey: str, name: str, backup_path: Path) -> None:
                 winreg.DeleteValue(key, name)
             except FileNotFoundError:
                 pass
-    backup_path.unlink()
 
 
 def _back_up_startup_registration() -> None:
@@ -144,19 +206,47 @@ def clear_trial_record() -> None:
 
 
 def restore() -> None:
-    _stop_dev_build()
-    try:
-        if BACKUP_PATH.exists():
-            if BACKUP_PATH.stat().st_size == 0:
-                SETTINGS_PATH.unlink(missing_ok=True)
-                BACKUP_PATH.unlink()
-            else:
-                os.replace(BACKUP_PATH, SETTINGS_PATH)
-    finally:
+    pending = [p for p in (BACKUP_PATH, STARTUP_BACKUP_PATH, TRIAL_BACKUP_PATH)
+               if p.exists() and (p == BACKUP_PATH or winreg is not None)]
+    expected_hash = (hashlib.sha256(BACKUP_PATH.read_bytes()).digest()
+                     if BACKUP_PATH in pending and BACKUP_PATH.stat().st_size else None)
+    last_error = None
+    for _ in range(_RESTORE_ATTEMPTS):
+        # A late relaunch must also be stopped before a retry. A stop/wait
+        # failure aborts without touching the owner's backups or live state.
+        _stop_dev_build()
+        if not pending:
+            return
         try:
-            _restore_startup_registration()
-        finally:
-            _restore_trial_record()
+            try:
+                if BACKUP_PATH in pending:
+                    if expected_hash is None:
+                        SETTINGS_PATH.unlink(missing_ok=True)
+                    else:
+                        shutil.copy2(BACKUP_PATH, SETTINGS_PATH)
+            finally:
+                try:
+                    _restore_startup_registration()
+                finally:
+                    _restore_trial_record()
+            time.sleep(_RESTORE_SETTLE)
+            file_matches = (BACKUP_PATH not in pending or
+                            (not SETTINGS_PATH.exists() if expected_hash is None else
+                             hashlib.sha256(SETTINGS_PATH.read_bytes()).digest() == expected_hash))
+            registry_matches = all(
+                _read_registry_value(subkey, name) == json.loads(path.read_text(encoding="utf-8"))
+                for subkey, name, path in ((RUN_KEY, RUN_VALUE_NAME, STARTUP_BACKUP_PATH),
+                                          (TRIAL_KEY, TRIAL_VALUE_NAME, TRIAL_BACKUP_PATH))
+                if path in pending
+            )
+            if file_matches and registry_matches:
+                for path in pending:
+                    path.unlink()
+                return
+        except OSError as exc:
+            last_error = exc
+    raise RuntimeError(f"Restore verification failed after {_RESTORE_ATTEMPTS} attempts; "
+                       f"backups retained in {BACKUP_PATH.parent}") from last_error
 
 
 def _restore_startup_registration() -> None:
