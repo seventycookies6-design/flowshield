@@ -1,4 +1,4 @@
-# FlowShield design system
+# Basalt design system
 
 One visual language for the desktop app and the website, so that a customer
 moving from the site to the installer to the app sees the same product. It
@@ -17,10 +17,10 @@ The features these rules will be applied to are listed in
 
 ### The idea: a calm instrument
 
-**FlowShield should feel like a precise, quiet tool you trust, not a wellness
+**Basalt should feel like a precise, quiet tool you trust, not a wellness
 app and not a game.**
 
-FlowShield sits in a space none of them occupy: **the seriousness of a utility
+Basalt sits in a space no product in the category occupies (Part B §1): **the seriousness of a utility
 with the calm and clarity of a well-made instrument.** Think of a good watch
 face or a camera's controls. Everything has a purpose, the important number is
 large, and nothing flashes for attention.
@@ -52,7 +52,7 @@ large, and nothing flashes for attention.
 - **Surfaces:** no decorative gradients or glows; glass/acrylic/Mica is allowed only for the window frame and navigation rail as a Windows 11 system backdrop, with AA text contrast measured over the worst case and a solid token surface on Windows 10 or when transparency effects are off; cards, controls and text never sit on translucent surfaces, so content stays legible.
 - **Texture:** restrained material texture is allowed in the app and on the site, never under text, cards or controls, with contrast unaffected and off with reduced transparency where applicable; no photographs of rock or marble veining behind copy, so material never competes with content.
 - **Title bar:** a custom or extended title bar keeps Snap Layouts, the system menu, keyboard access, accessible names and correct drag regions, so changing the frame preserves Windows behaviour.
-- **Imagery:** real product only, with sample data and never a real blocklist or licence; no stock photos, AI-generated people, fake device frames or mock-ups of unshipped screens, so marketing stays honest and private data stays private.
+- **Imagery:** real product only, with sample data and never a real blocklist or license; no stock photos, AI-generated people, fake device frames or mock-ups of unshipped screens, so marketing stays honest and private data stays private.
 - **Voice:** plain, specific words; no exclamation marks or emoji in product copy; use the binding word list below, so the product is clear and kind.
 - **Brand:** copy the Causeway mark from `design/brand/`, never redraw it, so the same mark reaches every surface.
 - **Licences:** fonts and icons stay licensed and embedded or self-hosted (Inter OFL, Lucide ISC), with notices shipped and no runtime web-font services, so they work offline and their terms are met.
@@ -61,7 +61,7 @@ large, and nothing flashes for attention.
 
 ### Binding words and honesty
 
-FlowShield talks like a calm, competent friend who respects your time.
+Basalt talks like a calm, competent friend who respects your time.
 
 | Use | Not |
 | --- | --- |
@@ -70,13 +70,14 @@ FlowShield talks like a calm, competent friend who respects your time.
 | Soft, Firm, Sealed | Level 1/2/3 on their own |
 | momentum | score, points, XP |
 | blocklist | blacklist, block set |
-| buy FlowShield, licence | upgrade, Pro, subscription |
+| buy Basalt, license | upgrade, Pro, subscription |
 | free trial | free version, free plan |
 | ended early | failed, gave up, quit |
 
 Issue #365 is an owner decision and may revise the shield vocabulary after the
-Basalt rename. Until then, this word list stays binding. Use one spelling of
-licence/license consistently across both products; §9 records the current mix.
+Basalt rename. Until then, this word list stays binding. Customer-facing text
+spells it **license**, the American way (decided in #370); code identifiers,
+`AutomationId`s and API fields keep their existing names.
 
 - Never describe an unshipped feature (the tier 5 claims test enforces this for pricing).
 - Name a competitor or quote its price only after re-checking the source; see the checklist's F24.
@@ -273,7 +274,7 @@ All roles are Inter.
 
 ### 6. Shield levels: the signature visual
 
-The three shields are FlowShield's most distinctive idea, so they get a
+The three shields are Basalt's most distinctive idea, so they get a
 consistent visual language, used identically on the Today page, the site,
 notifications, the tray and the summary card.
 
@@ -299,7 +300,7 @@ site it's a class in `styles.css`. Names match across the two.
 
 | Variant | App style | Site class | Look | Use |
 | --- | --- | --- | --- | --- |
-| Primary | `BtnPrimary` | `.btn-primary` | `primary` fill, `primary-ink` label | One per view: Start sprint, Buy FlowShield, Activate |
+| Primary | `BtnPrimary` | `.btn-primary` | `primary` fill, `primary-ink` label | One per view: Start sprint, Buy Basalt, Activate |
 | Secondary | `BtnGhost` | `.btn-ghost` | `surface-2` fill, `border`, `text` label | Alternatives: Skip break, Copy key |
 | Quiet | `BtnQuiet` | `.btn-quiet` | No fill, `text-muted` label, fill on hover | Low-emphasis: Deactivate, Open log |
 | Destructive | `BtnDanger` | `.btn-danger` | `surface-2` fill, `danger` label and border | Delete everything, End sprint anyway |
@@ -341,7 +342,7 @@ site it's a class in `styles.css`. Names match across the two.
 
 #### Intervention moments (Soft overlay, Firm warning, blocked page)
 
-These are where FlowShield steps between the user and a distraction (checklist
+These are where Basalt steps between the user and a distraction (checklist
 F7, and F10's blocked page). They share one pattern:
 
 - A compact `surface` panel with the shield glyph, one sentence ("Discord is on your blocklist until 5:45 PM"), and the time left.
