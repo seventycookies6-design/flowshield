@@ -54,6 +54,9 @@ public class UpdateService : IUpdateService
     public string? PendingVersion => PendingAsset?.Version?.ToString();
     public string? PendingReleaseNotes => PendingAsset?.NotesMarkdown;
 
+    /// <summary>Whether the last check failed, as opposed to finding nothing new.</summary>
+    public bool LastCheckFailed { get; private set; }
+
     /// <summary>
     /// Look for an update and stage it. Returns the new version, or null.
     /// Never throws: a failed update check must not disturb a working app.
@@ -62,6 +65,7 @@ public class UpdateService : IUpdateService
     {
         if (_manager is null || !_manager.IsInstalled) return null;
 
+        LastCheckFailed = false;
         try
         {
             var update = await _manager.CheckForUpdatesAsync();
@@ -81,6 +85,7 @@ public class UpdateService : IUpdateService
         catch (Exception ex)
         {
             Log.Warn($"update check failed: {ex.Message}");
+            LastCheckFailed = true;
             return null;
         }
     }
