@@ -12,6 +12,7 @@ public partial class App : Application
     public MainViewModel? ViewModel { get; private set; }
 
     public bool DevMode { get; private set; }
+    private DispatcherTimer? _updateTimer;
 
     /// <summary>The single-instance lock taken in Program.Main; null only if run another way.</summary>
     public SingleInstance? Instance { get; init; }
@@ -84,7 +85,7 @@ public partial class App : Application
         ThemeService.Initialise(ViewModel.Settings);
         // Repair an enabled Run value only from an installed copy. A dev build
         // shares these settings and must not redirect sign-in into bin/.
-        var isInstalled = new UpdateService().IsSupported;
+        var isInstalled = ViewModel.Updates.IsSupported;
         StartupEntry.RefreshIfEnabled(ViewModel.Settings.StartWithWindows, isInstalled);
         // The same for flowshield://, which the install hook may not have had
         // time to register (#294).
@@ -208,6 +209,23 @@ public partial class App : Application
         // Or by the Jump List, with the window already up.
         ViewModel.HandleStartSprintArg(args);
 
+        // First check after about a minute, then daily. Tick on the dispatcher
+        // so settings, notifications and the manual button share one owner.
+        _updateTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(15) };
+        _updateTimer.Tick += async (_, _) =>
+        {
+            try
+            {
+                await ViewModel.UpdateCoordinator.TickAsync(DateTime.UtcNow);
+                ViewModel.SettingsPage.RefreshUpdateState();
+            }
+            catch (Exception ex)
+            {
+                Log.Warn($"background updates failed: {ex.Message}");
+            }
+        };
+        _updateTimer.Start();
+
         // Re-confirm an existing license in the background; never blocks the UI.
         _ = licenseService.RefreshAsync(ViewModel.Settings).ContinueWith(_ =>
             Dispatcher.Invoke(() => ViewModel.OnTierChanged()));
@@ -224,10 +242,15 @@ public partial class App : Application
     {
         try
         {
+            _updateTimer?.Stop();
+            ViewModel?.UpdateCoordinator.Stop();
             // Skipped after Settings → Your data → Delete everything (F23):
             // the file is already gone, and saving here would write the
             // in-memory settings straight back and undo the delete.
             if (ViewModel is { SkipSaveOnExit: false }) ViewModel.SaveSettings();
+            // OnExit never runs for close-to-tray. Sample before disposing the
+            // blocker so an enforcing window or routine still defers applying.
+            if (ViewModel is { SkipSaveOnExit: false }) ViewModel.Updates.ApplyOnQuit(ViewModel.UpdateActivity);
             ViewModel?.Blocker.Dispose();
         }
         catch (Exception ex)

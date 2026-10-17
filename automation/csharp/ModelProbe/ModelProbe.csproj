@@ -14,5 +14,6 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="..\..\..\DesktopApp\Models\**\*.cs" LinkBase="Models" />
+    <Compile Include="..\..\..\DesktopApp\Services\UpdateCoordinator.cs" Link="UpdateCoordinator.cs" />
   </ItemGroup>
 </Project>
