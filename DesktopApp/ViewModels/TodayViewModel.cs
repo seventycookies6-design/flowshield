@@ -30,6 +30,13 @@ public class TodayViewModel : ViewModelBase
     public TodayViewModel(MainViewModel main)
     {
         _main = main;
+        _whatsNew = new WhatsNewAnnouncement(S, main.Updates.CurrentVersion);
+        DismissWhatsNewCommand = new RelayCommand(() =>
+        {
+            _whatsNew.Dismiss(S);
+            _main.SaveSettings();
+            Raise(nameof(WhatsNewVisible));
+        });
 
         // Normal priority (#319), as the scheduler's since #316: WPF's default,
         // Background, sits below input, rendering and the calls that serve UI
@@ -79,6 +86,12 @@ public class TodayViewModel : ViewModelBase
     }
 
     private AppSettings S => _main.Settings;
+
+    private readonly WhatsNewAnnouncement _whatsNew;
+    public bool WhatsNewVisible => _whatsNew.Visible;
+    public string WhatsNewTitle => _whatsNew.Title;
+    public IReadOnlyList<ReleaseNoteLine> WhatsNewLines => _whatsNew.Lines;
+    public RelayCommand DismissWhatsNewCommand { get; }
 
     public RelayCommand StartCommand { get; }
 
@@ -619,6 +632,7 @@ public class TodayViewModel : ViewModelBase
     /// <see cref="CycleState"/>; this class only starts and stops the clock.
     /// </summary>
     private CycleState _cycle = CycleState.Nothing;
+    public bool IsInStudyCycle => _cycle.InCycle;
 
     private DateTime _breakEndsUtc;
 

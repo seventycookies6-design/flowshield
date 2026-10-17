@@ -19,6 +19,10 @@ public class MainViewModel : ViewModelBase
     {
         SettingsService = settingsService;
         Settings = settingsService.Load();
+        // Background save failures stay in the coordinator's log, with no toast.
+        UpdateCoordinator = new UpdateCoordinator(Settings, Updates, () => SettingsService.Save(Settings),
+            () => UpdateActivity,
+            message => Notify(NotificationKind.UpdateReady, "Basalt", message), DateTime.UtcNow);
 
         // The trial clock starts on the first launch of a build that has one.
         // App.OnStartup saves right after construction, so this persists. The
@@ -98,6 +102,18 @@ public class MainViewModel : ViewModelBase
     public SettingsService SettingsService { get; }
     public AppSettings Settings { get; }
     public AppBlockerService Blocker { get; }
+    public UpdateService Updates { get; } = new();
+    public UpdateCoordinator UpdateCoordinator { get; }
+
+    public UpdateActivity UpdateActivity => new(
+        SprintRunning: Today.IsRunning,
+        OnBreak: Today.IsOnBreak,
+        InStudyCycle: Today.IsInStudyCycle,
+        SleepEnforcing: AppBlockerService.IsWithinSleepWindow(Settings),
+        ScheduledEnforcing: Blocker.IsEnforcing,
+        Sealed: BlockedApps.IsSealed || Settings.ActiveSprint?.Shield == ShieldLevel.Sealed);
+
+    public bool CanApplyUpdate => UpdatePolicy.CanApply(UpdateActivity);
 
     public TodayViewModel Today { get; }
     public HistoryViewModel History { get; }
@@ -689,6 +705,7 @@ public class MainViewModel : ViewModelBase
 
     public void OnSprintStateChanged()
     {
+        SettingsPage?.RefreshUpdateState();
         Raise(nameof(IsSprintRunning));
         Raise(nameof(IsFocusInProgress));
         Raise(nameof(ShowLockScreen));

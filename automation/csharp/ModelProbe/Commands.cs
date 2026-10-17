@@ -1,7 +1,9 @@
 using System.Globalization;
+using System.IO;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using FlowShield.Models;
+using FlowShield.Services;
 
 namespace FlowShield.ModelProbe;
 
@@ -16,6 +18,10 @@ internal static class Commands
         return cmd switch
         {
             "ping" => new JsonObject { ["ok"] = true },
+            "update-policy" => UpdateRules(request),
+            "update-card" => UpdateCard(request),
+            "update-settings" => JsonSerializer.SerializeToNode(request["settings"].Deserialize<AppSettings>()!.Clone())!,
+            "update-coordinator" => UpdateCoordination(request).GetAwaiter().GetResult(),
             "soft-sequence" => SoftSequence(request),
             "soft-wait" => SoftWait(request),
             "soft-copy" => SoftCopy(request),
@@ -539,6 +545,77 @@ internal static class Commands
         var args = request["args"]!.AsArray().Select(a => (string)a!).ToArray();
         var found = StartSprintArg.TryFind(args, out var id);
         return new JsonObject { ["found"] = found, ["id"] = id };
+    }
+
+    private static JsonNode UpdateRules(JsonObject r) => new JsonObject
+    {
+        ["due"] = UpdatePolicy.IsCheckDue((bool?)r["enabled"] ?? true, (bool?)r["installed"] ?? true,
+            Epoch, r["last"] is { } last ? Epoch.AddSeconds((double)last) : null,
+            Epoch.AddSeconds((double?)r["now"] ?? 0)),
+        ["apply"] = UpdatePolicy.CanApply(r["activity"]?.Deserialize<UpdateActivity>() ?? new()),
+    };
+
+    private static JsonNode UpdateCard(JsonObject r)
+    {
+        var settings = r["settings"].Deserialize<AppSettings>()!;
+        var card = new WhatsNewAnnouncement(settings, (string)r["current"]!);
+        if ((bool?)r["dismiss"] == true) card.Dismiss(settings);
+        return JsonSerializer.SerializeToNode(new
+        {
+            visible = card.Visible, title = card.Title, lines = card.Lines, settings = settings.Clone(),
+        })!;
+    }
+
+    private static async Task<JsonNode> UpdateCoordination(JsonObject r)
+    {
+        var settings = r["settings"]?.Deserialize<AppSettings>() ?? new();
+        var service = new ProbeUpdates
+        {
+            IsSupported = (bool?)r["installed"] ?? true,
+            Fail = (bool?)r["fail"] ?? false,
+            EmptySecond = (bool?)r["emptySecond"] ?? false,
+        };
+        var focus = (bool?)r["focus"] ?? false;
+        var notices = new List<string>();
+        var duringFocus = 0;
+        var coordinator = new UpdateCoordinator(settings, service, () => { },
+            () => new UpdateActivity(SprintRunning: focus), message =>
+            {
+                if (focus) duringFocus++;
+                if (!NotificationPolicy.ShouldShow(NotificationKind.UpdateReady, settings, focus)) return false;
+                notices.Add(message);
+                return true;
+            }, Epoch);
+        foreach (var tick in r["ticks"]!.AsArray())
+        {
+            await coordinator.TickAsync(Epoch.AddSeconds((double)tick!));
+            if ((double)tick! >= 60) focus = false;
+        }
+        return JsonSerializer.SerializeToNode(new
+        {
+            checks = service.Checks, notices, noticesDuringFocus = duringFocus,
+            settings = settings.Clone(), ready = service.UpdateReady,
+        })!;
+    }
+
+    private sealed class ProbeUpdates : IUpdateService
+    {
+        public bool IsSupported { get; init; } = true;
+        public bool Fail { get; init; }
+        public bool EmptySecond { get; init; }
+        public int Checks { get; private set; }
+        public string CurrentVersion => "1.0.10";
+        public bool UpdateReady { get; private set; }
+        public string? PendingVersion => UpdateReady ? "1.0.11" : null;
+        public string? PendingReleaseNotes => UpdateReady ? "- Quiet updates" : null;
+        public Task<string?> CheckAndDownloadAsync()
+        {
+            Checks++;
+            if (Fail) throw new IOException("offline");
+            if (EmptySecond && Checks > 1) return Task.FromResult<string?>(null);
+            UpdateReady = true;
+            return Task.FromResult(PendingVersion);
+        }
     }
 
     private static JsonNode? Do(Action action)

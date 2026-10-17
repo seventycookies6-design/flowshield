@@ -13,7 +13,7 @@ public class SettingsViewModel : ViewModelBase
     private readonly MainViewModel _main;
     private readonly LicenseService _license;
 
-    private readonly UpdateService _updates = new();
+    private UpdateService Updates => _main.Updates;
 
     public SettingsViewModel(MainViewModel main, LicenseService license)
     {
@@ -21,8 +21,9 @@ public class SettingsViewModel : ViewModelBase
         _license = license;
 
         CheckForUpdatesCommand = new AsyncRelayCommand(CheckForUpdatesAsync, () => !IsCheckingUpdates);
-        RestartForUpdateCommand = new RelayCommand(RestartForUpdate, () => UpdateReady);
-        _versionText = $"Version {_updates.CurrentVersion}";
+        RestartForUpdateCommand = new RelayCommand(RestartForUpdate, () => UpdateReady && _main.CanApplyUpdate);
+        _versionText = $"Version {Updates.CurrentVersion}";
+        _main.UpdateCoordinator.Changed += RefreshUpdateState;
 
         _licenseKeyInput = main.Settings.LicenseKey;
         _licenseEmailInput = main.Settings.LicenseEmail;
@@ -68,46 +69,63 @@ public class SettingsViewModel : ViewModelBase
     private string _updateStatusText = "";
     public string UpdateStatusText { get => _updateStatusText; private set => Set(ref _updateStatusText, value); }
 
-    private bool _isCheckingUpdates;
-    public bool IsCheckingUpdates
+    public bool IsCheckingUpdates => _main.UpdateCoordinator.IsChecking;
+    public bool UpdateReady => Updates.UpdateReady;
+    public string UpdateReadyText => UpdateReady ? $"Version {Updates.PendingVersion} is ready" : "";
+    public bool UpdateDeferred => UpdateReady && !_main.CanApplyUpdate;
+    public string UpdateDeferredText => "Finish your sprint, break or study cycle and wait for active shields to end before restarting.";
+
+    public bool AutoCheckUpdates
     {
-        get => _isCheckingUpdates;
-        private set => Set(ref _isCheckingUpdates, value);
+        get => _main.Settings.AutoCheckUpdates;
+        set
+        {
+            if (_main.Settings.AutoCheckUpdates == value) return;
+            _main.Settings.AutoCheckUpdates = value;
+            _main.SaveSettings();
+            Raise();
+        }
     }
 
-    private bool _updateReady;
-    public bool UpdateReady { get => _updateReady; private set => Set(ref _updateReady, value); }
+    public void RefreshUpdateState()
+    {
+        Raise(nameof(IsCheckingUpdates));
+        Raise(nameof(UpdateReady));
+        Raise(nameof(UpdateReadyText));
+        Raise(nameof(UpdateDeferred));
+        System.Windows.Input.CommandManager.InvalidateRequerySuggested();
+    }
 
     /// <summary>Updates only apply to an installed copy, not a dev build.</summary>
-    public bool UpdatesSupported => _updates.IsSupported;
+    public bool UpdatesSupported => Updates.IsSupported;
 
     private async Task CheckForUpdatesAsync()
     {
-        if (!_updates.IsSupported)
+        if (!Updates.IsSupported)
         {
             UpdateStatusText = "Updates apply to installed copies only.";
             return;
         }
 
-        IsCheckingUpdates = true;
+        if (IsCheckingUpdates) return;
         UpdateStatusText = "Checking for updates…";
         try
         {
-            var version = await _updates.CheckAndDownloadAsync();
+            var version = await _main.UpdateCoordinator.CheckAndDownloadAsync(DateTime.UtcNow);
             if (version is null)
             {
-                UpdateStatusText = "You're on the latest version.";
-                UpdateReady = false;
+                UpdateStatusText = UpdateReady ? ""
+                    : Updates.LastCheckFailed ? "Couldn't reach the update server. Try again later."
+                    : "You're on the latest version.";
             }
             else
             {
-                UpdateStatusText = $"Version {version} downloaded — restart to apply.";
-                UpdateReady = true;
+                UpdateStatusText = "";
             }
         }
         finally
         {
-            IsCheckingUpdates = false;
+            RefreshUpdateState();
         }
     }
 
@@ -115,14 +133,14 @@ public class SettingsViewModel : ViewModelBase
     {
         // A sealed sprint locks the blocklist precisely so it can't be escaped;
         // restarting would drop the shield entirely, so the update waits.
-        if (_main.IsSprintRunning)
+        if (!_main.CanApplyUpdate)
         {
-            UpdateStatusText = "Finish your sprint first — the update will apply afterwards.";
-            _main.Toast("The update will apply once this sprint ends.");
+            UpdateStatusText = UpdateDeferredText;
             return;
         }
 
-        if (!_updates.ApplyAndRestart(sprintRunning: false))
+        _main.SaveSettings();
+        if (!Updates.ApplyAndRestart(_main.UpdateActivity))
         {
             UpdateStatusText = "Could not apply the update. See the diagnostic log.";
         }
@@ -816,6 +834,7 @@ public class SettingsViewModel : ViewModelBase
             Raise(nameof(NotifyAppClosing));
             Raise(nameof(NotifyBreakOver));
             Raise(nameof(NotifyScheduledSprint));
+            Raise(nameof(NotifyUpdateReady));
         }
     }
 
@@ -866,6 +885,12 @@ public class SettingsViewModel : ViewModelBase
     {
         get => IsOn(NotificationKind.ScheduledSprint);
         set => SetNotification(NotificationKind.ScheduledSprint, value);
+    }
+
+    public bool NotifyUpdateReady
+    {
+        get => IsOn(NotificationKind.UpdateReady);
+        set => SetNotification(NotificationKind.UpdateReady, value);
     }
 
     // ------------------------------------------------------------ breaks (F5)

@@ -156,6 +156,68 @@ class TestLegalPagesMatchTheProduct:
 
 # =============================================== F23 — the privacy promise
 
+class TestAutomaticUpdateWiring:
+    ROOT = Path(DESKTOP_DIR)
+
+    def test_automatic_update_network_request_is_disclosed(self):
+        legal = (Path(WEBSITE_DIR) / "legal.html").read_text(encoding="utf-8")
+        app = (self.ROOT / "Views" / "SettingsView.xaml").read_text(encoding="utf-8")
+        site = (Path(WEBSITE_DIR) / "index.html").read_text(encoding="utf-8")
+        for text in (legal, app, site):
+            for phrase in ("automatic update checks", "GitHub", "once a day", "IP address",
+                           "blocklist", "sprints", "turned off in Settings"):
+                assert phrase in text
+        assert "The only thing that ever leaves this PC" not in app
+
+    def test_feed_is_one_constant_with_the_host_migration_reminder(self):
+        source = (self.ROOT / "Services" / "UpdateService.cs").read_text(encoding="utf-8")
+        url = "https://github.com/seventycookies6-design/flowshield"
+        assert sum(p.read_text(encoding="utf-8").count('"' + url + '"')
+                   for p in self.ROOT.rglob("*.cs") if "obj" not in p.parts and "bin" not in p.parts) == 1
+        assert re.search(r'const string ReleaseFeed\s*=\s*"' + re.escape(url) + '"', source)
+        assert "#166" in source
+
+    def test_new_automation_ids_are_on_controls(self):
+        import xml.etree.ElementTree as ET
+        ap = "{http://schemas.microsoft.com/winfx/2006/xaml/presentation}"
+        expected = {"AutoUpdateToggle": "CheckBox", "RestartToUpdateButton": "Button",
+                    "WhatsNewCard": "TextBlock", "WhatsNewDismiss": "Button"}
+        found = {}
+        for name in ("SettingsView.xaml", "TodayView.xaml"):
+            for element in ET.parse(self.ROOT / "Views" / name).iter():
+                auto_id = element.get("AutomationProperties.AutomationId")
+                if auto_id in expected:
+                    found[auto_id] = element.tag.removeprefix(ap)
+        assert found == expected
+
+    def test_both_apply_paths_are_guarded_by_the_policy(self):
+        source = (self.ROOT / "Services" / "UpdateService.cs").read_text(encoding="utf-8")
+        quit_path = source.split("public bool ApplyOnQuit(", 1)[1]
+        assert quit_path.index("UpdatePolicy.CanApply(activity)") < quit_path.index("WaitExitThenApplyUpdates(")
+        assert "silent: true, restart: false" in quit_path
+        restart = source.split("public bool ApplyAndRestart(", 1)[1].split("public bool ApplyOnQuit(", 1)[0]
+        assert restart.index("UpdatePolicy.CanApply(activity)") < restart.index("ApplyUpdatesAndRestart(")
+        settings = (self.ROOT / "ViewModels" / "SettingsViewModel.cs").read_text(encoding="utf-8")
+        assert "UpdateReady && _main.CanApplyUpdate" in settings
+        assert "if (!_main.CanApplyUpdate)" in settings
+        app = (self.ROOT / "App.xaml.cs").read_text(encoding="utf-8")
+        assert "ApplyOnQuit(ViewModel.UpdateActivity)" in app.split("protected override void OnExit(", 1)[1]
+
+    def test_a_failed_check_is_not_reported_as_up_to_date(self):
+        """A manual check that couldn't reach the feed said the same thing as one
+        that found nothing new, so someone offline was told they were current."""
+        source = (self.ROOT / "Services" / "UpdateService.cs").read_text(encoding="utf-8")
+        check = source.split("public async Task<string?> CheckAndDownloadAsync(", 1)[1]
+        check = check.split("public bool ApplyAndRestart(", 1)[0]
+        assert check.index("LastCheckFailed = false;") < check.index("CheckForUpdatesAsync()")
+        assert "LastCheckFailed = true;" in check.split("catch (Exception", 1)[1]
+        settings = (self.ROOT / "ViewModels" / "SettingsViewModel.cs").read_text(encoding="utf-8")
+        manual = settings.split("private async Task CheckForUpdatesAsync()", 1)[1].split("finally", 1)[0]
+        assert "Updates.LastCheckFailed" in manual
+        assert "Couldn't reach the update server" in manual
+        assert "You're on the latest version." in manual
+
+
 class TestPrivacyClaimsMatchTheCode:
     """
     F23: every privacy sentence on the site's #privacy section, in the app's
@@ -281,7 +343,7 @@ class TestPrivacyClaimsMatchTheCode:
         }
         for surface_name, text in surfaces.items():
             for field, phrase in phrase_for_field.items():
-                assert phrase in text, (
+                assert phrase in text or phrase.replace("licence", "license") in text, (
                     f"{surface_name} does not mention {phrase!r}, but the client sends "
                     f"{field!r} on every licence check"
                 )
@@ -456,7 +518,7 @@ class TestStartWithWindowsSource:
 
         assert "StartupEntry.RefreshIfEnabled(" in app
         assert "ViewModel.Settings.StartWithWindows" in app
-        assert "new UpdateService().IsSupported" in app
+        assert "var isInstalled = ViewModel.Updates.IsSupported;" in app
         refresh = registration.split("public static void RefreshIfEnabled")[1].split(
             "\n    }", 1
         )[0]
@@ -2039,7 +2101,7 @@ class TestDeepLinkRegistrationRecovery:
             r"DeepLink\.RefreshIfInstalled\(\s*(?:new UpdateService\(\)\.IsSupported|isInstalled)\s*\)",
             startup,
         ), "App.OnStartup must refresh the link registration using the installed-copy check"
-        assert "new UpdateService().IsSupported" in startup, \
+        assert "var isInstalled = ViewModel.Updates.IsSupported;" in startup, \
             "App.OnStartup must use the Velopack installed-copy check"
 
     def test_velopack_install_and_update_hooks_still_register(self):

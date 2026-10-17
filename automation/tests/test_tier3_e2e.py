@@ -2317,7 +2317,8 @@ class TestYourDataCard:
         assert fresh_app.exists("DeleteEverythingButton")
 
         leaves = fresh_app.text_of("WhatLeavesText").lower()
-        assert "licence key" in leaves and "device" in leaves
+        # Customer-facing text spells it "license" (#370).
+        assert "license key" in leaves and "device" in leaves
 
     def test_export_opens_a_save_dialog_and_excludes_the_licence_key(self, fresh_app, tmp_path):
         target = tmp_path / "flowshield-data.json"

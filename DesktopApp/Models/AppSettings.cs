@@ -643,6 +643,13 @@ public class AppSettings
     public bool HardKillModeEnabled { get; set; }
     public bool MinimizeToTrayOnClose { get; set; } = true;
 
+    // ---- updates (roadmap 4.1) ------------------------------------------
+    public bool AutoCheckUpdates { get; set; } = true;
+    public string? LastRunVersion { get; set; }
+    public string? PendingReleaseNotes { get; set; }
+    public string? PendingReleaseVersion { get; set; }
+    public string? LastNotifiedUpdateVersion { get; set; }
+
     /// <summary>
     /// Off by default (F4, roadmap 3.9). When on, Ctrl+Alt+F starts the last
     /// sprint from anywhere, registered with <c>RegisterHotKey</c> — no admin

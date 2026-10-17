@@ -504,6 +504,13 @@
                                     </StackPanel>
                                 </CheckBox>
 
+                                <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding NotifyUpdateReady}"
+                                          Margin="0,16,0,0"
+                                          AutomationProperties.AutomationId="NotifyUpdateReadyToggle"
+                                          AutomationProperties.Name="Update ready">
+                                    <TextBlock Text="Update ready" Style="{StaticResource Label}"/>
+                                </CheckBox>
+
                                 <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding NotifyAppClosing}"
                                           Margin="0,16,0,0"
                                           AutomationProperties.AutomationId="NotifyAppClosingToggle"
@@ -596,9 +603,11 @@
                                 <Run Text="{Binding DataFilePath, Mode=OneWay}" Foreground="{DynamicResource InkDim}"/>
                                 <Run Text=". A logs folder sits beside it."/>
                             </TextBlock>
-                            <TextBlock Text="The only thing that ever leaves this PC is the licence check: your licence key, the email you used at checkout, a salted device identifier, and your device name, sent to the licence server to confirm your purchase."
+                            <TextBlock Text="A license check sends your license key, the email you used at checkout, a salted device identifier, and your device name to the license server to confirm your purchase."
                                        Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,16"
                                        AutomationProperties.AutomationId="WhatLeavesText"/>
+                            <TextBlock Text="When automatic update checks are on, Basalt asks GitHub (the release host) once a day whether a newer version exists. GitHub sees the request's IP address like any web request. Nothing about you, your blocklist or your sprints is sent. Automatic update checks can be turned off in Settings."
+                                       Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,16"/>
 
                             <Border Height="1" Background="{DynamicResource Edge}" Margin="0,0,0,16"/>
 
@@ -647,6 +656,19 @@
                             <TextBlock Text="{Binding VersionText}" Style="{StaticResource Label}"
                                        AutomationProperties.AutomationId="VersionText"/>
 
+                            <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding AutoCheckUpdates}"
+                                      Margin="0,16,0,0" AutomationProperties.AutomationId="AutoUpdateToggle"
+                                      AutomationProperties.Name="Check for updates automatically">
+                                <TextBlock Text="Check for updates automatically" Style="{StaticResource Label}"
+                                           TextWrapping="Wrap"/>
+                            </CheckBox>
+
+                            <TextBlock Text="{Binding UpdateReadyText}" Style="{StaticResource Label}"
+                                       Margin="0,12,0,0" Visibility="{Binding UpdateReady, Converter={StaticResource BoolVis}}"/>
+                            <TextBlock Text="{Binding UpdateDeferredText}" Style="{StaticResource Caption}"
+                                       Margin="0,8,0,0" TextWrapping="Wrap"
+                                       Visibility="{Binding UpdateDeferred, Converter={StaticResource BoolVis}}"/>
+
                             <TextBlock Text="{Binding UpdateStatusText}" Style="{StaticResource Caption}"
                                        Margin="0,8,0,0" TextWrapping="Wrap"
                                        AutomationProperties.AutomationId="UpdateStatusText"/>
@@ -659,7 +681,7 @@
                                 <Button Style="{StaticResource BtnPrimary}" Content="Restart to update"
                                         Command="{Binding RestartForUpdateCommand}" Margin="8,0,0,0"
                                         Visibility="{Binding UpdateReady, Converter={StaticResource BoolVis}}"
-                                        AutomationProperties.AutomationId="RestartForUpdateButton"/>
+                                        AutomationProperties.AutomationId="RestartToUpdateButton"/>
                             </StackPanel>
                         </StackPanel>
                     </Border>

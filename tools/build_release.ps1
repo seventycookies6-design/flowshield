@@ -39,7 +39,8 @@
 
 param(
     [Parameter(Mandatory = $true)][string]$Version,
-    [switch]$Publish
+    [switch]$Publish,
+    [string]$ReleaseNotes
 )
 
 $ErrorActionPreference = 'Continue'
@@ -83,6 +84,8 @@ foreach ($t in $targets) {
     if ($LASTEXITCODE -ne 0) { Fail "dotnet publish failed for $($t.Runtime)" }
 
     Step "Packaging $Version for $($t.Runtime)"
+    $releaseNotesArgs = @()
+    if ($ReleaseNotes) { $releaseNotesArgs = @('--releaseNotes', $ReleaseNotes) }
     & vpk pack `
         --packId FlowShield `
         --packVersion $Version `
@@ -93,7 +96,7 @@ foreach ($t in $targets) {
         --icon 'DesktopApp\Assets\FlowShield.ico' `
         --runtime $t.Runtime `
         --channel $t.Channel `
-        --outputDir 'dist\releases'
+        --outputDir 'dist\releases' @releaseNotesArgs
     if ($LASTEXITCODE -ne 0) { Fail "vpk pack failed for $($t.Runtime)" }
 }
 
