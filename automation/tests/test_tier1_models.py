@@ -23,6 +23,107 @@ from core.model_probe import ProbeError, probe
 DESKTOP = Path(SERVER_DIR).parent / "DesktopApp"
 
 
+class TestAutomaticUpdates:
+    @pytest.mark.parametrize("seconds,last,enabled,installed,due", [
+        (0, None, True, True, False),
+        (59, None, True, True, False),
+        (60, None, True, True, True),
+        (86459, 60, True, True, False),
+        (86460, 60, True, True, True),
+        (172860, 60, False, True, False),
+        (172860, 60, True, False, False),
+    ])
+    def test_check_cadence(self, seconds, last, enabled, installed, due):
+        assert probe({"cmd": "update-policy", "now": seconds, "last": last,
+                      "enabled": enabled, "installed": installed})["due"] == due
+
+    @pytest.mark.parametrize("activity", ["SprintRunning", "OnBreak", "InStudyCycle",
+                                          "SleepEnforcing", "ScheduledEnforcing", "Sealed"])
+    def test_every_enforcement_state_refuses_applying(self, activity):
+        assert not probe({"cmd": "update-policy", "activity": {activity: True}})["apply"]
+
+    def test_idle_allows_applying(self):
+        assert probe({"cmd": "update-policy"})["apply"]
+
+    @pytest.mark.parametrize("previous,current,visible", [
+        (None, "1.0.11", False), ("1.0.10", "1.0.11", True),
+        ("1.0.11", "1.0.11", False), ("1.0.12", "1.0.11", False),
+        ("1.0.9", "1.0.10", True), ("1.0.11.0", "1.0.11", False),
+        ("invalid", "1.0.11", False), ("1.0.11", "dev", False),
+        ("1.0.11-beta.2", "1.0.11", True),
+        ("1.0.11", "1.0.11-beta.2", False),
+        ("1.0.11-beta.2", "1.0.11-beta.10", True),
+    ])
+    def test_whats_new_only_for_a_newer_version(self, previous, current, visible):
+        assert probe({"cmd": "update-card", "current": current,
+                      "settings": {"LastRunVersion": previous}})["visible"] == visible
+
+    def test_card_survives_an_unread_restart_and_dismissal_is_persisted(self):
+        settings = {"LastRunVersion": "1.0.10", "PendingReleaseVersion": "1.0.11",
+                    "PendingReleaseNotes": "## Changes\n\nA quieter day.\n- Quiet updates\n- Fewer clicks"}
+        first = probe({"cmd": "update-card", "current": "1.0.11", "settings": settings})
+        assert first["visible"] and first["title"] == "What's new in 1.0.11"
+        assert first["lines"] == [
+            {"Text": "Changes", "IsHeading": True},
+            {"Text": "A quieter day.", "IsHeading": False},
+            {"Text": "• Quiet updates", "IsHeading": False},
+            {"Text": "• Fewer clicks", "IsHeading": False}]
+        second = probe({"cmd": "update-card", "current": "1.0.11", "settings": first["settings"],
+                        "dismiss": True})
+        assert not second["visible"] and second["settings"]["LastRunVersion"] == "1.0.11"
+        assert not probe({"cmd": "update-card", "current": "1.0.11",
+                          "settings": second["settings"]})["visible"]
+
+    @pytest.mark.parametrize("notes,version", [(None, None), ("", "1.0.11"),
+                                              ("Notes for another release", "1.0.12")])
+    def test_card_falls_back_without_notes_for_the_running_version(self, notes, version):
+        out = probe({"cmd": "update-card", "current": "1.0.11", "settings": {
+            "LastRunVersion": "1.0.10", "PendingReleaseNotes": notes, "PendingReleaseVersion": version}})
+        assert out["lines"] == [{"Text": "Basalt was updated to 1.0.11.", "IsHeading": False}]
+
+    def test_old_settings_default_to_automatic_checks_and_no_version_history(self):
+        out = probe({"cmd": "update-settings", "settings": {}})
+        assert out["AutoCheckUpdates"] is True
+        for name in ("LastRunVersion", "PendingReleaseNotes", "PendingReleaseVersion", "LastNotifiedUpdateVersion"):
+            assert out[name] is None
+
+    def test_update_settings_round_trip(self):
+        settings = {"AutoCheckUpdates": False, "LastRunVersion": "1.0.10",
+                    "PendingReleaseNotes": "# Changes\n- A quieter day · locally stored",
+                    "PendingReleaseVersion": "1.0.11", "LastNotifiedUpdateVersion": "1.0.11"}
+        out = probe({"cmd": "update-settings", "settings": settings})
+        assert all(out[k] == v for k, v in settings.items())
+
+    def test_quiet_check_stages_notes_and_notifies_once_after_focus(self):
+        out = probe({"cmd": "update-coordinator", "focus": True, "ticks": [59, 60, 61, 86460]})
+        assert out["checks"] == 2
+        assert out["notices"] == ["Basalt 1.0.11 is ready. It installs the next time Basalt restarts."]
+        assert out["noticesDuringFocus"] == 0
+        assert out["settings"]["PendingReleaseNotes"] == "- Quiet updates"
+        assert out["settings"]["PendingReleaseVersion"] == "1.0.11"
+        assert out["settings"]["LastNotifiedUpdateVersion"] == "1.0.11"
+
+    @pytest.mark.parametrize("settings,installed", [({"AutoCheckUpdates": False}, True), ({}, False)])
+    def test_coordinator_skips_disabled_and_dev_checks(self, settings, installed):
+        out = probe({"cmd": "update-coordinator", "settings": settings,
+                     "installed": installed, "ticks": [60, 86460]})
+        assert out["checks"] == 0 and out["notices"] == []
+
+    @pytest.mark.parametrize("settings", [{"NotificationsEnabled": False},
+        {"NotificationKinds": {"UpdateReady": False}}, {"LastNotifiedUpdateVersion": "1.0.11"}])
+    def test_update_ready_respects_preferences_and_persisted_deduplication(self, settings):
+        out = probe({"cmd": "update-coordinator", "settings": settings, "ticks": [60, 61]})
+        assert out["checks"] == 1 and out["notices"] == []
+
+    def test_failed_background_check_is_quiet_and_waits_a_day_before_retry(self):
+        out = probe({"cmd": "update-coordinator", "fail": True, "ticks": [60, 61, 86460]})
+        assert out["checks"] == 2 and out["notices"] == []
+
+    def test_a_staged_update_is_preserved_when_the_next_check_finds_nothing(self):
+        out = probe({"cmd": "update-coordinator", "emptySecond": True, "ticks": [60, 86460]})
+        assert out["ready"] and out["settings"]["PendingReleaseVersion"] == "1.0.11"
+
+
 # ============================ the model probe: real C# from tier 1 (1.0.10)
 
 class TestModelProbe:

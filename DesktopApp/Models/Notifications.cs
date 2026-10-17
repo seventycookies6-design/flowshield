@@ -24,6 +24,8 @@ public enum NotificationKind
     /// that arrives after the app has gone is not a warning.
     /// </summary>
     AppClosing,
+
+    UpdateReady,
 }
 
 /// <summary>
@@ -50,7 +52,7 @@ public static class NotificationPolicy
 
     /// <summary>Notifications that must never appear while a sprint is running.</summary>
     public static bool InterruptsFocus(NotificationKind kind) =>
-        kind is NotificationKind.TrialEnding;
+        kind is NotificationKind.TrialEnding or NotificationKind.UpdateReady;
 
     public static bool ShouldShow(NotificationKind kind, AppSettings settings, bool sprintRunning) =>
         settings.IsNotificationOn(kind) && !(sprintRunning && InterruptsFocus(kind));

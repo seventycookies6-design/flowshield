@@ -21,6 +21,34 @@
             <StackPanel x:Name="MainColumn" Grid.Row="0" Grid.Column="0" Margin="0,0,16,0"
                         VerticalAlignment="Top">
 
+            <ContentControl Style="{StaticResource CardTinted}" Padding="20" Margin="0,0,0,16"
+                            Visibility="{Binding WhatsNewVisible, Converter={StaticResource BoolVis}}">
+                <StackPanel>
+                    <TextBlock Text="{Binding WhatsNewTitle}" Style="{StaticResource H2}" TextWrapping="Wrap"
+                               AutomationProperties.AutomationId="WhatsNewCard"/>
+                    <ItemsControl ItemsSource="{Binding WhatsNewLines}" Margin="0,4,0,0">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding Text}" TextWrapping="Wrap" Margin="0,8,0,0">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock" BasedOn="{StaticResource Body}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsHeading}" Value="True">
+                                                    <Setter Property="FontWeight" Value="SemiBold"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <Button Content="Dismiss" Style="{StaticResource BtnQuiet}" HorizontalAlignment="Left"
+                            Margin="0,12,0,0" Command="{Binding DismissWhatsNewCommand}"
+                            AutomationProperties.AutomationId="WhatsNewDismiss"/>
+                </StackPanel>
+            </ContentControl>
+
             <!-- ============================================= heads-up (F6) -->
             <!-- "Homework evening starts at 17:00", or "You missed ...". No
                  AutomationId on the card (#134): the title, the line and the
