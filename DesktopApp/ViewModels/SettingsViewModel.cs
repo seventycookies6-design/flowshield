@@ -114,7 +114,9 @@ public class SettingsViewModel : ViewModelBase
             var version = await _main.UpdateCoordinator.CheckAndDownloadAsync(DateTime.UtcNow);
             if (version is null)
             {
-                UpdateStatusText = UpdateReady ? "" : "No update downloaded. You can try again later.";
+                UpdateStatusText = UpdateReady ? ""
+                    : Updates.LastCheckFailed ? "Couldn't reach the update server. Try again later."
+                    : "You're on the latest version.";
             }
             else
             {

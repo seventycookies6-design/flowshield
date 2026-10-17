@@ -203,6 +203,20 @@ class TestAutomaticUpdateWiring:
         app = (self.ROOT / "App.xaml.cs").read_text(encoding="utf-8")
         assert "ApplyOnQuit(ViewModel.UpdateActivity)" in app.split("protected override void OnExit(", 1)[1]
 
+    def test_a_failed_check_is_not_reported_as_up_to_date(self):
+        """A manual check that couldn't reach the feed said the same thing as one
+        that found nothing new, so someone offline was told they were current."""
+        source = (self.ROOT / "Services" / "UpdateService.cs").read_text(encoding="utf-8")
+        check = source.split("public async Task<string?> CheckAndDownloadAsync(", 1)[1]
+        check = check.split("public bool ApplyAndRestart(", 1)[0]
+        assert check.index("LastCheckFailed = false;") < check.index("CheckForUpdatesAsync()")
+        assert "LastCheckFailed = true;" in check.split("catch (Exception", 1)[1]
+        settings = (self.ROOT / "ViewModels" / "SettingsViewModel.cs").read_text(encoding="utf-8")
+        manual = settings.split("private async Task CheckForUpdatesAsync()", 1)[1].split("finally", 1)[0]
+        assert "Updates.LastCheckFailed" in manual
+        assert "Couldn't reach the update server" in manual
+        assert "You're on the latest version." in manual
+
 
 class TestPrivacyClaimsMatchTheCode:
     """
