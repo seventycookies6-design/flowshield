@@ -9,8 +9,9 @@ accurate background. **`PLANNING.md` says where progress is recorded** — the
 short version is that `LAUNCH_FEATURE_CHECKLIST.md` holds what shipped (ticked
 in the pull request that ships it) and issues #37 / #38 hold what is next.
 `CUSTOMER_EXPERIENCE_PROMPT.md` is the original customer audit and the
-reasoning behind the work, not a status list. `DESIGN_SYSTEM.md` is the visual
-style every app and site change follows. `FINAL_REPORT.md`,
+reasoning behind the work, not a status list. `DESIGN_SYSTEM.md`'s Binding part
+is what every app and site change follows. Its Current implementation part
+describes what shipped and may be changed by a design PR. `FINAL_REPORT.md`,
 `ORG_PLANNING_GRADE.md` and `MERGE_REVIEW_*.md` are dated snapshots: true when
 written, never updated since — don't treat them as the current state.
 
@@ -172,6 +173,11 @@ forgotten twice.
   app or in emails.
 - **Every behaviour change gets a test** in the matching tier; regressions go in
   tier 5 and must fail without the fix. Keep existing `AutomationId`s.
+- **Tests check behaviour and promises, not layout** (#367). A design PR may
+  rewrite or remove a test that only pins markup or layout (a card count,
+  element order, a pixel value), if it lists each one and why. Tests that
+  protect honesty, privacy, safety, accessibility, tokens or a fixed bug's
+  behaviour stay.
 - End commit messages with a `Co-Authored-By:` line for the agent that wrote the
   change.
 
