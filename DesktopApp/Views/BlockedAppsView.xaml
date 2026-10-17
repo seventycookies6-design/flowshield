@@ -3,11 +3,12 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              SizeChanged="OnSizeChanged">
     <!-- Side by side when there is room, each card filling the height and
-         scrolling its own list. Below that the picker stacks under the list and
+         scrolling its content. Below that the picker stacks under the list and
          the page scrolls instead (code-behind, #189): split into fixed halves, a
          short window left each card too little room to show a single row. -->
     <ScrollViewer x:Name="PageScroll" VerticalScrollBarVisibility="Disabled"
-                  HorizontalScrollBarVisibility="Disabled">
+                  HorizontalScrollBarVisibility="Disabled"
+                  AutomationProperties.AutomationId="BlockedAppsPageScroll">
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition x:Name="ListRow" Height="*"/>
@@ -22,6 +23,11 @@
 
         <!-- ==================================================== blocklist -->
         <Border x:Name="ListCard" Grid.Column="0" Style="{StaticResource Card}" Margin="0,0,16,0" Padding="24">
+            <!-- Profiles and websites can fill the default-height card. Scroll
+                 the whole card so they cannot leave the app list no height (#377). -->
+            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                          PreviewMouseWheel="OnBlocklistPreviewMouseWheel"
+                          AutomationProperties.AutomationId="BlockedAppsScroll">
             <DockPanel>
 
                 <!-- big-number header (UI-SPEC.md A3): the same "big
@@ -227,6 +233,13 @@
                          ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                          AutomationProperties.AutomationId="BlockedAppsList"
                          AutomationProperties.Name="Blocked apps">
+                    <!-- The card owns scrolling. A nested ScrollViewer would
+                         swallow wheel input over rows even with no scroll range. -->
+                    <ListBox.Template>
+                        <ControlTemplate TargetType="ListBox">
+                            <ItemsPresenter/>
+                        </ControlTemplate>
+                    </ListBox.Template>
                     <ListBox.ItemTemplate>
                         <DataTemplate>
                             <Border Style="{StaticResource RowCard}"
@@ -319,6 +332,7 @@
                     </ListBox.ItemTemplate>
                 </ListBox>
             </DockPanel>
+            </ScrollViewer>
         </Border>
 
         <!-- ====================================================== app picker (F8) -->
