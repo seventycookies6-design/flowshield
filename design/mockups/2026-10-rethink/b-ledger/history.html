@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en-US" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1280">
+<title>Basalt · Ledger · History</title>
+<style>
+:root{--bg:#141517;--bg-soft:#191A1C;--surface:#1F2022;--surface-2:#27292B;--text:#EDEDEB;--text-muted:#AEB0B3;--text-faint:#909398;--primary:#3AA892;--primary-hover:#4FBEA7;--primary-ink:#0B1F1B;--border:rgba(237,237,235,.12);--border-strong:rgba(237,237,235,.22);--track:rgba(237,237,235,.08);--primary-soft:rgba(58,168,146,.20);--ok:#5EC987;--warn:#E0B35A;--danger:#EF7A88;--focus-ring:rgba(58,168,146,.5);--backdrop:#1E1F22;--heat-1:#223F39;--heat-2:#265A4F;--heat-3:#2B7466;--heat-4:#4FBEA7;--heat-ink-0:#AEB0B3;--heat-ink-1:#EDEDEB;--heat-ink-2:#EDEDEB;--heat-ink-3:#EDEDEB;--heat-ink-4:#0B1F1B;--tick:#909398;--tick-dim:#3A3C3F;}
+
+@font-face{font-family:"Inter";src:url("../../../../Website/fonts/InterVariable.woff2") format("woff2");font-weight:100 900;font-display:block}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:1280px;height:860px;overflow:hidden}
+body{font-family:"Inter","Segoe UI Variable","Segoe UI",system-ui,sans-serif;font-size:14px;line-height:21px;
+  color:var(--text);background:var(--bg);-webkit-font-smoothing:antialiased;font-optical-sizing:auto}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+input{font:inherit;color:inherit}
+.num{font-variant-numeric:tabular-nums}
+.mono{font-family:"Cascadia Mono",Consolas,monospace}
+.muted{color:var(--text-muted)} .faint{color:var(--text-faint)}
+svg{display:block}
+.ico{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round;flex:none}
+html[data-theme=dark]{--field:var(--bg-soft)} html[data-theme=light]{--field:var(--surface-2)}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+/* the keyboard focus ring, shown on one control per screen to prove it is designed */
+.focus{outline:2px solid var(--focus-ring);outline-offset:2px}
+
+
+.capbtns{margin-left:auto;display:flex;height:100%}
+.capbtns span{width:46px;height:100%;display:grid;place-items:center;color:var(--text)}
+
+.legend{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--text-muted);flex-wrap:wrap}
+.legend .lg{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+
+.mono-tile{display:inline-grid;place-items:center;flex:none;background:var(--surface-2);border:1px solid var(--border);
+  color:var(--text-muted);font-weight:600;font-family:"Inter",sans-serif}
+
+.sw{width:40px;height:22px;border-radius:11px;border:1.5px solid var(--border-strong);position:relative;flex:none;display:inline-block}
+.sw span{position:absolute;top:3px;left:3px;width:13px;height:13px;border-radius:50%;background:var(--text-muted)}
+.sw.on{background:var(--primary);border-color:var(--primary)}
+.sw.on span{left:21px;background:var(--primary-ink)}
+
+.win{display:flex;flex-direction:column;height:860px}
+.tb{height:32px;flex:none;display:flex;align-items:center;gap:8px;padding-left:12px;font-size:12px;color:var(--text-muted)}
+.top{height:56px;flex:none;display:flex;align-items:stretch;gap:40px;padding:0 48px;border-bottom:1px solid var(--border)}
+.brand{display:flex;align-items:center;gap:9px;font-weight:600;font-size:15px;letter-spacing:-.01em}
+.top nav{display:flex;gap:28px}
+.top nav a{display:flex;align-items:center;color:var(--text-muted);font-weight:500;position:relative}
+.top nav a.on{color:var(--text)}
+.top nav a.on::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;background:var(--primary)}
+.top.quiet nav a{color:var(--text-faint)}
+.top.quiet nav a.on{color:var(--text-muted)}
+.top.quiet nav a.on::after{background:var(--border-strong)}
+.trial{margin-left:auto;display:flex;align-items:center;gap:14px;font-size:13px;color:var(--text-muted)}
+.trial a{color:var(--text);font-weight:600;text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--border-strong)}
+.page{flex:1;min-height:0;padding:40px 64px 28px}
+h1{font-size:30px;line-height:36px;font-weight:600;letter-spacing:-.02em}
+.eyebrow{font-size:13px;line-height:18px;color:var(--text-muted);font-weight:500}
+.rule{border-top:1px solid var(--border)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:40px;padding:0 16px;border-radius:8px;font-weight:600}
+.btn.primary{background:var(--primary);color:var(--primary-ink);height:48px;padding:0 28px;font-size:15px}
+.btn.secondary{border:1px solid var(--border-strong);background:transparent}
+.link{color:var(--text);font-weight:500;text-decoration:underline;text-underline-offset:4px;text-decoration-color:var(--border-strong)}
+.uline{border:0;border-bottom:1.5px solid var(--border-strong);height:44px;display:flex;align-items:center;font-size:16px;color:var(--text-faint);background:transparent}
+.meter{display:inline-flex;gap:3px;align-items:flex-end}
+.meter i{display:block;width:5px;border-radius:1px;background:var(--border-strong)}
+.meter i.on{background:var(--primary)}
+
+.hd{display:flex;align-items:baseline;gap:20px}
+.lede{font-size:24px;line-height:36px;color:var(--text-muted);max-width:900px;margin:16px 0 34px;letter-spacing:-.005em}
+.lede b{color:var(--text);font-weight:600}
+.mid{display:grid;grid-template-columns:auto 1fr 150px;gap:36px;align-items:start}
+.cal{margin:12px 0 14px}
+.legend{flex-wrap:nowrap;gap:8px}
+.sh2{display:flex;justify-content:space-between;align-items:baseline}
+.link.sm{font-size:13px;color:var(--text-muted)}
+.ledger{width:100%;border-collapse:collapse;margin-top:10px}
+.ledger th{text-align:left;font-size:12px;font-weight:500;color:var(--text-muted);padding:0 10px 8px 0;border-bottom:1px solid var(--border-strong)}
+.ledger td{padding:10px 10px 10px 0;border-bottom:1px solid var(--border);vertical-align:top;font-size:13px;line-height:19px}
+.ledger td:nth-child(1){white-space:nowrap;color:var(--text-muted)}
+.ledger td:nth-child(2){white-space:nowrap}
+.ledger td b{display:block;font-weight:600;font-size:14px}
+.ledger td span{color:var(--text-muted)}
+.sh{display:inline-flex;align-items:center;gap:6px;color:var(--text)!important}
+.ms ul{list-style:none;margin-top:10px;border-top:1px solid var(--border)}
+.ms li{padding:9px 0;border-bottom:1px solid var(--border);display:flex;flex-direction:column}
+.ms li b{font-weight:600;font-size:13px;line-height:18px}
+.ms li span{font-size:12px}
+
+</style>
+</head>
+<body>
+
+<div class="win">
+  <div class="tb"><svg width="11.9" height="14" viewBox="22 17 56 66" role="img" aria-label="Basalt"><g stroke="#141517" stroke-width="1.6" stroke-linejoin="round"><polygon points="46.25,25.5 53.75,32 53.75,68 46.25,61.5" fill="#A3A6AA"/><polygon points="53.75,32 68.75,32 68.75,68 53.75,68" fill="#74777C"/><polygon points="68.75,32 76.25,25.5 76.25,61.5 68.75,68" fill="#4B4E53"/><polygon points="76.25,25.5 68.75,32 53.75,32 46.25,25.5 53.75,19 68.75,19" fill="#E6E6E3"/><polygon points="23.75,41 31.25,47.5 31.25,74.5 23.75,68" fill="#A3A6AA"/><polygon points="31.25,47.5 46.25,47.5 46.25,74.5 31.25,74.5" fill="#74777C"/><polygon points="46.25,47.5 53.75,41 53.75,68 46.25,74.5" fill="#4B4E53"/><polygon points="53.75,41 46.25,47.5 31.25,47.5 23.75,41 31.25,34.5 46.25,34.5" fill="#E6E6E3"/><polygon points="46.25,56.5 53.75,63 53.75,81 46.25,74.5" fill="#A3A6AA"/><polygon points="53.75,63 68.75,63 68.75,81 53.75,81" fill="#74777C"/><polygon points="68.75,63 76.25,56.5 76.25,74.5 68.75,81" fill="#4B4E53"/><polygon points="76.25,56.5 68.75,63 53.75,63 46.25,56.5 53.75,50 68.75,50" fill="#E6E6E3"/></g></svg><span>Basalt</span><div class="capbtns" aria-hidden="true"><span><svg width="10" height="10" viewBox="0 0 10 10"><path d="M0 5.5h10" stroke="currentColor" stroke-width="1" fill="none"/></svg></span><span><svg width="10" height="10" viewBox="0 0 10 10"><rect x=".5" y=".5" width="9" height="9" stroke="currentColor" stroke-width="1" fill="none"/></svg></span><span><svg width="10" height="10" viewBox="0 0 10 10"><path d="M0 0l10 10M10 0L0 10" stroke="currentColor" stroke-width="1" fill="none"/></svg></span></div></div>
+  <header class="top">
+    <div class="brand"><svg width="17.0" height="20" viewBox="22 17 56 66" role="img" aria-label="Basalt"><g stroke="#141517" stroke-width="1.6" stroke-linejoin="round"><polygon points="46.25,25.5 53.75,32 53.75,68 46.25,61.5" fill="#A3A6AA"/><polygon points="53.75,32 68.75,32 68.75,68 53.75,68" fill="#74777C"/><polygon points="68.75,32 76.25,25.5 76.25,61.5 68.75,68" fill="#4B4E53"/><polygon points="76.25,25.5 68.75,32 53.75,32 46.25,25.5 53.75,19 68.75,19" fill="#E6E6E3"/><polygon points="23.75,41 31.25,47.5 31.25,74.5 23.75,68" fill="#A3A6AA"/><polygon points="31.25,47.5 46.25,47.5 46.25,74.5 31.25,74.5" fill="#74777C"/><polygon points="46.25,47.5 53.75,41 53.75,68 46.25,74.5" fill="#4B4E53"/><polygon points="53.75,41 46.25,47.5 31.25,47.5 23.75,41 31.25,34.5 46.25,34.5" fill="#E6E6E3"/><polygon points="46.25,56.5 53.75,63 53.75,81 46.25,74.5" fill="#A3A6AA"/><polygon points="53.75,63 68.75,63 68.75,81 53.75,81" fill="#74777C"/><polygon points="68.75,63 76.25,56.5 76.25,74.5 68.75,81" fill="#4B4E53"/><polygon points="76.25,56.5 68.75,63 53.75,63 46.25,56.5 53.75,50 68.75,50" fill="#E6E6E3"/></g></svg><span>Basalt</span></div>
+    <nav aria-label="Main"><a class="">Today</a><a class="on">History</a><a class="">Blocked apps</a><a class="">Schedule</a><a class="">Settings</a></nav>
+    <div class="trial"><span>Free trial · 5 days left</span><a>Buy Basalt</a></div>
+  </header>
+  <main class="page">
+<div class="hd"><h1>History</h1><span class="eyebrow">This week · 12–18 October</span></div>
+<p class="lede">You focused for <b class="num">2.9 hours</b> across <b class="num">5 finished sprints</b>.
+The shield stepped in <b class="num">8 times</b>, most often for <b>Discord</b>.</p>
+<div class="mid">
+  <section>
+    <div class="eyebrow">Focus, last 30 days</div>
+    <div class="cal"><svg width="254" height="202" viewBox="0 0 254 202" role="img" aria-label="Focus minutes per day for the last 30 days, 17 September to 16 October"><text x="16.0" y="13" text-anchor="middle" font-size="11" fill="var(--text-faint)">Mon</text><text x="53.0" y="13" text-anchor="middle" font-size="11" fill="var(--text-faint)">Tue</text><text x="90.0" y="13" text-anchor="middle" font-size="11" fill="var(--text-faint)">Wed</text><text x="127.0" y="13" text-anchor="middle" font-size="11" fill="var(--text-faint)">Thu</text><text x="164.0" y="13" text-anchor="middle" font-size="11" fill="var(--text-faint)">Fri</text><text x="201.0" y="13" text-anchor="middle" font-size="11" fill="var(--text-faint)">Sat</text><text x="238.0" y="13" text-anchor="middle" font-size="11" fill="var(--text-faint)">Sun</text><rect x="111" y="22" width="32" height="32" rx="4" fill="var(--track)"><title>Thu 17 Sep: 0 min</title></rect><text x="127.0" y="42.0" text-anchor="middle" font-size="11" fill="var(--heat-ink-0)" class="num">17</text><rect x="148" y="22" width="32" height="32" rx="4" fill="var(--heat-1)"><title>Fri 18 Sep: 25 min</title></rect><text x="164.0" y="42.0" text-anchor="middle" font-size="11" fill="var(--heat-ink-1)" class="num">18</text><rect x="185" y="22" width="32" height="32" rx="4" fill="var(--track)"><title>Sat 19 Sep: 0 min</title></rect><text x="201.0" y="42.0" text-anchor="middle" font-size="11" fill="var(--heat-ink-0)" class="num">19</text><rect x="222" y="22" width="32" height="32" rx="4" fill="var(--track)"><title>Sun 20 Sep: 0 min</title></rect><text x="238.0" y="42.0" text-anchor="middle" font-size="11" fill="var(--heat-ink-0)" class="num">20</text><rect x="0" y="59" width="32" height="32" rx="4" fill="var(--heat-2)"><title>Mon 21 Sep: 45 min</title></rect><text x="16.0" y="79.0" text-anchor="middle" font-size="11" fill="var(--heat-ink-2)" class="num">21</text><rect x="37" y="59" width="32" height="32" rx="4" fill="var(--track)"><title>Tue 22 Sep: 0 min</title></rect><text x="53.0" y="79.0" text-anchor="middle" font-size="11" fill="var(--heat-ink-0)" class="num">22</text><rect x="74" y="59" width="32" height="32" rx="4" fill="var(--heat-1)"><title>Wed 23 Sep: 25 min</title></rect><text x="90.0" y="79.0" text-anchor="middle" font-size="11" fill="var(--heat-ink-1)" class="num">23</text><rect x="111" y="59" width="32" height="32" rx="4" fill="var(--heat-2)"><title>Thu 24 Sep: 45 min</title></rect><text x="127.0" y="79.0" text-anchor="middle" font-size="11" fill="var(--heat-ink-2)" class="num">24</text><rect x="148" y="59" width="32" height="32" rx="4" fill="var(--track)"><title>Fri 25 Sep: 0 min</title></rect><text x="164.0" y="79.0" text-anchor="middle" font-size="11" fill="var(--heat-ink-0)" class="num">25</text><rect x="185" y="59" width="32" height="32" rx="4" fill="var(--track)"><title>Sat 26 Sep: 0 min</title></rect><text x="201.0" y="79.0" text-anchor="middle" font-size="11" fill="var(--heat-ink-0)" class="num">26</text><rect x="222" y="59" width="32" height="32" rx="4" fill="var(--heat-3)"><title>Sun 27 Sep: 50 min</title></rect><text x="238.0" y="79.0" text-anchor="middle" font-size="11" fill="var(--heat-ink-3)" class="num">27</text><rect x="0" y="96" width="32" height="32" rx="4" fill="var(--heat-2)"><title>Mon 28 Sep: 45 min</title></rect><text x="16.0" y="116.0" text-anchor="middle" font-size="11" fill="var(--heat-ink-2)" class="num">28</text><rect x="37" y="96" width="32" height="32" rx="4" fill="var(--heat-4)"><title>Tue 29 Sep: 70 min</title></rect><text x="53.0" y="116.0" text-anchor="middle" font-size="11" fill="var(--heat-ink-4)" class="num">29</text><rect x="74" y="96" width="32" height="32" rx="4" fill="var(--track)"><title>Wed 30 Sep: 0 min</title></rect><text x="90.0" y="116.0" text-anchor="middle" font-size="11" fill="var(--heat-ink-0)" class="num">30</text><rect x="111" y="96" width="32" height="32" rx="4" fill="var(--heat-1)"><title>Thu 01 Oct: 25 min</title></rect><text x="127.0" y="116.0" text-anchor="middle" font-size="11" fill="var(--heat-ink-1)" class="num">1</text><rect x="148" y="96" width="32" height="32" rx="4" fill="var(--track)"><title>Fri 02 Oct: 0 min</title></rect><text x="164.0" y="116.0" text-anchor="middle" font-size="11" fill="var(--heat-ink-0)" class="num">2</text><rect x="185" y="96" width="32" height="32" rx="4" fill="var(--heat-4)"><title>Sat 03 Oct: 90 min</title></rect><text x="201.0" y="116.0" text-anchor="middle" font-size="11" fill="var(--heat-ink-4)" class="num">3</text><rect x="222" y="96" width="32" height="32" rx="4" fill="var(--track)"><title>Sun 04 Oct: 0 min</title></rect><text x="238.0" y="116.0" text-anchor="middle" font-size="11" fill="var(--heat-ink-0)" class="num">4</text><rect x="0" y="133" width="32" height="32" rx="4" fill="var(--heat-2)"><title>Mon 05 Oct: 45 min</title></rect><text x="16.0" y="153.0" text-anchor="middle" font-size="11" fill="var(--heat-ink-2)" class="num">5</text><rect x="37" y="133" width="32" height="32" rx="4" fill="var(--heat-4)"><title>Tue 06 Oct: 90 min</title></rect><text x="53.0" y="153.0" text-anchor="middle" font-size="11" fill="var(--heat-ink-4)" class="num">6</text><rect x="74" y="133" width="32" height="32" rx="4" fill="var(--heat-2)"><title>Wed 07 Oct: 45 min</title></rect><text x="90.0" y="153.0" text-anchor="middle" font-size="11" fill="var(--heat-ink-2)" class="num">7</text><rect x="111" y="133" width="32" height="32" rx="4" fill="var(--track)"><title>Thu 08 Oct: 0 min</title></rect><text x="127.0" y="153.0" text-anchor="middle" font-size="11" fill="var(--heat-ink-0)" class="num">8</text><rect x="148" y="133" width="32" height="32" rx="4" fill="var(--heat-1)"><title>Fri 09 Oct: 25 min</title></rect><text x="164.0" y="153.0" text-anchor="middle" font-size="11" fill="var(--heat-ink-1)" class="num">9</text><rect x="185" y="133" width="32" height="32" rx="4" fill="var(--heat-3)"><title>Sat 10 Oct: 50 min</title></rect><text x="201.0" y="153.0" text-anchor="middle" font-size="11" fill="var(--heat-ink-3)" class="num">10</text><rect x="222" y="133" width="32" height="32" rx="4" fill="var(--heat-1)"><title>Sun 11 Oct: 25 min</title></rect><text x="238.0" y="153.0" text-anchor="middle" font-size="11" fill="var(--heat-ink-1)" class="num">11</text><rect x="0" y="170" width="32" height="32" rx="4" fill="var(--heat-2)"><title>Mon 12 Oct: 45 min</title></rect><text x="16.0" y="190.0" text-anchor="middle" font-size="11" fill="var(--heat-ink-2)" class="num">12</text><rect x="37" y="170" width="32" height="32" rx="4" fill="var(--heat-1)"><title>Tue 13 Oct: 25 min</title></rect><text x="53.0" y="190.0" text-anchor="middle" font-size="11" fill="var(--heat-ink-1)" class="num">13</text><rect x="74" y="170" width="32" height="32" rx="4" fill="var(--heat-2)"><title>Wed 14 Oct: 34 min</title></rect><text x="90.0" y="190.0" text-anchor="middle" font-size="11" fill="var(--heat-ink-2)" class="num">14</text><rect x="111" y="170" width="32" height="32" rx="4" fill="var(--heat-1)"><title>Thu 15 Oct: 25 min</title></rect><text x="127.0" y="190.0" text-anchor="middle" font-size="11" fill="var(--heat-ink-1)" class="num">15</text><rect x="148" y="170" width="32" height="32" rx="4" fill="var(--heat-2)" stroke="var(--text)" stroke-width="1.5"><title>Fri 16 Oct: 45 min</title></rect><text x="164.0" y="190.0" text-anchor="middle" font-size="11" fill="var(--heat-ink-2)" class="num">16</text></svg></div>
+    <div class="legend" aria-label="Legend: minutes focused per day"><span class="lg faint">Minutes</span><span class="lg"><span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:var(--track)"></span><span>0</span></span><span class="lg"><span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:var(--heat-1)"></span><span>1–25</span></span><span class="lg"><span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:var(--heat-2)"></span><span>26–45</span></span><span class="lg"><span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:var(--heat-3)"></span><span>46–60</span></span><span class="lg"><span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:var(--heat-4)"></span><span>60+</span></span></div>
+  </section>
+  <section class="spr">
+    <div class="sh2"><span class="eyebrow">Every sprint, newest first</span><a class="link sm">Export your journal</a></div>
+    <table class="ledger">
+      <thead><tr><th>When</th><th>Length</th><th>Shield</th><th>Outcome</th><th>Intention and journal</th></tr></thead>
+      <tbody><tr><td class="num">Fri 16 Oct · 15:20</td><td class="num">45 min</td><td><span class="sh"><span class="meter" aria-hidden="true"><i class="on" style="height:7px"></i><i class="on" style="height:9px"></i><i class="" style="height:12px"></i></span>Firm</span></td><td>Completed</td><td><b>Draft the middle section of the essay</b><span>Middle section drafted. Conclusion next.</span></td></tr><tr><td class="num">Thu 15 Oct · 17:05</td><td class="num">25 min</td><td><span class="sh"><span class="meter" aria-hidden="true"><i class="on" style="height:7px"></i><i class="" style="height:9px"></i><i class="" style="height:12px"></i></span>Soft</span></td><td>Completed</td><td><b>Chemistry flashcards</b><span>Got through the chapter 4 cards.</span></td></tr><tr><td class="num">Wed 14 Oct · 20:40</td><td class="num">25 min</td><td><span class="sh"><span class="meter" aria-hidden="true"><i class="on" style="height:7px"></i><i class="" style="height:9px"></i><i class="" style="height:12px"></i></span>Soft</span></td><td>Completed</td><td><b>Read the history chapter</b><span>Twelve pages, notes on the treaty.</span></td></tr><tr><td class="num">Wed 14 Oct · 19:50</td><td class="num">9 of 45 min</td><td><span class="sh"><span class="meter" aria-hidden="true"><i class="on" style="height:7px"></i><i class="on" style="height:9px"></i><i class="" style="height:12px"></i></span>Firm</span></td><td>Ended early</td><td><b><span class="faint">No intention</span></b><span><span class="faint">No journal entry</span></span></td></tr><tr><td class="num">Tue 13 Oct · 18:30</td><td class="num">25 min</td><td><span class="sh"><span class="meter" aria-hidden="true"><i class="on" style="height:7px"></i><i class="" style="height:9px"></i><i class="" style="height:12px"></i></span>Soft</span></td><td>Completed</td><td><b>Spanish vocabulary</b><span>Verb list done, forty words.</span></td></tr><tr><td class="num">Mon 12 Oct · 19:10</td><td class="num">45 min</td><td><span class="sh"><span class="meter" aria-hidden="true"><i class="on" style="height:7px"></i><i class="on" style="height:9px"></i><i class="" style="height:12px"></i></span>Firm</span></td><td>Completed</td><td><b>Maths problem set 3</b><span>Questions 1 to 8. Question 9 tomorrow.</span></td></tr></tbody>
+    </table>
+  </section>
+  <aside class="ms"><div class="eyebrow">Milestones</div><ul><li><b>Seven days in a row</b><span class="faint num">15 Oct</span></li><li><b>Ten hours focused</b><span class="faint num">10 Oct</span></li><li><b>Momentum at 100</b><span class="faint num">6 Oct</span></li><li><b>First Sealed sprint</b><span class="faint num">3 Oct</span></li></ul></aside>
+</div></main>
+</div>
+</body>
+</html>

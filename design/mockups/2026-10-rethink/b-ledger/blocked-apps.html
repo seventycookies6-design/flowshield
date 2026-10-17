@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en-US" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1280">
+<title>Basalt · Ledger · Blocked apps</title>
+<style>
+:root{--bg:#141517;--bg-soft:#191A1C;--surface:#1F2022;--surface-2:#27292B;--text:#EDEDEB;--text-muted:#AEB0B3;--text-faint:#909398;--primary:#3AA892;--primary-hover:#4FBEA7;--primary-ink:#0B1F1B;--border:rgba(237,237,235,.12);--border-strong:rgba(237,237,235,.22);--track:rgba(237,237,235,.08);--primary-soft:rgba(58,168,146,.20);--ok:#5EC987;--warn:#E0B35A;--danger:#EF7A88;--focus-ring:rgba(58,168,146,.5);--backdrop:#1E1F22;--heat-1:#223F39;--heat-2:#265A4F;--heat-3:#2B7466;--heat-4:#4FBEA7;--heat-ink-0:#AEB0B3;--heat-ink-1:#EDEDEB;--heat-ink-2:#EDEDEB;--heat-ink-3:#EDEDEB;--heat-ink-4:#0B1F1B;--tick:#909398;--tick-dim:#3A3C3F;}
+
+@font-face{font-family:"Inter";src:url("../../../../Website/fonts/InterVariable.woff2") format("woff2");font-weight:100 900;font-display:block}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:1280px;height:860px;overflow:hidden}
+body{font-family:"Inter","Segoe UI Variable","Segoe UI",system-ui,sans-serif;font-size:14px;line-height:21px;
+  color:var(--text);background:var(--bg);-webkit-font-smoothing:antialiased;font-optical-sizing:auto}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+input{font:inherit;color:inherit}
+.num{font-variant-numeric:tabular-nums}
+.mono{font-family:"Cascadia Mono",Consolas,monospace}
+.muted{color:var(--text-muted)} .faint{color:var(--text-faint)}
+svg{display:block}
+.ico{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round;flex:none}
+html[data-theme=dark]{--field:var(--bg-soft)} html[data-theme=light]{--field:var(--surface-2)}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+/* the keyboard focus ring, shown on one control per screen to prove it is designed */
+.focus{outline:2px solid var(--focus-ring);outline-offset:2px}
+
+
+.capbtns{margin-left:auto;display:flex;height:100%}
+.capbtns span{width:46px;height:100%;display:grid;place-items:center;color:var(--text)}
+
+.legend{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--text-muted);flex-wrap:wrap}
+.legend .lg{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+
+.mono-tile{display:inline-grid;place-items:center;flex:none;background:var(--surface-2);border:1px solid var(--border);
+  color:var(--text-muted);font-weight:600;font-family:"Inter",sans-serif}
+
+.sw{width:40px;height:22px;border-radius:11px;border:1.5px solid var(--border-strong);position:relative;flex:none;display:inline-block}
+.sw span{position:absolute;top:3px;left:3px;width:13px;height:13px;border-radius:50%;background:var(--text-muted)}
+.sw.on{background:var(--primary);border-color:var(--primary)}
+.sw.on span{left:21px;background:var(--primary-ink)}
+
+.win{display:flex;flex-direction:column;height:860px}
+.tb{height:32px;flex:none;display:flex;align-items:center;gap:8px;padding-left:12px;font-size:12px;color:var(--text-muted)}
+.top{height:56px;flex:none;display:flex;align-items:stretch;gap:40px;padding:0 48px;border-bottom:1px solid var(--border)}
+.brand{display:flex;align-items:center;gap:9px;font-weight:600;font-size:15px;letter-spacing:-.01em}
+.top nav{display:flex;gap:28px}
+.top nav a{display:flex;align-items:center;color:var(--text-muted);font-weight:500;position:relative}
+.top nav a.on{color:var(--text)}
+.top nav a.on::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;background:var(--primary)}
+.top.quiet nav a{color:var(--text-faint)}
+.top.quiet nav a.on{color:var(--text-muted)}
+.top.quiet nav a.on::after{background:var(--border-strong)}
+.trial{margin-left:auto;display:flex;align-items:center;gap:14px;font-size:13px;color:var(--text-muted)}
+.trial a{color:var(--text);font-weight:600;text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--border-strong)}
+.page{flex:1;min-height:0;padding:40px 64px 28px}
+h1{font-size:30px;line-height:36px;font-weight:600;letter-spacing:-.02em}
+.eyebrow{font-size:13px;line-height:18px;color:var(--text-muted);font-weight:500}
+.rule{border-top:1px solid var(--border)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:40px;padding:0 16px;border-radius:8px;font-weight:600}
+.btn.primary{background:var(--primary);color:var(--primary-ink);height:48px;padding:0 28px;font-size:15px}
+.btn.secondary{border:1px solid var(--border-strong);background:transparent}
+.link{color:var(--text);font-weight:500;text-decoration:underline;text-underline-offset:4px;text-decoration-color:var(--border-strong)}
+.uline{border:0;border-bottom:1.5px solid var(--border-strong);height:44px;display:flex;align-items:center;font-size:16px;color:var(--text-faint);background:transparent}
+.meter{display:inline-flex;gap:3px;align-items:flex-end}
+.meter i{display:block;width:5px;border-radius:1px;background:var(--border-strong)}
+.meter i.on{background:var(--primary)}
+
+.hd{display:flex;align-items:baseline;gap:28px}
+.profile{color:var(--text-muted);font-size:15px}
+.tok{font-size:15px;color:var(--text);font-weight:600;border-bottom:2px solid var(--border-strong);padding:0 2px;margin:0 10px 0 6px;display:inline-flex;align-items:center;gap:4px}
+.tok .ico{color:var(--text-faint)}
+.link.sm{font-size:13px;color:var(--text-muted)}
+.ledger{width:100%;border-collapse:collapse;margin-top:24px}
+.ledger th{text-align:left;font-size:13px;font-weight:500;color:var(--text-muted);padding:0 0 10px;border-bottom:1px solid var(--border-strong)}
+.ledger td{padding:12px 0;border-bottom:1px solid var(--border);vertical-align:middle}
+.ledger td b{display:block;font-weight:600;font-size:15px}
+.ledger td .mono{font-size:12px}
+.ledger th:nth-child(1){width:38%} .ledger th:nth-child(2){width:24%} .ledger th:nth-child(3){width:14%} .ledger th:nth-child(4){width:12%}
+.r{text-align:right}
+.count{margin-top:12px;font-size:13px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:72px;margin-top:36px}
+.uline{gap:10px;margin-top:6px}
+.picks{list-style:none}
+.picks li{display:grid;grid-template-columns:1fr auto auto;gap:16px;align-items:baseline;padding:10px 0;border-bottom:1px solid var(--border)}
+.picks li b{font-weight:600}
+.picks li span{font-size:13px}
+.more{display:inline-block;margin-top:12px}
+.web{margin-top:8px;color:var(--text-muted);max-width:460px}
+.two .btn{margin-top:16px}
+
+</style>
+</head>
+<body>
+
+<div class="win">
+  <div class="tb"><svg width="11.9" height="14" viewBox="22 17 56 66" role="img" aria-label="Basalt"><g stroke="#141517" stroke-width="1.6" stroke-linejoin="round"><polygon points="46.25,25.5 53.75,32 53.75,68 46.25,61.5" fill="#A3A6AA"/><polygon points="53.75,32 68.75,32 68.75,68 53.75,68" fill="#74777C"/><polygon points="68.75,32 76.25,25.5 76.25,61.5 68.75,68" fill="#4B4E53"/><polygon points="76.25,25.5 68.75,32 53.75,32 46.25,25.5 53.75,19 68.75,19" fill="#E6E6E3"/><polygon points="23.75,41 31.25,47.5 31.25,74.5 23.75,68" fill="#A3A6AA"/><polygon points="31.25,47.5 46.25,47.5 46.25,74.5 31.25,74.5" fill="#74777C"/><polygon points="46.25,47.5 53.75,41 53.75,68 46.25,74.5" fill="#4B4E53"/><polygon points="53.75,41 46.25,47.5 31.25,47.5 23.75,41 31.25,34.5 46.25,34.5" fill="#E6E6E3"/><polygon points="46.25,56.5 53.75,63 53.75,81 46.25,74.5" fill="#A3A6AA"/><polygon points="53.75,63 68.75,63 68.75,81 53.75,81" fill="#74777C"/><polygon points="68.75,63 76.25,56.5 76.25,74.5 68.75,81" fill="#4B4E53"/><polygon points="76.25,56.5 68.75,63 53.75,63 46.25,56.5 53.75,50 68.75,50" fill="#E6E6E3"/></g></svg><span>Basalt</span><div class="capbtns" aria-hidden="true"><span><svg width="10" height="10" viewBox="0 0 10 10"><path d="M0 5.5h10" stroke="currentColor" stroke-width="1" fill="none"/></svg></span><span><svg width="10" height="10" viewBox="0 0 10 10"><rect x=".5" y=".5" width="9" height="9" stroke="currentColor" stroke-width="1" fill="none"/></svg></span><span><svg width="10" height="10" viewBox="0 0 10 10"><path d="M0 0l10 10M10 0L0 10" stroke="currentColor" stroke-width="1" fill="none"/></svg></span></div></div>
+  <header class="top">
+    <div class="brand"><svg width="17.0" height="20" viewBox="22 17 56 66" role="img" aria-label="Basalt"><g stroke="#141517" stroke-width="1.6" stroke-linejoin="round"><polygon points="46.25,25.5 53.75,32 53.75,68 46.25,61.5" fill="#A3A6AA"/><polygon points="53.75,32 68.75,32 68.75,68 53.75,68" fill="#74777C"/><polygon points="68.75,32 76.25,25.5 76.25,61.5 68.75,68" fill="#4B4E53"/><polygon points="76.25,25.5 68.75,32 53.75,32 46.25,25.5 53.75,19 68.75,19" fill="#E6E6E3"/><polygon points="23.75,41 31.25,47.5 31.25,74.5 23.75,68" fill="#A3A6AA"/><polygon points="31.25,47.5 46.25,47.5 46.25,74.5 31.25,74.5" fill="#74777C"/><polygon points="46.25,47.5 53.75,41 53.75,68 46.25,74.5" fill="#4B4E53"/><polygon points="53.75,41 46.25,47.5 31.25,47.5 23.75,41 31.25,34.5 46.25,34.5" fill="#E6E6E3"/><polygon points="46.25,56.5 53.75,63 53.75,81 46.25,74.5" fill="#A3A6AA"/><polygon points="53.75,63 68.75,63 68.75,81 53.75,81" fill="#74777C"/><polygon points="68.75,63 76.25,56.5 76.25,74.5 68.75,81" fill="#4B4E53"/><polygon points="76.25,56.5 68.75,63 53.75,63 46.25,56.5 53.75,50 68.75,50" fill="#E6E6E3"/></g></svg><span>Basalt</span></div>
+    <nav aria-label="Main"><a class="">Today</a><a class="">History</a><a class="on">Blocked apps</a><a class="">Schedule</a><a class="">Settings</a></nav>
+    <div class="trial"><span>Free trial · 5 days left</span><a>Buy Basalt</a></div>
+  </header>
+  <main class="page">
+<div class="hd">
+  <h1>Blocked apps</h1>
+  <p class="profile">Profile <button class="tok">Default <svg class="ico" width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button> <a class="link sm">Rename, duplicate or delete</a></p>
+</div>
+<table class="ledger">
+  <thead><tr><th>App</th><th>Category</th><th>Times stopped</th><th>Blocking</th><th class="r"><span class="sr">Remove</span></th></tr></thead>
+  <tbody><tr><td><b>Discord</b><span class="mono faint">discord.exe</span></td><td class="muted">Chat</td><td class="num">14</td><td><span class="sw on" role="switch" aria-checked="true" aria-label="Block Discord"><span></span></span></td><td class="r"><a class="link sm">Remove</a></td></tr><tr><td><b>Steam</b><span class="mono faint">steam.exe</span></td><td class="muted">Games & launchers</td><td class="num">9</td><td><span class="sw on" role="switch" aria-checked="true" aria-label="Block Steam"><span></span></span></td><td class="r"><a class="link sm">Remove</a></td></tr><tr><td><b>Epic Games Launcher</b><span class="mono faint">epicgameslauncher.exe</span></td><td class="muted">Games & launchers</td><td class="faint">Not yet</td><td><span class="sw on" role="switch" aria-checked="true" aria-label="Block Epic Games Launcher"><span></span></span></td><td class="r"><a class="link sm">Remove</a></td></tr></tbody>
+</table>
+<p class="count muted num">3 apps on Default. The shield closes them during a Firm or Sealed sprint and shows its notice on Soft.</p>
+<div class="two">
+  <section>
+    <div class="eyebrow">Add an app</div>
+    <div class="uline focus"><svg class="ico" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg><span>Discord, Steam, Minecraft…</span></div>
+    <ul class="picks"><li><b>Spotify</b><span class="faint">Running now</span><a class="link sm">Block</a></li><li><b>Minecraft Launcher</b><span class="faint">Installed</span><a class="link sm">Block</a></li><li><b>Roblox</b><span class="faint">Suggested · Games & launchers</span><a class="link sm">Block</a></li><li><b>WhatsApp</b><span class="faint">Suggested · Chat</span><a class="link sm">Block</a></li></ul>
+    <a class="link sm more">Add by process name or .exe path</a>
+  </section>
+  <section>
+    <div class="eyebrow">Websites · notice only</div>
+    <p class="web">Basalt shows its notice when the tab in front names one of these. It reads the tab title only, so it can miss a page or catch a search, and it never closes your browser.</p>
+    <p class="faint web">No websites yet.</p>
+    <button class="btn secondary"><svg class="ico" width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Add a website</button>
+  </section>
+</div></main>
+</div>
+</body>
+</html>

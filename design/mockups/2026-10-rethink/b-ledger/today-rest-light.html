@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en-US" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1280">
+<title>Basalt · Ledger · Today at rest</title>
+<style>
+:root{--bg:#ECEBE7;--bg-soft:#E2E1DC;--surface:#F7F6F3;--surface-2:#FCFBF9;--text:#1C1D1F;--text-muted:#54565A;--text-faint:#606266;--primary:#0C6B5C;--primary-hover:#095548;--primary-ink:#F7F6F3;--border:rgba(28,29,31,.12);--border-strong:rgba(28,29,31,.22);--track:rgba(28,29,31,.08);--primary-soft:rgba(12,107,92,.12);--ok:#276A3E;--warn:#7A5413;--danger:#A3334A;--focus-ring:rgba(12,107,92,.45);--backdrop:#E3E2DD;--heat-1:#D3E3DD;--heat-2:#9CC5BA;--heat-3:#2C7D6E;--heat-4:#0C5C4F;--heat-ink-0:#54565A;--heat-ink-1:#1C1D1F;--heat-ink-2:#1C1D1F;--heat-ink-3:#F7F6F3;--heat-ink-4:#F7F6F3;--tick:#606266;--tick-dim:#C9C8C3;}
+
+@font-face{font-family:"Inter";src:url("../../../../Website/fonts/InterVariable.woff2") format("woff2");font-weight:100 900;font-display:block}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:1280px;height:860px;overflow:hidden}
+body{font-family:"Inter","Segoe UI Variable","Segoe UI",system-ui,sans-serif;font-size:14px;line-height:21px;
+  color:var(--text);background:var(--bg);-webkit-font-smoothing:antialiased;font-optical-sizing:auto}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+input{font:inherit;color:inherit}
+.num{font-variant-numeric:tabular-nums}
+.mono{font-family:"Cascadia Mono",Consolas,monospace}
+.muted{color:var(--text-muted)} .faint{color:var(--text-faint)}
+svg{display:block}
+.ico{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round;flex:none}
+html[data-theme=dark]{--field:var(--bg-soft)} html[data-theme=light]{--field:var(--surface-2)}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+/* the keyboard focus ring, shown on one control per screen to prove it is designed */
+.focus{outline:2px solid var(--focus-ring);outline-offset:2px}
+
+
+.capbtns{margin-left:auto;display:flex;height:100%}
+.capbtns span{width:46px;height:100%;display:grid;place-items:center;color:var(--text)}
+
+.legend{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--text-muted);flex-wrap:wrap}
+.legend .lg{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+
+.mono-tile{display:inline-grid;place-items:center;flex:none;background:var(--surface-2);border:1px solid var(--border);
+  color:var(--text-muted);font-weight:600;font-family:"Inter",sans-serif}
+
+.sw{width:40px;height:22px;border-radius:11px;border:1.5px solid var(--border-strong);position:relative;flex:none;display:inline-block}
+.sw span{position:absolute;top:3px;left:3px;width:13px;height:13px;border-radius:50%;background:var(--text-muted)}
+.sw.on{background:var(--primary);border-color:var(--primary)}
+.sw.on span{left:21px;background:var(--primary-ink)}
+
+.win{display:flex;flex-direction:column;height:860px}
+.tb{height:32px;flex:none;display:flex;align-items:center;gap:8px;padding-left:12px;font-size:12px;color:var(--text-muted)}
+.top{height:56px;flex:none;display:flex;align-items:stretch;gap:40px;padding:0 48px;border-bottom:1px solid var(--border)}
+.brand{display:flex;align-items:center;gap:9px;font-weight:600;font-size:15px;letter-spacing:-.01em}
+.top nav{display:flex;gap:28px}
+.top nav a{display:flex;align-items:center;color:var(--text-muted);font-weight:500;position:relative}
+.top nav a.on{color:var(--text)}
+.top nav a.on::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;background:var(--primary)}
+.top.quiet nav a{color:var(--text-faint)}
+.top.quiet nav a.on{color:var(--text-muted)}
+.top.quiet nav a.on::after{background:var(--border-strong)}
+.trial{margin-left:auto;display:flex;align-items:center;gap:14px;font-size:13px;color:var(--text-muted)}
+.trial a{color:var(--text);font-weight:600;text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--border-strong)}
+.page{flex:1;min-height:0;padding:40px 64px 28px}
+h1{font-size:30px;line-height:36px;font-weight:600;letter-spacing:-.02em}
+.eyebrow{font-size:13px;line-height:18px;color:var(--text-muted);font-weight:500}
+.rule{border-top:1px solid var(--border)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:40px;padding:0 16px;border-radius:8px;font-weight:600}
+.btn.primary{background:var(--primary);color:var(--primary-ink);height:48px;padding:0 28px;font-size:15px}
+.btn.secondary{border:1px solid var(--border-strong);background:transparent}
+.link{color:var(--text);font-weight:500;text-decoration:underline;text-underline-offset:4px;text-decoration-color:var(--border-strong)}
+.uline{border:0;border-bottom:1.5px solid var(--border-strong);height:44px;display:flex;align-items:center;font-size:16px;color:var(--text-faint);background:transparent}
+.meter{display:inline-flex;gap:3px;align-items:flex-end}
+.meter i{display:block;width:5px;border-radius:1px;background:var(--border-strong)}
+.meter i.on{background:var(--primary)}
+
+.cols{display:grid;grid-template-columns:1fr 340px;gap:72px;height:100%;padding-top:12px}
+.giant{font-size:208px;line-height:196px;font-weight:600;letter-spacing:-.045em;margin:20px 0 26px -10px}
+.nw{white-space:nowrap}
+.sentence{font-size:24px;line-height:40px;color:var(--text-muted);max-width:680px}
+.tok{font-size:24px;line-height:30px;color:var(--text);font-weight:600;border-bottom:2px solid var(--border-strong);padding:0 2px;border-radius:4px 4px 0 0}
+.tok .meter{margin-right:4px;vertical-align:-1px}
+.promise{margin-top:12px;color:var(--text-muted);font-size:14px}
+.uline{margin-top:32px;max-width:640px}
+.go{margin-top:28px}
+.side{padding-top:2px}
+.tpl{list-style:none;margin-top:10px;border-top:1px solid var(--border)}
+.tpl li{display:flex;align-items:center;border-bottom:1px solid var(--border);position:relative;padding-left:14px}
+.tpl li button{flex:1;display:flex;flex-direction:column;align-items:flex-start;padding:12px 0;text-align:left}
+.tpl li.on::before{content:"";position:absolute;left:0;top:12px;bottom:12px;width:2px;background:var(--primary)}
+.tpl li .ico{color:var(--primary);margin-right:4px}
+.tn{font-size:15px;line-height:22px;font-weight:600}
+.ts{font-size:13px;line-height:19px;color:var(--text-muted)}
+.mom{display:flex;align-items:baseline;gap:12px;margin:6px 0 10px}
+.mn{font-size:48px;line-height:52px;font-weight:600;letter-spacing:-.03em}
+.mom b{color:var(--text);font-weight:600}
+.todayline{margin-top:14px;font-size:13px}
+
+</style>
+</head>
+<body>
+
+<div class="win">
+  <div class="tb"><svg width="11.9" height="14" viewBox="22 17 56 66" role="img" aria-label="Basalt"><g stroke="#ECEBE7" stroke-width="1.6" stroke-linejoin="round"><polygon points="46.25,25.5 53.75,32 53.75,68 46.25,61.5" fill="#55585D"/><polygon points="53.75,32 68.75,32 68.75,68 53.75,68" fill="#36383C"/><polygon points="68.75,32 76.25,25.5 76.25,61.5 68.75,68" fill="#1F2023"/><polygon points="76.25,25.5 68.75,32 53.75,32 46.25,25.5 53.75,19 68.75,19" fill="#8B8E93"/><polygon points="23.75,41 31.25,47.5 31.25,74.5 23.75,68" fill="#55585D"/><polygon points="31.25,47.5 46.25,47.5 46.25,74.5 31.25,74.5" fill="#36383C"/><polygon points="46.25,47.5 53.75,41 53.75,68 46.25,74.5" fill="#1F2023"/><polygon points="53.75,41 46.25,47.5 31.25,47.5 23.75,41 31.25,34.5 46.25,34.5" fill="#8B8E93"/><polygon points="46.25,56.5 53.75,63 53.75,81 46.25,74.5" fill="#55585D"/><polygon points="53.75,63 68.75,63 68.75,81 53.75,81" fill="#36383C"/><polygon points="68.75,63 76.25,56.5 76.25,74.5 68.75,81" fill="#1F2023"/><polygon points="76.25,56.5 68.75,63 53.75,63 46.25,56.5 53.75,50 68.75,50" fill="#8B8E93"/></g></svg><span>Basalt</span><div class="capbtns" aria-hidden="true"><span><svg width="10" height="10" viewBox="0 0 10 10"><path d="M0 5.5h10" stroke="currentColor" stroke-width="1" fill="none"/></svg></span><span><svg width="10" height="10" viewBox="0 0 10 10"><rect x=".5" y=".5" width="9" height="9" stroke="currentColor" stroke-width="1" fill="none"/></svg></span><span><svg width="10" height="10" viewBox="0 0 10 10"><path d="M0 0l10 10M10 0L0 10" stroke="currentColor" stroke-width="1" fill="none"/></svg></span></div></div>
+  <header class="top">
+    <div class="brand"><svg width="17.0" height="20" viewBox="22 17 56 66" role="img" aria-label="Basalt"><g stroke="#ECEBE7" stroke-width="1.6" stroke-linejoin="round"><polygon points="46.25,25.5 53.75,32 53.75,68 46.25,61.5" fill="#55585D"/><polygon points="53.75,32 68.75,32 68.75,68 53.75,68" fill="#36383C"/><polygon points="68.75,32 76.25,25.5 76.25,61.5 68.75,68" fill="#1F2023"/><polygon points="76.25,25.5 68.75,32 53.75,32 46.25,25.5 53.75,19 68.75,19" fill="#8B8E93"/><polygon points="23.75,41 31.25,47.5 31.25,74.5 23.75,68" fill="#55585D"/><polygon points="31.25,47.5 46.25,47.5 46.25,74.5 31.25,74.5" fill="#36383C"/><polygon points="46.25,47.5 53.75,41 53.75,68 46.25,74.5" fill="#1F2023"/><polygon points="53.75,41 46.25,47.5 31.25,47.5 23.75,41 31.25,34.5 46.25,34.5" fill="#8B8E93"/><polygon points="46.25,56.5 53.75,63 53.75,81 46.25,74.5" fill="#55585D"/><polygon points="53.75,63 68.75,63 68.75,81 53.75,81" fill="#36383C"/><polygon points="68.75,63 76.25,56.5 76.25,74.5 68.75,81" fill="#1F2023"/><polygon points="76.25,56.5 68.75,63 53.75,63 46.25,56.5 53.75,50 68.75,50" fill="#8B8E93"/></g></svg><span>Basalt</span></div>
+    <nav aria-label="Main"><a class="on">Today</a><a class="">History</a><a class="">Blocked apps</a><a class="">Schedule</a><a class="">Settings</a></nav>
+    <div class="trial"><span>Free trial · 5 days left</span><a>Buy Basalt</a></div>
+  </header>
+  <main class="page">
+<div class="cols">
+  <section class="lead" aria-label="Next sprint">
+    <div class="eyebrow">Friday 16 October · next sprint</div>
+    <div class="giant num">45:00</div>
+    <p class="sentence">
+      <button class="tok">45 minutes</button> behind a <button class="tok"><span class="meter" aria-hidden="true"><i class="on" style="height:7px"></i><i class="on" style="height:10px"></i><i class="" style="height:13px"></i></span> Firm shield</button>,
+      <span class="nw">blocking <button class="tok">Default</button> <span class="faint">(3 apps)</span>,</span>
+      <span class="nw">for <button class="tok">3 sprints</button> with 10-minute breaks.</span>
+    </p>
+    <p class="promise">Firm: blocked apps are warned to save their work, then closed.</p>
+    <div class="uline">Intention, optional. Shown on the timer and again when the sprint ends.</div>
+    <div class="go"><button class="btn primary">Start sprint</button></div>
+  </section>
+  <aside class="side">
+    <div class="eyebrow">Templates</div>
+    <ul class="tpl"><li class="on"><button aria-pressed="true"><span class="tn">Homework evening</span><span class="ts num">45 min · Firm · 3 sprints</span></button><svg class="ico" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg></li><li class=""><button aria-pressed="false"><span class="tn">Exam prep</span><span class="ts num">90 min · Sealed</span></button></li><li class=""><button aria-pressed="false"><span class="tn">Light study</span><span class="ts num">25 min · Soft</span></button></li></ul>
+    <div class="eyebrow" style="margin-top:36px">Momentum</div>
+    <div class="mom"><span class="mn num">186</span><span class="muted">points · <b>8-day streak</b></span></div>
+    <svg width="340" height="96" viewBox="0 0 340 96" role="img" aria-label="Momentum over the last 30 days, rising to a peak of 186 today"><line x1="30" x2="334" y1="74.0" y2="74.0" stroke="var(--border)" stroke-width="1"/><text x="22" y="78.0" text-anchor="end" font-size="11" fill="var(--text-faint)" class="num">0</text><line x1="30" x2="334" y1="41.0" y2="41.0" stroke="var(--border)" stroke-width="1"/><text x="22" y="45.0" text-anchor="end" font-size="11" fill="var(--text-faint)" class="num">100</text><line x1="30" x2="334" y1="8.0" y2="8.0" stroke="var(--border)" stroke-width="1"/><text x="22" y="12.0" text-anchor="end" font-size="11" fill="var(--text-faint)" class="num">200</text><polyline points="30.0,70.4 40.5,68.1 51.0,68.1 61.4,68.1 71.9,64.1 82.4,64.1 92.9,61.8 103.4,57.8 113.9,58.2 124.3,58.5 134.8,53.9 145.3,49.9 155.8,43.6 166.3,44.3 176.8,42.3 187.2,42.6 197.7,34.7 208.2,35.4 218.7,31.8 229.2,23.8 239.7,20.2 250.1,21.2 260.6,19.6 271.1,15.6 281.6,14.3 292.1,11.0 302.6,9.3 313.0,17.6 323.5,15.9 334.0,12.6" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/><circle cx="334.0" cy="12.6" r="3.5" fill="var(--primary)"/><text x="30.0" y="92" text-anchor="start" font-size="11" fill="var(--text-faint)">17 Sep</text><text x="176.8" y="92" text-anchor="middle" font-size="11" fill="var(--text-faint)">1 Oct</text><text x="334.0" y="92" text-anchor="end" font-size="11" fill="var(--text-faint)">16 Oct</text></svg>
+    <p class="todayline muted num">Today: 1 sprint, 45 minutes, 2 distractions stopped.</p>
+  </aside>
+</div></main>
+</div>
+</body>
+</html>
