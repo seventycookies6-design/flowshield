@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en-US" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1280">
+<title>Basalt · Ledger · Settings, License</title>
+<style>
+:root{--bg:#141517;--bg-soft:#191A1C;--surface:#1F2022;--surface-2:#27292B;--text:#EDEDEB;--text-muted:#AEB0B3;--text-faint:#909398;--primary:#3AA892;--primary-hover:#4FBEA7;--primary-ink:#0B1F1B;--border:rgba(237,237,235,.12);--border-strong:rgba(237,237,235,.22);--track:rgba(237,237,235,.08);--primary-soft:rgba(58,168,146,.20);--ok:#5EC987;--warn:#E0B35A;--danger:#EF7A88;--focus-ring:rgba(58,168,146,.5);--backdrop:#1E1F22;--heat-1:#223F39;--heat-2:#265A4F;--heat-3:#2B7466;--heat-4:#4FBEA7;--heat-ink-0:#AEB0B3;--heat-ink-1:#EDEDEB;--heat-ink-2:#EDEDEB;--heat-ink-3:#EDEDEB;--heat-ink-4:#0B1F1B;--tick:#909398;--tick-dim:#3A3C3F;}
+
+@font-face{font-family:"Inter";src:url("../../../../Website/fonts/InterVariable.woff2") format("woff2");font-weight:100 900;font-display:block}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:1280px;height:860px;overflow:hidden}
+body{font-family:"Inter","Segoe UI Variable","Segoe UI",system-ui,sans-serif;font-size:14px;line-height:21px;
+  color:var(--text);background:var(--bg);-webkit-font-smoothing:antialiased;font-optical-sizing:auto}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+input{font:inherit;color:inherit}
+.num{font-variant-numeric:tabular-nums}
+.mono{font-family:"Cascadia Mono",Consolas,monospace}
+.muted{color:var(--text-muted)} .faint{color:var(--text-faint)}
+svg{display:block}
+.ico{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round;flex:none}
+html[data-theme=dark]{--field:var(--bg-soft)} html[data-theme=light]{--field:var(--surface-2)}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+/* the keyboard focus ring, shown on one control per screen to prove it is designed */
+.focus{outline:2px solid var(--focus-ring);outline-offset:2px}
+
+
+.capbtns{margin-left:auto;display:flex;height:100%}
+.capbtns span{width:46px;height:100%;display:grid;place-items:center;color:var(--text)}
+
+.legend{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--text-muted);flex-wrap:wrap}
+.legend .lg{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+
+.mono-tile{display:inline-grid;place-items:center;flex:none;background:var(--surface-2);border:1px solid var(--border);
+  color:var(--text-muted);font-weight:600;font-family:"Inter",sans-serif}
+
+.sw{width:40px;height:22px;border-radius:11px;border:1.5px solid var(--border-strong);position:relative;flex:none;display:inline-block}
+.sw span{position:absolute;top:3px;left:3px;width:13px;height:13px;border-radius:50%;background:var(--text-muted)}
+.sw.on{background:var(--primary);border-color:var(--primary)}
+.sw.on span{left:21px;background:var(--primary-ink)}
+
+.win{display:flex;flex-direction:column;height:860px}
+.tb{height:32px;flex:none;display:flex;align-items:center;gap:8px;padding-left:12px;font-size:12px;color:var(--text-muted)}
+.top{height:56px;flex:none;display:flex;align-items:stretch;gap:40px;padding:0 48px;border-bottom:1px solid var(--border)}
+.brand{display:flex;align-items:center;gap:9px;font-weight:600;font-size:15px;letter-spacing:-.01em}
+.top nav{display:flex;gap:28px}
+.top nav a{display:flex;align-items:center;color:var(--text-muted);font-weight:500;position:relative}
+.top nav a.on{color:var(--text)}
+.top nav a.on::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;background:var(--primary)}
+.top.quiet nav a{color:var(--text-faint)}
+.top.quiet nav a.on{color:var(--text-muted)}
+.top.quiet nav a.on::after{background:var(--border-strong)}
+.trial{margin-left:auto;display:flex;align-items:center;gap:14px;font-size:13px;color:var(--text-muted)}
+.trial a{color:var(--text);font-weight:600;text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--border-strong)}
+.page{flex:1;min-height:0;padding:40px 64px 28px}
+h1{font-size:30px;line-height:36px;font-weight:600;letter-spacing:-.02em}
+.eyebrow{font-size:13px;line-height:18px;color:var(--text-muted);font-weight:500}
+.rule{border-top:1px solid var(--border)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:40px;padding:0 16px;border-radius:8px;font-weight:600}
+.btn.primary{background:var(--primary);color:var(--primary-ink);height:48px;padding:0 28px;font-size:15px}
+.btn.secondary{border:1px solid var(--border-strong);background:transparent}
+.link{color:var(--text);font-weight:500;text-decoration:underline;text-underline-offset:4px;text-decoration-color:var(--border-strong)}
+.uline{border:0;border-bottom:1.5px solid var(--border-strong);height:44px;display:flex;align-items:center;font-size:16px;color:var(--text-faint);background:transparent}
+.meter{display:inline-flex;gap:3px;align-items:flex-end}
+.meter i{display:block;width:5px;border-radius:1px;background:var(--border-strong)}
+.meter i.on{background:var(--primary)}
+
+.wrap{display:grid;grid-template-columns:220px 1fr;gap:64px;height:100%}
+.subnav{display:flex;flex-direction:column}
+.subnav h1{margin-bottom:22px}
+.subnav a{padding:8px 0 8px 14px;color:var(--text-muted);font-weight:500;position:relative}
+.subnav a.on{color:var(--text)}
+.subnav a.on::before{content:"";position:absolute;left:0;top:9px;bottom:9px;width:2px;background:var(--primary)}
+.content{max-width:640px;padding-top:6px}
+.statement{font-size:34px;line-height:42px;font-weight:600;letter-spacing:-.02em;margin:8px 0 12px}
+.body{font-size:16px;line-height:26px;color:var(--text-muted);margin-bottom:24px;max-width:560px}
+.body b{color:var(--text);font-weight:600}
+h2{font-size:20px;line-height:28px;font-weight:600;letter-spacing:-.01em}
+.fields{display:grid;grid-template-columns:1fr 1fr;gap:28px;margin:22px 0 24px}
+.fields .uline{font-size:15px}
+.small{font-size:13px;line-height:19px;margin-top:24px}
+.small .link{color:var(--text-muted)}
+
+</style>
+</head>
+<body>
+
+<div class="win">
+  <div class="tb"><svg width="11.9" height="14" viewBox="22 17 56 66" role="img" aria-label="Basalt"><g stroke="#141517" stroke-width="1.6" stroke-linejoin="round"><polygon points="46.25,25.5 53.75,32 53.75,68 46.25,61.5" fill="#A3A6AA"/><polygon points="53.75,32 68.75,32 68.75,68 53.75,68" fill="#74777C"/><polygon points="68.75,32 76.25,25.5 76.25,61.5 68.75,68" fill="#4B4E53"/><polygon points="76.25,25.5 68.75,32 53.75,32 46.25,25.5 53.75,19 68.75,19" fill="#E6E6E3"/><polygon points="23.75,41 31.25,47.5 31.25,74.5 23.75,68" fill="#A3A6AA"/><polygon points="31.25,47.5 46.25,47.5 46.25,74.5 31.25,74.5" fill="#74777C"/><polygon points="46.25,47.5 53.75,41 53.75,68 46.25,74.5" fill="#4B4E53"/><polygon points="53.75,41 46.25,47.5 31.25,47.5 23.75,41 31.25,34.5 46.25,34.5" fill="#E6E6E3"/><polygon points="46.25,56.5 53.75,63 53.75,81 46.25,74.5" fill="#A3A6AA"/><polygon points="53.75,63 68.75,63 68.75,81 53.75,81" fill="#74777C"/><polygon points="68.75,63 76.25,56.5 76.25,74.5 68.75,81" fill="#4B4E53"/><polygon points="76.25,56.5 68.75,63 53.75,63 46.25,56.5 53.75,50 68.75,50" fill="#E6E6E3"/></g></svg><span>Basalt</span><div class="capbtns" aria-hidden="true"><span><svg width="10" height="10" viewBox="0 0 10 10"><path d="M0 5.5h10" stroke="currentColor" stroke-width="1" fill="none"/></svg></span><span><svg width="10" height="10" viewBox="0 0 10 10"><rect x=".5" y=".5" width="9" height="9" stroke="currentColor" stroke-width="1" fill="none"/></svg></span><span><svg width="10" height="10" viewBox="0 0 10 10"><path d="M0 0l10 10M10 0L0 10" stroke="currentColor" stroke-width="1" fill="none"/></svg></span></div></div>
+  <header class="top">
+    <div class="brand"><svg width="17.0" height="20" viewBox="22 17 56 66" role="img" aria-label="Basalt"><g stroke="#141517" stroke-width="1.6" stroke-linejoin="round"><polygon points="46.25,25.5 53.75,32 53.75,68 46.25,61.5" fill="#A3A6AA"/><polygon points="53.75,32 68.75,32 68.75,68 53.75,68" fill="#74777C"/><polygon points="68.75,32 76.25,25.5 76.25,61.5 68.75,68" fill="#4B4E53"/><polygon points="76.25,25.5 68.75,32 53.75,32 46.25,25.5 53.75,19 68.75,19" fill="#E6E6E3"/><polygon points="23.75,41 31.25,47.5 31.25,74.5 23.75,68" fill="#A3A6AA"/><polygon points="31.25,47.5 46.25,47.5 46.25,74.5 31.25,74.5" fill="#74777C"/><polygon points="46.25,47.5 53.75,41 53.75,68 46.25,74.5" fill="#4B4E53"/><polygon points="53.75,41 46.25,47.5 31.25,47.5 23.75,41 31.25,34.5 46.25,34.5" fill="#E6E6E3"/><polygon points="46.25,56.5 53.75,63 53.75,81 46.25,74.5" fill="#A3A6AA"/><polygon points="53.75,63 68.75,63 68.75,81 53.75,81" fill="#74777C"/><polygon points="68.75,63 76.25,56.5 76.25,74.5 68.75,81" fill="#4B4E53"/><polygon points="76.25,56.5 68.75,63 53.75,63 46.25,56.5 53.75,50 68.75,50" fill="#E6E6E3"/></g></svg><span>Basalt</span></div>
+    <nav aria-label="Main"><a class="">Today</a><a class="">History</a><a class="">Blocked apps</a><a class="">Schedule</a><a class="on">Settings</a></nav>
+    
+  </header>
+  <main class="page">
+<div class="wrap">
+  <nav class="subnav" aria-label="Settings sections"><h1>Settings</h1><a class="on">License & devices</a><a class="">Focus</a><a class="">App</a><a class="">Notifications</a><a class="">Your data</a><a class="">About</a></nav>
+  <section class="content">
+    <div class="eyebrow">License</div>
+    <p class="statement">You're on the free trial, with <span class="num">5</span> days left.</p>
+    <p class="body">Everything is unlocked until Wednesday 21 October. Buy Basalt once for <b class="num">$4.99</b> to keep it. There is no subscription.</p>
+    <button class="btn primary">Buy Basalt</button>
+    <div class="rule" style="margin:40px 0 28px"></div>
+    <h2>Have a license key?</h2>
+    <p class="muted">It's in the email from your purchase. Your devices are listed here once it's active.</p>
+    <div class="fields">
+      <label><span class="eyebrow">License key</span><div class="uline mono">FS-XXXX-XXXX-XXXX-XXXX</div></label>
+      <label><span class="eyebrow">Email used at checkout, optional</span><div class="uline">you@example.com</div></label>
+    </div>
+    <button class="btn secondary">Activate license</button>
+    <p class="small faint">Activating sends your license key, the checkout email, a salted device identifier and this PC's name to the license server. Nothing else leaves this PC. <a class="link">Privacy policy</a></p>
+  </section>
+</div></main>
+</div>
+</body>
+</html>
