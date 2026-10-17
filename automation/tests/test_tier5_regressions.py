@@ -6624,6 +6624,10 @@ class TestSoftOverlayNeverCloses:
         )
 
     def test_the_soft_notice_is_visible_over_its_target(self):
+        # Topmost is the promise: a notice that can open under the blocked
+        # app is never seen. The window's chrome and style are design choices.
+        xaml = self.OVERLAY_XAML.read_text(encoding="utf-8")
+        assert 'Topmost="True"' in xaml, "the notice must stay above the blocked app"
         code = self.OVERLAY_CS.read_text(encoding="utf-8")
         assert "Screen.FromHandle(_anchor)" in code, (
             "the notice must locate the blocked app's monitor")
