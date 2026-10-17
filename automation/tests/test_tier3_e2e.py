@@ -573,22 +573,53 @@ class TestSoftShowsTheNotice:
         """
         Put the decoy in the OS foreground, and prove it got there.
 
-        Checked through GetForegroundWindow rather than assumed, so a decoy
-        that cannot take focus reads as a bench problem and not as the product
-        failing to notice it (#250).
+        A background SetForegroundWindow request can be refused by Windows'
+        foreground lock (#250). Briefly share the foreground and target input
+        queues for the handoff, then detach even if the request fails. Check
+        the owning PID rather than treating a successful API call as focus.
         """
+        import pywintypes
+        import win32api
+        import win32con
+        import win32gui
+        import win32process
+
         windows = self._decoy_windows(process)
         assert windows, "the decoy has no window to bring forward"
-        deadline = time.time() + 5
-        while time.time() < deadline:
-            try:
-                windows[0].set_focus()
-            except Exception:
-                pass
+        hwnd = windows[0].handle
+        caller = win32api.GetCurrentThreadId()
+        # AttachThreadInput requires a message queue on the calling thread.
+        win32gui.PeekMessage(0, 0, 0, win32con.PM_NOREMOVE)
+        deadline = time.monotonic() + 5
+        last_error = ""
+        while time.monotonic() < deadline:
             if self._foreground_pid() == process.pid:
                 return
-            time.sleep(0.2)
-        pytest.fail("the decoy never became the foreground window, so nothing can trigger the notice")
+            foreground = win32gui.GetForegroundWindow()
+            foreground_thread = (win32process.GetWindowThreadProcessId(foreground)[0]
+                                 if foreground else 0)
+            target_thread = win32process.GetWindowThreadProcessId(hwnd)[0]
+            attached = []
+            try:
+                for thread in dict.fromkeys((foreground_thread, target_thread)):
+                    if thread and thread != caller:
+                        win32process.AttachThreadInput(caller, thread, True)
+                        attached.append(thread)
+                if win32gui.IsIconic(hwnd):
+                    win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
+                win32gui.SetForegroundWindow(hwnd)
+            except pywintypes.error as exc:
+                last_error = str(exc)
+            finally:
+                for thread in reversed(attached):
+                    win32process.AttachThreadInput(caller, thread, False)
+            if self._foreground_pid() == process.pid:
+                return
+            time.sleep(0.05)
+        pytest.fail(
+            f"the decoy (pid {process.pid}) never became the foreground window; "
+            f"foreground pid is {self._foreground_pid()}; {last_error}"
+        )
 
     def _overlay(self, timeout=15):
         """The notice's window, or None. Raced, not slept on (#146)."""
@@ -2544,7 +2575,11 @@ class TestBreaksAndCycles:
         app.navigate_to_tab("Today")
         app.select_shield("Firm")
         app.select_sprint_length(15)
-        app.start_sprint()
+        # No decoy exists yet. Do not let the driver's usual auto-answer hide
+        # an unexpected F7 question on this first start (#249).
+        app.start_sprint(confirm_open_apps=False)
+        assert not app.answer_open_apps_question(), \
+            "F7 asked about an open app before the test created its decoy"
 
         # Five seconds later the sprint finishes and the break is offered.
         assert app.exists("StartBreakButton", timeout=20)
