@@ -293,8 +293,8 @@ go-ahead.
    #217), F20 and F23 (#213, #211), F21 (light theme, keyboard use and
    accessibility, #237), and the server roadmap's 5.2 (#225) and 5.7 (#229).
    What's genuinely still open, per #37/#38 (reviewed 22 September 2026): on
-   the owner's side, F6 (templates/schedules), F14 (milestones, #133, now
-   unblocked by F16), roadmap 4.1 (updates) and 5.1 (buy in-app); on Miles's
+   the owner's side, F6 (templates/schedules), roadmap 4.1 (updates) and
+   5.1 (buy in-app); on Miles's
    side, F22 shipped (calm Settings, #253); still open there is
    roadmap 5.5 (email-only unlock, needs an
    email provider), 3.7 (sleep schedule, needs F6), 4.3 (in-app Get help),
