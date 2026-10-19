@@ -2325,11 +2325,10 @@ class TestUninstallCleansUp:
 
     def test_running_the_real_uninstall_hook_removes_them(self):
         """Runs the built exe the way Velopack's uninstaller does, with the real registry restored after."""
-        import subprocess
         import winreg
 
         from config import APP_EXE
-        from core.settings_guard import preserve_user_settings
+        from core.settings_guard import preserve_user_settings, run_app_process
 
         if not Path(APP_EXE).exists():
             pytest.skip("build the app first")
@@ -2363,7 +2362,7 @@ class TestUninstallCleansUp:
                 winreg.SetValueEx(k, "", 0, winreg.REG_SZ, f'"{APP_EXE}" "%1"')
 
             with preserve_user_settings():
-                result = subprocess.run([str(APP_EXE), "--veloapp-uninstall", "1.0.0"],
+                result = run_app_process([str(APP_EXE), "--veloapp-uninstall", "1.0.0"],
                                         cwd=str(Path(APP_EXE).parent), timeout=60)
             assert result.returncode == 0
             assert read_run() is None, "Start with Windows survived uninstall"
@@ -2411,7 +2410,7 @@ class TestOneInstanceOnly:
 
     @pytest.mark.ui
     def test_a_second_launch_mid_sprint_changes_nothing(self, fresh_app):
-        import subprocess
+        from core.settings_guard import run_app_process
 
         import psutil
 
@@ -2426,7 +2425,7 @@ class TestOneInstanceOnly:
         assert before.get("ActiveSprint")
 
         # --reset is what would wipe a sprint if the second copy got that far.
-        subprocess.run([str(APP_EXE), "--reset"], cwd=str(Path(APP_EXE).parent), timeout=30)
+        run_app_process([str(APP_EXE), "--reset"], cwd=str(Path(APP_EXE).parent), timeout=30)
         time.sleep(1.5)
 
         names = [p.pid for p in psutil.process_iter(["name"])

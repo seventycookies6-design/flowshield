@@ -1849,12 +1849,12 @@ class TestFirstRun:
 
 def launch_again(*extra: str) -> int:
     """Start a second Basalt without closing the first; returns its exit code."""
-    import subprocess
     from pathlib import Path
 
     from config import APP_EXE
+    from core.settings_guard import run_app_process
 
-    proc = subprocess.run([str(APP_EXE), *extra], cwd=str(Path(APP_EXE).parent), timeout=30)
+    proc = run_app_process([str(APP_EXE), *extra], cwd=str(Path(APP_EXE).parent), timeout=30)
     return proc.returncode
 
 

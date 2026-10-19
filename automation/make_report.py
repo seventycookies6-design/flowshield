@@ -95,6 +95,7 @@ def pytest_section(report: dict) -> str:
         "test_tier3_e2e.py": ["Tier 3 — end-to-end UI", 0, 0, 0],
         "test_tier4_adversarial.py": ["Tier 4 — adversarial", 0, 0, 0],
         "test_tier5_regressions.py": ["Tier 5 — regressions", 0, 0, 0],
+        "test_tier5_settings_guard.py": ["Tier 5 — settings guard (the suite never loses owner data)", 0, 0, 0],
         "test_tier6_email.py": ["Tier 6 — email delivery", 0, 0, 0],
         "test_tier7_devices.py": ["Tier 7 — device limit", 0, 0, 0],
     }
