@@ -45,6 +45,18 @@ jobs:
           cache: pip
           cache-dependency-path: automation/requirements.txt
 
+      - name: Tier 1 repository checks
+        run: python tools/repo_lint/check.py
+
+      - name: Pull request issue reference
+        if: github.event_name == 'pull_request'
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_HEAD_REF: ${{ github.head_ref }}
+        run: |
+          python -c "import os; from pathlib import Path; Path(os.environ['RUNNER_TEMP'], 'pr-body.txt').write_text(os.environ.get('PR_BODY', ''), encoding='utf-8')"
+          python tools/repo_lint/check.py --pr-body-file "$env:RUNNER_TEMP\pr-body.txt" --head-ref "$env:PR_HEAD_REF"
+
       - name: Install server dependencies
         working-directory: Server
         run: npm ci --no-fund --no-audit
