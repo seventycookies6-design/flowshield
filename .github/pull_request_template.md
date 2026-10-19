@@ -21,7 +21,7 @@ Closes #
 
 ## Merging
 
-Don't merge this yourself. The repo owner's Claude Code session reviews and merges it (see "Who merges" in `CLAUDE.md` / `AGENTS.md`). Agents merge only when a human directly asks them to in their own conversation.
+Keenan or Miles merges this — either one, including the author — after reviewing the diff, running the fast tests and posting that review as a comment (see "Who merges" in `CLAUDE.md` / `AGENTS.md`). Agents merge only when one of them directly asks in their own conversation.
 
 ## Screenshots
 

@@ -3,8 +3,9 @@
 #
 # It never edits code, the site, the legal page or generated reports — the
 # allowlist lives in tools/doc_steward/config.json and is enforced twice. Edits
-# arrive as a pull request labelled `docs-steward`; the repo owner's Claude Code
-# session reviews and merges it. Problems it can't fix go to one issue.
+# arrive as a pull request labelled `docs-steward`; Keenan or Miles (or their
+# agent, at their request) reviews and merges it. Problems it can't fix go to
+# one issue.
 #
 # Secrets (set by a human, never committed): OPENROUTER_API_KEY, NVIDIA_API_KEY.
 # Repo setting needed: Actions > General > "Allow GitHub Actions to create and

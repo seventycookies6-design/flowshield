@@ -1,2 +1,11 @@
-# The repo owner reviews and merges every change. See "Who merges" in CLAUDE.md.
-* @seventycookies6-design
+# Keenan and Miles have equal say on code; either can review and merge any
+# pull request (see "Who merges" in CLAUDE.md). Keenan is asked to look only at
+# changes that touch what runs on his accounts or in his name: the licence
+# server he deploys on Render, the Stripe setup, and the legal page. This is a
+# heads-up, not a required review.
+/Server/ @seventycookies6-design
+/render.yaml @seventycookies6-design
+/tools/setup_stripe_store.js @seventycookies6-design
+/STRIPE_SETUP.md @seventycookies6-design
+/Website/legal.html @seventycookies6-design
+/LEGAL_CHECKLIST.md @seventycookies6-design
