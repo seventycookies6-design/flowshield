@@ -29,6 +29,7 @@ import json
 import os
 import shutil
 import subprocess
+import tempfile
 import time
 from contextlib import contextmanager
 from pathlib import Path
@@ -56,6 +57,7 @@ _NO_SETTINGS = b""
 
 _depth = 0
 _launched_apps: dict[int, psutil.Process] = {}
+_guard_lock_release = None
 _EXIT_TIMEOUT = 10
 _RESTORE_ATTEMPTS = 3
 _RESTORE_SETTLE = 0.75
@@ -191,6 +193,90 @@ def _back_up_trial_record() -> None:
     _back_up_registry_value(TRIAL_KEY, TRIAL_VALUE_NAME, TRIAL_BACKUP_PATH)
 
 
+def user_state_fingerprint() -> tuple:
+    """Hash real settings and read the two guarded HKCU values without changing them."""
+    settings_hash = (hashlib.sha256(SETTINGS_PATH.read_bytes()).hexdigest()
+                     if SETTINGS_PATH.exists() else None)
+    if winreg is None:
+        return settings_hash, None, None
+    return (
+        settings_hash,
+        _read_registry_value(RUN_KEY, RUN_VALUE_NAME),
+        _read_registry_value(TRIAL_KEY, TRIAL_VALUE_NAME),
+    )
+
+
+def _acquire_cross_process_lock():
+    """Serialize guarded sessions across worktrees without leaving an AppData file."""
+    identity = os.path.normcase(str(SETTINGS_PATH.resolve())).encode("utf-8")
+    lock_name = hashlib.sha256(identity).hexdigest()
+
+    if os.name == "nt":
+        import ctypes
+        from ctypes import wintypes
+
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        kernel32.CreateMutexW.argtypes = (wintypes.LPVOID, wintypes.BOOL, wintypes.LPCWSTR)
+        kernel32.CreateMutexW.restype = wintypes.HANDLE
+        kernel32.WaitForSingleObject.argtypes = (wintypes.HANDLE, wintypes.DWORD)
+        kernel32.WaitForSingleObject.restype = wintypes.DWORD
+        kernel32.ReleaseMutex.argtypes = (wintypes.HANDLE,)
+        kernel32.ReleaseMutex.restype = wintypes.BOOL
+        kernel32.CloseHandle.argtypes = (wintypes.HANDLE,)
+        kernel32.CloseHandle.restype = wintypes.BOOL
+
+        handle = kernel32.CreateMutexW(
+            # Local\ is enough: the guarded state is per user. Global\ can need
+            # SeCreateGlobalPrivilege, which a standard user doesn't have.
+            None, False, rf"Local\FlowShield.SettingsGuard.{lock_name}"
+        )
+        if not handle:
+            raise ctypes.WinError(ctypes.get_last_error())
+
+        wait_result = kernel32.WaitForSingleObject(handle, 0)
+        if wait_result == 0x00000102:  # WAIT_TIMEOUT
+            print("Another guarded FlowShield test session is running; waiting.")
+            wait_result = kernel32.WaitForSingleObject(handle, 0xFFFFFFFF)
+        if wait_result not in (0x00000000, 0x00000080):  # OBJECT_0 / ABANDONED
+            error = ctypes.WinError(ctypes.get_last_error())
+            kernel32.CloseHandle(handle)
+            raise error
+
+        def release():
+            try:
+                if not kernel32.ReleaseMutex(handle):
+                    raise ctypes.WinError(ctypes.get_last_error())
+            finally:
+                kernel32.CloseHandle(handle)
+
+        return release
+
+    import fcntl
+
+    lock_dir = Path(tempfile.gettempdir()) / "FlowShield"
+    lock_dir.mkdir(parents=True, exist_ok=True)
+    lock_path = lock_dir / f"settings-guard-{lock_name}.lock"
+    handle = open(lock_path, "a+b")
+    waiting = False
+    while True:
+        try:
+            fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            break
+        except BlockingIOError:
+            if not waiting:
+                print("Another guarded FlowShield test session is running; waiting.")
+                waiting = True
+            time.sleep(0.25)
+
+    def release():
+        try:
+            fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+        finally:
+            handle.close()
+
+    return release
+
+
 def clear_trial_record() -> None:
     """
     Remove the trial record, for a launch that must look like a clean install.
@@ -261,14 +347,26 @@ def _restore_trial_record() -> None:
 
 @contextmanager
 def preserve_user_settings():
-    """Back up user state on entry, restore on exit. Safe to nest."""
-    global _depth
+    """Back up user state on entry, restore on exit, and serialize guarded runs."""
+    global _depth, _guard_lock_release
     if _depth == 0:
-        back_up()
+        release_lock = _acquire_cross_process_lock()
+        try:
+            back_up()
+        except BaseException:
+            release_lock()
+            raise
+        _guard_lock_release = release_lock
     _depth += 1
     try:
         yield
     finally:
         _depth -= 1
         if _depth == 0:
-            restore()
+            try:
+                restore()
+            finally:
+                release_lock = _guard_lock_release
+                _guard_lock_release = None
+                if release_lock is not None:
+                    release_lock()

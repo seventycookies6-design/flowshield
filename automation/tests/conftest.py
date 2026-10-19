@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+import ast
+import inspect
 import sys
+import textwrap
 import time
+from functools import lru_cache
 from pathlib import Path
 
 import pytest
@@ -21,21 +25,122 @@ from config import (  # noqa: E402
 )
 from core.diagnostics import DiagnosticLogger  # noqa: E402
 from core.services import ServiceGroup, port_is_open  # noqa: E402
-from core.settings_guard import preserve_user_settings  # noqa: E402
+from core.settings_guard import (  # noqa: E402
+    preserve_user_settings,
+    user_state_fingerprint,
+)
 from desktop.app_controller import DesktopController  # noqa: E402
 
 
 def pytest_configure(config):
     config.addinivalue_line("markers", "stripe: needs Stripe test credentials")
     config.addinivalue_line("markers", "ui: drives the desktop app (slow)")
+    config.addinivalue_line(
+        "markers", "touches_user_state: reads or changes real FlowShield user state"
+    )
     config.addinivalue_line("markers", "e2e: full end-to-end path")
 
 
+_USER_STATE_FIXTURES = frozenset({
+    "fresh_app",
+    "schedule_app",
+    "expired_app",
+    "app",
+    "trial_expiring_soon_app",
+})
+_USER_STATE_CALLS = frozenset({
+    "launch_app",
+    "launch_app_process",
+    "run_app_process",
+    "clear_trial_record",
+    "preserve_user_settings",
+})
+@lru_cache(maxsize=None)
+def _function_touches_user_state(function) -> bool:
+    """Catch direct state access even when the test has not been marked yet."""
+    try:
+        tree = ast.parse(textwrap.dedent(inspect.getsource(function)))
+    except (OSError, TypeError, IndentationError, SyntaxError):
+        return False
+
+    for node in ast.walk(tree):
+        if (isinstance(node, ast.Attribute) and node.attr == "SETTINGS_PATH"
+                or isinstance(node, ast.Name) and node.id == "SETTINGS_PATH"):
+            return True
+        if not isinstance(node, ast.Call):
+            continue
+        func = node.func
+        if isinstance(func, ast.Name) and func.id in _USER_STATE_CALLS:
+            return True
+        if isinstance(func, ast.Attribute):
+            if func.attr in _USER_STATE_CALLS:
+                return True
+            if (isinstance(func.value, ast.Name)
+                    and func.value.id == "winreg"):
+                return True
+    return False
+
+
+def _fixture_isolates_state(item) -> bool:
+    """Recognize the tier 5 `guard` fixture that redirects file and registry access."""
+    fixture_info = getattr(item, "_fixtureinfo", None)
+    if fixture_info is None:
+        return False
+    definitions = fixture_info.name2fixturedefs.get("guard", ())
+    for definition in definitions:
+        try:
+            source = inspect.getsource(definition.func)
+        except (OSError, TypeError):
+            continue
+        if ('"SETTINGS_PATH"' in source and '"winreg"' in source
+                and "tmp_path" in source and "monkeypatch" in source):
+            return True
+    return False
+
+
+def _item_touches_user_state(item) -> bool:
+    if (item.get_closest_marker("ui")
+            or item.get_closest_marker("touches_user_state")
+            or _USER_STATE_FIXTURES.intersection(item.fixturenames)):
+        return True
+    if _fixture_isolates_state(item):
+        return False
+    function = getattr(item, "obj", None)
+    if function is not None:
+        return _function_touches_user_state(getattr(function, "__func__", function))
+    return False
+
+
+def _session_needs_settings_guard(items) -> bool:
+    """Whether a collected test can launch the app or change real user state."""
+    return any(_item_touches_user_state(item) for item in items)
+
+
+def _fingerprint_summary(fingerprint) -> str:
+    settings_hash, run_value, trial_value = fingerprint
+    settings = settings_hash or "absent"
+    return (f"settings SHA-256={settings}; HKCU Run.FlowShield={run_value!r}; "
+            f"HKCU Trial.StartedUtc={trial_value!r}")
+
+
 @pytest.fixture(scope="session", autouse=True)
-def user_settings():
-    """The owner's real settings.json, set aside for the run and put back after."""
-    with preserve_user_settings():
-        yield
+def user_settings(request):
+    """Guard app/state tests; fingerprint fast-only sessions without backups."""
+    if _session_needs_settings_guard(request.session.items):
+        with preserve_user_settings():
+            yield
+        return
+
+    before = user_state_fingerprint()
+    yield
+    after = user_state_fingerprint()
+    if after != before:
+        pytest.fail(
+            "A fast test changed real FlowShield user state. "
+            f"Before: {_fingerprint_summary(before)}. "
+            f"After: {_fingerprint_summary(after)}.",
+            pytrace=False,
+        )
 
 
 @pytest.fixture(scope="session")
