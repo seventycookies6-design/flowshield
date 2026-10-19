@@ -5,6 +5,10 @@ the name, it is the working rulebook for every agent and person on this repo,
 not only Claude. This file restates the rules that matter most so they can't be
 missed.
 
+Before working in a folder, also read its rules: [automation/CLAUDE.md](automation/CLAUDE.md),
+[DesktopApp/CLAUDE.md](DesktopApp/CLAUDE.md) and [Server/CLAUDE.md](Server/CLAUDE.md).
+The root rules still apply.
+
 ## You merge only when your human asks
 
 Keenan (**seventycookies6-design**) and Miles (**milessmart6-pixel**) have equal

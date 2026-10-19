@@ -100,7 +100,7 @@ def check_evidence(evidence, edited_file: str | None, tracked: set[str],
     """
     Every quote must exist verbatim (whitespace-insensitive) in its file, and an
     edit needs at least one quote from another, non-historical file. A generated
-    snapshot such as FINAL_REPORT.md records a past run; its numbers aren't
+    snapshot such as docs/history/FINAL_REPORT.md records a past run; its numbers aren't
     evidence of the current state (a first live run "corrected" a test count
     from 200 to the report's stale 196 when the real count was 227).
     """

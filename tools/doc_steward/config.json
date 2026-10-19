@@ -5,7 +5,12 @@
     "README.md",
     "CLAUDE.md",
     "AGENTS.md",
-    "HANDOFF_PROMPT.md",
+    "automation/CLAUDE.md",
+    "automation/AGENTS.md",
+    "DesktopApp/CLAUDE.md",
+    "DesktopApp/AGENTS.md",
+    "Server/CLAUDE.md",
+    "Server/AGENTS.md",
     "CUSTOMER_EXPERIENCE_PROMPT.md",
     "PLANNING.md",
     "SELLING.md",
@@ -17,10 +22,11 @@
   ],
 
   "report_only": [
-    "MERGE_REVIEW_2026-09-15.md",
-    "FINAL_REPORT.md",
-    "ORG_PLANNING_GRADE.md",
-    "ORG_PLANNING_GRADE_2026-09-21.md",
+    "docs/history/HANDOFF_PROMPT.md",
+    "docs/history/MERGE_REVIEW_2026-09-15.md",
+    "docs/history/FINAL_REPORT.md",
+    "docs/history/ORG_PLANNING_GRADE.md",
+    "docs/history/ORG_PLANNING_GRADE_2026-09-21.md",
     "design/brand/README.md",
     "Website/index.html",
     "Website/success.html",
@@ -29,10 +35,11 @@
   ],
 
   "historical": [
-    "MERGE_REVIEW_2026-09-15.md",
-    "FINAL_REPORT.md",
-    "ORG_PLANNING_GRADE.md",
-    "ORG_PLANNING_GRADE_2026-09-21.md"
+    "docs/history/HANDOFF_PROMPT.md",
+    "docs/history/MERGE_REVIEW_2026-09-15.md",
+    "docs/history/FINAL_REPORT.md",
+    "docs/history/ORG_PLANNING_GRADE.md",
+    "docs/history/ORG_PLANNING_GRADE_2026-09-21.md"
   ],
 
   "code": [

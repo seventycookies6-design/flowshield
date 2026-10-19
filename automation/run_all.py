@@ -1,5 +1,5 @@
 """
-Run everything and regenerate FINAL_REPORT.md.
+Run everything and regenerate docs/history/FINAL_REPORT.md.
 
     python automation/run_all.py                 # full suite
     python automation/run_all.py --fast           # skip the slow UI tiers
@@ -83,7 +83,7 @@ def main() -> int:
         print(f"  {name:<8} {mark}")
 
     print(f"\n  elapsed: {time.time() - started:.0f}s")
-    print(f"  report:  {PROJECT_ROOT / 'FINAL_REPORT.md'}\n")
+    print(f"  report:  {PROJECT_ROOT / 'docs/history/FINAL_REPORT.md'}\n")
 
     # The report generator's exit code is not a test outcome.
     return 0 if results["e2e"] == 0 and results["pytest"] == 0 else 1

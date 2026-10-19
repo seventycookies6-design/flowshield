@@ -585,13 +585,14 @@ class TestDocSteward:
     def test_a_generated_snapshot_is_not_evidence_on_its_own(self, steward, repo):
         """Reproduces the first live run: it 'corrected' 200 tests to the report's stale 196."""
         root, tracked = repo
-        (root / "HANDOFF_PROMPT.md").write_text("| Tests | 200 tests. |\n", encoding="utf-8")
-        (root / "FINAL_REPORT.md").write_text("Duration: 1661.6s · 196 tests collected\n", encoding="utf-8")
-        tracked = tracked | {"HANDOFF_PROMPT.md", "FINAL_REPORT.md"}
-        stale = self.edit(file="HANDOFF_PROMPT.md", find="200 tests", replace="196 tests",
-                          evidence=[{"file": "FINAL_REPORT.md", "quote": "196 tests collected"}])
+        (root / "docs/history").mkdir(parents=True)
+        (root / "README.md").write_text("| Tests | 200 tests. |\n", encoding="utf-8")
+        (root / "docs/history/FINAL_REPORT.md").write_text("Duration: 1661.6s · 196 tests collected\n", encoding="utf-8")
+        tracked = tracked | {"docs/history/FINAL_REPORT.md"}
+        stale = self.edit(file="README.md", find="200 tests", replace="196 tests",
+                          evidence=[{"file": "docs/history/FINAL_REPORT.md", "quote": "196 tests collected"}])
         config = steward.load_config()
-        assert "FINAL_REPORT.md" in config["historical"]
+        assert "docs/history/FINAL_REPORT.md" in config["historical"]
         verdict = steward.validate_edit(stale, config, tracked, self.reader(root))
         assert not verdict.ok and "non-historical" in verdict.reason, verdict.reason
 
@@ -613,7 +614,7 @@ class TestDocSteward:
         assert config["editable"], "the allowlist is empty"
         assert all(p.endswith(".md") for p in config["editable"]), config["editable"]
         assert not set(config["editable"]) & set(config["report_only"])
-        for protected in ("Website/index.html", "Website/legal.html", "FINAL_REPORT.md"):
+        for protected in ("Website/index.html", "Website/legal.html", "docs/history/FINAL_REPORT.md"):
             assert protected not in config["editable"]
 
     def test_globs_match_files_at_the_top_of_a_folder(self, steward):
@@ -4736,3 +4737,19 @@ class TestStoreAppsAreBlockedTimidly:
             "private static IEnumerable<PickerEntry> StoreApps()", 1)[0]
         assert "PackagedWindows.Frames()" in running
         assert "IsUnderWindows(path)" in running.split("PackagedWindows.Frames()", 1)[1]
+
+
+class TestReportHistory:
+    def test_report_is_generated_under_history_not_at_root(self, tmp_path, monkeypatch):
+        import make_report
+
+        monkeypatch.setattr(make_report, "PROJECT_ROOT", tmp_path)
+        monkeypatch.setattr(make_report, "newest", lambda pattern: None)
+        monkeypatch.setattr(make_report, "stripe_configured", lambda: False)
+        monkeypatch.setattr(make_report, "stripe_section", lambda: "Test mode; not configured.")
+        monkeypatch.setattr(make_report, "gallery", lambda: "No screenshots.")
+
+        assert make_report.main() == 0
+        report = tmp_path / "docs/history/FINAL_REPORT.md"
+        assert "# Basalt" in report.read_text(encoding="utf-8")
+        assert not (tmp_path / report.name).exists()

@@ -43,7 +43,7 @@ strong; planning *freshness* and issue hygiene are where agent time is wasted.
 2. **Stale phase / Progress checklists** — Phase #1 still shows 1.2–1.15 unchecked while many of those items are done and closed elsewhere. The CX Progress table still says “Everything else · Not started” despite substantial shipped work.
 3. **Doc-steward PR pile-up** — multiple open PRs titled the same (“Keep docs consistent with the code”). The steward invents work faster than it is reviewed.
 4. **Labels and milestones** — most active work issues have no labels; no Launch milestone on GitHub.
-5. **Historical root docs** — agents can treat `FINAL_REPORT.md` / old handoffs as current unless told otherwise.
+5. **Historical root docs** — agents can treat `docs/history/FINAL_REPORT.md` / old handoffs as current unless told otherwise.
 
 ---
 
@@ -55,7 +55,7 @@ strong; planning *freshness* and issue hygiene are where agent time is wasted.
 | **P0** | Drain the doc-steward PR queue | Close duplicates; merge one green steward PR; raise the bar so a new run cannot open while previous ones sit open. |
 | **P1** | Labels + a Launch milestone | Require `bug` / `design` / `feature` / `blocked` / `owner-decision` on every work issue. |
 | **P1** | CX Progress as a pointer or generated table | Stop hand-maintaining a second progress list that goes stale. |
-| **P2** | Park historical root docs | Move `FINAL_REPORT.md`, `MERGE_REVIEW_*`, stale handoff copies into something like `docs/archive/` so agents stop treating them as current. |
+| **P2** | Park historical root docs | Move `docs/history/FINAL_REPORT.md`, `docs/history/MERGE_REVIEW_*`, stale handoff copies into something like `docs/archive/` so agents stop treating them as current. |
 | **P2** | Model hint on issues | One-line “Preferred agent/model” on new issues (already implied in Who builds what — make it per-issue). |
 
 ---

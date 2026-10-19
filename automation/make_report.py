@@ -1,10 +1,10 @@
 """
-Generate FINAL_REPORT.md from the newest E2E and pytest reports.
+Generate docs/history/FINAL_REPORT.md from the newest E2E and pytest reports.
 
     python automation/make_report.py
 
 Reads reports/e2e-*.json and reports/pytest_report.json, and writes
-FINAL_REPORT.md at the project root with an embedded screenshot gallery.
+docs/history/FINAL_REPORT.md with a local screenshot inventory.
 Secrets are redacted: only a key's prefix ever reaches the file.
 """
 
@@ -401,7 +401,8 @@ def main() -> int:
         limitations=limitations,
     )
 
-    out = PROJECT_ROOT / "FINAL_REPORT.md"
+    out = PROJECT_ROOT / "docs/history/FINAL_REPORT.md"
+    out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(content, encoding="utf-8")
     print(f"wrote {out} ({len(content):,} bytes)")
     return 0
