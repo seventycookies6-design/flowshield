@@ -1,5 +1,7 @@
+using System.IO;
 using Velopack;
 using Velopack.Sources;
+using FlowShield.Models;
 
 namespace FlowShield.Services;
 
@@ -12,9 +14,10 @@ namespace FlowShield.Services;
 /// app during a sealed sprint would hand someone an escape hatch the whole
 /// feature exists to remove.
 /// </summary>
-public class UpdateService
+public class UpdateService : IUpdateService
 {
-    // Public repository, so no token is needed to read releases.
+    // Public repository, so no token is needed. The go-live batch (#166)
+    // moves downloads off GitHub; keep the feed URL in this one constant.
     private const string ReleaseFeed = "https://github.com/seventycookies6-design/flowshield";
 
     private readonly UpdateManager? _manager;
@@ -23,7 +26,25 @@ public class UpdateService
     {
         try
         {
-            _manager = new UpdateManager(new GithubSource(ReleaseFeed, null, false));
+            // VM testing only: never turn an override into another network feed.
+            var feedOverride = Environment.GetEnvironmentVariable("FLOWSHIELD_UPDATE_FEED");
+            IUpdateSource source;
+            if (feedOverride is not null
+                && Path.IsPathFullyQualified(feedOverride)
+                && !feedOverride.StartsWith(@"\", StringComparison.Ordinal)
+                && !feedOverride.StartsWith("/", StringComparison.Ordinal)
+                && Directory.Exists(feedOverride))
+            {
+                source = new SimpleFileSource(new DirectoryInfo(feedOverride));
+                Log.Info($"using local update feed: {feedOverride}");
+            }
+            else
+            {
+                if (feedOverride is not null)
+                    Log.Warn("ignoring FLOWSHIELD_UPDATE_FEED: expected an existing absolute local directory");
+                source = new GithubSource(ReleaseFeed, null, false);
+            }
+            _manager = new UpdateManager(source);
         }
         catch (Exception ex)
         {
@@ -44,9 +65,16 @@ public class UpdateService
 
     private UpdateInfo? _pending;
 
-    public bool UpdateReady => _pending is not null;
+    private VelopackAsset? PendingAsset => _pending?.TargetFullRelease
+        ?? (IsSupported ? _manager?.UpdatePendingRestart : null);
 
-    public string? PendingVersion => _pending?.TargetFullRelease?.Version?.ToString();
+    public bool UpdateReady => PendingAsset is not null;
+
+    public string? PendingVersion => PendingAsset?.Version?.ToString();
+    public string? PendingReleaseNotes => PendingAsset?.NotesMarkdown;
+
+    /// <summary>Whether the last check failed, as opposed to finding nothing new.</summary>
+    public bool LastCheckFailed { get; private set; }
 
     /// <summary>
     /// Look for an update and stage it. Returns the new version, or null.
@@ -56,6 +84,7 @@ public class UpdateService
     {
         if (_manager is null || !_manager.IsInstalled) return null;
 
+        LastCheckFailed = false;
         try
         {
             var update = await _manager.CheckForUpdatesAsync();
@@ -75,6 +104,7 @@ public class UpdateService
         catch (Exception ex)
         {
             Log.Warn($"update check failed: {ex.Message}");
+            LastCheckFailed = true;
             return null;
         }
     }
@@ -86,24 +116,41 @@ public class UpdateService
     /// this is the guarantee. Restarting mid-sprint would drop the shield and
     /// let a sealed session be escaped by clicking "update".
     /// </summary>
-    public bool ApplyAndRestart(bool sprintRunning)
+    public bool ApplyAndRestart(UpdateActivity activity)
     {
-        if (_manager is null || _pending is null) return false;
-        if (sprintRunning)
+        if (_manager is null || PendingAsset is not { } pending) return false;
+        if (!UpdatePolicy.CanApply(activity))
         {
-            Log.Warn("update deferred: a sprint is running");
+            Log.Info("update deferred: a routine or shield is active");
             return false;
         }
 
         try
         {
-            Log.Info($"applying update {_pending.TargetFullRelease.Version} and restarting");
-            _manager.ApplyUpdatesAndRestart(_pending);
+            Log.Info($"applying update {pending.Version} and restarting");
+            _manager.ApplyUpdatesAndRestart(pending);
             return true;
         }
         catch (Exception ex)
         {
             Log.Error("applying the update failed", ex);
+            return false;
+        }
+    }
+
+    /// <summary>Actual exit only. The updater waits for us, then applies without relaunching.</summary>
+    public bool ApplyOnQuit(UpdateActivity activity)
+    {
+        if (_manager is null || PendingAsset is not { } pending) return false;
+        if (!UpdatePolicy.CanApply(activity)) return false;
+        try
+        {
+            _manager.WaitExitThenApplyUpdates(pending, silent: true, restart: false);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Log.Error("applying the update on exit failed", ex);
             return false;
         }
     }
