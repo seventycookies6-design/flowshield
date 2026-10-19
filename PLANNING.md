@@ -58,6 +58,7 @@ without opening a Markdown file.
 | `design` | Visual language work, by `DESIGN_SYSTEM.md` section |
 | `infrastructure` | Tests, CI, tooling, process — nothing a customer sees |
 | `documentation` | Docs and trackers |
+| `ready` | Specified well enough to start, and nothing blocks it. An agent looking for work runs `gh issue list -l ready --search no:assignee`. Never on the same issue as `blocked` |
 | `blocked` | Waiting on another item, a person, or an owner decision. **Say what it waits on in the issue**, or the label is noise |
 | `owner-decision` | Only Keenan can settle it: money, legal identity, trademarks, live keys |
 | `security` · `accessibility` · `customer-experience` | As before |

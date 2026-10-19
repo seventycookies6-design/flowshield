@@ -18,20 +18,24 @@ written, never updated since — don't treat them as the current state.
 
 1. **Claim before you start.** Every piece of work has a GitHub issue. Assign it
    to yourself (`gh issue edit <n> --add-assignee @me`) before writing code. If
-   it's already assigned to someone else, pick something else or ask.
-2. **Start from the latest `main`, on a branch.** Never commit to `main`; it is
-   protected and only accepts pull requests.
+   it's already assigned to someone else, pick something else or ask. Looking
+   for something to pick up? `gh issue list -l ready --search no:assignee`
+   lists what is unblocked and unclaimed.
+2. **Start from the latest `main`, on a branch named
+   `<type>/<issue>-<short-name>`** (`feat/`, `fix/`, `docs/`, `test/`,
+   `design/`), so every branch leads back to its issue. Never commit to
+   `main`; it is protected and only accepts pull requests.
 
    ```bash
    git fetch origin
-   git switch -c feat/<short-name> origin/main
+   git switch -c feat/<issue>-<short-name> origin/main
    ```
 
    Running several tasks at once on one machine? Give each its own worktree
    instead of switching branches under a running agent:
 
    ```bash
-   git worktree add ../FlowShield-<short-name> -b feat/<short-name> origin/main
+   git worktree add ../FlowShield-<short-name> -b feat/<issue>-<short-name> origin/main
    ```
 
 3. **Keep branches small and short-lived.** One issue, one pull request,
