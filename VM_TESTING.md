@@ -29,6 +29,31 @@ machine, which is fine for most work and wrong for anything in the table below.
 Ordinary unit, integration and UI tests do **not** need the VM. Run them where
 you are.
 
+## Testing updates
+
+Use local releases in the disposable VM so test versions never reach real
+installs. Set `FLOWSHIELD_UPDATE_FEED` in the VM before launching the app to an
+absolute path of an existing local directory containing the newer release's
+feed and packages. The app logs the local feed in use. URLs, network paths,
+relative paths and missing directories are ignored with a warning; without a
+valid override it uses the normal GitHub feed. Remove the variable after testing.
+
+1. On the build machine, run `tools/build_release.ps1 -Version 1.0.90` with
+   `pwsh` (or `powershell.exe -ExecutionPolicy Bypass -File`). Copy everything
+   in `dist/releases/` to a separate `1.0.90/` staging folder **before** the
+   next build, which wipes `dist/`.
+2. Write a Markdown release-notes file with a `## ` heading and two `- `
+   bullets. Build `-Version 1.0.91 -ReleaseNotes <absolute-notes-path>` and copy
+   `dist/releases/` to a separate `1.0.91/` folder. Build both versions locally;
+   never add `-Publish` for this test.
+3. Copy both folders into the clean VM. Install `1.0.90/FlowShield-win-Setup.exe`,
+   fully quit the app, and relaunch it from a shell whose
+   `FLOWSHIELD_UPDATE_FEED` points to the VM's `1.0.91/` folder. Check for updates
+   in Settings, verify 1.0.91 stages, and check that restart is deferred during
+   an active sprint. Once idle, restart to update and confirm version 1.0.91
+   and the two release-note bullets in What's new. Repeat from a clean VM to
+   check automatic staging and applying on quit.
+
 ## Requesting a VM run
 
 Open a comment on the standing **VM test bench** issue saying what you want

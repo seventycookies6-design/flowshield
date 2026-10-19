@@ -1,3 +1,4 @@
+using System.IO;
 using Velopack;
 using Velopack.Sources;
 using FlowShield.Models;
@@ -25,7 +26,25 @@ public class UpdateService : IUpdateService
     {
         try
         {
-            _manager = new UpdateManager(new GithubSource(ReleaseFeed, null, false));
+            // VM testing only: never turn an override into another network feed.
+            var feedOverride = Environment.GetEnvironmentVariable("FLOWSHIELD_UPDATE_FEED");
+            IUpdateSource source;
+            if (feedOverride is not null
+                && Path.IsPathFullyQualified(feedOverride)
+                && !feedOverride.StartsWith(@"\", StringComparison.Ordinal)
+                && !feedOverride.StartsWith("/", StringComparison.Ordinal)
+                && Directory.Exists(feedOverride))
+            {
+                source = new SimpleFileSource(new DirectoryInfo(feedOverride));
+                Log.Info($"using local update feed: {feedOverride}");
+            }
+            else
+            {
+                if (feedOverride is not null)
+                    Log.Warn("ignoring FLOWSHIELD_UPDATE_FEED: expected an existing absolute local directory");
+                source = new GithubSource(ReleaseFeed, null, false);
+            }
+            _manager = new UpdateManager(source);
         }
         catch (Exception ex)
         {

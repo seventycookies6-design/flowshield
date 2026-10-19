@@ -177,6 +177,33 @@ class TestAutomaticUpdateWiring:
         assert re.search(r'const string ReleaseFeed\s*=\s*"' + re.escape(url) + '"', source)
         assert "#166" in source
 
+    def test_local_update_feed_accepts_only_an_existing_absolute_local_directory(self):
+        """VM updates must stay local; invalid overrides keep the production feed."""
+        source = (self.ROOT / "Services" / "UpdateService.cs").read_text(encoding="utf-8")
+        assert re.findall(r'Environment.GetEnvironmentVariable\("([^"]+)"\)', source) == [
+            "FLOWSHIELD_UPDATE_FEED"
+        ]
+        assert 'const string ReleaseFeed = "https://github.com/seventycookies6-design/flowshield";' in source
+        constructor = source.split("public UpdateService()", 1)[1].split("catch (Exception", 1)[0]
+        assert 'var feedOverride = Environment.GetEnvironmentVariable("FLOWSHIELD_UPDATE_FEED");' in constructor
+        selection = re.search(
+            r'if\s*\((.*?)\)\s*\{\s*source = new SimpleFileSource\(new DirectoryInfo\(feedOverride\)\);(.*?)\}'
+            r'\s*else\s*\{(.*?)\}', constructor, re.S,
+        )
+        assert selection, "local source must be guarded and have a GitHub fallback"
+        condition, local, fallback = selection.groups()
+        assert re.sub(r"\s+", " ", condition).strip() == (
+            'feedOverride is not null && Path.IsPathFullyQualified(feedOverride) '
+            r'&& !feedOverride.StartsWith(@"\", StringComparison.Ordinal) '
+            '&& !feedOverride.StartsWith("/", StringComparison.Ordinal) '
+            '&& Directory.Exists(feedOverride)'
+        )
+        assert local.count("Log.Info(") == 1 and "{feedOverride}" in local
+        assert 'if (feedOverride is not null)' in fallback
+        assert fallback.count("Log.Warn(") == 1
+        assert 'source = new GithubSource(ReleaseFeed, null, false);' in fallback
+        assert '_manager = new UpdateManager(source);' in constructor
+
     def test_new_automation_ids_are_on_controls(self):
         import xml.etree.ElementTree as ET
         ap = "{http://schemas.microsoft.com/winfx/2006/xaml/presentation}"
