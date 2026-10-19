@@ -107,10 +107,13 @@ class TestBlockedApps:
     def test_there_is_no_blocked_app_limit(self, fresh_app):
         """The old free tier stopped at three; the trial and a purchase have no cap."""
         fresh_app.navigate_to_tab("Blocked Apps")
+        expected = {f"limit-probe-{index}" for index in range(5)}
         for index in range(5):
-            fresh_app.add_blocked_app(f"limit-probe-{index}")
+            assert fresh_app.add_blocked_app(f"limit-probe-{index}"), f"Add disabled for app {index}"
             time.sleep(0.5)
 
+        saved = {app["ProcessName"] for app in verify.read_settings()["BlockedApps"]}
+        assert saved == expected, f"blocked apps were not all persisted: {saved}"
         names = fresh_app.blocked_app_names()
         assert len(names) == 5, f"only {len(names)} of 5 apps were added: {names}"
 
