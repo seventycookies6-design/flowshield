@@ -31,7 +31,7 @@ from config import (
     WEBSITE_URL,
     WINDOW_CONNECT_TIMEOUT,
 )
-from core.settings_guard import clear_trial_record
+from core.settings_guard import clear_trial_record, launch_app_process
 
 # A running sprint puts the countdown in the title ("Basalt — 14:32", F19),
 # so windows are matched on the prefix rather than the exact title.
@@ -215,7 +215,7 @@ class DesktopController:
             args.extend(extra_args)
 
         self._say(f"launching {Path(APP_EXE).name} {' '.join(args[1:])}")
-        process = subprocess.Popen(args, cwd=str(Path(APP_EXE).parent))
+        process = launch_app_process(args, cwd=str(Path(APP_EXE).parent))
         self.pid = process.pid
         return self.pid
 

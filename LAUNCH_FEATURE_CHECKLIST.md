@@ -83,7 +83,7 @@ roadmap item below has exactly one owner. Tracking issues: #37 (Keenan) and
 
 **Balance:** effort is counted as S = 1, M = 3, L = 6. Keenan's launch work totals 50 points, and Miles's 49. Website blocking (F10, L) and allow-only focus (F11) sit with Keenan but come after launch, so they're outside that count.
 
-**Merging doesn't change:** Keenan's Claude Code session still reviews and merges everyone's pull requests, as `CLAUDE.md` describes.
+**Merging:** either Keenan or Miles reviews and merges any pull request, their own included, as `CLAUDE.md` describes. Splitting the work doesn't make either of them wait on the other.
 
 ### Keenan (Claude Code)
 

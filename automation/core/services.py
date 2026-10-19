@@ -21,6 +21,10 @@ from config import (
     WEBSITE_URL,
 )
 
+def _reuse_existing_services() -> bool:
+    """Adopting a process outside this run requires an explicit developer opt-in."""
+    return os.environ.get("FLOWSHIELD_REUSE_EXISTING_SERVICES") == "1"
+
 
 def _server_env() -> dict:
     """
@@ -64,7 +68,8 @@ class ManagedService:
     """A background process this suite owns and must clean up."""
 
     def __init__(self, name: str, args: list[str], cwd: Path, port: int,
-                 health_url: str, logger=None, env: dict | None = None):
+                 health_url: str, logger=None, env: dict | None = None,
+                 allow_existing: bool = False):
         self.name = name
         self.args = args
         self.cwd = Path(cwd)
@@ -72,6 +77,7 @@ class ManagedService:
         self.health_url = health_url
         self.log = logger
         self.env = env
+        self.allow_existing = allow_existing
         self.process: subprocess.Popen | None = None
         self.log_path = LOG_DIR / f"{name}.out.log"
         self.adopted = False          # already running when we arrived
@@ -83,7 +89,20 @@ class ManagedService:
             print(f"    {message}")
 
     def start(self, wait_seconds: float = 30.0) -> bool:
+        if self.process is not None:
+            if self.process.poll() is None:
+                self._say(f"{self.name}: already started by this run; checking health")
+                return self.wait_healthy(wait_seconds=8.0)
+            raise RuntimeError(
+                f"{self.name} process exited with code {self.process.returncode} before restart"
+            )
+
         if port_is_open(self.port):
+            if not self.allow_existing:
+                raise RuntimeError(
+                    f"{self.name}: port {self.port} is already in use; refusing to reuse "
+                    "a service that may belong to another checkout"
+                )
             self.adopted = True
             self._say(f"{self.name}: port {self.port} already serving — reusing it")
             return self.wait_healthy(wait_seconds=8.0)
@@ -158,6 +177,7 @@ def license_server(logger=None) -> ManagedService:
         health_url=f"{SERVER_URL}/health",
         logger=logger,
         env=_server_env(),
+        allow_existing=_reuse_existing_services(),
     )
 
 
@@ -171,6 +191,7 @@ def website_server(logger=None) -> ManagedService:
         port=WEBSITE_PORT,
         health_url=f"{WEBSITE_URL}/index.html",
         logger=logger,
+        allow_existing=_reuse_existing_services(),
     )
 
 
