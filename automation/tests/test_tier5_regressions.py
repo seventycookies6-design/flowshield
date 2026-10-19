@@ -10561,3 +10561,23 @@ class TestBlockedAppsListKeepsItsViewport:
         while time.monotonic() < deadline and saved_apps() != expected - {"limit-probe-4"}:
             time.sleep(0.1)
         assert saved_apps() == expected - {"limit-probe-4"}
+
+
+class TestBreakCommandsRefreshCanExecute:
+    """Break state changes must make WPF recheck the break commands."""
+
+    TODAY_VM = Path(DESKTOP_DIR) / "ViewModels" / "TodayViewModel.cs"
+
+    def test_break_state_changes_refresh_the_commands(self):
+        source = self.TODAY_VM.read_text(encoding="utf-8")
+        methods = (
+            ("private void BeginBreakClock(bool resumed)", 1,
+             "Starting a break leaves its skip and continue buttons unavailable."),
+            ("private void EndBreak(bool notify)", 2,
+             "Ending a break leaves its skip and continue buttons in the wrong state."),
+            ("private void OfferBreakIfEarned(bool completed)", 1,
+             "Finishing a sprint leaves the new break buttons unavailable."),
+        )
+        for signature, expected_calls, customer_message in methods:
+            body = source.split(signature, 1)[1].split("\n    }", 1)[0]
+            assert body.count("CommandManager.InvalidateRequerySuggested();") == expected_calls, customer_message
