@@ -205,15 +205,28 @@ python -m pytest automation/tests -q
 
 ## One test run per machine
 
-Two worktrees on the same PC share more than it looks: the licence server port
-(3000), the site port (5500), and the app's settings in `%APPDATA%\FlowShield`.
-The suite reuses a server already listening on port 3000 — which may be the
-*other* worktree's code — and closes every running FlowShield before each UI
-test. Run one suite at a time per machine.
+Two worktrees on the same PC share the licence server port (3000), the site
+port (5500), the screen, and the app's real settings in `%APPDATA%\FlowShield`
+and the registry. What that allows (#382):
 
-Test runs back up and restore the real settings file through
-`automation/core/settings_guard.py`. Any new script that launches the app must
-wrap its entry point in `preserve_user_settings()`.
+- **Give each worktree its own ports** with `FLOWSHIELD_SERVER_PORT` and
+  `FLOWSHIELD_WEBSITE_PORT`. A run whose port is already taken fails instead of
+  testing the other worktree's server. To reuse a server you started by hand,
+  set `FLOWSHIELD_REUSE_EXISTING_SERVICES=1`.
+- **Runs that can touch real state take turns on their own.** A run that
+  collects a UI test, a test that launches the app, or one that writes the
+  real settings or registry backs them up and restores them through
+  `automation/core/settings_guard.py`, and waits for any other such run on the
+  machine to finish first. The full fast command includes one of those tests,
+  so two full fast runs queue rather than overlap; focused runs (`-k`, one
+  file) that touch nothing real run side by side, and fail if the real
+  settings or registry values changed under them.
+- **UI and Stripe tiers are still one at a time per machine**, run by a
+  person who can spare the screen: UI tests take it over, and Stripe tests
+  share the one test account.
+
+Any new script that launches the app must wrap its entry point in
+`preserve_user_settings()`.
 
 ## Testing on a clean machine
 
