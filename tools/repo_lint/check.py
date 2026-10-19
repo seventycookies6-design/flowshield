@@ -22,7 +22,7 @@ _ALLOWED_FORBIDDEN_PREFIXES = ("reports/vm/",)
 # and a fragment of the line, so real damage elsewhere in the same file still
 # fails, and editing the line brings the error back. Written with escapes so
 # this file doesn't trip its own check.
-_EM_DASH_MOJIBAKE = "â€”"
+_EM_DASH_MOJIBAKE = "\u00e2\u20ac\u201d"
 _ALLOWED_MOJIBAKE_EXAMPLES = {
     ("Server/email.js", f'an em dash becomes "{_EM_DASH_MOJIBAKE}"'),
     ("automation/tests/test_tier6_email.py", f'sentence rendered as "{_EM_DASH_MOJIBAKE}"'),

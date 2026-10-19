@@ -50,7 +50,7 @@ def test_forbidden_paths_and_explicit_allowlist():
 
 
 def test_a_quoted_mojibake_example_is_allowed_only_on_its_own_line():
-    damaged = "â€”"
+    damaged = "\u00e2\u20ac\u201d"
     example = f'  // renders as mojibake, an em dash becomes "{damaged}" in the first line\n'
     assert check_mojibake_text("Server/email.js", example) == []
     # The same quote in another file, or real damage elsewhere in the file, still fails.
