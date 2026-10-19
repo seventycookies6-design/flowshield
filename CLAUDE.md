@@ -11,9 +11,10 @@ in the pull request that ships it) and issues #37 / #38 hold what is next.
 `CUSTOMER_EXPERIENCE_PROMPT.md` is the original customer audit and the
 reasoning behind the work, not a status list. `DESIGN_SYSTEM.md`'s Binding part
 is what every app and site change follows. Its Current implementation part
-describes what shipped and may be changed by a design PR. `docs/history/FINAL_REPORT.md`,
-`docs/history/ORG_PLANNING_GRADE.md` and `docs/history/MERGE_REVIEW_*.md` are dated snapshots: true when
-written, never updated since — don't treat them as the current state.
+describes what shipped and may be changed by a design PR. The files in
+`docs/history/` (`FINAL_REPORT.md`, `ORG_PLANNING_GRADE.md`, `MERGE_REVIEW_*.md`,
+`HANDOFF_PROMPT.md`) are dated snapshots: true when written, never updated
+since — don't treat them as the current state.
 
 ## How work flows
 
@@ -99,11 +100,11 @@ with each other, so a doc nobody remembered to update gets caught.
   fallback — configured in `tools/doc_steward/config.json`.
 - **What it may edit:** only the Markdown files in `editable` in that config.
   Code, the site, the legal page, the PR template and the generated
-  `docs/history/FINAL_REPORT.md` are report-only. The allowlist is enforced by the script and
-  checked again in the workflow before anything is pushed; every edit must quote
-  evidence that exists in another file, or it's discarded. Files listed as
-  `historical` (the generated `docs/history/FINAL_REPORT.md`) don't count as that evidence —
-  they describe a past run, not the current state.
+  `docs/history/FINAL_REPORT.md` are report-only. The allowlist is enforced by
+  the script and checked again in the workflow before anything is pushed; every
+  edit must quote evidence that exists in another file, or it's discarded. Files
+  listed as `historical` (the generated `docs/history/FINAL_REPORT.md`) don't
+  count as that evidence — they describe a past run, not the current state.
 - **How its changes arrive:** a pull request from a `docs-steward/run-*` branch,
   labelled `docs-steward`, with before/after text and evidence for each edit.
   It never merges or approves. Problems it may not fix go to one open issue
@@ -172,6 +173,9 @@ forgotten twice.
   corrupted UTF-8 here before. Use file edit tools. `python tools/fix_mojibake.py
   <file>` repairs damage.
 - **Don't create accounts or sign in for anyone.**
+- **The blocker stays deliberately timid:** never close anything on
+  `AppBlockerService.CriticalProcesses`, no admin rights, drivers, services or
+  hosts-file edits.
 - **Never claim a feature the shipped build doesn't have** — on the site, in the
   app or in emails.
 - **Every behaviour change gets a test** in the matching tier; regressions go in
@@ -188,8 +192,8 @@ forgotten twice.
 
 Read these alongside this file before working in the matching folder:
 
-- [automation/CLAUDE.md](automation/CLAUDE.md) — test tiers, markers, settings guards
-  and one test run per machine.
+- [automation/CLAUDE.md](automation/CLAUDE.md) — test tiers, markers and the
+  driver gotchas.
 - [DesktopApp/CLAUDE.md](DesktopApp/CLAUDE.md) — the deliberately timid blocker,
   AutomationIds and WPF controls.
 - [Server/CLAUDE.md](Server/CLAUDE.md) — licence-server guidance and shared rules.
@@ -220,6 +224,31 @@ Full suite — **takes over the mouse, keyboard and screen** for several minutes
 python -m pytest automation/tests -q
 ```
 
+## One test run per machine
+
+Two worktrees on the same PC share the licence server port (3000), the site
+port (5500), the screen, and the app's real settings in `%APPDATA%\FlowShield`
+and the registry. What that allows (#382):
+
+- **Give each worktree its own ports** with `FLOWSHIELD_SERVER_PORT` and
+  `FLOWSHIELD_WEBSITE_PORT`. A run whose port is already taken fails instead of
+  testing the other worktree's server. To reuse a server you started by hand,
+  set `FLOWSHIELD_REUSE_EXISTING_SERVICES=1`.
+- **Runs that can touch real state take turns on their own.** A run that
+  collects a UI test, a test that launches the app, or one that writes the
+  real settings or registry backs them up and restores them through
+  `automation/core/settings_guard.py`, and waits for any other such run on the
+  machine to finish first. The full fast command includes one of those tests,
+  so two full fast runs queue rather than overlap; focused runs (`-k`, one
+  file) that touch nothing real run side by side, and fail if the real
+  settings or registry values changed under them.
+- **UI and Stripe tiers are still one at a time per machine**, run by a
+  person who can spare the screen: UI tests take it over, and Stripe tests
+  share the one test account.
+
+Any new script that launches the app must wrap its entry point in
+`preserve_user_settings()`.
+
 ## Testing on a clean machine
 
 A first install, `flowshield://` registration, Start with Windows, an in-app
@@ -241,7 +270,6 @@ Each of these cost real time once. Don't rediscover them.
 - **Stacked pull requests:** when one PR is built on another's branch, point
   the upper PR at `main` *before* squash-merging the lower one with branch
   deletion. Deleting a PR's base branch makes GitHub close it (#116).
-
 - **Merging a stack of squash-merged PRs:** each upper PR still carries the
   lower one's original commits, so it conflicts with the squashed copy on
   `main`. Keeping *both* sides of a test-file conflict is only right for pure
@@ -251,7 +279,6 @@ Each of these cost real time once. Don't rediscover them.
   `main` and the branch before pushing. And a scripted merge loop must check
   that CI **passed**, not just that the PR is mergeable — branch protection
   caught the one that didn't.
-
 - **A "move" that touches a line appearing twice:** check the diff for which
   copy went. A RefreshStats move deleted the wrong identical line and silently
   changed two behaviours (#129).

@@ -5,9 +5,9 @@ commands still apply. Paths and commands below are relative to the repo root.
 
 ## Safety and automation
 
-- **The blocker stays deliberately timid:** never close anything on
-  `AppBlockerService.CriticalProcesses`, no admin rights, drivers, services or
-  hosts-file edits.
+The root's rule that **the blocker stays deliberately timid** matters most
+here: never close anything on `AppBlockerService.CriticalProcesses`, no admin
+rights, drivers, services or hosts-file edits.
 
 Keep existing `AutomationId`s.
 
