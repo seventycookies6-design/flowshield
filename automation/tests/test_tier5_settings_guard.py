@@ -4,7 +4,7 @@ import psutil
 import pytest
 
 from core import settings_guard
-from tests.test_tier5_regressions import _FakeWinreg
+from tests.tier5._helpers import _FakeWinreg
 
 
 @pytest.fixture

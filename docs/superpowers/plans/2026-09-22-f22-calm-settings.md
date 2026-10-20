@@ -53,12 +53,12 @@ Rail link ids: `SettingsNav_Licence`, `SettingsNav_Focus`, `SettingsNav_App`, `S
 **Files:**
 - Modify: `DesktopApp/Views/SettingsView.xaml` (whole file restructure; cards moved verbatim)
 - Modify: `DesktopApp/Styles/` — add `SettingsGroupHeader` style to the file where `Eyebrow`/`H2` are defined (find with `grep -rn 'x:Key="Eyebrow"' DesktopApp/Styles`)
-- Test: `automation/tests/test_tier1_unit.py` (new class at end)
+- Test: `automation/tests/tier1/test_desktop.py` (new class in the matching area)
 
 **Interfaces:**
 - Produces: six `StackPanel`s with `x:Name="Group_Licence"` … `Group_About`, each starting with a header `TextBlock` `x:Name="Header_*"` that carries `AutomationProperties.AutomationId="SettingsGroup_*"` (names per table). Task 2 calls `BringIntoView` on these names.
 
-- [ ] **Step 1: Write the failing test** — append to `test_tier1_unit.py`:
+- [ ] **Step 1: Write the failing test** — add to `tier1/test_desktop.py`:
 
 ```python
 class TestSettingsIsGrouped:
@@ -97,7 +97,7 @@ class TestSettingsIsGrouped:
 ```
 
 - [ ] **Step 2: Run to verify it fails**
-Run: `python -m pytest automation/tests/test_tier1_unit.py::TestSettingsIsGrouped -q`
+Run: `python -m pytest automation/tests/tier1/test_desktop.py::TestSettingsIsGrouped -q`
 Expected: FAIL (`positions` contains -1).
 
 - [ ] **Step 3: Implement.** Add the style:
@@ -127,7 +127,7 @@ Restructure `SettingsView.xaml` so the `ScrollViewer` (give it `x:Name="Settings
 
 The first group's header uses `Margin="0,0,0,12"` (override locally). Delete the Preferences rows you moved (and the divider above each) so each id appears once. Keep all comments that explain existing controls (#134 etc.) with their control.
 
-- [ ] **Step 4: Verify** — `python -m pytest automation/tests/test_tier1_unit.py::TestSettingsIsGrouped -q` PASS; `cd DesktopApp && dotnet build -c Release` 0 errors; full fast suite `python -m pytest automation/tests -m "not ui and not stripe" -q` — no new failures (baseline ~1053 passed). If an older source test asserts a card's position/neighbours, update only its locating logic, not what it asserts.
+- [ ] **Step 4: Verify** — `python -m pytest automation/tests/tier1/test_desktop.py::TestSettingsIsGrouped -q` PASS; `cd DesktopApp && dotnet build -c Release` 0 errors; full fast suite `python -m pytest automation/tests -m "not ui and not stripe" -q` — no new failures (baseline ~1053 passed). If an older source test asserts a card's position/neighbours, update only its locating logic, not what it asserts.
 
 - [ ] **Step 5: Commit** `git commit -am "F22: group Settings into six labelled sections"`
 
@@ -138,7 +138,7 @@ The first group's header uses `Margin="0,0,0,12"` (override locally). Delete the
 **Files:**
 - Modify: `DesktopApp/Views/SettingsView.xaml` (wrap in a 2-column `Grid`: rail `Width="180"` + scroll)
 - Modify: `DesktopApp/Views/SettingsView.xaml.cs`
-- Test: `automation/tests/test_tier1_unit.py` (extend `TestSettingsIsGrouped`), `automation/tests/test_tier3_e2e.py` (new UI test)
+- Test: `automation/tests/tier1/test_desktop.py` (extend `TestSettingsIsGrouped`), `automation/tests/tier3/test_shell.py` (new UI test)
 
 **Interfaces:**
 - Consumes: `Group_*`, `Header_*`, `SettingsScroll`, `GroupsPanel` from Task 1.
@@ -159,7 +159,7 @@ The first group's header uses `Margin="0,0,0,12"` (override locally). Delete the
         assert "ScrollChanged" in cs, "rail must follow scrolling"
 ```
 
-Tier 3 (in `test_tier3_e2e.py`, follow the fixture/marker pattern of the neighbouring Settings tests — `grep -n "navigate_to_tab(\"Settings\")" automation/tests/test_tier3_e2e.py`):
+Tier 3 (in `tier3/test_shell.py`, follow the fixture/marker pattern of the neighbouring Settings tests — `grep -rn "navigate_to_tab(\"Settings\")" automation/tests/tier3/`):
 
 ```python
 @pytest.mark.ui
@@ -238,7 +238,7 @@ Wire `ScrollChanged="OnScrollChanged"` on `SettingsScroll`; set `x:Name="Setting
 
 **Files:**
 - Modify: `DesktopApp/Views/SettingsView.xaml`, `SettingsView.xaml.cs`
-- Test: `automation/tests/test_tier1_unit.py`
+- Test: `automation/tests/tier1/test_desktop.py`
 
 **Interfaces:** Consumes `Rail` and the `SettingsNav_*` buttons; produces `const double RailBreakpoint = 900;`.
 
@@ -277,7 +277,7 @@ Miles's request (22 Sep review): on the landing page, the hero's worked example 
 
 **Files:**
 - Modify: `Website/styles.css:609-617` (the `.hero .example` rule)
-- Test: `automation/tests/test_tier5_regressions.py` (new class at end; reuse the `_rule(selector)` helper pattern from the class around line 3337)
+- Test: `automation/tests/tier5/test_website.py` (new class in the matching area; reuse the `_rule(selector)` helper pattern in the website tests)
 
 - [ ] **Step 1: Failing test**
 
@@ -299,7 +299,7 @@ class TestHeroExampleMatchesTheOtherBoxes:
         assert "border-left: 3px" not in rule
 ```
 
-- [ ] **Step 2: Run** `python -m pytest automation/tests/test_tier5_regressions.py::TestHeroExampleMatchesTheOtherBoxes -q` — FAIL.
+- [ ] **Step 2: Run** `python -m pytest automation/tests/tier5/test_website.py::TestHeroExampleMatchesTheOtherBoxes -q` — FAIL.
 - [ ] **Step 3: Implement** — replace the `border-left` line in `.hero .example` with:
 
 ```css

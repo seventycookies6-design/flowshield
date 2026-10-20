@@ -178,12 +178,12 @@ python -m pytest automation/tests -v
 
 | Tier | File | Scope |
 | --- | --- | --- |
-| 1 | `test_tier1_unit.py` | Key checksums, sleep windows, tier limits, momentum. No app, no network. |
+| 1 | `tier1/` | Key checksums, sleep windows, tier limits, momentum. No app, no network. |
 | 1 | `test_tier1_models.py` | The real C# model rules, run through ModelProbe: templates, schedules, time zones. |
 | 2 | `test_tier2_integration.py` | Every server endpoint, webhook signatures, replay guard. |
-| 3 | `test_tier3_e2e.py` | The real UI via UI Automation, cross-checked against disk. |
+| 3 | `tier3/` | The real UI via UI Automation, cross-checked against disk. |
 | 4 | `test_tier4_adversarial.py` | Forged keys, injection, concurrency, tampered storage, declined cards. |
-| 5 | `test_tier5_regressions.py` | One test per bug found by reading the code; each verified to fail against the commit before its fix. |
+| 5 | `tier5/` | One test per bug found by reading the code; each verified to fail against the commit before its fix. |
 | 6 | `test_tier6_email.py` | Licence-key delivery, once-only sending, and the resend endpoint — run against a capture provider so a test can never email a customer. |
 | 7 | `test_tier7_devices.py` | The three-device cap: that it holds, and equally that it can't trap a paying customer. |
 

@@ -267,6 +267,13 @@ what the bench cannot tell you.
 
 Each of these cost real time once. Don't rediscover them.
 
+- **Put new tests in their area.** Tiers 1, 3 and 5 live in
+  `automation/tests/tier1/`, `tier3/` and `tier5/`; use the matching area file
+  instead of rebuilding a monolith. Shared helpers live in `_helpers.py`.
+  `tools/split_tests.py` documents how to regenerate the migration after
+  rebasing past a branch that still appends to the old files, and `--check`
+  proves test identity, markers and collection order. Its generated manifest
+  keeps existing UI tests in their original order.
 - **Stacked pull requests:** when one PR is built on another's branch, point
   the upper PR at `main` *before* squash-merging the lower one with branch
   deletion. Deleting a PR's base branch makes GitHub close it (#116).

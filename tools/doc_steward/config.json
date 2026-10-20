@@ -57,6 +57,7 @@
     "tools/*.py",
     "automation/config.py",
     "automation/core/*.py",
+    "automation/tests/**/*.py",
     "automation/requirements.txt",
     "automation/pytest.ini",
     ".gitignore",
