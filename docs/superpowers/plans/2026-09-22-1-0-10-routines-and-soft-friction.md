@@ -160,9 +160,9 @@ After the last merge, run the full suite once on the final `main` (`python -m py
 | `DesktopApp/Services/JumpListService.cs` | new | Builds the taskbar Jump List |
 | `DesktopApp/Models/StartSprintArg.cs` | new | Parses `--start-sprint[=id]` |
 | `DesktopApp/App.xaml.cs` | modify | Short-timer flags; hands `--start-sprint` to the VM |
-| `automation/tests/test_tier1_unit.py` | modify | Probe tests and source pins |
-| `automation/tests/test_tier3_e2e.py` | modify | Schedule page, Soft notice, scheduled start, Jump List argument |
-| `automation/tests/test_tier5_regressions.py` | modify | Claims, wording, never-kill, ids |
+| `automation/tests/tier1/` | modify | Probe tests and source pins |
+| `automation/tests/tier3/` | modify | Schedule page, Soft notice, scheduled start, Jump List argument |
+| `automation/tests/tier5/` | modify | Claims, wording, never-kill, ids |
 | `automation/desktop/app_controller.py` | modify | `TAB_IDS["schedule"]` and schedule helpers |
 | `README.md`, `docs/history/HANDOFF_PROMPT.md`, `Website/legal.html`, `Website/changelog.html`, `LAUNCH_FEATURE_CHECKLIST.md` | modify | Wording, changelog, ticks |
 
@@ -178,12 +178,12 @@ After the last merge, run the full suite once on the final `main` (`python -m py
 - Create: `automation/csharp/ModelProbe/Commands.cs`
 - Create: `automation/csharp/ModelProbe/LogStub.cs`
 - Create: `automation/core/model_probe.py`
-- Test: `automation/tests/test_tier1_unit.py` (new class at the end of the file)
+- Test: `automation/tests/tier1/` (new class in the matching area file)
 
 **Interfaces:**
 - Produces: `from core.model_probe import probe` — `probe(request: dict) -> dict`, which raises `ProbeError` on a build or run failure. On the C# side, each command is a case in `Commands.Run(JsonObject) -> JsonNode`; later tasks add cases.
 
-- [ ] **Step 1: Write the failing test** — append to `automation/tests/test_tier1_unit.py`:
+- [ ] **Step 1: Write the failing test** — add to the matching area file under `automation/tests/tier1/`:
 
 ```python
 # ============================ the model probe: real C# from tier 1 (1.0.10)
@@ -220,7 +220,7 @@ class TestModelProbe:
 
 - [ ] **Step 2: Run it and watch it fail**
 
-Run: `python -m pytest automation/tests/test_tier1_unit.py -k ModelProbe -q`
+Run: `python -m pytest automation/tests/tier1/ -k ModelProbe -q`
 Expected: collection error, `ModuleNotFoundError: No module named 'core.model_probe'`.
 
 - [ ] **Step 3: Write the harness**
@@ -408,7 +408,7 @@ def probe(request: dict) -> dict:
 
 - [ ] **Step 4: Run it and watch it pass**
 
-Run: `python -m pytest automation/tests/test_tier1_unit.py -k ModelProbe -q`
+Run: `python -m pytest automation/tests/tier1/ -k ModelProbe -q`
 Expected: `3 passed` (the first run builds the probe, about 10–20 s).
 
 - [ ] **Step 5: Confirm the desktop build ignores the probe, then run the fast suite**
@@ -419,7 +419,7 @@ Run: `python -m pytest automation/tests -m "not ui and not stripe" -q` — expec
 - [ ] **Step 6: Commit**
 
 ```bash
-git add automation/csharp/ModelProbe automation/core/model_probe.py automation/tests/test_tier1_unit.py
+git add automation/csharp/ModelProbe automation/core/model_probe.py automation/tests/tier1/
 git commit -m "Tier 1 runs the real C# model code through a small probe
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
@@ -432,13 +432,13 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 **Files:**
 - Create: `DesktopApp/Models/StudyTemplate.cs`
 - Modify: `automation/csharp/ModelProbe/Commands.cs` (add two commands)
-- Test: `automation/tests/test_tier1_unit.py`
+- Test: `automation/tests/tier1/`
 
 **Interfaces:**
 - Consumes: `ShieldLevel` (`AppSettings.cs`: Soft = 1, Firm = 2, Sealed = 3); `CycleState.CycleChoices` = `{0, 2, 3, 4}`, where 0 means one sprint; `CycleState.MinBreakMinutes` = 1 and `MaxBreakMinutes` = 60; `CycleState.DefaultShortBreakMinutes` = 5.
 - Produces: `class StudyTemplate { string Id; string Name; int SprintMinutes; ShieldLevel Shield; int CycleSprints; int BreakMinutes; string ProfileId; string BuiltInKey; bool IsBuiltIn [JsonIgnore]; static string NewId(); static IReadOnlyList<StudyTemplate> BuiltIns(); bool Normalize(); const int MaxNameLength = 40, MinSprintMinutes = 5, MaxSprintMinutes = 240; const string UntitledName = "Untitled template"; }`. Built-in keys: `"homework"`, `"exam"`, `"light"`.
 
-- [ ] **Step 1: Write the failing tests** — append to `test_tier1_unit.py`:
+- [ ] **Step 1: Write the failing tests** — add to the matching area file under `tier1/`:
 
 ```python
 class TestStudyTemplates:
@@ -494,7 +494,7 @@ class TestStudyTemplates:
 
 - [ ] **Step 2: Run and watch them fail**
 
-Run: `python -m pytest automation/tests/test_tier1_unit.py -k StudyTemplates -q`
+Run: `python -m pytest automation/tests/tier1/ -k StudyTemplates -q`
 Expected: FAIL — `ProbeError ... unknown command 'template-builtins'`.
 
 - [ ] **Step 3: Write `DesktopApp/Models/StudyTemplate.cs`**
@@ -622,13 +622,13 @@ Add `using System.Text.Json;` at the top, and this method:
 
 - [ ] **Step 5: Run and watch them pass**
 
-Run: `python -m pytest automation/tests/test_tier1_unit.py -k "StudyTemplates or ModelProbe" -q`
+Run: `python -m pytest automation/tests/tier1/ -k "StudyTemplates or ModelProbe" -q`
 Expected: all pass.
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add DesktopApp/Models/StudyTemplate.cs automation/csharp/ModelProbe/Commands.cs automation/tests/test_tier1_unit.py
+git add DesktopApp/Models/StudyTemplate.cs automation/csharp/ModelProbe/Commands.cs automation/tests/tier1/
 git commit -m "F6: study templates and the three built-ins
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
@@ -641,7 +641,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 **Files:**
 - Create: `DesktopApp/Models/SprintSchedule.cs`, `DesktopApp/Models/ScheduleMatcher.cs`, `DesktopApp/Models/ScheduleText.cs`
 - Modify: `automation/csharp/ModelProbe/Commands.cs`
-- Test: `automation/tests/test_tier1_unit.py`
+- Test: `automation/tests/tier1/`
 
 **Interfaces:**
 - Produces:
@@ -650,7 +650,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   - `static class ScheduleText { string Days(IEnumerable<DayOfWeek> days); string Time(int minuteOfDay); string NextUp(string templateName, DateTime startLocal, DateTime nowLocal); }`
 - Every `DateTime` passed in as UTC has `Kind = Utc`. `localDate` is a local calendar date; its time part is ignored.
 
-- [ ] **Step 1: Write the failing tests** — append to `test_tier1_unit.py`. The dates are real: in 2026, US clocks go forward on Sunday 8 March and back on Sunday 1 November; 28 September is a Monday.
+- [ ] **Step 1: Write the failing tests** — add to the matching area file under `tier1/`. The dates are real: in 2026, US clocks go forward on Sunday 8 March and back on Sunday 1 November; 28 September is a Monday.
 
 ```python
 EASTERN = "Eastern Standard Time"   # Windows id; UTC-5 in winter, UTC-4 in summer
@@ -763,7 +763,7 @@ class TestScheduleText:
 
 - [ ] **Step 2: Run and watch them fail**
 
-Run: `python -m pytest automation/tests/test_tier1_unit.py -k "ScheduleMatcher or SprintScheduleSkips or ScheduleText" -q`
+Run: `python -m pytest automation/tests/tier1/ -k "ScheduleMatcher or SprintScheduleSkips or ScheduleText" -q`
 Expected: FAIL — unknown command `schedule-start-on`.
 
 - [ ] **Step 3: Write `DesktopApp/Models/SprintSchedule.cs`**
@@ -1059,13 +1059,13 @@ Add `using System.Globalization;` and these helpers:
 
 - [ ] **Step 7: Run and watch them pass**
 
-Run: `python -m pytest automation/tests/test_tier1_unit.py -k "ScheduleMatcher or SprintScheduleSkips or ScheduleText or StudyTemplates or ModelProbe" -q`
+Run: `python -m pytest automation/tests/tier1/ -k "ScheduleMatcher or SprintScheduleSkips or ScheduleText or StudyTemplates or ModelProbe" -q`
 Expected: all pass. If `Mon–Thu` fails on the dash, check that the source contains the `–` escape rather than a literal character (the house rule is ASCII-only literals).
 
 - [ ] **Step 8: Commit**
 
 ```bash
-git add DesktopApp/Models/SprintSchedule.cs DesktopApp/Models/ScheduleMatcher.cs DesktopApp/Models/ScheduleText.cs automation/csharp/ModelProbe/Commands.cs automation/tests/test_tier1_unit.py
+git add DesktopApp/Models/SprintSchedule.cs DesktopApp/Models/ScheduleMatcher.cs DesktopApp/Models/ScheduleText.cs automation/csharp/ModelProbe/Commands.cs automation/tests/tier1/
 git commit -m "F6: schedules and when they start, daylight saving included
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
@@ -1080,7 +1080,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 - Modify: `DesktopApp/ViewModels/MainViewModel.cs:29-32` (call `EnsureTemplates`)
 - Modify: `DesktopApp/Services/DataPrivacyService.cs:23-56` (export)
 - Modify: `automation/csharp/ModelProbe/Commands.cs`
-- Test: `automation/tests/test_tier1_unit.py` (new class; and `TestDataPrivacyExport.test_the_export_shape_covers_everything_local` gains two fields)
+- Test: `automation/tests/tier1/` (new class; and `TestDataPrivacyExport.test_the_export_shape_covers_everything_local` gains two fields)
 
 **Interfaces:**
 - Consumes: `StudyTemplate`, `SprintSchedule` (Tasks 2–3); `AppSettings.FindProfile`, `ActiveProfile`.
@@ -1155,7 +1155,7 @@ In `TestDataPrivacyExport.test_the_export_shape_covers_everything_local`, add `"
 
 - [ ] **Step 2: Run and watch them fail**
 
-Run: `python -m pytest automation/tests/test_tier1_unit.py -k "TemplatesInSettings or DataPrivacyExport" -q`
+Run: `python -m pytest automation/tests/tier1/ -k "TemplatesInSettings or DataPrivacyExport" -q`
 Expected: FAIL (unknown probe command; export fields missing).
 
 - [ ] **Step 3: Add to `AppSettings`** (new region after the profile helpers):
@@ -1318,14 +1318,14 @@ Expected: FAIL (unknown probe command; export fields missing).
 
 - [ ] **Step 7: Run and watch them pass, then run the fast suite**
 
-Run: `python -m pytest automation/tests/test_tier1_unit.py -k "TemplatesInSettings or DataPrivacyExport or ScheduleMatcher or StudyTemplates" -q` — pass.
+Run: `python -m pytest automation/tests/tier1/ -k "TemplatesInSettings or DataPrivacyExport or ScheduleMatcher or StudyTemplates" -q` — pass.
 Run: `cd DesktopApp; dotnet build -c Release -nologo` — 0 errors.
 Run: `python -m pytest automation/tests -m "not ui and not stripe" -q` — pass. `TestSettingsSaveDoesNotRaceItsMutators` still passes, because `Clone()` round-trips through JSON, which deep-copies the new lists.
 
 - [ ] **Step 8: Commit**
 
 ```bash
-git add DesktopApp/Models/AppSettings.cs DesktopApp/ViewModels/MainViewModel.cs DesktopApp/Services/DataPrivacyService.cs automation/csharp/ModelProbe/Commands.cs automation/tests/test_tier1_unit.py
+git add DesktopApp/Models/AppSettings.cs DesktopApp/ViewModels/MainViewModel.cs DesktopApp/Services/DataPrivacyService.cs automation/csharp/ModelProbe/Commands.cs automation/tests/tier1/
 git commit -m "F6: templates and schedules are saved, seeded once, and exported
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
@@ -1341,7 +1341,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 - Modify: `DesktopApp/ViewModels/MainViewModel.cs` (property, construction, title and subtitle, page refresh, tier change)
 - Modify: `DesktopApp/MainWindow.xaml:129-136` (nav label and name), `:185-187` (page host)
 - Modify: `automation/desktop/app_controller.py` (`TAB_IDS`, helpers)
-- Test: `automation/tests/test_tier3_e2e.py`, `automation/tests/test_tier5_regressions.py`
+- Test: `automation/tests/tier3/`, `automation/tests/tier5/`
 
 **Interfaces:**
 - Consumes: Task 4's `AppSettings` members; `ScheduleText`; `ScheduleMatcher.NextStartUtc`; `MainViewModel.Settings`, `SaveSettings()`, `Toast(string)`, `IsLocked`, `IsSprintRunning`, `Blocker.ActiveShield`; `SleepBlockingViewModel` (unchanged).
@@ -1351,7 +1351,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   - AutomationIds: `ScheduleNextUpText`, `AddScheduleButton`, `ScheduleTemplate_{Name}` (the editor's template choices), `ScheduleDay_Mon` … `ScheduleDay_Sun`, `ScheduleTimeInput`, `ScheduleAskFirstToggle`, `SaveScheduleButton`, `CancelScheduleButton`, `ScheduleRow_{Id}` (row text), `ScheduleEnabled_{Id}`, `EditSchedule_{Id}`, `DeleteSchedule_{Id}`, `NewTemplateButton`, `RestoreTemplatesButton`, `TemplateRow_{Name}`, `EditTemplate_{Name}`, `DeleteTemplate_{Name}`, `TemplateNameInput`, `TemplateMinutesInput`, `TemplateShield_Soft|Firm|Sealed`, `TemplateCycle_0|2|3|4`, `TemplateBreakInput`, `TemplateProfile_{Name}`, `SaveTemplateButton`, `CancelTemplateButton`, `ScheduleStatusText`.
   - The page title "Schedule". The `AppPage.SleepBlocking` enum value and `Tab_SleepBlocking` stay; `Ctrl+4` is unchanged.
 
-- [ ] **Step 1: Write the failing UI tests** — in `test_tier3_e2e.py`, change the `TestAppShell` parametrize list's `"Sleep Blocking"` to `"Schedule"`, replace every other `navigate_to_tab("Sleep Blocking")` in the file with `navigate_to_tab("Schedule")` (grep for them), and append:
+- [ ] **Step 1: Write the failing UI tests** — in `tier3/`, change the `TestAppShell` parametrize list's `"Sleep Blocking"` to `"Schedule"`, replace every other `navigate_to_tab("Sleep Blocking")` in the file with `navigate_to_tab("Schedule")` (grep for them), and append:
 
 ```python
 # =================================================== the Schedule page (F6)
@@ -1421,7 +1421,7 @@ In `app_controller.py`, add `"schedule": "Tab_SleepBlocking"` to `TAB_IDS`, and 
         time.sleep(0.8)
 ```
 
-In `test_tier5_regressions.py`, append:
+In the matching area file under `tier5/`, add:
 
 ```python
 class TestSchedulePageKeepsTheSleepWindow:
@@ -1450,8 +1450,8 @@ class TestSchedulePageKeepsTheSleepWindow:
 
 - [ ] **Step 2: Build, then run and watch them fail**
 
-Run: `python -m pytest automation/tests/test_tier5_regressions.py -k SchedulePageKeeps -q` — FAIL (no `ScheduleView.xaml`).
-Run the UI tests (UI-test lock: nobody else running them): `python -m pytest automation/tests/test_tier3_e2e.py -k "SchedulePage or TestAppShell" -q` — FAIL (no "Schedule" title).
+Run: `python -m pytest automation/tests/tier5/ -k SchedulePageKeeps -q` — FAIL (no `ScheduleView.xaml`).
+Run the UI tests (UI-test lock: nobody else running them): `python -m pytest automation/tests/tier3/ -k "SchedulePage or TestAppShell" -q` — FAIL (no "Schedule" title).
 
 - [ ] **Step 3: Add `SegmentCheck` to `Theme.xaml`** — copy the whole `<Style x:Key="Segment" TargetType="RadioButton">` block (line 591 to its closing `</Style>`) directly below it. In the copy, change `x:Key="Segment"` to `x:Key="SegmentCheck"`, and change every `TargetType="RadioButton"` inside it (the style's and its `ControlTemplate`'s) to `TargetType="CheckBox"`. Nothing else changes. Day chips then look exactly like shield and cycle chips.
 
@@ -2036,8 +2036,8 @@ Converters: find out how `TodayView.xaml` binds its shield `SegmentShield` radio
 - [ ] **Step 7: Build, run and watch them pass**
 
 Run: `cd DesktopApp; dotnet build -c Release -nologo` — 0 errors, 0 new warnings.
-Run: `python -m pytest automation/tests/test_tier5_regressions.py -k "SchedulePageKeeps" -q` — pass.
-Run (UI lock): `python -m pytest automation/tests/test_tier3_e2e.py -k "SchedulePage or TestAppShell or Sleep" -q` — pass.
+Run: `python -m pytest automation/tests/tier5/ -k "SchedulePageKeeps" -q` — pass.
+Run (UI lock): `python -m pytest automation/tests/tier3/ -k "SchedulePage or TestAppShell or Sleep" -q` — pass.
 Run: `python -m pytest automation/tests -m "not ui and not stripe" -q` — pass.
 
 - [ ] **Step 8: Screenshots** — launch with `python -m automation.smoke_ui` or the capture kit, or start the app by hand and take a screenshot of the Schedule page in dark and light themes, with the schedule editor open and with one saved schedule. Save them under `screenshots/1.0.10/` (git-ignored) for the PR.
@@ -2065,7 +2065,7 @@ Open the PR with `Closes #<A>`, the template filled in, screenshots, and a line 
 - Modify: `DesktopApp/App.xaml.cs:36-42` (short timers)
 - Modify: `DesktopApp/Services/AppBlockerService.cs` (add `AskToClose`)
 - Modify: `automation/csharp/ModelProbe/Commands.cs`
-- Test: `automation/tests/test_tier1_unit.py` (extend the Python mirror class and `TestSoftOverlayPolicy`), `automation/tests/test_tier5_regressions.py`
+- Test: `automation/tests/tier1/` (extend the Python mirror class and `TestSoftOverlayPolicy`), `automation/tests/tier5/`
 
 **Interfaces:**
 - Produces on `SoftOverlayPolicy`:
@@ -2084,7 +2084,7 @@ Open the PR with `Closes #<A>`, the template filled in, screenshots, and a line 
   - `const string CloseNote = "Nothing is closed unless you choose to."`
 - Produces on `AppBlockerService`: `int AskToClose(string displayName, AppSettings settings)` — calls `CloseMainWindow` on every running process of that enabled app in the active profile, skipping critical processes; never kills; returns how many were asked.
 
-- [ ] **Step 1: Write the failing tests** — add probe tests in `test_tier1_unit.py` after `TestSoftOverlayPolicy`:
+- [ ] **Step 1: Write the failing tests** — add probe tests in `tier1/` after `TestSoftOverlayPolicy`:
 
 ```python
 class TestSoftFriction:
@@ -2170,7 +2170,7 @@ Change the existing tier 1 source pin `test_the_policy_decides_nothing_about_clo
 
 Update the Python mirror class `SoftOverlayPolicy` in tier 1 (it's used by the older tests): add `tries` and `turned_back` counters, increment `tries` when `should_show` returns True, increment `turned_back` in `back_to_work` and a new `close_it`, and zero both in `reset`, so the mirror keeps matching the C#.
 
-In `test_tier5_regressions.py`, append:
+In the matching area file under `tier5/`, add:
 
 ```python
 class TestSoftCloseNeverKills:
@@ -2210,7 +2210,7 @@ class TestSoftCloseNeverKills:
 
 - [ ] **Step 2: Run and watch them fail**
 
-Run: `python -m pytest automation/tests/test_tier1_unit.py -k "SoftFriction or SoftOverlayPolicy" automation/tests/test_tier5_regressions.py -k SoftCloseNeverKills -q`
+Run: `python -m pytest automation/tests/tier1/ -k "SoftFriction or SoftOverlayPolicy" automation/tests/tier5/ -k SoftCloseNeverKills -q`
 Expected: FAIL (unknown ops and commands; `AskToClose` missing).
 
 - [ ] **Step 3: Extend `SoftOverlayPolicy`.** Add these members to the class:
@@ -2411,7 +2411,7 @@ and add commands to `Run`:
 
 - [ ] **Step 7: Run and watch them pass**
 
-Run: `python -m pytest automation/tests/test_tier1_unit.py -k "SoftFriction or SoftOverlayPolicy or ModelProbe" automation/tests/test_tier5_regressions.py -k "SoftCloseNeverKills or SoftOverlayNeverCloses" -q`
+Run: `python -m pytest automation/tests/tier1/ -k "SoftFriction or SoftOverlayPolicy or ModelProbe" automation/tests/tier5/ -k "SoftCloseNeverKills or SoftOverlayNeverCloses" -q`
 Expected: pass, except `test_it_is_only_reached_from_the_close_button`, which passes after Task 7 wires `MainViewModel`. Mark it `@pytest.mark.xfail(strict=True, reason="wired in Task 7")` now and remove the mark in Task 7.
 
 - [ ] **Step 8: Commit**
@@ -2432,7 +2432,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 - Modify: `DesktopApp/ViewModels/MainViewModel.cs:462-546` (request record, `OnSoftForeground`, a new `SoftOverlayCloseIt`)
 - Modify: `DesktopApp/MainWindow.xaml.cs:393-426` (wire **Close**)
 - Modify: `README.md:16`, `DesktopApp/Models/AppSettings.cs:10`, `docs/history/HANDOFF_PROMPT.md:28`, `Website/legal.html:77` (region), `Website/index.html` (the Soft description in the shields section, if it says the app "keeps running")
-- Test: `automation/tests/test_tier5_regressions.py`, `automation/tests/test_tier3_e2e.py`
+- Test: `automation/tests/tier5/`, `automation/tests/tier3/`
 
 **Interfaces:**
 - Consumes: Task 6.
@@ -2443,7 +2443,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   - `SoftOverlayWindow` events `BackToWork`, `AllowFiveMinutes` and `CloseIt`
   - New AutomationIds: `SoftOverlayCloseButton`, `SoftOverlayIntention`, `SoftOverlayTryLine`
 
-- [ ] **Step 1: Write the failing tests** — in `test_tier5_regressions.py`:
+- [ ] **Step 1: Write the failing tests** — in `tier5/`:
   - In `TestSoftShieldWording.test_old_overlay_wording_is_gone`, keep the `"blocked app keeps running"` assertions (the new wording keeps that phrase) and add `assert "unless you choose to close it" in readme` and `... in model`.
   - In `test_legal_page_distinguishes_soft_from_closing_modes`, keep the existing assertions and add `assert "unless you choose Close on its notice" in legal`.
   - In `TestSoftOverlayNeverCloses.test_its_controls_carry_automation_ids_on_real_controls`, add `"SoftOverlayCloseButton"`, `"SoftOverlayIntention"` and `"SoftOverlayTryLine"` to the tuple.
@@ -2489,7 +2489,7 @@ class TestSoftNoticeFriction:
             assert piece in handler, piece
 ```
 
-  - In `test_tier3_e2e.py`, find the existing Soft notice test class (grep `SoftOverlayBackToWorkButton`) and add, in the same style:
+  - In `tier3/`, find the existing Soft notice test class (grep `SoftOverlayBackToWorkButton`) and add, in the same style:
 
 ```python
     def test_allow_is_disabled_until_the_wait_runs_out(self, soft_notice):
@@ -2509,7 +2509,7 @@ class TestSoftNoticeFriction:
 
 - [ ] **Step 2: Run and watch them fail**
 
-Run: `python -m pytest automation/tests/test_tier5_regressions.py -k "SoftNoticeFriction or SoftShieldWording or SoftOverlayNeverCloses" -q` — FAIL.
+Run: `python -m pytest automation/tests/tier5/ -k "SoftNoticeFriction or SoftShieldWording or SoftOverlayNeverCloses" -q` — FAIL.
 
 - [ ] **Step 3: The window.** In `SoftOverlayWindow.xaml`, replace the `SoftOverlayNote` text and the button row (lines 65–81) with:
 
@@ -2654,7 +2654,7 @@ Remove the old `Configure(string, string, IntPtr)`. In `OnSourceInitialized`, fo
 
 Run: `cd DesktopApp; dotnet build -c Release -nologo` — 0 errors.
 Run: `python -m pytest automation/tests -m "not ui and not stripe" -q` — pass.
-Run (UI lock): `python -m pytest automation/tests/test_tier3_e2e.py -k "Soft" -q` — pass, or the #250 marks as already on `main`.
+Run (UI lock): `python -m pytest automation/tests/tier3/ -k "Soft" -q` — pass, or the #250 marks as already on `main`.
 
 - [ ] **Step 7: Screenshot** of the notice at try 1 (Allow counting down) and try 3 (a different sentence and "3rd try this sprint"), in dark and light. If #250 stops tier 3 from raising it, raise it by hand: add Notepad to the blocklist, start a Soft sprint, click Notepad.
 
@@ -2682,7 +2682,7 @@ The PR body names `LEGAL_CHECKLIST.md`'s item on the legal page describing what 
 - Create: `DesktopApp/Models/SchedulePlanner.cs` (pure decisions)
 - Create: `DesktopApp/Services/ScheduleService.cs` (the timer)
 - Modify: `automation/csharp/ModelProbe/Commands.cs`
-- Test: `automation/tests/test_tier1_unit.py`
+- Test: `automation/tests/tier1/`
 
 **Interfaces:**
 - Produces:

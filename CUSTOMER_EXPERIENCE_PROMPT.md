@@ -113,7 +113,7 @@ New for this work:
    be built, remove the promise. Existing code already follows this rule (see
    the comments in `Website/checkout.js`); keep it.
 3. **Every behaviour change gets a test** in the matching tier
-   (`automation/tests/test_tier1_unit.py` … `test_tier7_devices.py`). Regression
+   (`automation/tests/tier1/` … `test_tier7_devices.py`). Regression
    fixes go in tier 5 and must fail against the code before the fix. Keep every
    existing `AutomationProperties.AutomationId`; add new ones for new controls.
 4. **Test runs already protect the owner's settings** through

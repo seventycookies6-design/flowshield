@@ -57,6 +57,9 @@ pull request.
   shipped build doesn't have** — see `CLAUDE.md`.
 - **One test run per machine.** The UI tests take over the screen and share
   ports and the app's settings file.
+- **Add tests by area:** tiers 1, 3 and 5 use `automation/tests/tier1/`,
+  `tier3/` and `tier5/`. The migration re-run and identity check are documented
+  in `tools/split_tests.py`; do not recreate the monolithic test files.
 
 ## Attribution
 

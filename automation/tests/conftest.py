@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import ast
 import inspect
+import json
+import re
 import sys
 import textwrap
 import time
@@ -39,6 +41,42 @@ def pytest_configure(config):
         "markers", "touches_user_state: reads or changes real FlowShield user state"
     )
     config.addinivalue_line("markers", "e2e: full end-to-end path")
+
+
+@pytest.hookimpl(trylast=True)
+def pytest_collection_modifyitems(items):
+    """Keep the pre-split order, including UI tests that share external state.
+
+    Ignore the manifest when originals are restored for splitter regeneration.
+    New tests stay with their existing class/tier, retaining relative order.
+    This also keeps package/class fixture lifetimes contiguous. Regenerating
+    records the newly rebased original order.
+    """
+    tests = Path(__file__).resolve().parent
+    manifest = tests / "_split_baseline.json"
+    originals = {1: "test_tier1_unit.py", 3: "test_tier3_e2e.py", 5: "test_tier5_regressions.py"}
+    if not manifest.exists() or any((tests / name).exists() for name in originals.values()):
+        return
+    baseline = json.loads(manifest.read_text(encoding="utf-8"))
+    order = {node: index for index, node in enumerate(baseline["collection"]["all"])}
+    last = {}
+    for node, index in order.items():
+        last[node.split("::", 1)[0]] = index
+        last[node.rsplit("::", 1)[0]] = index
+
+    def position(item):
+        node = item.nodeid.replace("\\", "/")
+        for tier, filename in originals.items():
+            node = re.sub(rf"/tier{tier}/test_[^/:]+\.py(?=::)", "/" + filename, node)
+        if node in order:
+            return order[node], 0
+        owner = node.rsplit("::", 1)[0]
+        if "::" in owner and owner in last:
+            return last[owner], 1
+        module = node.split("::", 1)[0]
+        return last.get(module, len(order)), 2
+
+    items.sort(key=position)
 
 
 _USER_STATE_FIXTURES = frozenset({

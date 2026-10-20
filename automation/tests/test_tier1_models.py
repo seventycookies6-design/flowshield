@@ -4,7 +4,7 @@ Tier 1 -- the real C# model code (1.0.10).
 The tests here run DesktopApp/Models through `core.model_probe`, so the
 answer comes from .NET rather than from a Python copy of the rule; only the
 house-voice check reads the source instead. Kept apart from
-test_tier1_unit.py so the two files can change independently.
+the tier1/ package so the two can change independently.
 """
 
 from __future__ import annotations

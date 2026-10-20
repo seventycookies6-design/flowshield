@@ -89,13 +89,13 @@ def pytest_section(report: dict) -> str:
 
     summary = report.get("summary", {})
     tiers = {
-        "test_tier1_unit.py": ["Tier 1 — unit", 0, 0, 0],
+        "tier1/": ["Tier 1 — unit", 0, 0, 0],
         "test_tier1_models.py": ["Tier 1 — models (the C# probe)", 0, 0, 0],
         "test_tier1_repo_lint.py": ["Tier 1 — repo rules (mojibake, forbidden files, PR links an issue)", 0, 0, 0],
         "test_tier2_integration.py": ["Tier 2 — server integration", 0, 0, 0],
-        "test_tier3_e2e.py": ["Tier 3 — end-to-end UI", 0, 0, 0],
+        "tier3/": ["Tier 3 — end-to-end UI", 0, 0, 0],
         "test_tier4_adversarial.py": ["Tier 4 — adversarial", 0, 0, 0],
-        "test_tier5_regressions.py": ["Tier 5 — regressions", 0, 0, 0],
+        "tier5/": ["Tier 5 — regressions", 0, 0, 0],
         "test_tier5_license_spelling.py": ["Tier 5 — customer license spelling", 0, 0, 0],
         "test_tier5_settings_guard.py": ["Tier 5 — settings guard (the suite never loses owner data)", 0, 0, 0],
         "test_tier5_parallel_runs.py": ["Tier 5 — parallel runs", 0, 0, 0],
@@ -103,8 +103,16 @@ def pytest_section(report: dict) -> str:
         "test_tier7_devices.py": ["Tier 7 — device limit", 0, 0, 0],
     }
 
+    # Saved reports from before the split still aggregate into the same rows.
+    legacy_tiers = {
+        "test_tier1_unit.py": "tier1/",
+        "test_tier3_e2e.py": "tier3/",
+        "test_tier5_regressions.py": "tier5/",
+    }
     for test in report.get("tests", []):
-        node = test.get("nodeid", "")
+        node = test.get("nodeid", "").replace("\\", "/")
+        for old, package in legacy_tiers.items():
+            node = node.replace(old, package)
         for filename, row in tiers.items():
             if filename in node:
                 outcome = test.get("outcome")
