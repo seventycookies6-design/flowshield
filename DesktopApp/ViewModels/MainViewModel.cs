@@ -439,7 +439,7 @@ public class MainViewModel : ViewModelBase
 
     public string TrialEndedText =>
         "Your 7-day free trial has ended. Buy Basalt once for $4.99 to keep using it — "
-        + "no subscription. Already bought it? Enter your licence key below.";
+        + "no subscription. Already bought it? Enter your license key below.";
 
     // ---------------------------------------------------------------- toast
 

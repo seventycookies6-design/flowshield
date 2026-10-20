@@ -259,7 +259,7 @@ def verify_ui_pro_status(desktop_ctrl, expected_pro: bool = True) -> Verificatio
     except Exception as exc:                       # noqa: BLE001
         return VerificationResult(False, f"could not read the UI: {exc}")
 
-    shows_pro = "licence active" in status.lower()
+    shows_pro = "license active" in status.lower()
     # MainViewModel.TierBadge reads "PURCHASED" once IsPro is true (see also
     # test_tier3_e2e.py's test_a_licence_unlocks_the_locked_app, which already
     # asserts exactly that) — "PRO" was never the shipped word.

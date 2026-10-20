@@ -63,7 +63,7 @@ def main() -> int:
         log.shot("key-entered", ctrl.hwnd)
         ctrl.click_activate_pro()
         # Generous: a sleeping free-tier host can take ~50s to wake.
-        status = ctrl.wait_for_license_status("Licence active", timeout=120)
+        status = ctrl.wait_for_license_status("License active", timeout=120)
         log.shot("pro-active", ctrl.hwnd)
         log.passed(f"status={status!r} badge={ctrl.tier_badge()!r}")
 

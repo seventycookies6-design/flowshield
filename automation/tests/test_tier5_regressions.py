@@ -355,7 +355,7 @@ class TestPrivacyClaimsMatchTheCode:
         )
 
         phrase_for_field = {
-            "licenseKey": "licence key",
+            "licenseKey": "license key",
             "email": "email",
             "deviceId": "device identifier",
             "deviceName": "device name",
@@ -370,7 +370,7 @@ class TestPrivacyClaimsMatchTheCode:
         }
         for surface_name, text in surfaces.items():
             for field, phrase in phrase_for_field.items():
-                assert phrase in text or phrase.replace("licence", "license") in text, (
+                assert phrase in text, (
                     f"{surface_name} does not mention {phrase!r}, but the client sends "
                     f"{field!r} on every licence check"
                 )
@@ -1165,7 +1165,7 @@ class TestHonestWaitingNeverClaimsInvalidKey:
             "ActivateAsync must branch on whether the failure was a transport "
             "problem before choosing its headline"
         )
-        assert "Couldn't reach the licence server" in activate, (
+        assert "Couldn't reach the license server" in activate, (
             "a timeout/connection failure needs its own honest headline, "
             "distinct from a rejected key"
         )
@@ -1582,7 +1582,7 @@ class TestSuccessPageHonesty:
 
         assert "on its way to the email" not in branch, \
             "the page must not promise a licence-key email that is never sent"
-        assert "Activate licence" in branch, \
+        assert "Activate license" in branch, \
             "it should tell the buyer how to actually activate Basalt"
 
 
@@ -3287,7 +3287,7 @@ class TestHonestLimitsAndPriceComparison:
         # reader is most likely to follow 404'd. The policy is a section of
         # legal.html. This test asserted the broken spelling, which is why it
         # was never caught.
-        for words in ("licence server", "device ID", "user name", "legal.html#privacy"):
+        for words in ("license server", "device ID", "user name", "legal.html#privacy"):
             assert words in answer, f"the FAQ's data answer no longer mentions {words!r}"
 
     def test_the_price_comparison_is_a_range_and_names_nobody(self):
@@ -9573,7 +9573,7 @@ class TestDeleteEverythingClearsTheJumpList:
         removes = detail.group(1).split(". ")[0]
         assert removes.startswith("This removes your "), removes
         for what in ("sessions", "journal", "blocklist profiles", "templates", "schedules",
-                     "momentum", "licence", "taskbar Jump List"):
+                     "momentum", "license", "taskbar Jump List"):
             assert what in removes, f"the confirmation doesn't say {what} goes: {removes}"
         assert "!" not in detail.group(1)
         assert 'AutomationProperties.AutomationId="ConfirmDeleteDetailText"' in xaml

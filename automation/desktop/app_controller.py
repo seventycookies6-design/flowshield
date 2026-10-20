@@ -847,7 +847,7 @@ class DesktopController:
         )
 
     def is_pro(self) -> bool:
-        return "licence active" in self.get_license_status_text().lower()
+        return "license active" in self.get_license_status_text().lower()
 
     def tier_badge(self) -> str:
         return self.text_of("TierBadge")

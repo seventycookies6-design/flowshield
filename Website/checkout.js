@@ -270,7 +270,7 @@
           // account's receipt settings, which this page can't see.
           'Basalt is yours to keep. ' +
           'To activate it, open <b>Basalt → Settings</b>, enter the email address you ' +
-          'used at checkout, and click <b>Activate licence</b>.' +
+          'used at checkout, and click <b>Activate license</b>.' +
           (CONFIG.supportEmail
             ? ' Trouble activating? Email <b>' + escapeHtml(CONFIG.supportEmail) +
               '</b> from the address you used at checkout.'
@@ -495,7 +495,7 @@
           } else if (res.status === 400) {
             if (note) note.textContent = 'Enter a valid email address.';
           } else {
-            if (note) note.textContent = 'If that address bought Basalt, the licence key is on its way.';
+            if (note) note.textContent = 'If that address bought Basalt, the license key is on its way.';
           }
         } catch (err) {
           if (note) note.textContent = 'Could not reach the license server. Please try again.';

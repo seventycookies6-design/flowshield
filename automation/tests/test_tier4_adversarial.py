@@ -239,7 +239,7 @@ class TestNetworkFailure:
         status = fresh_app.get_license_status_text()
         detail = fresh_app.get_license_detail_text()
 
-        assert "licence active" not in status.lower(), \
+        assert "license active" not in status.lower(), \
             "a dead server must never result in a licence"
         assert status.strip() != "", "the status line went blank instead of explaining"
         assert any(word in (status + detail).lower()
@@ -277,7 +277,7 @@ class TestTamperedSettings:
 
             ctrl.navigate_to_tab("Settings")
             status = ctrl.get_license_status_text().lower()
-            assert "licence active" not in status and "free trial" in status, \
+            assert "license active" not in status and "free trial" in status, \
                 "a corrupt file must start a clean trial, never read as a licence"
         finally:
             ctrl.close_app()
@@ -305,7 +305,7 @@ class TestTamperedSettings:
             ctrl.connect_window(timeout=30)
             time.sleep(1.2)
             ctrl.navigate_to_tab("Settings")
-            assert "licence active" not in ctrl.get_license_status_text().lower(), \
+            assert "license active" not in ctrl.get_license_status_text().lower(), \
                 "a forged settings envelope granted a licence"
         finally:
             ctrl.close_app()
@@ -321,7 +321,7 @@ class TestUIInputEdges:
         fresh_app.enter_license_email("")
         fresh_app.click_activate_pro()
         time.sleep(2.5)
-        assert "licence active" not in fresh_app.get_license_status_text().lower()
+        assert "license active" not in fresh_app.get_license_status_text().lower()
 
     def test_whitespace_only_app_name_is_not_added(self, fresh_app):
         fresh_app.navigate_to_tab("Blocked Apps")

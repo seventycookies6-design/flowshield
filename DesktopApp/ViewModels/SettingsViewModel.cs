@@ -216,7 +216,7 @@ public class SettingsViewModel : ViewModelBase
             {
                 // A timeout or dropped connection is not a verdict on the key —
                 // never word it like a rejection (Roadmap 5.2).
-                LicenseStatusText = "Couldn't reach the licence server";
+                LicenseStatusText = "Couldn't reach the license server";
                 LicenseDetailText = result.Message;
             }
             else if (result.Status == "device_limit_reached")
@@ -225,7 +225,7 @@ public class SettingsViewModel : ViewModelBase
                 // with the list to act on inline, instead of just an error.
                 LicenseStatusText = "❌ Not activated";
                 var limit = _main.Settings.DeviceLimit > 0 ? _main.Settings.DeviceLimit : 3;
-                LicenseDetailText = $"This licence is on {limit} PCs. Release one to activate here.";
+                LicenseDetailText = $"This license is on {limit} PCs. Release one to activate here.";
                 await LoadDevicesAsync(force: true);
                 IsDevicesExpanded = true;
             }
@@ -260,7 +260,7 @@ public class SettingsViewModel : ViewModelBase
 
         if (_main.IsPro)
         {
-            LicenseStatusText = "✅ Licence active";
+            LicenseStatusText = "✅ License active";
             var checkedAt = settings.LicenseCheckedUtc?.ToLocalTime();
             LicenseDetailText =
                 (string.IsNullOrWhiteSpace(settings.LicenseEmail)
@@ -286,7 +286,7 @@ public class SettingsViewModel : ViewModelBase
         else
         {
             LicenseStatusText = "Trial ended";
-            LicenseDetailText = "Buy Basalt once for $4.99 to keep using it, or enter the licence "
+            LicenseDetailText = "Buy Basalt once for $4.99 to keep using it, or enter the license "
                                 + "key you received when you bought it.";
             DeviceText = "";
         }
@@ -995,7 +995,7 @@ public class SettingsViewModel : ViewModelBase
         try
         {
             DataPrivacyService.Export(dialog.FileName, _main.Settings);
-            DataStatusText = "Saved. Your licence key was left out.";
+            DataStatusText = "Saved. Your license key was left out.";
             _main.Toast("Data exported.");
         }
         catch (Exception ex)

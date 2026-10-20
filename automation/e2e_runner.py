@@ -247,7 +247,7 @@ class E2ERun:
         self.shot("license-key-entered")
 
         self.ctrl.click_activate_pro()
-        status = self.ctrl.wait_for_license_status("Licence active", timeout=45)
+        status = self.ctrl.wait_for_license_status("License active", timeout=45)
         self.shot("pro-activated")
         self.log.passed(f"status={status!r}")
 
