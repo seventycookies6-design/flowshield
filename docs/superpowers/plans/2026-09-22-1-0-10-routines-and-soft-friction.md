@@ -164,7 +164,7 @@ After the last merge, run the full suite once on the final `main` (`python -m py
 | `automation/tests/test_tier3_e2e.py` | modify | Schedule page, Soft notice, scheduled start, Jump List argument |
 | `automation/tests/test_tier5_regressions.py` | modify | Claims, wording, never-kill, ids |
 | `automation/desktop/app_controller.py` | modify | `TAB_IDS["schedule"]` and schedule helpers |
-| `README.md`, `HANDOFF_PROMPT.md`, `Website/legal.html`, `Website/changelog.html`, `LAUNCH_FEATURE_CHECKLIST.md` | modify | Wording, changelog, ticks |
+| `README.md`, `docs/history/HANDOFF_PROMPT.md`, `Website/legal.html`, `Website/changelog.html`, `LAUNCH_FEATURE_CHECKLIST.md` | modify | Wording, changelog, ticks |
 
 ---
 
@@ -2431,7 +2431,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 - Modify: `DesktopApp/Views/SoftOverlayWindow.xaml`, `DesktopApp/Views/SoftOverlayWindow.xaml.cs`
 - Modify: `DesktopApp/ViewModels/MainViewModel.cs:462-546` (request record, `OnSoftForeground`, a new `SoftOverlayCloseIt`)
 - Modify: `DesktopApp/MainWindow.xaml.cs:393-426` (wire **Close**)
-- Modify: `README.md:16`, `DesktopApp/Models/AppSettings.cs:10`, `HANDOFF_PROMPT.md:28`, `Website/legal.html:77` (region), `Website/index.html` (the Soft description in the shields section, if it says the app "keeps running")
+- Modify: `README.md:16`, `DesktopApp/Models/AppSettings.cs:10`, `docs/history/HANDOFF_PROMPT.md:28`, `Website/legal.html:77` (region), `Website/index.html` (the Soft description in the shields section, if it says the app "keeps running")
 - Test: `automation/tests/test_tier5_regressions.py`, `automation/tests/test_tier3_e2e.py`
 
 **Interfaces:**
@@ -2645,7 +2645,7 @@ Remove the old `Configure(string, string, IntPtr)`. In `OnSourceInitialized`, fo
 - [ ] **Step 5: Soft's promise in words.** Every place below keeps its existing phrase and gains the qualifier:
   - `README.md:16` → `Shield I  · Soft    a full-screen notice on its own screen; the blocked app keeps running unless you choose to close it`
   - `DesktopApp/Models/AppSettings.cs:10` → `/// <summary>Full-screen notice on its own screen; the blocked app keeps running unless you choose to close it.</summary>`
-  - `HANDOFF_PROMPT.md:28` → add "Close ‹app›" to the list of buttons and ", unless you choose Close" after "the app keeps running".
+  - `docs/history/HANDOFF_PROMPT.md:28` → add "Close ‹app›" to the list of buttons and ", unless you choose Close" after "the app keeps running".
   - `Website/legal.html` near line 77 → after "Soft records the distraction and leaves the application running", insert " unless you choose Close on its notice". Keep the sentence otherwise as it is.
   - `Website/index.html`: grep the shields section for Soft's description. If it says the app keeps running or that Soft never closes, add the same qualifier. If it only says "Notes distractions and nudges you." (`ShieldCopy`), leave it; that's still true.
   - Changelog: nothing yet (Task 10 adds the 1.0.10 lines once A and B are merged after 1.0.9).
@@ -2661,7 +2661,7 @@ Run (UI lock): `python -m pytest automation/tests/test_tier3_e2e.py -k "Soft" -q
 - [ ] **Step 8: Commit and open PR B**
 
 ```bash
-git add DesktopApp README.md HANDOFF_PROMPT.md Website automation
+git add DesktopApp README.md docs/history/HANDOFF_PROMPT.md Website automation
 git commit -m "Soft notice: Close first, a wait before Allow, intention and try count
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"

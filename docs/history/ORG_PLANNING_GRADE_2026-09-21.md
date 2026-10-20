@@ -2,7 +2,7 @@
 
 **For:** Keenan (`seventycookies6-design`) and Miles (`milessmart6-pixel`)  
 **Date:** 21 September 2026  
-**Previous:** [`ORG_PLANNING_GRADE.md`](ORG_PLANNING_GRADE.md) (20 Sep 2026, #152 / #153)  
+**Previous:** [`docs/history/ORG_PLANNING_GRADE.md`](ORG_PLANNING_GRADE.md) (20 Sep 2026, #152 / #153)
 **Author:** Miles’s Cursor agent (Composer), from `origin/main` plus open GitHub issues/PRs  
 **Tracking:** #158
 
@@ -76,7 +76,7 @@ keeping #37/#38 in step with the checklist.
 | Four overlapping trackers | Two live places only | `PLANNING.md`; CX Progress table removed; #1–#6 closed |
 | Stale phase / Progress checklists | Epics closed; CX is audit-only | #154 / #155 |
 | Doc-steward PR pile-up | Per-merge run skips while a steward PR is open; queue drained | #155; closed steward PRs #101–#142; one open (#157) |
-| Grade invisible to Keenan | First grade on `main` | #153 → `ORG_PLANNING_GRADE.md` |
+| Grade invisible to Keenan | First grade on `main` | #153 → `docs/history/ORG_PLANNING_GRADE.md` |
 
 ### Still worth doing (priority)
 
@@ -87,7 +87,7 @@ keeping #37/#38 in step with the checklist.
 | **P1** | Retitle / retarget partial issues (#143 → Soft overlay only; #133 → milestones only) | Titles that describe shipped work confuse claim/assign | Whoever owns the leftover |
 | **P2** | Tick design-system adoption boxes that #149/#151 actually closed | Checklist “Who builds what” still says Syne for §3 | Miles, in the next design PR |
 | **P2** | Point README “latest grade” at this file | Avoid agents citing the 20 Sep scores as current | This PR |
-| **P3** | Optional `docs/archive/` for `FINAL_REPORT` / `MERGE_REVIEW_*` | Only if root clutter keeps confusing agents after `PLANNING.md` | Keenan call |
+| **P3** | Optional `docs/archive/` for `FINAL_REPORT` / `docs/history/MERGE_REVIEW_*` | Only if root clutter keeps confusing agents after `PLANNING.md` | Keenan call |
 
 ### Product / process improvements the grade surfaces (not org debt)
 

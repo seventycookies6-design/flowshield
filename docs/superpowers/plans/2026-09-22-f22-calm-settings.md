@@ -261,7 +261,7 @@ Wire `ScrollChanged="OnScrollChanged"` on `SettingsScroll`; set `x:Name="Setting
 ### Task 4: Docs, copy, and tracker truth
 
 **Files:**
-- Modify: `LAUNCH_FEATURE_CHECKLIST.md` (F22 `- [x] Done (#<PR>)`, both "Who builds what" rows), `DESIGN_SYSTEM.md` §4 (one bullet: "Settings is six labelled groups with a section rail; below 900px the rail becomes a chip row"), `Website/changelog.html` Unreleased section (one line: "Settings is grouped into six sections you can jump between."), `HANDOFF_PROMPT.md` if it lists F22 as open.
+- Modify: `LAUNCH_FEATURE_CHECKLIST.md` (F22 `- [x] Done (#<PR>)`, both "Who builds what" rows), `DESIGN_SYSTEM.md` §4 (one bullet: "Settings is six labelled groups with a section rail; below 900px the rail becomes a chip row"), `Website/changelog.html` Unreleased section (one line: "Settings is grouped into six sections you can jump between."), `docs/history/HANDOFF_PROMPT.md` if it lists F22 as open.
 - Test: existing doc/changelog tier 5 tests.
 
 - [ ] **Step 1:** Make the edits above; do not claim anything not built (CLAUDE.md rule).

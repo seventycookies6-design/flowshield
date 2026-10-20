@@ -844,10 +844,10 @@ class TestSoftShieldWording:
         """
         Ending a sprint early also unlocks a Sealed blocklist, so "until the timer
         ends" overstates it; Soft has no full-screen overlay. make_report.py is
-        included because it regenerates FINAL_REPORT.md from its own template.
+        included because it regenerates docs/history/FINAL_REPORT.md from its own template.
         """
         root = Path(DESKTOP_DIR).parent
-        for name in ("README.md", "HANDOFF_PROMPT.md", "FINAL_REPORT.md",
+        for name in ("README.md", "docs/history/HANDOFF_PROMPT.md", "docs/history/FINAL_REPORT.md",
                      "automation/make_report.py"):
             lines = (root / name).read_text(encoding="utf-8").splitlines()
             # FINAL_REPORT's results table quotes the app's own UI text verbatim
@@ -860,8 +860,8 @@ class TestSoftShieldWording:
                 f"{name} still describes Soft as a full-screen nudge"
 
         # 1.0.10: the notice has Close, so the template that regenerates
-        # FINAL_REPORT.md carries README's qualifier. The checked-in
-        # FINAL_REPORT.md itself is a record of a past run and is left alone.
+        # docs/history/FINAL_REPORT.md carries README's qualifier. The checked-in
+        # docs/history/FINAL_REPORT.md itself is a record of a past run and is left alone.
         template = (root / "automation" / "make_report.py").read_text(encoding="utf-8")
         assert "the blocked app keeps running unless you choose to close it" in template
         checklist = (root / "LAUNCH_FEATURE_CHECKLIST.md").read_text(encoding="utf-8")
@@ -1636,7 +1636,7 @@ class TestPurchaseFlowCopy:
 
     def test_the_report_table_lists_only_shipped_pro_features(self):
         root = Path(DESKTOP_DIR).parent
-        for name in ("automation/make_report.py", "FINAL_REPORT.md"):
+        for name in ("automation/make_report.py", "docs/history/FINAL_REPORT.md"):
             text = (root / name).read_text(encoding="utf-8")
             assert "momentum analytics" not in text, f"{name} still promises momentum analytics"
             assert "| Sprint length | ≤ 25 min | Any |" not in text, f"{name} says Pro sprints can be any length"

@@ -39,7 +39,7 @@ One bad afternoon shouldn't erase a month. Every sprint ends with a one-line
 | `automation/` | pywinauto + Playwright + pytest suite that drives all of it. |
 | `tools/` | Small maintenance scripts, and `doc_steward/`, which keeps the docs consistent with the code. |
 | [`PLANNING.md`](PLANNING.md) | Where progress is recorded (checklist + #37/#38) and what stopped being a tracker. |
-| [`ORG_PLANNING_GRADE_2026-09-21.md`](ORG_PLANNING_GRADE_2026-09-21.md) | Latest dated grade of repo organization and planning (21 Sep 2026). Earlier: [`ORG_PLANNING_GRADE.md`](ORG_PLANNING_GRADE.md). |
+| [`docs/history/ORG_PLANNING_GRADE_2026-09-21.md`](docs/history/ORG_PLANNING_GRADE_2026-09-21.md) | Latest dated grade of repo organization and planning (21 Sep 2026). Earlier: [`docs/history/ORG_PLANNING_GRADE.md`](docs/history/ORG_PLANNING_GRADE.md). |
 
 ## Prerequisites
 
@@ -188,7 +188,7 @@ python -m pytest automation/tests -v
 | 7 | `test_tier7_devices.py` | The three-device cap: that it holds, and equally that it can't trap a paying customer. |
 
 Handy extras: `python automation/smoke_ui.py` captures all four tabs in one pass;
-`python automation/make_report.py` regenerates `FINAL_REPORT.md`.
+`python automation/make_report.py` regenerates `docs/history/FINAL_REPORT.md`.
 
 Markers: `-m "not stripe"` skips anything needing credentials, `-m "not ui"`
 skips the slow desktop-driving tests.

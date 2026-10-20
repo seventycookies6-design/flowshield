@@ -11,9 +11,10 @@ in the pull request that ships it) and issues #37 / #38 hold what is next.
 `CUSTOMER_EXPERIENCE_PROMPT.md` is the original customer audit and the
 reasoning behind the work, not a status list. `DESIGN_SYSTEM.md`'s Binding part
 is what every app and site change follows. Its Current implementation part
-describes what shipped and may be changed by a design PR. `FINAL_REPORT.md`,
-`ORG_PLANNING_GRADE.md` and `MERGE_REVIEW_*.md` are dated snapshots: true when
-written, never updated since — don't treat them as the current state.
+describes what shipped and may be changed by a design PR. The files in
+`docs/history/` (`FINAL_REPORT.md`, `ORG_PLANNING_GRADE.md`, `MERGE_REVIEW_*.md`,
+`HANDOFF_PROMPT.md`) are dated snapshots: true when written, never updated
+since — don't treat them as the current state.
 
 ## How work flows
 
@@ -99,11 +100,11 @@ with each other, so a doc nobody remembered to update gets caught.
   fallback — configured in `tools/doc_steward/config.json`.
 - **What it may edit:** only the Markdown files in `editable` in that config.
   Code, the site, the legal page, the PR template and the generated
-  `FINAL_REPORT.md` are report-only. The allowlist is enforced by the script and
-  checked again in the workflow before anything is pushed; every edit must quote
-  evidence that exists in another file, or it's discarded. Files listed as
-  `historical` (the generated `FINAL_REPORT.md`) don't count as that evidence —
-  they describe a past run, not the current state.
+  `docs/history/FINAL_REPORT.md` are report-only. The allowlist is enforced by
+  the script and checked again in the workflow before anything is pushed; every
+  edit must quote evidence that exists in another file, or it's discarded. Files
+  listed as `historical` (the generated `docs/history/FINAL_REPORT.md`) don't
+  count as that evidence — they describe a past run, not the current state.
 - **How its changes arrive:** a pull request from a `docs-steward/run-*` branch,
   labelled `docs-steward`, with before/after text and evidence for each edit.
   It never merges or approves. Problems it may not fix go to one open issue
@@ -178,7 +179,7 @@ forgotten twice.
 - **Never claim a feature the shipped build doesn't have** — on the site, in the
   app or in emails.
 - **Every behaviour change gets a test** in the matching tier; regressions go in
-  tier 5 and must fail without the fix. Keep existing `AutomationId`s.
+  tier 5 and must fail without the fix.
 - **Tests check behaviour and promises, not layout** (#367). A design PR may
   rewrite or remove a test that only pins markup or layout (a card count,
   element order, a pixel value), if it lists each one and why. Tests that
@@ -186,6 +187,16 @@ forgotten twice.
   behaviour stay.
 - End commit messages with a `Co-Authored-By:` line for the agent that wrote the
   change.
+
+## Folder rules
+
+Read these alongside this file before working in the matching folder:
+
+- [automation/CLAUDE.md](automation/CLAUDE.md) — test tiers, markers and the
+  driver gotchas.
+- [DesktopApp/CLAUDE.md](DesktopApp/CLAUDE.md) — the deliberately timid blocker,
+  AutomationIds and WPF controls.
+- [Server/CLAUDE.md](Server/CLAUDE.md) — licence-server guidance and shared rules.
 
 ## Commands
 
@@ -259,27 +270,6 @@ Each of these cost real time once. Don't rediscover them.
 - **Stacked pull requests:** when one PR is built on another's branch, point
   the upper PR at `main` *before* squash-merging the lower one with branch
   deletion. Deleting a PR's base branch makes GitHub close it (#116).
-- **Covered controls:** UI Automation still lists buttons underneath an
-  overlay, and can invoke them. Prove that a panel blocks something by what
-  happens (no sprint starts, nothing saved), not by whether a control exists.
-  The same goes for the app itself: a gate must refuse in the view model, not
-  only by covering the screen.
-- **Clipped controls:** WPF reports a control's *layout* rectangle even when a
-  `ScrollViewer` has clipped it away, so "inside the window" does not mean
-  clickable. Hit-test the centre point before synthesising a click (#125).
-- **An `AutomationId` on a layout panel is never surfaced**, so a test asking
-  for it passes whether the thing is drawn or not. Put ids on the controls
-  themselves (#134).
-- **Any script that launches the app** wraps its entry point in
-  `preserve_user_settings()` — capture and one-off scripts included. The rule's
-  test finds them by parsing for `launch_app`, so a new one cannot slip past a
-  hand-written list (#141).
-- **Wait for what happens, not for a duration.** A fixed sleep or probe
-  timeout in the driver has twice caused failures that looked like product
-  bugs: the terms-gate helper, and `start_sprint` probing for F7's open-apps
-  question for a flat two seconds — which spends the whole three-second
-  `--short-timers` cancel grace before a test can act (#146). Race the
-  outcomes and return on the first one seen.
 - **Merging a stack of squash-merged PRs:** each upper PR still carries the
   lower one's original commits, so it conflicts with the squashed copy on
   `main`. Keeping *both* sides of a test-file conflict is only right for pure

@@ -72,7 +72,7 @@ run from a stable `current` folder. Item 1.2 below is corrected.
 
 You're working on **FlowShield**, a Windows focus timer and app blocker with a
 7-day free trial, sold as a one-time $4.99 purchase. Read `README.md`, `SELLING.md`,
-`HANDOFF_PROMPT.md` and `FINAL_REPORT.md` first. They're accurate.
+`docs/history/HANDOFF_PROMPT.md` and `docs/history/FINAL_REPORT.md` first. They're accurate.
 
 Your job is to turn FlowShield into the product a customer would actually want
 to pay for and keep. The audit below lists what a customer runs into today;
@@ -126,7 +126,7 @@ New for this work:
 6. **After each phase:** `dotnet build -c Release` with 0 warnings, the full
    suite (`python -m pytest automation/tests -q`; warn the owner first because
    the UI tiers take over the screen), `python automation/smoke_ui.py` for fresh
-   screenshots, and update `README.md`, `SELLING.md` and `FINAL_REPORT.md`
+   screenshots, and update `README.md`, `SELLING.md` and `docs/history/FINAL_REPORT.md`
    (`python automation/make_report.py`). Commit per item, push per phase.
    Cutting a release (`pwsh tools/build_release.ps1 -Version 1.x.0 -Publish`)
    and publishing the site (`pwsh tools/publish_site.ps1`) need the owner's OK

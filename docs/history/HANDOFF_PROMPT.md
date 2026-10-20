@@ -17,7 +17,7 @@ Don't redesign anything that already works.
 
 **Read first:** `CLAUDE.md` (the working rules — Claude Code loads it
 automatically, and it wins over anything here), then `README.md`, `DEPLOY.md`,
-`SELLING.md` and `FINAL_REPORT.md`. They're accurate.
+`SELLING.md` and `docs/history/FINAL_REPORT.md`. They're accurate.
 
 ## What FlowShield is today
 
@@ -336,7 +336,7 @@ node tools/db_admin.js list                            # inspect the local licen
 python automation/e2e_runner.py                        # full end-to-end run (headless; --headed to watch)
 python automation/smoke_ui.py                          # screenshot every tab
 python automation/verify_deployed.py                   # check the live site + server
-python automation/make_report.py                       # regenerate FINAL_REPORT.md
+python automation/make_report.py                       # regenerate docs/history/FINAL_REPORT.md
 ```
 
 After any change to `Server/`: merge the pull request, ask the owner to click
