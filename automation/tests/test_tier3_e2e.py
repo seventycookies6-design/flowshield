@@ -1392,8 +1392,8 @@ class TestPurchaseToActivation:
         fresh_app.navigate_to_tab("Settings")
         fresh_app.enter_license_key(payload["licenseKey"])
         fresh_app.click_activate_pro()
-        status = fresh_app.wait_for_license_status("Licence active", timeout=45)
-        assert "licence active" in status.lower()
+        status = fresh_app.wait_for_license_status("License active", timeout=45)
+        assert "license active" in status.lower()
 
         ui = verify.verify_ui_pro_status(fresh_app, expected_pro=True)
         assert ui.ok, ui.detail
@@ -1443,7 +1443,7 @@ class TestPurchaseUnlocksAnExpiredTrial:
         assert not expired_app.exists("LockBuyButton", timeout=1), "the lock stayed up after buying"
 
         expired_app.navigate_to_tab("Settings")
-        assert "licence active" in expired_app.get_license_status_text().lower()
+        assert "license active" in expired_app.get_license_status_text().lower()
         assert expired_app.tier_badge().upper() == "PURCHASED"
 
 

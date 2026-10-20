@@ -238,11 +238,11 @@ public class LicenseService
                 "malformed_key" => "That key isn't in the FS-XXXX-XXXX-XXXX-XXXX format.",
                 "not_found" => "We couldn't find a purchase for those details.",
                 "device_limit_reached" =>
-                    "This licence is already active on the maximum number of devices.",
-                "license_refunded" => "That purchase was refunded, so the licence is no longer active.",
+                    "This license is already active on the maximum number of devices.",
+                "license_refunded" => "That purchase was refunded, so the license is no longer active.",
                 "license_pending" => "That purchase hasn't been paid yet.",
                 _ when reason.StartsWith("license_") =>
-                    $"That licence is {reason["license_".Length..]}.",
+                    $"That license is {reason["license_".Length..]}.",
                 // Licences from the old monthly plan still report this way.
                 _ when reason.StartsWith("subscription_") =>
                     $"That subscription is {reason["subscription_".Length..]}.",
@@ -422,7 +422,7 @@ public class LicenseService
         var key = settings.LicenseKey;
         if (string.IsNullOrWhiteSpace(key))
             return new DeviceListResult(false, Array.Empty<DeviceInfo>(), 0, 0,
-                "No licence key to look up.");
+                "No license key to look up.");
 
         var url = settings.LicenseServerUrl.TrimEnd('/') + "/devices";
         try
@@ -455,7 +455,7 @@ public class LicenseService
         {
             Log.Warn($"could not list devices: {ex.Message}");
             return new DeviceListResult(false, Array.Empty<DeviceInfo>(), 0, 0,
-                "Couldn't reach the licence server.");
+                "Couldn't reach the license server.");
         }
     }
 

@@ -758,8 +758,8 @@ app.post('/validate', limiter.middleware('validate'), async (req, res) => {
         deviceCount: seat.count,
         deviceLimit: seat.limit,
         message:
-          `This licence is already active on ${seat.count} devices, the maximum per ` +
-          `licence. Deactivate Basalt on a machine you no longer use, then try again.`,
+          `This license is already active on ${seat.count} devices, the maximum per ` +
+          `license. Deactivate Basalt on a machine you no longer use, then try again.`,
       });
     }
 
@@ -787,7 +787,7 @@ app.post('/resend-license', limiter.middleware('resend-license'), async (req, re
   const sessionId = typeof req.body?.sessionId === 'string' ? req.body.sessionId.trim() : '';
   const generic = {
     ok: true,
-    message: 'If that address bought Basalt, the licence key is on its way.',
+    message: 'If that address bought Basalt, the license key is on its way.',
   };
 
   if (!email) {
@@ -855,7 +855,7 @@ app.post('/devices', limiter.middleware('devices'), async (req, res) => {
   if (!key) {
     return res.status(400).json({
       error: 'missing_license_key',
-      message: 'A licence key is required to list or release devices.',
+      message: 'A license key is required to list or release devices.',
     });
   }
 
@@ -877,7 +877,7 @@ app.post('/devices', limiter.middleware('devices'), async (req, res) => {
   }
 
   if (!row) {
-    return res.status(404).json({ error: 'not_found', message: 'No licence found for those details.' });
+    return res.status(404).json({ error: 'not_found', message: 'No license found for those details.' });
   }
 
   if (action === 'release') {
@@ -946,7 +946,7 @@ app.post('/create-portal-session', limiter.middleware('create-portal-session'), 
   if (!key) {
     return res.status(400).json({
       error: 'missing_license_key',
-      message: 'A licence key is required to manage a subscription.',
+      message: 'A license key is required to manage a subscription.',
     });
   }
 

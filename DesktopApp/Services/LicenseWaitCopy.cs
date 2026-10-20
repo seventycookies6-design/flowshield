@@ -17,7 +17,7 @@ namespace FlowShield.Services;
 public static class LicenseWaitCopy
 {
     /// <summary>First line shown the moment Activate is pressed.</summary>
-    public const string ContactingMessage = "Contacting the licence server…";
+    public const string ContactingMessage = "Contacting the license server…";
 
     /// <summary>
     /// Shown once the wait has gone on long enough that it is no longer a

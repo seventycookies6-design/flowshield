@@ -1252,7 +1252,7 @@ def wait_message_for(elapsed_seconds: float) -> str:
     """Mirror of LicenseWaitCopy.MessageFor."""
     waking_up_after = 8.0
     if elapsed_seconds < waking_up_after:
-        return "Contacting the licence server…"
+        return "Contacting the license server…"
     return "The server is waking up. This can take up to a minute."
 
 
@@ -1273,8 +1273,8 @@ class TestLicenseWaitCopy:
     SOURCE = Path(SERVER_DIR).parent / "DesktopApp" / "Services" / "LicenseWaitCopy.cs"
 
     @pytest.mark.parametrize("elapsed,expected", [
-        (0.0, "Contacting the licence server…"),
-        (7.9, "Contacting the licence server…"),
+        (0.0, "Contacting the license server…"),
+        (7.9, "Contacting the license server…"),
         (8.0, "The server is waking up. This can take up to a minute."),
         (60.0, "The server is waking up. This can take up to a minute."),
     ])

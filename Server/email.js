@@ -40,17 +40,17 @@ function escapeHtml(value) {
  * that render text only.
  */
 function licenseEmail({ licenseKey, email, status }) {
-  const subject = `Your ${APP_NAME} licence key`;
+  const subject = `Your ${APP_NAME} license key`;
 
   const text = [
     `Thanks for buying ${APP_NAME}. It's yours to keep - no subscription.`,
     '',
-    `Licence key: ${licenseKey}`,
+    `License key: ${licenseKey}`,
     '',
     'To activate:',
     `  1. Open ${APP_NAME} and go to Settings.`,
     '  2. Paste the key into "License key".',
-    '  3. Click "Activate licence".',
+    '  3. Click "Activate license".',
     '',
     `You can also activate with this email address (${email}) instead of the key.`,
     '',
@@ -75,7 +75,7 @@ function licenseEmail({ licenseKey, email, status }) {
 <body style="margin:0;padding:24px;background:#f4f4f7;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#1a1a2e">
   <div style="max-width:520px;margin:0 auto;background:#ffffff;border-radius:12px;padding:32px">
     <p style="margin:0 0 4px;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#6f6d8d">${escapeHtml(APP_NAME)}</p>
-    <h1 style="margin:0 0 16px;font-size:22px;font-weight:600">Your licence key</h1>
+    <h1 style="margin:0 0 16px;font-size:22px;font-weight:600">Your license key</h1>
 
     <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#44435c">
       Thanks for buying ${escapeHtml(APP_NAME)} — it is yours to keep, with no subscription. Here is the key — keep this email, it is the only copy we send.
@@ -89,7 +89,7 @@ function licenseEmail({ licenseKey, email, status }) {
     <ol style="margin:0 0 24px;padding-left:20px;font-size:15px;line-height:1.7;color:#44435c">
       <li>Open ${escapeHtml(APP_NAME)} and go to <strong>Settings</strong>.</li>
       <li>Paste the key into <strong>License key</strong>.</li>
-      <li>Click <strong>Activate licence</strong>.</li>
+      <li>Click <strong>Activate license</strong>.</li>
     </ol>
 
     <p style="margin:0 0 24px;font-size:14px;line-height:1.6;color:#6f6d8d">

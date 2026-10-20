@@ -21,7 +21,7 @@
                    KeyboardNavigation.DirectionalNavigation="None"
                    AutomationProperties.Name="Settings sections">
             <RadioButton x:Name="SettingsNav_Licence" Style="{StaticResource SettingsNavLink}"
-                         GroupName="SettingsNav" Tag="Licence" Content="Licence &amp; devices" IsChecked="True"
+                         GroupName="SettingsNav" Tag="Licence" Content="License &amp; devices" IsChecked="True"
                          AutomationProperties.AutomationId="SettingsNav_Licence" Click="OnNavClick" PreviewKeyDown="OnNavKeyDown"/>
             <RadioButton x:Name="SettingsNav_Focus" Style="{StaticResource SettingsNavLink}"
                          GroupName="SettingsNav" Tag="Focus" Content="Focus"
@@ -51,7 +51,7 @@
 
             <!-- ================================================== licence -->
             <StackPanel x:Name="Group_Licence">
-                <TextBlock x:Name="Header_Licence" Text="Licence" Style="{StaticResource SettingsGroupHeader}"
+                <TextBlock x:Name="Header_Licence" Text="License" Style="{StaticResource SettingsGroupHeader}"
                            Margin="0,0,0,12"
                            AutomationProperties.AutomationId="SettingsGroup_Licence"/>
                 <inf:AdaptiveColumns MinColumnWidth="400" MaxColumns="3" Spacing="16">
@@ -115,10 +115,10 @@
                                      AutomationProperties.Name="License email"/>
 
                             <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
-                                <Button Style="{StaticResource BtnPrimary}" Content="Activate licence"
+                                <Button Style="{StaticResource BtnPrimary}" Content="Activate license"
                                         Command="{Binding ActivateCommand}" Padding="24,12"
                                         AutomationProperties.AutomationId="ActivateProButton"
-                                        AutomationProperties.Name="Activate licence"/>
+                                        AutomationProperties.Name="Activate license"/>
 
                                 <Button Style="{StaticResource BtnQuiet}" Content="Deactivate"
                                         Command="{Binding DeactivateCommand}" Margin="8,0,0,0"
@@ -599,7 +599,7 @@
                         <StackPanel>
                             <TextBlock Text="YOUR DATA" Style="{StaticResource Eyebrow}" Margin="0,0,0,8"/>
                             <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,16">
-                                <Run Text="Sessions, journal, blocklist, momentum and your licence are stored on this PC, encrypted with Windows DPAPI, at"/>
+                                <Run Text="Sessions, journal, blocklist, momentum and your license are stored on this PC, encrypted with Windows DPAPI, at"/>
                                 <Run Text="{Binding DataFilePath, Mode=OneWay}" Foreground="{DynamicResource InkDim}"/>
                                 <Run Text=". A logs folder sits beside it."/>
                             </TextBlock>

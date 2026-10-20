@@ -108,7 +108,7 @@ class TestTemplate:
         assert out["inText"] is True, "a text-only client would see no key"
         assert out["hasStyleBlock"] is False, \
             "mail clients strip <style> blocks; styles must be inline"
-        assert "licence key" in out["subject"].lower()
+        assert "license key" in out["subject"].lower()
 
     def test_the_html_declares_utf8(self):
         """
