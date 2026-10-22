@@ -1001,3 +1001,88 @@ class TestFontAndSiteIconNoticesShip:
                 assert 'rel="license" href="icons-LICENSE.txt"' in html, (
                     f"{page.name} draws Lucide icons but does not link their licence"
                 )
+
+
+class TestGetHelpIsHonest:
+    """
+    Roadmap 4.3 (#400). No support address exists yet, so the app must show
+    none rather than the site's "[support email]" placeholder, and the
+    diagnostics bundle must never leave the machine on its own.
+    """
+
+    APP = Path(DESKTOP_DIR)
+
+    def sources(self, *patterns: str) -> dict[str, str]:
+        files = {}
+        for pattern in patterns:
+            for path in self.APP.rglob(pattern):
+                if {"bin", "obj"} & set(path.relative_to(self.APP).parts):
+                    continue
+                files[path.relative_to(self.APP).as_posix()] = path.read_text(encoding="utf-8")
+        return files
+
+    def test_the_support_email_placeholder_never_ships_in_the_app(self):
+        for name, text in self.sources("*.cs", "*.xaml").items():
+            assert "[support email]" not in text.lower(), f"{name} ships the placeholder"
+
+    def test_the_email_row_is_hidden_while_no_address_is_set(self):
+        from xml.etree import ElementTree
+
+        from core.model_probe import probe
+
+        assert probe({"cmd": "help-links"})["has_support_email"] is False
+
+        view = ElementTree.fromstring((self.APP / "Views" / "SettingsView.xaml").read_text(encoding="utf-8"))
+        gated = [el for el in view.iter()
+                 if "HasSupportEmail" in el.attrib.get("Visibility", "")
+                 and "BoolVis" in el.attrib.get("Visibility", "")]
+        assert len(gated) == 1, "the email row must be gated on HasSupportEmail"
+        inside = {el.attrib.get("AutomationProperties.AutomationId") for el in gated[0].iter()}
+        assert {"GetHelpEmailText", "GetHelpCopyEmailButton"} <= inside, (
+            "the address and its Copy button must sit inside the gated row")
+
+        viewmodel = (self.APP / "ViewModels" / "SettingsViewModel.cs").read_text(encoding="utf-8")
+        assert "public bool HasSupportEmail => HelpLinks.HasSupportEmail;" in viewmodel
+        copy = viewmodel.split("private void CopySupportEmail()", 1)[1].split("}", 1)[0]
+        assert "if (!HasSupportEmail) return;" in copy, "Copy must do nothing without an address"
+
+    def test_the_support_address_is_set_in_one_place_and_starts_empty(self):
+        links = (self.APP / "Models" / "HelpLinks.cs").read_text(encoding="utf-8")
+        assert "public const string? SupportEmail = null;" in links
+        for name, text in self.sources("*.cs", "*.xaml").items():
+            if name != "Models/HelpLinks.cs":
+                assert not re.search(r"[\w.+-]+@[\w-]+\.[a-z]{2,}", text), (
+                    f"{name} hard-codes an email address")
+
+    def test_the_error_dialog_and_settings_share_one_support_url(self):
+        holders = [name for name, text in self.sources("*.cs", "*.xaml").items() if "support.html" in text]
+        assert holders == ["Models/HelpLinks.cs"], holders
+        dialog = (self.APP / "Views" / "FriendlyErrorDialog.xaml.cs").read_text(encoding="utf-8")
+        assert "HelpLinks.SupportUrl" in dialog
+        assert "HelpLinks.SupportUrl" in (self.APP / "ViewModels" / "SettingsViewModel.cs").read_text(encoding="utf-8")
+
+    def test_every_get_help_control_has_an_automation_id_and_a_name(self):
+        xaml = (self.APP / "Views" / "SettingsView.xaml").read_text(encoding="utf-8")
+        dialog = (self.APP / "Views" / "DiagnosticsPreviewDialog.xaml").read_text(encoding="utf-8")
+        for ident in ("GetHelpOpenFaqButton", "GetHelpEmailText", "GetHelpCopyEmailButton",
+                      "GetHelpDiagnosticsButton"):
+            assert f'AutomationProperties.AutomationId="{ident}"' in xaml, ident
+        for ident in ("DiagnosticsPreviewText", "DiagnosticsCopyButton", "DiagnosticsSaveButton",
+                      "DiagnosticsCloseButton"):
+            assert f'AutomationProperties.AutomationId="{ident}"' in dialog, ident
+        assert "AutomationProperties.Name" in dialog.split("DiagnosticsPreviewText", 1)[1].split("/>", 1)[0]
+
+    def test_the_preview_says_nothing_is_sent_and_offers_copy_save_close(self):
+        dialog = (self.APP / "Views" / "DiagnosticsPreviewDialog.xaml").read_text(encoding="utf-8")
+        assert "Nothing is sent. Attach this to an email only if you want to." in dialog
+        assert 'IsReadOnly="True"' in dialog
+        assert 'IsCancel="True"' in dialog, "Escape must close the preview"
+        code = (self.APP / "Views" / "DiagnosticsPreviewDialog.xaml.cs").read_text(encoding="utf-8")
+        assert "SaveFileDialog" in code and "*.txt" in code and "Clipboard.SetText" in code
+
+    def test_the_bundle_code_cannot_send_anything(self):
+        code = self.sources("DiagnosticsService.cs", "DiagnosticsPreviewDialog.xaml.cs")
+        assert len(code) == 2
+        for name, text in code.items():
+            for sender in ("HttpClient", "WebClient", "WebRequest", "Smtp", "mailto:", "Process.Start", "Socket"):
+                assert sender not in text, f"{name} uses {sender}: the bundle must never leave the machine"

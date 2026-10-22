@@ -719,8 +719,11 @@ class TestFriendlyErrorDialog:
         assert "FriendlyErrorDialog" in app, \
             "App.xaml.cs must show the friendly dialog on an unhandled exception"
         assert 'Text="Something went wrong."' in dialog
-        assert "seventycookies6-design.github.io/flowshield/support.html" in code_behind, \
+        # The URL lives in HelpLinks (#400), shared with Settings -> Get help.
+        links = (Path(DESKTOP_DIR) / "Models" / "HelpLinks.cs").read_text(encoding="utf-8")
+        assert "HelpLinks.SupportUrl" in code_behind, \
             "the friendly dialog must link to the support page"
+        assert "seventycookies6-design.github.io/flowshield/support.html" in links
 
     def test_the_dialog_does_not_promise_what_it_cannot_verify(self):
         dialog = (Path(DESKTOP_DIR) / "Views" / "FriendlyErrorDialog.xaml").read_text(
