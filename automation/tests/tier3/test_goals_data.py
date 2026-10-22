@@ -347,3 +347,56 @@ class TestHistoryPage:
         time.sleep(0.5)
 
         assert verify.read_settings()["Sessions"] == before
+
+
+# ======================================= Get help and diagnostics (#400, 4.3)
+
+class TestGetHelp:
+    """
+    Settings -> About -> Get help. NOT RUN by the agent that wrote it: it
+    launches the app and takes the screen, so Miles runs it. Nothing is sent
+    anywhere, so there is no server to check; what matters is what the preview
+    shows and what lands in a saved file.
+    """
+
+    def open_preview(self, app):
+        app.navigate_to_tab("Settings")
+        app.click("SettingsNav_About")
+        time.sleep(0.5)
+        app.click("GetHelpDiagnosticsButton")
+        time.sleep(1.0)
+        assert app.exists("DiagnosticsPreviewDialog"), "Create diagnostics did not open the preview"
+
+    def test_the_card_offers_the_faq_and_diagnostics_but_no_email_yet(self, fresh_app):
+        fresh_app.navigate_to_tab("Settings")
+        fresh_app.click("SettingsNav_About")
+        time.sleep(0.5)
+        assert fresh_app.exists("GetHelpOpenFaqButton")
+        assert fresh_app.exists("GetHelpDiagnosticsButton")
+        assert not fresh_app.exists("GetHelpEmailText", timeout=0.5),             "no support address is set, so none may be shown"
+        assert not fresh_app.exists("GetHelpCopyEmailButton", timeout=0.5)
+
+    def test_the_preview_says_nothing_is_sent_and_shows_the_bundle(self, fresh_app):
+        self.open_preview(fresh_app)
+        assert "Nothing is sent" in fresh_app.text_of("DiagnosticsNothingSentText")
+        text = fresh_app.text_of("DiagnosticsPreviewText")
+        assert "Basalt version:" in text and "Windows:" in text and ".NET runtime:" in text
+        assert "FS-" not in text, "a license key must never be in the bundle"
+        for control in ("DiagnosticsCopyButton", "DiagnosticsSaveButton", "DiagnosticsCloseButton"):
+            assert fresh_app.exists(control), control
+
+    def test_save_as_writes_the_same_text_to_a_file(self, fresh_app, tmp_path):
+        target = tmp_path / "basalt-diagnostics.txt"
+        self.open_preview(fresh_app)
+        fresh_app.click("DiagnosticsSaveButton")
+        assert fresh_app.save_dialog_to(str(target)), "the Save dialog never appeared"
+        time.sleep(1.0)
+        saved = target.read_text(encoding="utf-8")
+        assert "Basalt version:" in saved and "== Recent log" in saved
+
+    def test_close_returns_to_settings(self, fresh_app):
+        self.open_preview(fresh_app)
+        fresh_app.click("DiagnosticsCloseButton")
+        time.sleep(0.5)
+        assert not fresh_app.exists("DiagnosticsPreviewDialog", timeout=0.5)
+        assert fresh_app.exists("GetHelpDiagnosticsButton")
