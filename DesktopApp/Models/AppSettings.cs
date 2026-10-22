@@ -638,6 +638,14 @@ public class AppSettings
     public TimeSpan SleepBlockStartTime { get; set; } = new(22, 0, 0);
     public TimeSpan SleepBlockEndTime { get; set; } = new(6, 0, 0);
 
+    /// <summary>
+    /// The nights the window starts on (roadmap 3.7). Null, which is what a
+    /// settings file written before nights existed reads as, means every night.
+    /// An empty list is a choice of none: the window never opens, and it is
+    /// never read as every night. The page refuses to save or enable it.
+    /// </summary>
+    public List<DayOfWeek>? SleepBlockDays { get; set; }
+
     // ---- preferences ----------------------------------------------------
     public bool StartWithWindows { get; set; }
     public bool HardKillModeEnabled { get; set; }

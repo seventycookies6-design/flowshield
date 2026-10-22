@@ -42,6 +42,8 @@ public static class DataPrivacyService
                 enabled = settings.IsSleepBlockEnabled,
                 start = settings.SleepBlockStartTime,
                 end = settings.SleepBlockEndTime,
+                // Null in an older file means every night; the export says which.
+                nights = settings.SleepBlockDays ?? SleepWindow.EveryNight.ToList(),
             },
             sessions = settings.Sessions,
             // A sprint still running is local data too (#290).
