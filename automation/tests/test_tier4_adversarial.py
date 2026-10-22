@@ -345,7 +345,9 @@ class TestUIInputEdges:
         """
         expired_app.navigate_to_tab("Schedule")
 
-        for auto_id in ("SleepStartInput", "SleepEndInput"):
+        # The time pickers and night chips replaced the two text boxes (#401).
+        for auto_id in ("SleepStartHour", "SleepStartMinute", "SleepEndHour", "SleepEndMinute",
+                        "SleepNight_Mon", "SleepNight_Sun"):
             assert expired_app.is_control_enabled(auto_id) is False, \
                 f"{auto_id} is editable after the trial ended"
 
