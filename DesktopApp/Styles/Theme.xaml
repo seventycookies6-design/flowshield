@@ -607,6 +607,104 @@
         </Setter>
     </Style>
 
+    <!-- A closed list of choices that looks like the Field beside it (roadmap
+         3.7's time pickers). Read-only on purpose: every value on offer is a
+         valid one, so there is nothing to mistype. Keyboard: Tab to it, the
+         arrow keys step through the values, Alt+Down or Space opens the list. -->
+    <Style x:Key="TimePickerItem" TargetType="ComboBoxItem">
+        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+        <Setter Property="FontFamily" Value="{StaticResource FontStack}"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
+        <Setter Property="Padding" Value="12,6"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ComboBoxItem">
+                    <Border x:Name="bd" Background="Transparent" Padding="{TemplateBinding Padding}"
+                            CornerRadius="{StaticResource RadiusChip}">
+                        <ContentPresenter/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsHighlighted" Value="True">
+                            <Setter TargetName="bd" Property="Background" Value="{DynamicResource Edge}"/>
+                        </Trigger>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter TargetName="bd" Property="Background" Value="{DynamicResource PrimarySoft}"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="TimePicker" TargetType="ComboBox">
+        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusVisual}"/>
+        <Setter Property="FontFamily" Value="{StaticResource FontStack}"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
+        <Setter Property="Background" Value="{DynamicResource Surface2}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource Edge}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Padding" Value="12,8"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="IsEditable" Value="False"/>
+        <Setter Property="ItemContainerStyle" Value="{StaticResource TimePickerItem}"/>
+        <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ComboBox">
+                    <Grid>
+                        <ToggleButton x:Name="toggle" Focusable="False" ClickMode="Press"
+                                      IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}">
+                            <ToggleButton.Template>
+                                <ControlTemplate TargetType="ToggleButton">
+                                    <Border x:Name="bd" Background="{Binding Background, RelativeSource={RelativeSource AncestorType=ComboBox}}"
+                                            BorderBrush="{Binding BorderBrush, RelativeSource={RelativeSource AncestorType=ComboBox}}"
+                                            BorderThickness="1" CornerRadius="{StaticResource RadiusControl}"/>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource EdgeBright}"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </ToggleButton.Template>
+                        </ToggleButton>
+                        <Grid IsHitTestVisible="False" Margin="{TemplateBinding Padding}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <ContentPresenter Content="{TemplateBinding SelectionBoxItem}"
+                                              ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                              VerticalAlignment="Center" Margin="0,0,10,0"/>
+                            <Path Grid.Column="1" Data="M 0 0 L 4 4 L 8 0" Stroke="{DynamicResource InkFaint}"
+                                  StrokeThickness="1.5" VerticalAlignment="Center" StrokeStartLineCap="Round"
+                                  StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
+                        </Grid>
+                        <Popup x:Name="PART_Popup" IsOpen="{TemplateBinding IsDropDownOpen}" Placement="Bottom"
+                               AllowsTransparency="True" Focusable="False" PopupAnimation="None">
+                            <Border MinWidth="{Binding ActualWidth, ElementName=toggle}" MaxHeight="240" Margin="0,4,0,0"
+                                    Background="{DynamicResource Surface2}" BorderBrush="{DynamicResource EdgeBright}"
+                                    BorderThickness="1" CornerRadius="{StaticResource RadiusControl}" Padding="4">
+                                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                    <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Contained"/>
+                                </ScrollViewer>
+                            </Border>
+                        </Popup>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                            <Setter Property="BorderBrush" Value="{DynamicResource Primary}"/>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.45"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <!-- Toggle switch, built from a CheckBox so it keeps the Toggle pattern
          that UI Automation (and the test suite) expects. -->
     <Style x:Key="Switch" TargetType="CheckBox">

@@ -1,7 +1,8 @@
 ﻿<UserControl x:Class="FlowShield.Views.SleepBlockingView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:inf="clr-namespace:FlowShield.Infrastructure">
+             xmlns:inf="clr-namespace:FlowShield.Infrastructure"
+             xmlns:vm="clr-namespace:FlowShield.ViewModels">
     <!-- DESIGN_SYSTEM.md §4: full width, like Today and Blocked Apps.
          The status and the schedule sit side by side when there is room and
          stack when there is not (#189); this used to be one 700px column
@@ -25,6 +26,36 @@
                     <Button Grid.Column="1" Style="{StaticResource BtnPrimary}" Content="Buy Basalt"
                             VerticalAlignment="Center" Command="{Binding GetProCommand}"
                             AutomationProperties.AutomationId="SleepGetProButton"/>
+                </Grid>
+            </ContentControl>
+
+            <!-- The window only works while Basalt runs (roadmap 3.7). Shown once
+                 the window is on and Basalt isn't set to start at sign-in: first
+                 as the offer right after switching it on, then as a plain notice. -->
+            <ContentControl Style="{StaticResource CardTinted}" Margin="0,0,0,16"
+                            Visibility="{Binding ShowStartupPanel, Converter={StaticResource BoolVis}}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                        <TextBlock Text="{Binding StartupTitle}" Style="{StaticResource H2}" TextWrapping="Wrap"
+                                   AutomationProperties.AutomationId="SleepStartupTitle"/>
+                        <TextBlock Text="{Binding StartupText}" Style="{StaticResource Body}" Margin="0,4,0,0"
+                                   TextWrapping="Wrap" AutomationProperties.AutomationId="SleepStartupText"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Button Style="{StaticResource BtnPrimary}" Content="Start with Windows"
+                                Command="{Binding TurnOnStartWithWindowsCommand}"
+                                AutomationProperties.AutomationId="SleepStartWithWindowsButton"
+                                AutomationProperties.Name="Turn on Start with Windows"/>
+                        <Button Style="{StaticResource BtnGhost}" Content="Not now" Margin="8,0,0,0"
+                                Command="{Binding DismissStartupOfferCommand}"
+                                Visibility="{Binding StartupOfferPending, Converter={StaticResource BoolVis}}"
+                                AutomationProperties.AutomationId="SleepStartupNotNowButton"
+                                AutomationProperties.Name="Not now"/>
+                    </StackPanel>
                 </Grid>
             </ContentControl>
 
@@ -75,7 +106,11 @@
                                                AutomationProperties.AutomationId="SleepStatusText"/>
                                 </StackPanel>
                             </Border>
-                            <TextBlock Style="{StaticResource Caption}" Margin="0,12,0,0" HorizontalAlignment="Center"
+                            <TextBlock Text="{Binding NextText}" Style="{StaticResource Body}" Margin="0,12,0,0"
+                                       HorizontalAlignment="Center" Typography.NumeralAlignment="Tabular"
+                                       Visibility="{Binding NextText, Converter={StaticResource NonEmptyVis}}"
+                                       AutomationProperties.AutomationId="SleepNextText"/>
+                            <TextBlock Style="{StaticResource Caption}" Margin="0,8,0,0" HorizontalAlignment="Center"
                                        AutomationProperties.AutomationId="SleepWindowText">
                                 <Run Text="Current window:"/>
                                 <Run Text="{Binding WindowText, Mode=OneWay}" Foreground="{DynamicResource Ink}"/>
@@ -105,10 +140,22 @@
                             <WrapPanel Orientation="Horizontal" IsEnabled="{Binding HasAccess}">
                                 <StackPanel Margin="0,0,16,0">
                                     <TextBlock Text="STARTS" Style="{StaticResource Eyebrow}" Margin="0,0,0,8"/>
-                                    <TextBox Style="{StaticResource Field}" Width="112"
-                                             Text="{Binding StartText, UpdateSourceTrigger=PropertyChanged}"
-                                             AutomationProperties.AutomationId="SleepStartInput"
-                                             AutomationProperties.Name="Sleep block start time"/>
+                                    <StackPanel Orientation="Horizontal">
+                                        <ComboBox Style="{StaticResource TimePicker}" Width="76"
+                                                  ItemsSource="{x:Static vm:SleepBlockingViewModel.HourOptions}"
+                                                  DisplayMemberPath="Label" SelectedValuePath="Value"
+                                                  SelectedValue="{Binding StartHour}" TextSearch.TextPath="Label"
+                                                  AutomationProperties.AutomationId="SleepStartHour"
+                                                  AutomationProperties.Name="Sleep block start hour"/>
+                                        <TextBlock Text=":" FontSize="18" Foreground="{DynamicResource InkFaint}"
+                                                   VerticalAlignment="Center" Margin="6,0,6,2"/>
+                                        <ComboBox Style="{StaticResource TimePicker}" Width="76"
+                                                  ItemsSource="{x:Static vm:SleepBlockingViewModel.MinuteOptions}"
+                                                  DisplayMemberPath="Label" SelectedValuePath="Value"
+                                                  SelectedValue="{Binding StartMinute}" TextSearch.TextPath="Label"
+                                                  AutomationProperties.AutomationId="SleepStartMinute"
+                                                  AutomationProperties.Name="Sleep block start minute"/>
+                                    </StackPanel>
                                 </StackPanel>
 
                                 <TextBlock Text="→" FontSize="18" Foreground="{DynamicResource InkFaint}"
@@ -116,20 +163,47 @@
 
                                 <StackPanel Margin="0,0,16,0">
                                     <TextBlock Text="ENDS" Style="{StaticResource Eyebrow}" Margin="0,0,0,8"/>
-                                    <TextBox Style="{StaticResource Field}" Width="112"
-                                             Text="{Binding EndText, UpdateSourceTrigger=PropertyChanged}"
-                                             AutomationProperties.AutomationId="SleepEndInput"
-                                             AutomationProperties.Name="Sleep block end time"/>
+                                    <StackPanel Orientation="Horizontal">
+                                        <ComboBox Style="{StaticResource TimePicker}" Width="76"
+                                                  ItemsSource="{x:Static vm:SleepBlockingViewModel.HourOptions}"
+                                                  DisplayMemberPath="Label" SelectedValuePath="Value"
+                                                  SelectedValue="{Binding EndHour}" TextSearch.TextPath="Label"
+                                                  AutomationProperties.AutomationId="SleepEndHour"
+                                                  AutomationProperties.Name="Sleep block end hour"/>
+                                        <TextBlock Text=":" FontSize="18" Foreground="{DynamicResource InkFaint}"
+                                                   VerticalAlignment="Center" Margin="6,0,6,2"/>
+                                        <ComboBox Style="{StaticResource TimePicker}" Width="76"
+                                                  ItemsSource="{x:Static vm:SleepBlockingViewModel.MinuteOptions}"
+                                                  DisplayMemberPath="Label" SelectedValuePath="Value"
+                                                  SelectedValue="{Binding EndMinute}" TextSearch.TextPath="Label"
+                                                  AutomationProperties.AutomationId="SleepEndMinute"
+                                                  AutomationProperties.Name="Sleep block end minute"/>
+                                    </StackPanel>
                                 </StackPanel>
-
-                                <Button Style="{StaticResource BtnPrimary}" Content="Save window"
-                                        VerticalAlignment="Bottom" Margin="0,8,0,0" Command="{Binding SaveCommand}"
-                                        AutomationProperties.AutomationId="SaveSleepWindowButton"
-                                        AutomationProperties.Name="Save sleep window"/>
                             </WrapPanel>
 
-                            <TextBlock Text="24-hour time, e.g. 22:00. A window that crosses midnight is fine."
+                            <TextBlock Text="24-hour time. A window that crosses midnight is fine."
                                        Style="{StaticResource Caption}" Margin="0,12,0,0"/>
+
+                            <TextBlock Text="NIGHTS" Style="{StaticResource Eyebrow}" Margin="0,24,0,12"/>
+                            <ItemsControl ItemsSource="{Binding Nights}" IsEnabled="{Binding HasAccess}">
+                                <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <CheckBox Style="{StaticResource SegmentCheck}" Margin="0,0,8,8"
+                                                  Content="{Binding Label}" IsChecked="{Binding IsChosen}"
+                                                  AutomationProperties.AutomationId="{Binding AutomationId}"
+                                                  AutomationProperties.Name="{Binding AccessibleName}"/>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <TextBlock Style="{StaticResource Caption}" Margin="0,4,0,0" TextWrapping="Wrap"
+                                       Text="The window starts on the nights you pick, so a Friday window runs into Saturday morning."/>
+
+                            <Button Style="{StaticResource BtnPrimary}" Content="Save window" HorizontalAlignment="Left"
+                                    Margin="0,20,0,0" IsEnabled="{Binding HasAccess}" Command="{Binding SaveCommand}"
+                                    AutomationProperties.AutomationId="SaveSleepWindowButton"
+                                    AutomationProperties.Name="Save sleep window"/>
                     </StackPanel>
                 </Border>
             </inf:AdaptiveColumns>

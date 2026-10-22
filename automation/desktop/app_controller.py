@@ -966,11 +966,35 @@ class DesktopController:
 
     # --------------------------------------------------------- sleep blocking
 
-    def set_sleep_window(self, start: str, end: str) -> None:
-        self.set_text("SleepStartInput", start)
-        self.set_text("SleepEndInput", end)
+    def _pick(self, auto_id: str, label: str) -> None:
+        """Choose one entry in a closed picker (a read-only ComboBox), by the text it shows."""
+        control = self.element(auto_id)
+        self._wait_ready(control)
+        control = self._scroll_into_view(control, auto_id)
+        try:
+            control.select(label)
+        except Exception:
+            control.click_input()
+            control.type_keys(label + "{ENTER}", pause=0.02)
+
+    def set_sleep_window(self, start: str, end: str, nights: list[str] | None = None) -> None:
+        """
+        Set the window with its hour and minute pickers ("23:15" -> 23 and 15)
+        and save. `nights` is the day names to leave chosen ("Mon", "Tue", ...);
+        omitted, the nights stay as they are.
+        """
+        for prefix, value in (("SleepStart", start), ("SleepEnd", end)):
+            hour, minute = value.split(":")
+            self._pick(f"{prefix}Hour", f"{int(hour):02d}")
+            self._pick(f"{prefix}Minute", f"{int(minute):02d}")
+        if nights is not None:
+            for day in ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"):
+                self.set_toggle(f"SleepNight_{day}", day in nights)
         self.click("SaveSleepWindowButton")
         time.sleep(0.4)
+
+    def sleep_next_text(self) -> str:
+        return self.text_of("SleepNextText")
 
     def sleep_status(self) -> str:
         return self.text_of("SleepStatusText")

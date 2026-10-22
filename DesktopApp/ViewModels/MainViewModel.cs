@@ -94,6 +94,8 @@ public class MainViewModel : ViewModelBase
         Scheduler.Action += (_, action) => OnScheduleAction(action);
         Scheduler.Ticked += (_, now) => Today.DropStaleHeadsUp(now);
         Scheduler.Ticked += (_, now) => Today.RefreshStatsOnNewDay(now);
+        // Roadmap 3.7: the sleep window's warning rides this tick, not a timer of its own.
+        Scheduler.Ticked += (_, now) => SleepBlocking.OnSchedulerTick(now);
         Scheduler.Start();
         Schedule.TemplatesChanged += (_, _) => Today.RefreshTemplates();
         Schedule.TemplatesChanged += (_, _) => RebuildJumpList();
