@@ -380,3 +380,33 @@ class TestTheThemeActuallySwitchesF21:
         for forbidden in ("new Window", ".Show()", ".ShowDialog()", "app.Run("):
             assert forbidden not in source, \
                 f"the theme probe must not {forbidden} -- it runs beside the UI suite"
+
+
+class TestSleepWindowPickersDrawRoadmap37:
+    """
+    Roadmap 3.7: the sleep window's times are picked, not typed. The probe
+    builds the real SleepBlockingView offscreen with the app's own resources,
+    so a XAML error, a missing style or a picker that draws at 0 x 0 fails
+    here instead of on a customer's Schedule page. (Which value each picker
+    holds is the view model's, and is covered from the source in tier 1.)
+    """
+
+    PICKERS = {"SleepStartHour": (24, "00", "23"), "SleepEndHour": (24, "00", "23"),
+               "SleepStartMinute": (60, "00", "59"), "SleepEndMinute": (60, "00", "59")}
+
+    def test_every_picker_lists_every_valid_value(self, theme_probe):
+        pickers = theme_probe["sleepPage"]["pickers"]
+        assert set(pickers) == set(self.PICKERS)
+        for auto_id, (count, first, last) in self.PICKERS.items():
+            entry = pickers[auto_id]
+            assert (entry["items"], entry["first"], entry["last"]) == (count, first, last), auto_id
+
+    def test_every_picker_is_themed_named_reachable_and_drawn(self, theme_probe):
+        for auto_id, entry in theme_probe["sleepPage"]["pickers"].items():
+            assert entry["styled"] and entry["templated"], f"{auto_id} is not using the picker style"
+            assert entry["focusable"], f"{auto_id} cannot take the keyboard"
+            assert entry["name"].startswith("Sleep block"), f"{auto_id} has no accessible name"
+            assert entry["width"] >= 60 and entry["height"] >= 28, f"{auto_id} drew at {entry['width']} x {entry['height']}"
+
+    def test_the_page_still_has_its_save_button(self, theme_probe):
+        assert theme_probe["sleepPage"]["saveButton"] is True

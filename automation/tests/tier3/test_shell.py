@@ -202,6 +202,7 @@ class TestNotificationSettings:
         ("NotifyScheduledSprintToggle", "ScheduledSprint"),
         ("NotifyAppClosingToggle", "AppClosing"),
         ("NotifyTrialEndingToggle", "TrialEnding"),
+        ("NotifySleepWindowToggle", "SleepWindowWarning"),
     ]
 
     def test_every_notification_is_on_for_a_new_install(self, fresh_app):
