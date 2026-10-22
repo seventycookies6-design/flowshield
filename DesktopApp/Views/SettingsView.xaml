@@ -504,6 +504,17 @@
                                     </StackPanel>
                                 </CheckBox>
 
+                                <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding NotifySleepWindowWarning}"
+                                          Margin="0,16,0,0"
+                                          AutomationProperties.AutomationId="NotifySleepWindowToggle"
+                                          AutomationProperties.Name="Sleep window starting">
+                                    <StackPanel>
+                                        <TextBlock Text="Sleep window starting" Style="{StaticResource Label}"/>
+                                        <TextBlock Text="Ten minutes before the window opens, naming the apps that will close."
+                                                   Style="{StaticResource Caption}" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                </CheckBox>
+
                                 <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding NotifyUpdateReady}"
                                           Margin="0,16,0,0"
                                           AutomationProperties.AutomationId="NotifyUpdateReadyToggle"

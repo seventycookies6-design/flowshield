@@ -470,6 +470,9 @@ public partial class MainWindow : Window
             case NotificationAction.OpenSettingsLicense:
                 Vm.CurrentPage = AppPage.Settings;
                 break;
+            case NotificationAction.OpenSchedule:
+                Vm.CurrentPage = AppPage.SleepBlocking;
+                break;
         }
     }
 

@@ -502,7 +502,7 @@ class TestKeyboardAndFocusF21:
 
     #: Styles a customer operates, each of which must carry the focus ring.
     FOCUSABLE_STYLES = ("BtnBase", "Field", "Switch", "Segment", "SegmentShield",
-                        "PlainItem", "PickerItem")
+                        "PlainItem", "PickerItem", "TimePicker")
 
     def theme(self) -> str:
         return self.THEME.read_text(encoding="utf-8")
@@ -553,6 +553,13 @@ class TestKeyboardAndFocusF21:
             # The scrollbar's paging buttons: the ScrollViewer itself handles
             # Page Up/Down, and these are invisible (Opacity 0).
             "RepeatButton",
+            # Inside the time picker's template (3.7): the ToggleButton is the
+            # drop-down's hit area and the Popup is its list. The ComboBox
+            # itself takes the Tab stop and the focus ring, and the arrow keys
+            # and Alt+Down drive the list from there; a second stop on the
+            # button would make Tab visit every picker twice.
+            "ToggleButton",
+            "Popup",
         }
         allowed_styles = {
             # The heatmap legend's five swatches are decoration beside the

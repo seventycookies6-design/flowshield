@@ -37,6 +37,10 @@ internal static class Commands
             "schedule-normalize" => ScheduleNormalize(request),
             "schedule-decide" => ScheduleDecide(request),
             "schedule-windows" => ScheduleWindows(request),
+            "sleep-window" => SleepWindowAt(request),
+            "sleep-warning" => SleepWarningSteps(request),
+            "sleep-next-text" => SleepNextText(request),
+            "sleep-warning-copy" => SleepWarningCopy(request),
             "schedule-seed" => new JsonObject
             {
                 ["seed"] = Iso(SchedulePlanner.SeedLastTick(
@@ -616,6 +620,90 @@ internal static class Commands
             UpdateReady = true;
             return Task.FromResult(PendingVersion);
         }
+    }
+
+    // ---- the sleep window (roadmap 3.7) --------------------------------
+
+    private static JsonNode? Occurrence(SleepOccurrence? o) => o is null ? null : new JsonObject
+    {
+        ["start"] = Iso(o.StartUtc), ["end"] = Iso(o.EndUtc),
+        ["startLocal"] = o.StartLocal.ToString("yyyy-MM-dd'T'HH:mm", CultureInfo.InvariantCulture),
+        ["endLocal"] = o.EndLocal.ToString("yyyy-MM-dd'T'HH:mm", CultureInfo.InvariantCulture),
+    };
+
+    /// <summary>
+    /// {"settings", "zone", "now": UTC, "clone": bool} -> the window at that instant.
+    /// With "clone" the settings go through AppSettings.Clone (the JSON round trip
+    /// every save and copy takes) first, so nights are tested as they survive it.
+    /// </summary>
+    private static JsonNode SleepWindowAt(JsonObject request)
+    {
+        var settings = request["settings"].Deserialize<AppSettings>()!;
+        if ((bool?)request["clone"] == true) settings = settings.Clone();
+        var window = SleepWindow.From(settings, ZoneOf(request));
+        var now = Utc((string)request["now"]!);
+        var next = window.Next(now);
+        return new JsonObject
+        {
+            ["canOpen"] = window.CanOpen,
+            ["contains"] = window.Contains(now),
+            ["nights"] = new JsonArray(window.Nights.Select(n => (JsonNode?)JsonValue.Create((int)n)).ToArray()),
+            ["savedDays"] = settings.SleepBlockDays is null ? null
+                : new JsonArray(settings.SleepBlockDays.Select(n => (JsonNode?)JsonValue.Create((int)n)).ToArray()),
+            ["current"] = Occurrence(window.Current(now)),
+            ["next"] = Occurrence(next),
+            ["warning"] = next is null ? null : Iso(SleepWindow.WarningUtc(next)),
+        };
+    }
+
+    /// <summary>{"settings", "zone", "now"} -> {"text": the page's "Tonight 23:00 → 06:30"}.</summary>
+    private static JsonNode SleepNextText(JsonObject request)
+    {
+        var settings = request["settings"].Deserialize<AppSettings>()!;
+        var zone = ZoneOf(request);
+        var now = Utc((string)request["now"]!);
+        var next = SleepWindow.From(settings, zone).Next(now);
+        return new JsonObject { ["text"] = next is null ? null : SleepWindowCopy.Next(next, now, zone) };
+    }
+
+    /// <summary>{"apps": [...], "start": "HH:mm"} -> the warning as the notification reads.</summary>
+    private static JsonNode SleepWarningCopy(JsonObject request)
+    {
+        var (title, message) = SleepWindowCopy.Warning(
+            request["apps"]!.AsArray().Select(a => (string)a!).ToList(),
+            TimeSpan.Parse((string)request["start"]!, CultureInfo.InvariantCulture));
+        return new JsonObject { ["title"] = title, ["message"] = message };
+    }
+
+    /// <summary>
+    /// {"settings", "zone", "locked", "sprint", "steps": [{"now": UTC, "apps": [...]}]}
+    /// -> one entry per step: the notice sent, or null. One planner serves every step,
+    /// as the app's one does every tick. "appsAsked" says whether the running apps
+    /// were listed (they are only listed when a notice goes out).
+    /// </summary>
+    private static JsonNode SleepWarningSteps(JsonObject request)
+    {
+        var settings = request["settings"].Deserialize<AppSettings>()!;
+        var zone = ZoneOf(request);
+        var planner = new SleepWarningPlanner();
+        var results = new JsonArray();
+        foreach (var step in request["steps"]!.AsArray())
+        {
+            var apps = step!["apps"]!.AsArray().Select(a => (string)a!).ToList();
+            var asked = false;
+            var notice = planner.Due(settings, (bool?)request["locked"] ?? false, Utc((string)step["now"]!),
+                () => { asked = true; return apps; }, (bool?)request["sprint"] ?? false, zone);
+            results.Add(new JsonObject
+            {
+                ["notice"] = notice is null ? null : new JsonObject
+                {
+                    ["kind"] = notice.Kind.ToString(), ["title"] = notice.Title,
+                    ["message"] = notice.Message, ["action"] = notice.Action.ToString(),
+                },
+                ["appsAsked"] = asked,
+            });
+        }
+        return new JsonObject { ["steps"] = results };
     }
 
     private static JsonNode? Do(Action action)

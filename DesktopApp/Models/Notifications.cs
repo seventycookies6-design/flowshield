@@ -26,6 +26,9 @@ public enum NotificationKind
     AppClosing,
 
     UpdateReady,
+
+    /// <summary>The nightly sleep window opens in ten minutes, naming what will close (roadmap 3.7).</summary>
+    SleepWindowWarning,
 }
 
 /// <summary>
@@ -33,7 +36,7 @@ public enum NotificationKind
 /// whose card is on Today (a schedule's heads-up or missed start, F6), so the
 /// click lands where the body points rather than on whatever page was open.
 /// </summary>
-public enum NotificationAction { OpenApp, OpenJournal, OpenSettingsLicense, OpenToday }
+public enum NotificationAction { OpenApp, OpenJournal, OpenSettingsLicense, OpenToday, OpenSchedule }
 
 public record Notification(NotificationKind Kind, string Title, string Message, NotificationAction Action);
 

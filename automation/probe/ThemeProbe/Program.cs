@@ -56,6 +56,7 @@ internal static class Program
 
             report["breakCaptions"] = BreakCaptions();
             report["ringCaptions"] = RingCaptions();
+            report["sleepPage"] = SleepPage();
 
             Console.WriteLine(JsonSerializer.Serialize(report));
             return 0;
@@ -202,6 +203,44 @@ internal static class Program
             }
         }
         return results;
+    }
+
+    /// <summary>
+    /// The sleep window's pickers (roadmap 3.7) as the real SleepBlockingView
+    /// builds them, laid out offscreen with the app's own resources. A XAML
+    /// error in the view, a missing style or a picker that draws at 0 x 0 is a
+    /// page that opens broken, which no source test sees. Nothing is bound: the
+    /// view model is not built here, so this checks the controls, not the data.
+    /// </summary>
+    private static Dictionary<string, object?> SleepPage()
+    {
+        var view = new FlowShield.Views.SleepBlockingView();
+        view.Measure(new System.Windows.Size(900, 1600));
+        view.Arrange(new Rect(0, 0, 900, 1600));
+        view.UpdateLayout();
+
+        var pickers = new Dictionary<string, object?>();
+        foreach (var id in new[] { "SleepStartHour", "SleepStartMinute", "SleepEndHour", "SleepEndMinute" })
+        {
+            var combo = Find<System.Windows.Controls.ComboBox>(view, id);
+            pickers[id] = new Dictionary<string, object?>
+            {
+                ["items"] = combo.Items.Count,
+                ["first"] = combo.Items.Count > 0 ? ((FlowShield.ViewModels.TimePart)combo.Items[0]).Label : null,
+                ["last"] = combo.Items.Count > 0 ? ((FlowShield.ViewModels.TimePart)combo.Items[^1]).Label : null,
+                ["styled"] = combo.Style is not null,
+                ["templated"] = System.Windows.Media.VisualTreeHelper.GetChildrenCount(combo) > 0,
+                ["name"] = System.Windows.Automation.AutomationProperties.GetName(combo),
+                ["width"] = Math.Round(combo.ActualWidth, 1),
+                ["height"] = Math.Round(combo.ActualHeight, 1),
+                ["focusable"] = combo.Focusable,
+            };
+        }
+        return new Dictionary<string, object?>
+        {
+            ["pickers"] = pickers,
+            ["saveButton"] = Find<System.Windows.Controls.Button>(view, "SaveSleepWindowButton").ActualHeight > 0,
+        };
     }
 
     private static T Find<T>(DependencyObject root, string automationId) where T : DependencyObject =>
