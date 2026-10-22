@@ -17,5 +17,6 @@
     <Compile Include="..\..\..\DesktopApp\Services\UpdateCoordinator.cs" Link="UpdateCoordinator.cs" />
     <Compile Include="..\..\..\DesktopApp\Infrastructure\AdaptiveColumns.cs" Link="AdaptiveColumns.cs" />
     <Compile Include="..\..\..\DesktopApp\Infrastructure\TimerRingSize.cs" Link="TimerRingSize.cs" />
+    <Compile Include="..\..\..\DesktopApp\Services\DiagnosticsService.cs" Link="DiagnosticsService.cs" />
   </ItemGroup>
 </Project>
