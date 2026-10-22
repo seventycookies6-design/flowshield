@@ -91,6 +91,7 @@ def pytest_section(report: dict) -> str:
     tiers = {
         "tier1/": ["Tier 1 — unit", 0, 0, 0],
         "test_tier1_models.py": ["Tier 1 — models (the C# probe)", 0, 0, 0],
+        "test_tier1_diagnostics.py": ["Tier 1 — Get help diagnostics bundle (the C# probe)", 0, 0, 0],
         "test_tier1_repo_lint.py": ["Tier 1 — repo rules (mojibake, forbidden files, PR links an issue)", 0, 0, 0],
         "test_tier2_integration.py": ["Tier 2 — server integration", 0, 0, 0],
         "tier3/": ["Tier 3 — end-to-end UI", 0, 0, 0],
