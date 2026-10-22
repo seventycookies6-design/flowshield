@@ -686,6 +686,48 @@
                         </StackPanel>
                     </Border>
 
+                    <!-- ================================================== get help (#400) -->
+                    <Border Style="{StaticResource Card}" Padding="24">
+                        <StackPanel>
+                            <TextBlock Text="GET HELP" Style="{StaticResource Eyebrow}" Margin="0,0,0,12"
+                                       AutomationProperties.AutomationId="GetHelpHeader"/>
+                            <TextBlock Text="Read the questions and answers on our site. If you need to write to us, you can build a diagnostics file, read it, and attach it to an email only if you want to."
+                                       Style="{StaticResource Caption}" TextWrapping="Wrap"/>
+
+                            <!-- Shown only once the owner has set a real address in HelpLinks. -->
+                            <StackPanel Margin="0,16,0,0"
+                                        Visibility="{Binding HasSupportEmail, Converter={StaticResource BoolVis}}">
+                                <TextBlock Text="SUPPORT EMAIL" Style="{StaticResource Eyebrow}" Margin="0,0,0,8"/>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBox Style="{StaticResource Field}" Text="{Binding SupportEmail, Mode=OneWay}"
+                                             IsReadOnly="True" MinWidth="220"
+                                             AutomationProperties.AutomationId="GetHelpEmailText"
+                                             AutomationProperties.Name="Support email"/>
+                                    <Button Style="{StaticResource BtnGhost}" Content="Copy"
+                                            Command="{Binding CopySupportEmailCommand}" Margin="8,0,0,0" Padding="16,8"
+                                            AutomationProperties.AutomationId="GetHelpCopyEmailButton"
+                                            AutomationProperties.Name="Copy support email"/>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
+                                <Button Style="{StaticResource BtnGhost}" Content="Open help and FAQ"
+                                        Command="{Binding OpenHelpFaqCommand}" Padding="16,8"
+                                        AutomationProperties.AutomationId="GetHelpOpenFaqButton"
+                                        AutomationProperties.Name="Open help and FAQ"/>
+                                <Button Style="{StaticResource BtnGhost}" Content="Create diagnostics"
+                                        Command="{Binding CreateDiagnosticsCommand}" Margin="8,0,0,0" Padding="16,8"
+                                        AutomationProperties.AutomationId="GetHelpDiagnosticsButton"
+                                        AutomationProperties.Name="Create diagnostics"/>
+                            </StackPanel>
+
+                            <TextBlock Text="{Binding HelpStatusText}" Style="{StaticResource Caption}"
+                                       Margin="0,12,0,0" TextWrapping="Wrap"
+                                       Visibility="{Binding HelpStatusVisible, Converter={StaticResource BoolVis}}"
+                                       AutomationProperties.AutomationId="GetHelpStatusText"/>
+                        </StackPanel>
+                    </Border>
+
                     <!-- =================================================== advanced -->
                     <Border Style="{StaticResource Card}" Padding="24">
                         <StackPanel>
