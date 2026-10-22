@@ -90,9 +90,16 @@ class TestLegalPagesMatchTheProduct:
             "COPPA exposure: the terms must set a minimum age"
 
     def test_the_policy_names_its_subprocessors(self):
-        policy = self.LEGAL.read_text(encoding="utf-8")
-        for name in ("Stripe", "Render", "Resend"):
+        policy = " ".join(self.LEGAL.read_text(encoding="utf-8").lower().split())
+        subprocessors = {
+            "stripe": "payment processing and receipts",
+            "render": "hosts the license service",
+            "resend": "delivers your license key email",
+            "github": "hosts releases and receives update checks",
+        }
+        for name, role in subprocessors.items():
             assert name in policy, f"{name} processes customer data and must be named"
+            assert role in policy, f"{name} must be named with its role: {role}"
 
     def test_the_terms_gate_covers_every_other_panel(self):
         """
