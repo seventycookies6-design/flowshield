@@ -27,7 +27,7 @@ class SprintService : Service() {
         val n = SprintNotifications.notification(this)
         if (Build.VERSION.SDK_INT >= 34) startForeground(SprintNotifications.RUNNING_ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
         else startForeground(SprintNotifications.RUNNING_ID, n)
-        status.value = "Running"
+        status.value = WATCHING
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -42,7 +42,11 @@ class SprintService : Service() {
                 var sprintId: String? = null
                 while (isActive) {
                     val now = System.currentTimeMillis()
-                    if (repository.settleIfElapsed(now)) { stopSelf(); break }
+                    val due = repository.current().active?.let { now >= it.endsAt } == true
+                    if (repository.settleIfElapsed(now)) {
+                        if (due) SprintNotifications.finished(this@SprintService)
+                        stopSelf(); break
+                    }
                     val state = repository.current()
                     val active = state.active
                     if (active == null) { stopSelf(); break }
@@ -57,17 +61,17 @@ class SprintService : Service() {
                             SprintNotifications.notification(this@SprintService, active))
                     }
                     if (!Permissions.canBlock(this@SprintService)) {
-                        overlay.hide(); status.value = "Blocking paused: check permissions"
+                        overlay.hide(); status.value = PAUSED
                         delay(650); continue
                     }
-                    status.value = "Running"
+                    status.value = WATCHING
                     if (getSystemService(KeyguardManager::class.java).isKeyguardLocked) {
                         overlay.hide(); foreground = null; handledForeground = null; soft.leftForeground()
                         delay(650); continue
                     }
                     val events = try { usage.queryEvents(cursor, now) }
                     catch (_: SecurityException) {
-                        overlay.hide(); status.value = "Blocking paused: check permissions"
+                        overlay.hide(); status.value = PAUSED
                         delay(650); continue
                     }
                     val event = UsageEvents.Event()
@@ -109,9 +113,13 @@ class SprintService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
     override fun onDestroy() {
-        overlay.hide(); scope.cancel(); soft.reset(); status.value = "Paused"
+        overlay.hide(); scope.cancel(); soft.reset(); status.value = "Starting…"
         stopForeground(STOP_FOREGROUND_REMOVE)
         super.onDestroy()
     }
-    companion object { val status = MutableStateFlow("Paused") }
+    companion object {
+        private const val WATCHING = "Watching for apps on your blocklist."
+        private const val PAUSED = "Blocking is paused: a permission was turned off. Your sprint timer continues."
+        val status = MutableStateFlow("Starting…")
+    }
 }

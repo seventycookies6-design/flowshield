@@ -40,6 +40,15 @@ checksums, critical apps and Soft suppression. App unit tests cover response
 parsing, transport failures, offline caching and persisted transitions. Run
 one test invocation per machine; never run Windows UI tiers for this work.
 
+Sprint lengths match Windows: presets 15/25/45/60/90 and a custom 5 to 240
+minutes (`SprintLength`). Debug builds alone also allow 1 to 4 minutes, so
+blocking can be proven on an emulator without waiting; release builds never do.
+Notice wording lives in `SoftNoticeCopy` (Windows' `SoftOverlayCopy` without
+"Close"), momentum wording in `Momentum.explanation` (Windows' text), and the
+end-flow panel state in `app/.../ui/EndFlowState.kt`, all unit-tested. Copy
+must never say an app is closed: Basalt shows a notice and, at Firm and
+Sealed, goes to the home screen; the app stays open in the background.
+
 Blocking reads Usage Access events every 650 ms while a sprint runs, and uses
 `TYPE_APPLICATION_OVERLAY` in a `specialUse` foreground service with an ongoing
 time-left notification. Soft shows a notice and offers HOME or a five-minute
@@ -52,7 +61,8 @@ QUERY_ALL_PACKAGES, REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, root, uninstall
 protection, or a way to block Settings. These are forbidden by the deliberately
 timid blocker rules and the agreed Play policy approach. The picker uses
 MAIN/LAUNCHER queries. Protect Basalt, all launchers, System UI, settings,
-dialers/emergency apps and Play Store both in the picker and at enforcement.
+dialers/emergency apps, SIM toolkit, accessibility tools (TalkBack, Voice
+Access, Switch Access) and app stores both in the picker and at enforcement.
 Permissions require separate explanation pages before opening system UI;
 denial and revocation must remain usable.
 
@@ -93,7 +103,7 @@ behavior and Surface Duo hinges still require device verification.
 Lint warnings allowed in this build: SDK/dependency update notices reflect the
 required SDK 36 and tested pins; HardwareIds is the explicitly agreed salted
 ANDROID_ID seat protocol (the raw ID never leaves the phone); UseKtx is a style
-suggestion; SetTextI18n is the English-only native notice's countdown text.
+suggestion.
 Test-only org.json and Robolectric are pinned to the versions used by the JVM
 suite rather than automatically following each new release. No lint errors or
 baseline suppressions are allowed.

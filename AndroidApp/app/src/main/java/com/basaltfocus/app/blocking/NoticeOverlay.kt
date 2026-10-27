@@ -35,40 +35,54 @@ class NoticeOverlay(private val context: Context, private val scope: CoroutineSc
             setPadding(0, dp(8), 0, dp(8))
             layout.addView(this, LinearLayout.LayoutParams(-1, -2))
         }
-        val name = sprint.shield.name.lowercase().replaceFirstChar { it.titlecase() }
-        text("Basalt · $name shield", 18f)
-        text("$label is on your blocklist", 30f)
-        val seconds = ((sprint.endsAt - System.currentTimeMillis()).coerceAtLeast(0) + 999) / 1000
-        text("%d:%02d left in this sprint".format(seconds / 60, seconds % 60), 18f)
-        fun button(label: String, click: () -> Unit): Button = Button(context).apply {
+        val until = java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT).format(java.util.Date(sprint.endsAt))
+        val tryNumber = if (sprint.shield == Shield.SOFT) soft.tries else 1
+        text("BASALT · ${ShieldCopy.label(sprint.shield).uppercase()} SHIELD", 12f)
+        text(SoftNoticeCopy.sentence(label, until, tryNumber), 28f).apply {
+            typeface = context.resources.getFont(R.font.inter_semibold)
+            accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
+        }
+        text(SoftNoticeCopy.timeLeft(sprint.endsAt - System.currentTimeMillis()), 16f)
+        fun button(label: String, primary: Boolean, click: () -> Unit): Button = Button(context).apply {
             text = label; isAllCaps = false; minHeight = dp(48)
-            typeface = context.resources.getFont(R.font.inter_medium); textSize = 13f
-            setTextColor(tokens.native("primary-ink")); backgroundTintList = android.content.res.ColorStateList.valueOf(tokens.native("primary"))
+            typeface = context.resources.getFont(R.font.inter_medium); textSize = 15f
+            setTextColor(tokens.native(if (primary) "primary-ink" else "text"))
+            val enabledState = intArrayOf(android.R.attr.state_enabled)
+            backgroundTintList = android.content.res.ColorStateList(arrayOf(enabledState, intArrayOf()),
+                intArrayOf(tokens.native(if (primary) "primary" else "surface-2"), tokens.native("bg-soft")))
+            setTextColor(android.content.res.ColorStateList(arrayOf(enabledState, intArrayOf()),
+                intArrayOf(tokens.native(if (primary) "primary-ink" else "text"), tokens.native("text-faint"))))
             setOnClickListener { click() }
             layout.addView(this, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(16) })
         }
         if (sprint.shield == Shield.SOFT) {
-            text("You can go back to focus or keep using this app for five minutes.", 14f)
-            button("Back to focus") { soft.backToWork(packageName, System.currentTimeMillis()); onHome(); hide() }
-            val allow = button("Allow 5 minutes") { soft.allowFiveMinutes(packageName, System.currentTimeMillis()); hide() }
-            val deadline = android.os.SystemClock.elapsedRealtime() + SoftOverlayPolicy.allowWaitMillis(soft.tries)
+            text(SoftNoticeCopy.tryLine(tryNumber), 14f).setTextColor(tokens.native("text-muted"))
+            button("Back to focus", primary = true) { soft.backToWork(packageName, System.currentTimeMillis()); onHome(); hide() }
+            val allow = button(SoftNoticeCopy.allowLabel(1), primary = false) {
+                soft.allowFiveMinutes(packageName, System.currentTimeMillis()); hide()
+            }
+            text(SoftNoticeCopy.softNote, 14f).setTextColor(tokens.native("text-muted"))
+            val deadline = android.os.SystemClock.elapsedRealtime() + SoftOverlayPolicy.allowWaitMillis(tryNumber)
+            allow.isEnabled = false
             countdown = scope.launch {
                 while (isActive) {
-                    val left = ((deadline - android.os.SystemClock.elapsedRealtime() + 999) / 1000).coerceAtLeast(0)
+                    val left = (deadline - android.os.SystemClock.elapsedRealtime()).coerceAtLeast(0)
                     allow.isEnabled = left == 0L
-                    allow.text = if (left == 0L) "Allow 5 minutes" else "Allow 5 minutes · ${left}s"
+                    allow.text = SoftNoticeCopy.allowLabel(left)
                     if (left == 0L) break
                     delay(200)
                 }
             }
         } else {
-            val line = text("Back to focus in 3 seconds. This app stays open.", 14f)
-            button("Back to focus now") { onHome(); hide() }
+            val line = text(SoftNoticeCopy.homeLine(SoftNoticeCopy.firmSeconds), 14f)
+            line.setTextColor(tokens.native("text-muted"))
+            button("Go home now", primary = true) { onHome(); hide() }
             countdown = scope.launch {
-                for (left in 3 downTo 1) {
-                    line.text = "Back to focus in $left seconds. This app stays open."
+                for (left in SoftNoticeCopy.firmSeconds downTo 1) {
+                    line.text = SoftNoticeCopy.homeLine(left)
                     delay(1000)
                 }
+                line.text = SoftNoticeCopy.homeLine(0)
                 onHome(); hide()
             }
         }

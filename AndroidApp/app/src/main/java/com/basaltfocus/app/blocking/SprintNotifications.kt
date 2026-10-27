@@ -9,6 +9,7 @@ import com.basaltfocus.core.ActiveSprint
 
 object SprintNotifications {
     const val RUNNING_ID = 1
+    private const val FINISHED_ID = 3
     private const val CHANNEL = "focus_sprint"
     fun createChannel(context: Context) {
         context.getSystemService(NotificationManager::class.java).createNotificationChannel(
@@ -33,6 +34,18 @@ object SprintNotifications {
             .setOngoing(!resume).setOnlyAlertOnce(true).setShowWhen(false)
             .setCategory(Notification.CATEGORY_PROGRESS).build()
     }
+    /** The sprint ran its full length while Basalt was in the background. */
+    fun finished(context: Context) {
+        if (!Permissions.notifications(context)) return
+        createChannel(context)
+        val open = PendingIntent.getActivity(context, 0, Intent(context, MainActivity::class.java),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        context.getSystemService(NotificationManager::class.java).notify(FINISHED_ID,
+            Notification.Builder(context, CHANNEL).setSmallIcon(R.drawable.basalt_mark)
+                .setContentTitle("Sprint finished").setContentText("Open Basalt to note what moved.")
+                .setContentIntent(open).setAutoCancel(true).build())
+    }
+
     fun recovery(context: Context, sprint: ActiveSprint?) {
         if (Permissions.notifications(context)) context.getSystemService(NotificationManager::class.java)
             .notify(2, notification(context, sprint, resume = true))

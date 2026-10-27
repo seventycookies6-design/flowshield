@@ -20,6 +20,9 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.*
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.selection.toggleable
+import com.basaltfocus.app.BuildConfig
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
@@ -39,7 +42,13 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.withContext
 
 private enum class Screen(val title: String) { TODAY("Today"), BLOCKLIST("Blocklist"), HISTORY("History"), LICENSE("License"), ABOUT("About") }
-private fun Shield.label() = name.lowercase().replaceFirstChar { it.titlecase() }
+private fun shieldLabel(stored: String) = Shield.entries.firstOrNull { it.name == stored }?.let(ShieldCopy::label) ?: stored
+private fun summaryTitle(outcome: String) = when (outcome) {
+    "Completed" -> "Sprint complete"
+    "Ended early" -> "Sprint ended early"
+    "Interrupted" -> "Sprint interrupted"
+    else -> outcome
+}
 private fun time(millis: Long) = Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("MMM d, h:mm a"))
 private fun countdown(millis: Long): String {
     val seconds = (millis.coerceAtLeast(0) + 999) / 1000
@@ -91,16 +100,20 @@ fun BasaltApp(model: MainViewModel, hingeFlow: StateFlow<FoldingFeature?>) {
                     PermissionScreen(permission!!, revision) {
                         permission = when (permission) {
                             PermissionStep.USAGE -> PermissionStep.OVERLAY
-                            PermissionStep.OVERLAY -> PermissionStep.NOTIFICATIONS
+                            PermissionStep.OVERLAY -> if (android.os.Build.VERSION.SDK_INT >= 33) PermissionStep.NOTIFICATIONS else null
                             else -> null
                         }
-                        if (permission == null && onboarding) model.onboardingDone()
+                        // First run continues to the blocklist, the next thing a new user needs.
+                        if (permission == null && onboarding) { model.onboardingDone(); screen = Screen.BLOCKLIST }
                     }
                 } else if (onboarding) {
                     Page("Make room for one thing") {
-                        Text("Choose the apps that distract you, then set a focus sprint. Your seven-day free trial starts on this device today.")
-                        Text("Soft offers a notice you can dismiss. Firm returns you home after a short notice. Sealed also keeps the blocklist fixed until the sprint ends. Apps stay open, and essential apps always stay available.")
-                        Text("Your blocklist, app activity, sprints and journal stay on this phone. Only a license check contacts the server.")
+                        Text("Choose the apps that distract you, then start a focus sprint. When one of them opens during a sprint, Basalt shows a notice over it.")
+                        Shield.entries.forEach { Text("${ShieldCopy.label(it)}: ${ShieldCopy.promise(it)}") }
+                        Text("Basalt never closes your apps, and Settings, your phone app, emergency calls and the Play Store always stay available.")
+                        Text("Your blocklist, app activity, sprints and journal stay on this phone. Only a license check contacts a server.")
+                        Text("Everything is unlocked for 7 days on this device.", style = MaterialTheme.typography.bodySmall)
+                        Text("Next, Basalt explains each permission it needs before Android asks you.", style = MaterialTheme.typography.bodySmall)
                         Action("Set up permissions", primary = true) { permission = PermissionStep.USAGE }
                         Action("Set up later") { model.onboardingDone() }
                     }
@@ -122,8 +135,10 @@ fun BasaltApp(model: MainViewModel, hingeFlow: StateFlow<FoldingFeature?>) {
                     }
                     Box(Modifier.weight(1f)) {
                         when (if (locked && screen != Screen.ABOUT) Screen.LICENSE else screen) {
-                            Screen.TODAY -> if (settings.active != null) RunningScreen(settings.active!!, now, model) { screen = Screen.BLOCKLIST }
-                                else TodayScreen(settings, records, now, model, { screen = Screen.BLOCKLIST }, { permission = PermissionStep.USAGE })
+                            Screen.TODAY -> if (settings.active != null)
+                                RunningScreen(settings.active!!, now, records.firstOrNull()?.momentumAfter ?: 0.0, model) { screen = Screen.BLOCKLIST }
+                                else TodayScreen(settings, records, now, model, { screen = Screen.BLOCKLIST },
+                                    { permission = PermissionStep.USAGE }, { screen = Screen.HISTORY })
                             Screen.BLOCKLIST -> BlocklistScreen(settings, model)
                             Screen.HISTORY -> HistoryScreen(records)
                             Screen.LICENSE -> LicenseScreen(settings, now, model, locked)
@@ -139,113 +154,163 @@ fun BasaltApp(model: MainViewModel, hingeFlow: StateFlow<FoldingFeature?>) {
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun TodayScreen(s: Settings, records: List<SprintRecord>, now: Long, model: MainViewModel,
-                        blocklist: () -> Unit, permissions: () -> Unit) {
+                        blocklist: () -> Unit, permissions: () -> Unit, history: () -> Unit) {
     val context = LocalContext.current
-    var minutes by rememberSaveable { mutableStateOf("25") }
+    val revision by model.permissionRevision.collectAsStateWithLifecycle()
+    val canBlock = remember(revision) { Permissions.canBlock(context) }
+    var preset by rememberSaveable { mutableIntStateOf(25) }
+    var custom by rememberSaveable { mutableStateOf("") }
+    var customSelected by rememberSaveable { mutableStateOf(false) }
     var shield by rememberSaveable { mutableStateOf(Shield.SOFT) }
+    val minutes = if (customSelected) custom.toIntOrNull() else preset
+    val lengthError = if (customSelected) SprintLength.error(minutes, BuildConfig.DEBUG) else null
     val today = Instant.ofEpochMilli(now).atZone(ZoneId.systemDefault()).toLocalDate()
+    val momentum = records.firstOrNull()?.momentumAfter ?: 0.0
     Page("Today") {
         Panel {
-            Text("MOMENTUM", style = MaterialTheme.typography.labelSmall)
-            Text("%.1f".format(records.firstOrNull()?.momentumAfter ?: 0.0), style = MaterialTheme.typography.displayMedium)
-            Text("Finished sprints build momentum. A 25-minute sprint adds 10; shorter and longer sprints add 5 to 30. Nothing changes while you are away.")
+            Text("MOMENTUM", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(Momentum.display(momentum), style = MaterialTheme.typography.displayMedium,
+                modifier = Modifier.semantics { contentDescription = "Momentum ${Momentum.display(momentum)}" })
+            Text(Momentum.explanation.first(), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            TextButton(history, Modifier.heightIn(min = 48.dp).keyboardRing()) { Text("How momentum works") }
         }
         Text("Sprint length", style = MaterialTheme.typography.titleMedium)
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf(15, 25, 45, 60).forEach { length ->
-                FilterChip(minutes == "$length", { minutes = "$length" }, label = { Text("$length min") },
-                    modifier = Modifier.heightIn(min = 48.dp).keyboardRing())
+            SprintLength.presets.forEach { length ->
+                FilterChip(!customSelected && preset == length, { preset = length; customSelected = false },
+                    label = { Text("$length min") }, colors = chipColors(), modifier = Modifier.heightIn(min = 48.dp).keyboardRing())
             }
+            FilterChip(customSelected, { customSelected = true }, label = { Text("Custom") }, colors = chipColors(),
+                modifier = Modifier.heightIn(min = 48.dp).keyboardRing())
         }
-        OutlinedTextField(minutes, { minutes = it.filter(Char::isDigit).take(3) }, label = { Text("Custom minutes (1–180)") },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), singleLine = true, modifier = Modifier.fillMaxWidth())
+        if (customSelected) {
+            OutlinedTextField(custom, { custom = it.filter(Char::isDigit).take(3) },
+                label = { Text("Minutes (${SprintLength.minimum(BuildConfig.DEBUG)} to ${SprintLength.customMax})") },
+                isError = lengthError != null && custom.isNotEmpty(),
+                supportingText = { if (lengthError != null && custom.isNotEmpty()) Text(lengthError) },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), singleLine = true,
+                modifier = Modifier.fillMaxWidth())
+        }
         Text("Shield", style = MaterialTheme.typography.titleMedium)
-        Shield.entries.forEach { level ->
-            Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surface) {
-                Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).selectable(shield == level, onClick = { shield = level })
-                    .keyboardRing().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    RadioButton(shield == level, onClick = null)
-                    Spacer(Modifier.width(8.dp))
-                    Column { Text(level.label(), style = MaterialTheme.typography.titleMedium); Text(ShieldCopy.promise(level)) }
+        Column(Modifier.selectableGroup(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Shield.entries.forEach { level ->
+                val selected = shield == level
+                Surface(shape = MaterialTheme.shapes.medium,
+                    color = if (selected) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.surface,
+                    border = BorderStroke(if (selected) 2.dp else 1.dp,
+                        if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant)) {
+                    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                        .selectable(selected, onClick = { shield = level }, role = Role.RadioButton)
+                        .keyboardRing().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        RadioButton(selected, onClick = null)
+                        Spacer(Modifier.width(12.dp))
+                        Column {
+                            Text(ShieldCopy.label(level), style = MaterialTheme.typography.titleMedium)
+                            Text(ShieldCopy.promise(level))
+                            Text(ShieldCopy.bestFor(level), style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
                 }
             }
         }
-        Text("${s.blockedPackages.size} apps on your blocklist. Essential apps always stay available.")
+        val count = s.blockedPackages.size
+        Text(if (count == 0) "No apps on your blocklist yet." else "$count app${if (count == 1) "" else "s"} on your blocklist.")
         Action("Choose blocked apps", onClick = blocklist)
-        if (!Permissions.canBlock(context)) {
-            Text("Usage Access and display over other apps are needed for blocking.")
+        if (!canBlock) {
+            Text("Basalt needs Usage Access and display over other apps before a sprint can block anything.")
             Action("Review permissions", primary = true, onClick = permissions)
         }
-        Action("Start sprint", enabled = minutes.toIntOrNull()?.let { it in 1..180 } == true && Permissions.canBlock(context), primary = true) {
-            model.start(minutes.toInt(), shield)
+        Action("Start sprint", enabled = lengthError == null && minutes != null && canBlock, primary = true) {
+            model.start(minutes!!, shield)
         }
-        Text(if (s.licensed) "License active" else "Free trial · ${TrialPolicy.daysLeft(s.trialStartedAt, now)} days left")
+        Text(trialLine(s, now), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text("Today's sprints", style = MaterialTheme.typography.titleMedium)
         val todays = records.filter { Instant.ofEpochMilli(it.startedAt).atZone(ZoneId.systemDefault()).toLocalDate() == today }
-        if (todays.isEmpty()) Text("No sprints yet. Pick a length and start when you are ready.")
+        if (todays.isEmpty()) Text("No sprints yet today. Pick a length and a shield, then start when you're ready.")
         todays.forEach { RecordCard(it) }
     }
 }
 
 @Composable
-private fun RunningScreen(a: ActiveSprint, now: Long, model: MainViewModel, blocklist: () -> Unit) {
-    var requestedAt by remember(a.id) { mutableStateOf<Long?>(null) }
+private fun chipColors() = FilterChipDefaults.filterChipColors(
+    selectedContainerColor = MaterialTheme.colorScheme.primary,
+    selectedLabelColor = MaterialTheme.colorScheme.onPrimary)
+
+private fun trialLine(s: Settings, now: Long): String {
+    if (s.licensed) return "License active on this device."
+    val days = TrialPolicy.daysLeft(s.trialStartedAt, now)
+    return if (days == 0) "Your free trial has ended." else "Free trial: $days day${if (days == 1) "" else "s"} left on this device."
+}
+
+@Composable
+private fun RunningScreen(a: ActiveSprint, now: Long, momentum: Double, model: MainViewModel, blocklist: () -> Unit) {
+    var panel by remember(a.id) { mutableStateOf<EndPanel?>(null) }
     var phrase by remember(a.id) { mutableStateOf("") }
-    var openedFlow by remember(a.id) { mutableStateOf<EndFlow?>(null) }
     val status by SprintService.status.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val remaining = a.endsAt - now
     val progress = (remaining.toFloat() / (a.plannedMinutes * 60_000)).coerceIn(0f, 1f)
     val primary = MaterialTheme.colorScheme.primary
     val track = MaterialTheme.colorScheme.outlineVariant
-    Page("${a.shield.label()} sprint") {
+    val until = remember(a.endsAt) { java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT).format(java.util.Date(a.endsAt)) }
+    Page("${ShieldCopy.label(a.shield)} sprint") {
         Box(Modifier.fillMaxWidth().heightIn(min = 260.dp).drawBehind {
             val radius = minOf(size.width, size.height) / 2 - 12.dp.toPx()
             val center = Offset(size.width / 2, size.height / 2)
-            drawCircle(track, radius, center, style = Stroke(4.dp.toPx()))
+            drawCircle(track, radius, center, style = Stroke(6.dp.toPx()))
             drawArc(primary, -90f, 360f * progress, false,
                 topLeft = center - Offset(radius, radius), size = androidx.compose.ui.geometry.Size(radius * 2, radius * 2),
-                style = Stroke(4.dp.toPx()))
-        }.semantics { contentDescription = "Sprint time remaining ${countdown(remaining)}" }, contentAlignment = Alignment.Center) {
-            Text(countdown(remaining), Modifier.padding(24.dp), style = if (androidx.compose.ui.platform.LocalDensity.current.fontScale >= 1.5f)
-                MaterialTheme.typography.displayMedium else MaterialTheme.typography.displayLarge)
+                style = Stroke(6.dp.toPx(), cap = androidx.compose.ui.graphics.StrokeCap.Round))
+        }.clearAndSetSemantics { contentDescription = "${SoftNoticeCopy.timeLeft(remaining)}, ends at $until" },
+            contentAlignment = Alignment.Center) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(countdown(remaining), Modifier.padding(horizontal = 24.dp),
+                    style = if (LocalDensity.current.fontScale >= 1.5f) MaterialTheme.typography.displayMedium else MaterialTheme.typography.displayLarge)
+                Text("until $until", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
         Text(ShieldCopy.promise(a.shield))
-        Text(if (Permissions.canBlock(context)) status else "Blocking paused: check permissions. Your sprint timer continues.")
-        Action(if (EndSprintPolicy.flowFor(a.shield, now - a.startedAt) == EndFlow.CANCEL) "Cancel sprint" else "End sprint") {
-            val flow = EndSprintPolicy.flowFor(a.shield, System.currentTimeMillis() - a.startedAt)
-            if (flow == EndFlow.CANCEL || flow == EndFlow.IMMEDIATE) model.end(a.id, null, null)
-            else { openedFlow = flow; requestedAt = SystemClock.elapsedRealtime() }
+        Text(if (Permissions.canBlock(context)) status else "Blocking is paused: a permission was turned off. Your sprint timer continues.",
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Action(EndFlowState.buttonLabel(a, now)) {
+            when (val request = EndFlowState.request(a, momentum, System.currentTimeMillis(), SystemClock.elapsedRealtime())) {
+                is EndRequest.Now -> model.end(a.id, null, null)
+                is EndRequest.Panel -> { phrase = ""; panel = request.panel }
+            }
         }
-        if (now - a.startedAt < EndSprintPolicy.graceMillis) Text("Cancel within the first two minutes with no record or momentum change.")
-        Action("View blocklist", onClick = blocklist)
+        EndFlowState.graceNote(a, now)?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+        Action(if (BlockPolicy.blocklistEditable(a.shield)) "Edit blocklist" else "View blocklist", onClick = blocklist)
     }
-    if (requestedAt != null) {
-        val flow = openedFlow!!
-        val delayLeft = (EndSprintPolicy.delayMillis(flow) - (SystemClock.elapsedRealtime() - requestedAt!!)).coerceAtLeast(0)
-        AlertDialog(onDismissRequest = { requestedAt = null; phrase = "" }, title = { Text("End this sprint early?") },
+    panel?.let { open ->
+        // `now` ticks every 250 ms, so reading the monotonic clock here keeps the countdown moving.
+        val monotonic = remember(now) { SystemClock.elapsedRealtime() }
+        val close = { panel = null; phrase = "" }
+        AlertDialog(onDismissRequest = close, title = { Text(open.title) },
             text = {
                 Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Text(if (flow == EndFlow.SEALED) "Ending early reduces momentum by 30% and 5, floored at zero. Wait 30 seconds, then type \"end my sprint\"."
-                        else "Ending early reduces momentum by 15% and 2, floored at zero. Wait 5 seconds to confirm.")
-                    if (delayLeft > 0) Text("${(delayLeft + 999) / 1000} seconds remaining")
-                    if (flow == EndFlow.SEALED) OutlinedTextField(phrase, { phrase = it },
-                        label = { Text("Type end my sprint") }, modifier = Modifier.fillMaxWidth())
+                    Text(open.text)
+                    if (open.phraseRequired) OutlinedTextField(phrase, { phrase = it },
+                        label = { Text("Type: ${EndSprintPolicy.phrase}") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    val line = open.countdownText(monotonic, phrase)
+                    if (line.isNotEmpty()) Text(line, Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }, confirmButton = {
-                TextButton({ model.end(a.id, requestedAt, phrase); requestedAt = null; phrase = "" },
-                    Modifier.heightIn(min = 48.dp).keyboardRing(),
-                    enabled = delayLeft == 0L && (flow != EndFlow.SEALED || EndSprintPolicy.phraseMatches(phrase))) { Text("End anyway") }
-            }, dismissButton = { TextButton({ requestedAt = null; phrase = "" }, Modifier.heightIn(min = 48.dp).keyboardRing()) { Text("Keep focusing") } })
+                TextButton({ model.end(a.id, open.requestedAt, phrase); close() },
+                    Modifier.heightIn(min = 48.dp).keyboardRing(), enabled = open.canEnd(monotonic, phrase)) { Text("End anyway") }
+            }, dismissButton = {
+                Button(close, Modifier.heightIn(min = 48.dp).keyboardRing()) { Text("Keep going") }
+            })
     }
 }
 
 @Composable
 private fun SummaryScreen(record: SprintRecord, save: (String) -> Unit) {
     var journal by rememberSaveable(record.id) { mutableStateOf(record.journal) }
-    Page(record.outcome) {
-        Text("${record.plannedMinutes} planned ${if (record.plannedMinutes == 1) "minute" else "minutes"} · ${record.shield.lowercase().replaceFirstChar { it.titlecase() }} shield")
-        Text("Momentum %.1f → %.1f (%+.1f)".format(record.momentumBefore, record.momentumAfter, record.momentumAfter - record.momentumBefore))
+    Page(summaryTitle(record.outcome)) {
+        Text("${record.plannedMinutes} planned ${if (record.plannedMinutes == 1) "minute" else "minutes"} · ${shieldLabel(record.shield)} shield")
+        Text("Momentum ${Momentum.change(record.momentumBefore, record.momentumAfter)}", style = MaterialTheme.typography.titleMedium)
         Text("What moved?", style = MaterialTheme.typography.titleMedium)
         OutlinedTextField(journal, { journal = it.replace('\n', ' ').take(280) }, label = { Text("One line, just for you") },
             modifier = Modifier.fillMaxWidth(), singleLine = true)
@@ -259,6 +324,12 @@ private fun HistoryScreen(records: List<SprintRecord>) {
     LazyColumn(Modifier.fillMaxSize().padding(horizontal = 24.dp), verticalArrangement = Arrangement.spacedBy(16.dp),
         contentPadding = PaddingValues(vertical = 24.dp)) {
         item { Text("History", style = MaterialTheme.typography.headlineLarge) }
+        item {
+            Panel {
+                Text("How momentum works", style = MaterialTheme.typography.titleMedium)
+                Momentum.explanation.forEach { Text(it) }
+            }
+        }
         if (records.isEmpty()) item { Text("Your finished and interrupted sprints will appear here. Start a sprint from Today.") }
         items(records, key = { it.id }) { RecordCard(it) }
     }
@@ -268,9 +339,9 @@ private fun HistoryScreen(records: List<SprintRecord>) {
 private fun RecordCard(record: SprintRecord) {
     Panel {
         Text("${record.outcome} · ${record.plannedMinutes} min", style = MaterialTheme.typography.titleMedium)
-        Text("${time(record.startedAt)} · ${record.shield.lowercase().replaceFirstChar { it.titlecase() }}")
-        Text("Momentum %+.1f → %.1f".format(record.momentumAfter - record.momentumBefore, record.momentumAfter))
-        if (record.journal.isNotBlank()) Text(record.journal)
+        Text("${time(record.startedAt)} · ${shieldLabel(record.shield)} shield", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("Momentum ${Momentum.change(record.momentumBefore, record.momentumAfter)}")
+        if (record.journal.isNotBlank()) Text("\u201C${record.journal}\u201D")
     }
 }
 
@@ -291,13 +362,16 @@ private fun BlocklistScreen(s: Settings, model: MainViewModel) {
         if (apps == null) item { Text("Reading launchable apps…") }
         else if (visible.isEmpty()) item { Text("No matching apps. Try another search.") }
         items(visible, key = { it.packageName }) { app ->
-                    Row(Modifier.fillMaxWidth().heightIn(min = 64.dp).padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    val checked = app.packageName in s.blockedPackages
+                    Row(Modifier.fillMaxWidth().heightIn(min = 64.dp)
+                        .toggleable(checked, enabled = editable, role = Role.Checkbox) { model.block(app.packageName, it) }
+                        .keyboardRing().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                         val icon = remember(app.packageName) { app.icon.toBitmap(48, 48).asImageBitmap() }
                         Image(icon, contentDescription = null, modifier = Modifier.size(40.dp))
                         Spacer(Modifier.width(12.dp))
                         Column(Modifier.weight(1f)) { Text(app.label); Text(app.packageName, style = MaterialTheme.typography.bodySmall) }
-                        Checkbox(app.packageName in s.blockedPackages, { model.block(app.packageName, it) }, enabled = editable,
-                            modifier = Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp).keyboardRing().semantics { contentDescription = "Block ${app.label}" })
+                        Checkbox(checked, onCheckedChange = null, enabled = editable,
+                            modifier = Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp))
                     }
         }
     }
@@ -309,8 +383,10 @@ private fun LicenseScreen(s: Settings, now: Long, model: MainViewModel, locked: 
     val busy by model.activating.collectAsStateWithLifecycle()
     val message by model.licenseMessage.collectAsStateWithLifecycle()
     Page(if (locked) "Your free trial has ended" else "License") {
-        Text(when { s.licensed -> "License active on this device."; locked -> "Enter your license key to unlock Basalt."; else -> "Free trial · ${TrialPolicy.daysLeft(s.trialStartedAt, now)} days left on this device." })
-        Text("Already bought Basalt? Enter your key or purchase email.")
+        Text(if (locked) "Your 7-day free trial on this device has ended. Enter your license key to keep using Basalt." else trialLine(s, now))
+        // Google Play Billing seam (#413): a Play purchase option goes here once it exists.
+        // Play's payments policy: no link to the website purchase, no price, no "buy elsewhere".
+        Text("Already bought Basalt? Enter your license key or purchase email.")
         OutlinedTextField(input, { input = it }, enabled = !busy, label = { Text("License key or purchase email") },
             singleLine = true, modifier = Modifier.fillMaxWidth(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii))
         Action(if (busy) "Checking license…" else "Activate license", enabled = input.isNotBlank() && !busy, primary = true) { model.activate(input) }

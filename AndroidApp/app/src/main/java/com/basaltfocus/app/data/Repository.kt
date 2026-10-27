@@ -46,7 +46,7 @@ class Repository(private val context: Context, private val database: HistoryData
 
     suspend fun start(minutes: Int, shield: Shield): String? = lock.withLock {
         val s = store.flow.first()
-        if (minutes !in 1..180) return@withLock "Choose a length from 1 to 180 minutes."
+        SprintLength.error(minutes, BuildConfig.DEBUG)?.let { return@withLock it }
         if (!s.initialized || !TrialPolicy.hasAccess(s.licensed, s.trialStartedAt, System.currentTimeMillis()))
             return@withLock "Enter your license key to start a sprint."
         if (s.active != null || s.pendingSummaryId != null) return@withLock "Finish the current sprint or summary first."

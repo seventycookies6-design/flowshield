@@ -30,9 +30,10 @@ class TokenPalette(context: Context, dark: Boolean) {
 }
 
 private val Inter = FontFamily(Font(R.font.inter_regular), Font(R.font.inter_medium, FontWeight.Medium), Font(R.font.inter_semibold, FontWeight.SemiBold))
-private fun type(size: Int, height: Int, weight: FontWeight = FontWeight.Normal, tracking: Float = 0f) =
+// Tabular figures only where numbers tick (timer, momentum); in prose they space out hyphens.
+private fun type(size: Int, height: Int, weight: FontWeight = FontWeight.Normal, tracking: Float = 0f, tabular: Boolean = false) =
     TextStyle(fontFamily = Inter, fontSize = size.sp, lineHeight = height.sp, fontWeight = weight,
-        letterSpacing = tracking.sp, fontFeatureSettings = "tnum")
+        letterSpacing = tracking.sp, fontFeatureSettings = if (tabular) "tnum" else null)
 
 @Composable
 fun BasaltTheme(content: @Composable () -> Unit) {
@@ -57,8 +58,8 @@ fun BasaltTheme(content: @Composable () -> Unit) {
     )
     MaterialTheme(colorScheme = scheme,
         typography = Typography(
-            displayLarge = type(64, 64, FontWeight.SemiBold, -1.28f),
-            displayMedium = type(36, 40, FontWeight.SemiBold, -.36f),
+            displayLarge = type(64, 64, FontWeight.SemiBold, -1.28f, tabular = true),
+            displayMedium = type(36, 40, FontWeight.SemiBold, -.36f, tabular = true),
             headlineLarge = type(30, 36, FontWeight.SemiBold, -.6f),
             headlineSmall = type(18, 24, FontWeight.SemiBold, -.18f),
             titleLarge = type(18, 24, FontWeight.SemiBold, -.18f),
