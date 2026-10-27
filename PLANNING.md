@@ -18,8 +18,9 @@ work flows has changed, only where its state is recorded. `CLAUDE.md` (and
 If those two disagree, the checklist wins on *what shipped* and the issue wins
 on *what is next*.
 
-**The Android app and cross-device sync** (in scope since 27 October 2026,
-target launch 1 January 2027) are tracked in
+**The Android app and cross-device sync** (in scope since 27 October 2026;
+Android targets launch by 1 January 2027, sync isn't needed on day one) are
+tracked in
 [#408](https://github.com/seventycookies6-design/flowshield/issues/408), with
 one sub-issue per piece of work. They have no F-numbers in the checklist.
 

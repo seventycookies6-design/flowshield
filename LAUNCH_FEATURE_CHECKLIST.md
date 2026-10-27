@@ -779,7 +779,7 @@ Recorded so nobody re-proposes these without new reasons.
 | --- | --- | --- |
 | Uninstall protection, lockouts that survive Task Manager, service or driver enforcement | Cold Turkey (Frozen Turkey) | Needs admin rights, services or drivers, which the timid-blocker rules forbid. It's also the source of "I locked myself out" complaints. F2 and F3 give strictness without it. |
 | Hosts-file or DNS website blocking | Suggested by the research | Needs admin rights and system file edits. Use the extension route (F10). |
-| Accounts and cloud sync across devices | Freedom, Opal, FocusMe, RescueTime | **Reversed 27 October 2026** now that a phone app is being built (#408): sync is planned in #414, encrypted on the device first, self-hostable, with hosted sync as a small optional subscription. Not announced until it ships. |
+| Accounts and cloud sync across devices | Freedom, Opal, FocusMe, RescueTime | **Reversed 27 October 2026** now that a phone app is being built (#408): sync is planned in #414, encrypted on the device first, self-hostable. Hosted sync may become a small optional subscription, pending Keenan's agreement and a price; the app stays a one-time purchase. Not announced until it ships. |
 | Heavy gamification: trees, coins, collectables | Forest | Clashes with the calm identity and reads as "childish" to some users, per reviews. F14 keeps the motivation without the look. |
 | AI coach or wellbeing score | FocusMe, Opal | Needs data analysis the product doesn't have, and it's easy to overclaim. Simple, true stats (F16) are the better fit. |
 | Subscriptions, tiers or a limited free plan | Freedom, BlockSite, Opal, FocusMe | Decided in #29: one-time purchase after a full trial. |
