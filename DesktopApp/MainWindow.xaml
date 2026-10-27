@@ -352,7 +352,8 @@
                                  Sealed's explanation under the footer (#406). -->
                             <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                                           Focusable="False"
-                                          Visibility="{Binding IsStep2, Converter={StaticResource BoolVis}}">
+                                          Visibility="{Binding IsStep2, Converter={StaticResource BoolVis}}"
+                                          AutomationProperties.AutomationId="FirstRunShieldScroll">
                             <StackPanel Margin="0,0,8,0">
                                 <TextBlock Text="How strict should the shield be?" Style="{StaticResource H1}"/>
                                 <TextBlock Style="{StaticResource Body}" TextWrapping="Wrap" Margin="0,8,0,16"

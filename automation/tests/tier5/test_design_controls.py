@@ -635,6 +635,10 @@ class TestKeyboardAndFocusF21:
             # page. Every control inside keeps its tab stop, and Page Up/Down
             # from any of them still scrolls it.
             "SchedulePageScroll",
+            # First-run's shield step scrolls at the smallest window (#406),
+            # and is a container for the same reason: the three option cards
+            # keep their tab stops, and arrow keys move between them.
+            "FirstRunShieldScroll",
         }
 
         offenders = []
