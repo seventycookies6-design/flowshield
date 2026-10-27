@@ -85,6 +85,38 @@ public partial class MainWindow : Window
         NavSettingsLabel.Visibility = narrow ? Visibility.Collapsed : Visibility.Visible;
     }
 
+    /// <summary>
+    /// On a screen wider than the page's cap, the page sits centred with empty
+    /// margins either side (#406). The wheel over those margins still scrolls
+    /// the page, as it did when the page reached the window's edge. Only the
+    /// margin itself counts: over the page, its own scrolling applies, and over
+    /// an overlay the page underneath must not move.
+    /// </summary>
+    private void OnContentWheel(object sender, System.Windows.Input.MouseWheelEventArgs e)
+    {
+        if (!ReferenceEquals(e.OriginalSource, ContentArea)) return;
+        var page = PageHost.Children.OfType<FrameworkElement>()
+            .FirstOrDefault(v => v.IsVisible);
+        if (page is null || FirstScrollable(page) is not { } scroller) return;
+        scroller.ScrollToVerticalOffset(scroller.VerticalOffset - e.Delta);
+        e.Handled = true;
+    }
+
+    /// <summary>The page's outermost ScrollViewer that has something to scroll.</summary>
+    private static ScrollViewer? FirstScrollable(DependencyObject root)
+    {
+        var queue = new Queue<DependencyObject>();
+        queue.Enqueue(root);
+        while (queue.Count > 0)
+        {
+            var node = queue.Dequeue();
+            if (node is ScrollViewer { ScrollableHeight: > 0 } scroller) return scroller;
+            for (var i = 0; i < System.Windows.Media.VisualTreeHelper.GetChildrenCount(node); i++)
+                queue.Enqueue(System.Windows.Media.VisualTreeHelper.GetChild(node, i));
+        }
+        return null;
+    }
+
     private MainViewModel? Vm => DataContext as MainViewModel;
 
     /// <summary>

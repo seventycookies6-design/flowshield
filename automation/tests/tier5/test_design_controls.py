@@ -41,6 +41,69 @@ class TestNavigationUsesIconsNotUnicodeGlyphs:
             + "\n  ".join(offenders))
 
 
+    # The rail's icons, by key. Each is drawn in a 20 x 20 box with
+    # Stretch=Uniform, so a geometry whose bounds aren't square is drawn
+    # narrower than its neighbours, and one covering less of the grid is
+    # drawn heavier.
+    NAV_ICONS = ("IconToday", "IconHistory", "IconBlocked", "IconSleep", "IconSettings")
+
+    @staticmethod
+    def _bounds(path_data: str) -> tuple[float, float, float, float]:
+        """Exact-enough bounds of absolute M/L/A/Z path data: arcs are
+        sampled along their real centre, not taken from their end points,
+        because a gear's or a circle's extremes sit mid-arc."""
+        import math
+        tokens = re.findall(r"[MLAZ]|-?[\d.]+", path_data)
+        xs, ys = [], []
+        x = y = 0.0
+        i = 0
+        while i < len(tokens):
+            cmd = tokens[i]
+            i += 1
+            if cmd in ("M", "L"):
+                x, y = float(tokens[i]), float(tokens[i + 1])
+                i += 2
+                xs.append(x); ys.append(y)
+            elif cmd == "A":
+                rx, _ry, _rot, large, sweep, x2, y2 = (float(t) for t in tokens[i:i + 7])
+                i += 7
+                # SVG endpoint-to-centre conversion, for a circular arc.
+                dx, dy = (x - x2) / 2, (y - y2) / 2
+                d2 = dx * dx + dy * dy
+                rx = max(rx, math.sqrt(d2))
+                k = math.sqrt(max(0.0, (rx * rx - d2) / d2)) if d2 else 0.0
+                if int(large) == int(sweep):
+                    k = -k
+                cx, cy = (x + x2) / 2 + k * dy, (y + y2) / 2 - k * dx
+                a1 = math.atan2(y - cy, x - cx)
+                a2 = math.atan2(y2 - cy, x2 - cx)
+                span = a2 - a1
+                if sweep and span < 0:
+                    span += 2 * math.pi
+                elif not sweep and span > 0:
+                    span -= 2 * math.pi
+                for s in range(65):
+                    a = a1 + span * s / 64
+                    xs.append(cx + rx * math.cos(a)); ys.append(cy + rx * math.sin(a))
+                x, y = x2, y2
+        return min(xs), min(ys), max(xs), max(ys)
+
+    def test_nav_icons_are_evenly_proportioned(self):
+        """#406: the gear covered 15 x 19 of the grid (its top and bottom
+        teeth reached further from the centre than its side ones), so the
+        rail drew it tall and narrow beside four round icons."""
+        icons = (Path(DESKTOP_DIR) / "Styles" / "Icons.xaml").read_text(encoding="utf-8")
+        problems = []
+        for key in self.NAV_ICONS:
+            data = re.search(rf'x:Key="{key}">([^<]+)<', icons).group(1)
+            left, top, right, bottom = self._bounds(data)
+            width, height = right - left, bottom - top
+            if abs(width - height) > 0.25:
+                problems.append(f"{key} covers {width:.2f} x {height:.2f}: not square")
+            if not 17.5 <= max(width, height) <= 18.5:
+                problems.append(f"{key} covers {max(width, height):.2f} of the grid, not 18")
+        assert not problems, "\n  ".join(["nav icons drawn at uneven sizes:"] + problems)
+
     def test_the_lucide_notice_is_kept(self):
         notice = Path(DESKTOP_DIR) / "Assets" / "Icons" / "LICENSE"
         assert notice.exists(), "Lucide is ISC-licensed; keep its notice with the icons"
@@ -851,3 +914,57 @@ class TestCausewayLogoIsTheBrandMark:
         assert 'class="brand-mark' in brand, "the header must render the Causeway mark"
         assert any(f'fill="{color}"' in brand for color in colors), (
             "the header must use colors from the shared Causeway asset")
+
+
+class TestDatePickersFollowTheActiveTheme:
+    """Export date inputs and their calendar must not fall back to stock white UI."""
+
+    @staticmethod
+    def picker_styles():
+        import xml.etree.ElementTree as ET
+
+        path = Path(DESKTOP_DIR) / "Styles" / "Pickers.xaml"
+        assert path.is_file(), "DatePicker needs the app's themed templates"
+        source = path.read_text(encoding="utf-8-sig")
+        return source, ET.fromstring(source)
+
+    def test_picker_dictionary_is_merged_after_theme(self):
+        import xml.etree.ElementTree as ET
+
+        app = ET.parse(Path(DESKTOP_DIR) / "App.xaml")
+        sources = [element.attrib["Source"] for element in app.iter()
+                   if "Source" in element.attrib]
+        assert "Styles/Pickers.xaml" in sources
+        assert sources.index("Styles/Pickers.xaml") > sources.index("Styles/Theme.xaml")
+
+    def test_datepicker_and_calendar_have_templates_and_focus_visuals(self):
+        _, root = self.picker_styles()
+        ns = "{http://schemas.microsoft.com/winfx/2006/xaml/presentation}"
+        key = "{http://schemas.microsoft.com/winfx/2006/xaml}Key"
+        styles = root.findall(ns + "Style")
+        picker = next((s for s in styles if s.get("TargetType") in
+                       ("DatePicker", "{x:Type DatePicker}") and key not in s.attrib), None)
+        calendar = next((s for s in styles if s.get("TargetType") in
+                         ("Calendar", "{x:Type Calendar}")), None)
+        assert picker is not None, "Settings must pick up an implicit DatePicker style"
+        assert calendar is not None, "The popup Calendar needs a matching style"
+        for style in (picker, calendar):
+            setters = {s.get("Property"): s for s in style.findall(ns + "Setter")}
+            assert "Template" in setters
+            assert "FocusVisualStyle" in setters
+
+    def test_picker_colours_are_dynamic_token_resources(self):
+        import xml.etree.ElementTree as ET
+
+        source, _ = self.picker_styles()
+        assert "#" not in source, "Picker colours must come from theme tokens"
+        nskey = "{http://schemas.microsoft.com/winfx/2006/xaml}Key"
+        tokens = set()
+        for name in ("Tokens.xaml", "Tokens.Light.xaml"):
+            root = ET.parse(Path(DESKTOP_DIR) / "Styles" / name).getroot()
+            tokens.update(e.get(nskey) for e in root if e.tag.rsplit("}", 1)[-1]
+                          in ("Color", "SolidColorBrush"))
+        references = re.findall(r"\{(StaticResource|DynamicResource)\s+([^{}]+)\}", source)
+        colours = [(kind, key) for kind, key in references if key in tokens]
+        assert colours, "Picker templates must use the shared colour tokens"
+        assert all(kind == "DynamicResource" for kind, _ in colours), colours

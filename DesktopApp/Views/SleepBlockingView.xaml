@@ -104,7 +104,7 @@
 
                             <WrapPanel Orientation="Horizontal" IsEnabled="{Binding HasAccess}">
                                 <StackPanel Margin="0,0,16,0">
-                                    <TextBlock Text="Starts" Style="{StaticResource Caption}" Margin="4,0,0,8"/>
+                                    <TextBlock Text="STARTS" Style="{StaticResource Eyebrow}" Margin="0,0,0,8"/>
                                     <TextBox Style="{StaticResource Field}" Width="112"
                                              Text="{Binding StartText, UpdateSourceTrigger=PropertyChanged}"
                                              AutomationProperties.AutomationId="SleepStartInput"
@@ -115,7 +115,7 @@
                                            VerticalAlignment="Bottom" Margin="0,0,16,12"/>
 
                                 <StackPanel Margin="0,0,16,0">
-                                    <TextBlock Text="Ends" Style="{StaticResource Caption}" Margin="4,0,0,8"/>
+                                    <TextBlock Text="ENDS" Style="{StaticResource Eyebrow}" Margin="0,0,0,8"/>
                                     <TextBox Style="{StaticResource Field}" Width="112"
                                              Text="{Binding EndText, UpdateSourceTrigger=PropertyChanged}"
                                              AutomationProperties.AutomationId="SleepEndInput"

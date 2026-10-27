@@ -97,7 +97,7 @@
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
 
-                            <TextBlock Text="Starts" Style="{StaticResource Caption}" Margin="4,8,0,8"/>
+                            <TextBlock Text="STARTS" Style="{StaticResource Eyebrow}" Margin="0,8,0,8"/>
                             <TextBox Style="{StaticResource Field}" Width="112" HorizontalAlignment="Left"
                                      Text="{Binding EditorTime, UpdateSourceTrigger=PropertyChanged}"
                                      AutomationProperties.AutomationId="ScheduleTimeInput"
@@ -168,7 +168,7 @@
                         <!-- template editor -->
                         <StackPanel Margin="0,16,0,0"
                                     Visibility="{Binding TemplateEditorVisible, Converter={StaticResource BoolVis}}">
-                            <TextBlock Text="Name" Style="{StaticResource Caption}" Margin="4,0,0,8"/>
+                            <TextBlock Text="NAME" Style="{StaticResource Eyebrow}" Margin="0,0,0,8"/>
                             <TextBox Style="{StaticResource Field}" Text="{Binding TemplateName, UpdateSourceTrigger=PropertyChanged}"
                                      MaxLength="{x:Static models:StudyTemplate.MaxNameLength}"
                                      AutomationProperties.AutomationId="TemplateNameInput"
@@ -177,7 +177,7 @@
                             <!-- Both range labels come from the view model, built from the
                                  same constants Save checks, so a changed bound can't leave
                                  the label lying. -->
-                            <TextBlock Text="{Binding SprintMinutesLabel}" Style="{StaticResource Caption}" Margin="4,12,0,8"
+                            <TextBlock Text="{Binding SprintMinutesLabel}" Style="{StaticResource Eyebrow}" Margin="0,12,0,8"
                                        AutomationProperties.AutomationId="TemplateMinutesLabel"/>
                             <TextBox Style="{StaticResource Field}" Width="112" HorizontalAlignment="Left"
                                      Text="{Binding TemplateMinutes, UpdateSourceTrigger=PropertyChanged}"
@@ -222,7 +222,7 @@
                                              AutomationProperties.Name="Four sprints with breaks"/>
                             </WrapPanel>
 
-                            <TextBlock Text="{Binding BreakMinutesLabel}" Style="{StaticResource Caption}" Margin="4,8,0,8"
+                            <TextBlock Text="{Binding BreakMinutesLabel}" Style="{StaticResource Eyebrow}" Margin="0,8,0,8"
                                        AutomationProperties.AutomationId="TemplateBreakLabel"/>
                             <TextBox Style="{StaticResource Field}" Width="112" HorizontalAlignment="Left"
                                      Text="{Binding TemplateBreak, UpdateSourceTrigger=PropertyChanged}"

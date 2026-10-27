@@ -478,6 +478,7 @@
                              Text="{Binding IntentionText, UpdateSourceTrigger=PropertyChanged}"
                              IsEnabled="{Binding IsRunning, Converter={StaticResource InvBool}}"
                              AutomationProperties.AutomationId="IntentionInput"
+                             AutomationProperties.HelpText="What is this sprint for?"
                              AutomationProperties.Name="What are you working on?"/>
                     <TextBlock Text="Optional. It's shown on the timer and again when the sprint ends."
                                Style="{StaticResource Caption}" Margin="0,8,0,0"/>
@@ -581,6 +582,7 @@
                             <TextBox Style="{StaticResource Field}"
                                      Text="{Binding JournalText, UpdateSourceTrigger=PropertyChanged}"
                                      AutomationProperties.AutomationId="JournalInput"
+                                     AutomationProperties.HelpText="What got done?"
                                      AutomationProperties.Name="Session journal"/>
                             <Button Style="{StaticResource BtnGhost}" Content="Save entry"
                                     Command="{Binding SaveJournalCommand}"

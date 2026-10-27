@@ -93,9 +93,9 @@ class TestSchedulePageNamesAndLabels:
         assert 'Text="{Binding BreakMinutesLabel}"' in xaml
         assert "(5–240)" not in xaml and "(1–60)" not in xaml, "a typed limit can drift from the constant"
         vm = self.VM.read_text(encoding="utf-8")
-        assert "Sprint minutes ({StudyTemplate.MinSprintMinutes}" in vm
+        assert "SPRINT MINUTES ({StudyTemplate.MinSprintMinutes}" in vm
         assert "{StudyTemplate.MaxSprintMinutes})" in vm
-        assert "Break minutes ({CycleState.MinBreakMinutes}" in vm
+        assert "BREAK MINUTES ({CycleState.MinBreakMinutes}" in vm
         assert "{CycleState.MaxBreakMinutes})" in vm
 
     def test_the_active_profile_chip_has_an_id_no_profile_name_can_produce(self):

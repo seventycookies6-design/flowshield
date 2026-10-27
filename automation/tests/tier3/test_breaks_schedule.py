@@ -408,8 +408,8 @@ class TestSchedulePage:
         fresh_app.navigate_to_tab("Schedule")
         fresh_app.click("NewTemplateButton")
         # The labels say the same limits Save checks, built from one set of constants.
-        assert fresh_app.text_of("TemplateMinutesLabel") == "Sprint minutes (5–240)"
-        assert fresh_app.text_of("TemplateBreakLabel") == "Break minutes (1–60)"
+        assert fresh_app.text_of("TemplateMinutesLabel") == "SPRINT MINUTES (5–240)"
+        assert fresh_app.text_of("TemplateBreakLabel") == "BREAK MINUTES (1–60)"
         fresh_app.set_text("TemplateNameInput", "Marathon")
         fresh_app.set_text("TemplateMinutesInput", "300")
         fresh_app.click("SaveTemplateButton")
