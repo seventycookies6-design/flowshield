@@ -197,6 +197,7 @@ Read these alongside this file before working in the matching folder:
 - [DesktopApp/CLAUDE.md](DesktopApp/CLAUDE.md) — the deliberately timid blocker,
   AutomationIds and WPF controls.
 - [Server/CLAUDE.md](Server/CLAUDE.md) — licence-server guidance and shared rules.
+- [AndroidApp/CLAUDE.md](AndroidApp/CLAUDE.md) — Android build, permissions and blocker.
 
 ## Commands
 
@@ -210,6 +211,12 @@ python -m pip install -r automation/requirements.txt
 
 ```bash
 cd DesktopApp && dotnet build -c Release
+```
+
+Android (JDK 21 and Android SDK 36):
+
+```bash
+cd AndroidApp && ./gradlew :core:test :app:testDebugUnitTest :app:lintDebug :app:assembleDebug --stacktrace
 ```
 
 Fast tests — no screen takeover, no Stripe keys needed. CI runs exactly this:

@@ -22,3 +22,15 @@ reports/*
 screenshots/
 
 dist/
+
+# Android local state, generated output and signing material.
+AndroidApp/**/build/
+.gradle/
+.kotlin/
+local.properties
+*.jks
+*.keystore
+.idea/
+captures/
+*.apk
+*.aab
