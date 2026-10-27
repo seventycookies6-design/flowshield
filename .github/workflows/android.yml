@@ -27,7 +27,7 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
-      - uses: android-actions/setup-android@v3
+      # ubuntu-latest ships the Android SDK with licences accepted; Gradle fetches what's missing.
       - uses: gradle/actions/setup-gradle@v5
       - name: Tests, lint and debug APK
         run: ./gradlew :core:test :app:testDebugUnitTest :app:lintDebug :app:assembleDebug --stacktrace
