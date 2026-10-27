@@ -86,7 +86,7 @@
                          animation effects are off (§7). The digits never ease. -->
                     <!-- The ring is drawn at 222 and scaled as a whole by
                          RingScale, so on a tall page it grows (up to
-                         RingLargest) instead of leaving the lower half of the
+                         TimerRingSize.Largest) instead of leaving the lower half of the
                          window empty (#406). Scaling keeps every proportion
                          below: stroke, digits, and the captions that must fit
                          inside it. TodayView.OnSizeChanged sets its size. -->

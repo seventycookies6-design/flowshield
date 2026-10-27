@@ -15,5 +15,7 @@
   <ItemGroup>
     <Compile Include="..\..\..\DesktopApp\Models\**\*.cs" LinkBase="Models" />
     <Compile Include="..\..\..\DesktopApp\Services\UpdateCoordinator.cs" Link="UpdateCoordinator.cs" />
+    <Compile Include="..\..\..\DesktopApp\Infrastructure\AdaptiveColumns.cs" Link="AdaptiveColumns.cs" />
+    <Compile Include="..\..\..\DesktopApp\Infrastructure\TimerRingSize.cs" Link="TimerRingSize.cs" />
   </ItemGroup>
 </Project>
