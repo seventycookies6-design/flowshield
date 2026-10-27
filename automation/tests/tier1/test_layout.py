@@ -44,6 +44,20 @@ class TestAdaptiveColumns:
         assert lone["children"][0]["width"] == 700
         assert one_column["children"][0]["width"] == 700
 
+    def test_a_filled_last_row_is_measured_at_the_width_it_gets(self):
+        """Sol's review of #406: measured at a column's width, a lone wrapping
+        card kept that column's line breaks once stretched to the full row,
+        and the row stayed as tall as the narrow wrapping needed."""
+        text = "Finished sprints have built your momentum to 100. " * 6
+        kids = [{"height": 40}, {"height": 40}, {"text": text}]
+        args = {"cmd": "adaptive-columns", "width": 700, "min": 300, "max": 3, "spacing": 16}
+        filled = probe({**args, "fill": True, "children": kids})
+        alone = probe({**args, "width": 700, "max": 1, "fill": False, "children": [{"text": text}]})
+        in_column = probe({**args, "fill": False, "children": kids})
+        assert filled["children"][2]["width"] == 700
+        assert filled["children"][2]["height"] == alone["children"][0]["height"]
+        assert filled["children"][2]["height"] < in_column["children"][2]["height"]
+
     def test_collapsed_children_take_no_slot(self):
         result = layout([10, 20, 30, 40], width=700, max_columns=3, collapsed=[1])
         slots = result["children"]

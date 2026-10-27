@@ -157,9 +157,13 @@ internal static class Commands
         };
         foreach (var item in request["children"]!.AsArray())
         {
-            var border = new Border { Height = (double)item!["height"]!, Width = 20 };
-            if ((bool?)item["collapsed"] == true) border.Visibility = Visibility.Collapsed;
-            panel.Children.Add(border);
+            // A child is a fixed-height box, or wrapping text whose height
+            // depends on the width it is measured at.
+            FrameworkElement child = item!["text"] is { } text
+                ? new TextBlock { Text = (string)text!, TextWrapping = TextWrapping.Wrap, FontSize = 14 }
+                : new Border { Height = (double)item["height"]!, Width = 20 };
+            if ((bool?)item["collapsed"] == true) child.Visibility = Visibility.Collapsed;
+            panel.Children.Add(child);
         }
         var width = (double)request["width"]!;
         panel.Measure(new Size(width, double.PositiveInfinity));

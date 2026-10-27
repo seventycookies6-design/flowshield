@@ -36,7 +36,7 @@ public class AdaptiveColumns : Panel
 
     public static readonly DependencyProperty FillLastRowProperty = DependencyProperty.Register(
         nameof(FillLastRow), typeof(bool), typeof(AdaptiveColumns),
-        new FrameworkPropertyMetadata(false, FrameworkPropertyMetadataOptions.AffectsArrange));
+        new FrameworkPropertyMetadata(false, FrameworkPropertyMetadataOptions.AffectsMeasure));
 
     /// <summary>
     /// When the last row is short, its children share the row's whole width
@@ -127,6 +127,23 @@ public class AdaptiveColumns : Panel
             _rowHeights[row] = Math.Max(_rowHeights[row], child.DesiredSize.Height);
             widest = Math.Max(widest, child.DesiredSize.Width);
             index++;
+        }
+
+        // A short last row that fills the width is measured at the width it
+        // will be given, or its text keeps a column's wrapping and the row
+        // its taller height.
+        var lastRow = _rowHeights.Count - 1;
+        var inLastRow = _slots.Count(slot => slot.Row == lastRow && lastRow >= 0);
+        if (FillLastRow && inLastRow > 0 && inLastRow < _columns && !double.IsInfinity(available.Width))
+        {
+            var lastWidth = Math.Max(0, (available.Width - Spacing * (inLastRow - 1)) / inLastRow);
+            _rowHeights[lastRow] = 0;
+            for (var i = 0; i < InternalChildren.Count; i++)
+            {
+                if (_slots[i].Row != lastRow) continue;
+                InternalChildren[i].Measure(new Size(lastWidth, double.PositiveInfinity));
+                _rowHeights[lastRow] = Math.Max(_rowHeights[lastRow], InternalChildren[i].DesiredSize.Height);
+            }
         }
 
         var width = double.IsInfinity(available.Width) ? widest : available.Width;

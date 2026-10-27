@@ -71,3 +71,17 @@ class TestSelectedSettingsRail:
         assert 'TargetName="bd" Property="Background" Value="{DynamicResource Surface2}"' in checked
         assert 'TargetName="bar" Property="Opacity" Value="1"' in checked
         assert '{DynamicResource Primary}' in settings and '{DynamicResource Primary}' in nav
+
+
+class TestFirstRunFitsTheSmallestWindow:
+    def test_the_shield_step_scrolls_above_its_footer(self):
+        """Sol's review of #406: the option cards are taller than the radio
+        buttons they replaced, and at the 800 x 540 minimum the step ran under
+        the footer, hiding Sealed's explanation. The step scrolls on its own."""
+        xaml = read("MainWindow.xaml")
+        step = xaml[xaml.index("<!-- step 2: how strict"):xaml.index("<!-- step 3: first sprint -->")]
+        head = re.search(r"<ScrollViewer\b[^>]*>", step)
+        assert head, "first-run's shield step must sit in a ScrollViewer"
+        assert 'VerticalScrollBarVisibility="Auto"' in head.group(0)
+        assert "IsStep2" in head.group(0), "the ScrollViewer is what the step's visibility hides"
+        assert step.index("<ScrollViewer") < step.index('GroupName="FirstRunShield"')
