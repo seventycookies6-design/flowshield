@@ -34,6 +34,22 @@ public class AdaptiveColumns : Panel
         nameof(Spacing), typeof(double), typeof(AdaptiveColumns),
         new FrameworkPropertyMetadata(16.0, FrameworkPropertyMetadataOptions.AffectsMeasure));
 
+    public static readonly DependencyProperty FillLastRowProperty = DependencyProperty.Register(
+        nameof(FillLastRow), typeof(bool), typeof(AdaptiveColumns),
+        new FrameworkPropertyMetadata(false, FrameworkPropertyMetadataOptions.AffectsArrange));
+
+    /// <summary>
+    /// When the last row is short, its children share the row's whole width
+    /// instead of keeping a column's: for rows of unlike cards, where one left
+    /// at half width beside a gap reads as a mistake. Off for rows of like
+    /// figures, which stay on the grid.
+    /// </summary>
+    public bool FillLastRow
+    {
+        get => (bool)GetValue(FillLastRowProperty);
+        set => SetValue(FillLastRowProperty, value);
+    }
+
     /// <summary>The narrowest a column may get before the panel drops a column.</summary>
     public double MinColumnWidth
     {
@@ -130,6 +146,12 @@ public class AdaptiveColumns : Panel
         }
         var columnWidth = Math.Max(0, (final.Width - Spacing * (_columns - 1)) / _columns);
 
+        var lastRow = _rowHeights.Count - 1;
+        var inLastRow = _slots.Count(slot => slot.Row == lastRow && lastRow >= 0);
+        var lastRowWidth = FillLastRow && inLastRow > 0
+            ? Math.Max(0, (final.Width - Spacing * (inLastRow - 1)) / inLastRow)
+            : columnWidth;
+
         var tops = new double[_rowHeights.Count];
         for (var r = 1; r < tops.Length; r++)
             tops[r] = tops[r - 1] + _rowHeights[r - 1] + Spacing;
@@ -143,7 +165,8 @@ public class AdaptiveColumns : Panel
                 child.Arrange(new Rect(0, 0, 0, 0));
                 continue;
             }
-            child.Arrange(new Rect(column * (columnWidth + Spacing), tops[row], columnWidth, _rowHeights[row]));
+            var width = row == lastRow ? lastRowWidth : columnWidth;
+            child.Arrange(new Rect(column * (width + Spacing), tops[row], width, _rowHeights[row]));
         }
         return final;
     }

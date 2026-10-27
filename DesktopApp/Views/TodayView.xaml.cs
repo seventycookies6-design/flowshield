@@ -13,6 +13,20 @@ public partial class TodayView : UserControl
     /// <summary>Below this view width the stats stack under the timer (DESIGN_SYSTEM.md §4).</summary>
     public const double StackStatsBelow = 700;
 
+    /// <summary>The ring's drawn size, and the most it grows to on a tall page (#406).</summary>
+    public const double RingSmallest = 222, RingLargest = 320;
+
+    /// <summary>
+    /// The ring's size for a page <paramref name="height"/> tall: about a third
+    /// of it, between <see cref="RingSmallest"/> and <see cref="RingLargest"/>.
+    /// A third leaves the chips, Start and the sprint summary visible below it
+    /// without scrolling, on any page tall enough to grow the ring at all.
+    /// </summary>
+    public static double RingSizeFor(double height) =>
+        double.IsNaN(height) || double.IsInfinity(height)
+            ? RingSmallest
+            : Math.Clamp(Math.Round(height * 0.34), RingSmallest, RingLargest);
+
     public TodayView()
     {
         InitializeComponent();
@@ -84,6 +98,7 @@ public partial class TodayView : UserControl
     private void OnSizeChanged(object sender, SizeChangedEventArgs e)
     {
         bool narrow = e.NewSize.Width < StackStatsBelow;
+        RingScale.Width = RingScale.Height = RingSizeFor(e.NewSize.Height);
 
         if (narrow)
         {
