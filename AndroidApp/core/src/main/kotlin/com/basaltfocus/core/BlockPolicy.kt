@@ -41,6 +41,13 @@ object BlockPolicy {
         "com.android.incallui",
         "com.samsung.android.incallui",
         "com.android.emergency",
+        // SIM toolkit carries carrier and emergency-alert menus.
+        "com.android.stk",
+        // Accessibility tools people may need to use the phone at all.
+        "com.google.android.apps.accessibility.voiceaccess",
+        "com.google.android.marvin.talkback",
+        "com.samsung.android.accessibility.talkback",
+        "com.google.android.accessibility.switchaccess",
         "com.google.android.apps.safetyhub",
         "com.samsung.android.app.telephonyui",
         "com.sec.android.app.safetyassurance",

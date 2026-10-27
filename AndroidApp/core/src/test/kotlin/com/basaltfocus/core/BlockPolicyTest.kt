@@ -47,7 +47,9 @@ class BlockPolicyTest {
             "com.android.launcher", "com.android.launcher3", "com.google.android.apps.nexuslauncher",
             "com.sec.android.app.launcher", "com.miui.home", "com.huawei.android.launcher",
             "com.microsoft.launcher", "com.teslacoilsw.launcher", "com.vendor.settings",
-            "com.vendor.launcher3", "com.vendor.emergency.service")
+            "com.vendor.launcher3", "com.vendor.emergency.service", "com.android.stk",
+            "com.google.android.apps.accessibility.voiceaccess", "com.google.android.marvin.talkback",
+            "com.samsung.android.accessibility.talkback", "com.google.android.accessibility.switchaccess")
         for (packageName in critical) {
             assertTrue(packageName, BlockPolicy.neverBlock(packageName, own, emptySet()))
             for (shield in Shield.values()) {
