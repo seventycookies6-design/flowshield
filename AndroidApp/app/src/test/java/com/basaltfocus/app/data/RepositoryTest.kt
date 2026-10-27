@@ -135,4 +135,12 @@ class RepositoryTest {
         assertTrue(repository.recover())
         assertTrue(repository.current().active!!.watchedMillis >= 9 * 60_000L)
     }
+
+    @Test fun reopeningTheAppAfterALockedSprintEndedStillCompletesIt() = runBlocking {
+        store.update { Settings(true, true, now, active = ActiveSprint("expired", now - 26 * 60_000L, 25, Shield.SOFT)) }
+        repository.startWatching()
+        ShadowSystemClock.advanceBy(Duration.ofMinutes(26))
+        assertFalse(repository.recover())
+        assertEquals("Completed", database.history().find("expired")!!.outcome)
+    }
 }

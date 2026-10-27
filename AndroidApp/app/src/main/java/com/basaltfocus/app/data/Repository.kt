@@ -87,6 +87,8 @@ class Repository(private val context: Context, private val database: HistoryData
 
     /** Called on boot/start before heartbeats, so offline time is not counted. */
     suspend fun recover(): Boolean = lock.withLock {
+        // A new activity while the service still runs must not drop its screen-off credit.
+        creditWatching(System.currentTimeMillis())
         val s = store.flow.first()
         val a = s.active ?: run {
             // Backup restores can contain the preferences pointer without its Room row.
@@ -97,9 +99,8 @@ class Repository(private val context: Context, private val database: HistoryData
         }
         when (a.resumeDecision(System.currentTimeMillis())) {
             ResumeDecision.RESUME -> {
-                // A new activity while the service still runs must not drop its screen-off credit.
-                if (watchedAtRealtime != null) creditWatching(System.currentTimeMillis())
-                else store.update { it.copy(active = a.copy(lastSeenAt = maxOf(a.lastSeenAt, System.currentTimeMillis()))) }
+                if (watchedAtRealtime == null)
+                    store.update { it.copy(active = a.copy(lastSeenAt = maxOf(a.lastSeenAt, System.currentTimeMillis()))) }
                 true
             }
             ResumeDecision.DISCARD -> { store.update { it.copy(active = null) }; false }

@@ -19,8 +19,7 @@ class SprintService : Service() {
     private val soft = SoftOverlayPolicy()
     private var foreground: String? = null
     private var handledForeground: String? = null
-    // Replay enough history to know which app is already in front when the service restarts.
-    private var cursor = System.currentTimeMillis() - 30 * 60_000
+    private var cursor = System.currentTimeMillis() - 15_000
 
     override fun onCreate() {
         super.onCreate()
@@ -38,6 +37,8 @@ class SprintService : Service() {
                 repository.initialize()
                 if (!repository.recover()) { stopSelf(); return@launch }
                 repository.startWatching()
+                // Sprints start inside Basalt, so replaying from the start finds an app already in front.
+                repository.current().active?.let { cursor = minOf(cursor, it.startedAt) }
                 val protected = AppCatalog.protected(this@SprintService)
                 val usage = getSystemService(UsageStatsManager::class.java)
                 var lastHeartbeat = SystemClock.elapsedRealtime()
