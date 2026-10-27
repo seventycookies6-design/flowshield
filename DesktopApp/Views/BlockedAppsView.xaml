@@ -126,7 +126,7 @@
                         </StackPanel>
                     </Border>
 
-                    <TextBlock Style="{StaticResource Caption}" Margin="4,8,0,0" TextWrapping="Wrap"
+                    <TextBlock Style="{StaticResource Caption}" Margin="0,8,0,0" TextWrapping="Wrap"
                                AutomationProperties.AutomationId="ProfileHint"
                                Text="A profile is a named blocklist. A new one starts from the list you are looking at, so “School” or “Gaming break” is a copy with a few apps changed."/>
                 </StackPanel>
@@ -151,7 +151,7 @@
                                 AutomationProperties.Name="Add blocked app"/>
                     </Grid>
                     <TextBlock Text="Find your app on the right, or type a process name here (“steam”) or paste the path to an .exe."
-                               Style="{StaticResource Caption}" Margin="4,8,0,0"/>
+                               Style="{StaticResource Caption}" Margin="0,8,0,0"/>
                 </StackPanel>
 
                 <!-- status strip -->
@@ -220,7 +220,7 @@
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
-                    <TextBlock Style="{StaticResource Caption}" Margin="4,0,0,0" TextWrapping="Wrap"
+                    <TextBlock Style="{StaticResource Caption}" Margin="0,0,0,0" TextWrapping="Wrap"
                                AutomationProperties.AutomationId="SitesHint"
                                Text="During a sprint, Basalt shows its notice when the tab in front names one of these. It reads the tab's title only, so it can miss a page or catch a search, and it never closes your browser."/>
                 </StackPanel>
@@ -388,25 +388,26 @@
                                 </Grid>
 
                                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="{Binding Name}" Foreground="{DynamicResource Ink}"
-                                                   FontSize="13" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                                    <!-- The name has the row's full width, and the
+                                         category chip sits under it beside the source,
+                                         as on the blocklist's own rows: side by side in
+                                         a narrow picker both were cut to a few letters
+                                         ("Epic Ga…", "Games…", #406). -->
+                                    <TextBlock Text="{Binding Name}" Foreground="{DynamicResource Ink}"
+                                               FontSize="13" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                                    <WrapPanel Margin="0,2,0,0">
                                         <!-- category tag chip (UI-SPEC.md A3, graft from raycast):
-                                             "Music", "Chat", "Browsers", "Utilities" … A Grid column, not a
-                                             StackPanel, so the chip can't overflow this narrow picker list. -->
-                                        <Border Grid.Column="1" Style="{StaticResource TagChip}" Margin="8,0,0,0"
-                                                VerticalAlignment="Center" MaxWidth="76"
+                                             "Music", "Chat", "Browsers", "Utilities" … -->
+                                        <Border Style="{StaticResource TagChip}" Margin="0,2,8,0"
+                                                VerticalAlignment="Center"
                                                 Visibility="{Binding HasGroup, Converter={StaticResource BoolVis}}">
                                             <TextBlock Text="{Binding Group}" Style="{StaticResource Caption}"
                                                        TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
                                         </Border>
-                                    </Grid>
-                                    <TextBlock Text="{Binding SourceLabel}" Style="{StaticResource Caption}"
-                                               Visibility="{Binding HasSourceLabel, Converter={StaticResource BoolVis}}"/>
+                                        <TextBlock Text="{Binding SourceLabel}" Style="{StaticResource Caption}"
+                                                   VerticalAlignment="Center" Margin="0,2,0,0"
+                                                   Visibility="{Binding HasSourceLabel, Converter={StaticResource BoolVis}}"/>
+                                    </WrapPanel>
                                     <TextBlock Text="{Binding Note}" Style="{StaticResource Caption}" TextWrapping="Wrap"
                                                Foreground="{DynamicResource Amber}"
                                                Visibility="{Binding HasNote, Converter={StaticResource BoolVis}}"/>

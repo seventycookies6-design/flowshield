@@ -4,6 +4,12 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using FlowShield.Models;
 using FlowShield.Services;
+using FlowShield.Infrastructure;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Media;
+using System.Windows.Controls.Primitives;
+using System.Threading;
 
 namespace FlowShield.ModelProbe;
 
@@ -18,6 +24,8 @@ internal static class Commands
         return cmd switch
         {
             "ping" => new JsonObject { ["ok"] = true },
+            "adaptive-columns" => AdaptiveColumnsLayout(request),
+            "ring-size" => RingSize(request),
             "update-policy" => UpdateRules(request),
             "update-card" => UpdateCard(request),
             "update-settings" => JsonSerializer.SerializeToNode(request["settings"].Deserialize<AppSettings>()!.Clone())!,
@@ -107,6 +115,67 @@ internal static class Commands
             },
             _ => throw new ArgumentException($"unknown command '{cmd}'"),
         };
+    }
+
+
+    private static JsonNode RingSize(JsonObject request)
+    {
+        var values = request["heights"]!.AsArray().Select(h =>
+        {
+            var height = h!.GetValueKind() == System.Text.Json.JsonValueKind.String
+                ? double.Parse((string)h!, CultureInfo.InvariantCulture)
+                : (double)h;
+            return (JsonNode)JsonValue.Create(TimerRingSize.For(height))!;
+        }).ToArray();
+        return new JsonObject { ["sizes"] = new JsonArray(values) };
+    }
+
+    private static JsonNode AdaptiveColumnsLayout(JsonObject request)
+    {
+        JsonObject? result = null;
+        Exception? failure = null;
+        var thread = new Thread(() =>
+        {
+            try { result = AdaptiveColumnsOnSta(request); }
+            catch (Exception ex) { failure = ex; }
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+        if (failure is not null) throw failure;
+        return result!;
+    }
+
+    private static JsonObject AdaptiveColumnsOnSta(JsonObject request)
+    {
+        var panel = new AdaptiveColumns
+        {
+            MinColumnWidth = (double?)request["min"] ?? 200,
+            MaxColumns = (int?)request["max"] ?? 4,
+            Spacing = (double?)request["spacing"] ?? 16,
+            FillLastRow = (bool?)request["fill"] ?? false,
+        };
+        foreach (var item in request["children"]!.AsArray())
+        {
+            // A child is a fixed-height box, or wrapping text whose height
+            // depends on the width it is measured at.
+            FrameworkElement child = item!["text"] is { } text
+                ? new TextBlock { Text = (string)text!, TextWrapping = TextWrapping.Wrap, FontSize = 14 }
+                : new Border { Height = (double)item["height"]!, Width = 20 };
+            if ((bool?)item["collapsed"] == true) child.Visibility = Visibility.Collapsed;
+            panel.Children.Add(child);
+        }
+        var width = (double)request["width"]!;
+        panel.Measure(new Size(width, double.PositiveInfinity));
+        panel.Arrange(new Rect(0, 0, width, panel.DesiredSize.Height));
+        var rects = new JsonArray();
+        foreach (FrameworkElement child in panel.Children)
+        {
+            var rect = LayoutInformation.GetLayoutSlot(child);
+            rects.Add(new JsonObject { ["x"] = rect.X, ["y"] = rect.Y, ["width"] = rect.Width, ["height"] = rect.Height,
+                ["visible"] = child.Visibility == Visibility.Visible });
+        }
+        return new JsonObject { ["desiredWidth"] = panel.DesiredSize.Width, ["desiredHeight"] = panel.DesiredSize.Height, ["children"] = rects };
     }
 
     /// <summary>

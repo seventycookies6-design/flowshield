@@ -89,7 +89,13 @@
                  primary, a visible legend, and never colour alone — each cell
                  carries its own day and minutes as its accessible name, which
                  is also its tooltip. -->
-            <Border Style="{StaticResource Card}" Padding="24" Margin="0,16,0,0">
+            <!-- The heatmap, momentum and milestones share a row on a wide
+                 page (#406): each alone at full width left most of its card
+                 empty. Same grid as the week's figures, so the cards in a row
+                 share a height. -->
+            <inf:AdaptiveColumns MinColumnWidth="300" MaxColumns="3" Spacing="16" Margin="0,16,0,0"
+                                 FillLastRow="True">
+            <Border Style="{StaticResource Card}" Padding="24">
                 <StackPanel>
                     <TextBlock Text="FOCUS MINUTES, LAST 30 DAYS" Style="{StaticResource Eyebrow}"/>
 
@@ -151,7 +157,7 @@
                  declutter (#147). Folded by default so the page still leads
                  with the figures; Today's "How momentum works" opens it and
                  the code-behind scrolls it into view. -->
-            <Border x:Name="MomentumCard" Style="{StaticResource Card}" Padding="24" Margin="0,16,0,0">
+            <Border x:Name="MomentumCard" Style="{StaticResource Card}" Padding="24">
                 <StackPanel>
                     <TextBlock Text="MOMENTUM" Style="{StaticResource Eyebrow}"/>
                     <TextBlock Text="Finished sprints compound. Abandoned ones decay — they don't reset."
@@ -174,7 +180,7 @@
             <!-- ================================================ milestones -->
             <!-- F14's quiet milestones, each listed once. No AutomationId on the
                  ItemsControl itself (#134); the ids are on the text inside. -->
-            <Border Style="{StaticResource Card}" Padding="24" Margin="0,16,0,0">
+            <Border Style="{StaticResource Card}" Padding="24">
                 <StackPanel>
                     <TextBlock Text="MILESTONES" Style="{StaticResource Eyebrow}"/>
                     <TextBlock Text="{Binding MilestonesEmptyText}" Style="{StaticResource Body}"
@@ -201,6 +207,7 @@
                     </ItemsControl>
                 </StackPanel>
             </Border>
+            </inf:AdaptiveColumns>
 
             <!-- =============================================== every sprint -->
             <Border Style="{StaticResource Card}" Padding="24" Margin="0,16,0,0">

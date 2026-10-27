@@ -153,19 +153,27 @@
         </Border>
 
         <!-- ========================================================== content -->
-        <Grid Grid.Column="1">
+        <!-- The title and the page share one column, capped at
+             PageMaxWidth and centred, so on a wide screen the page keeps its
+             proportions instead of stretching its cards apart (#406). The
+             margins either side still belong to the page: OnContentWheel
+             scrolls it from there, and the overlays below cover them. -->
+        <Grid Grid.Column="1" x:Name="ContentArea" Background="Transparent"
+              PreviewMouseWheel="OnContentWheel">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>
             </Grid.RowDefinitions>
 
-            <StackPanel Grid.Row="0" Margin="32,32,32,16">
+            <StackPanel Grid.Row="0" Margin="32,32,32,16"
+                        MaxWidth="{StaticResource PageMaxWidth}">
                 <TextBlock Text="{Binding CurrentPageTitle}" Style="{StaticResource H1}"
                            AutomationProperties.AutomationId="PageTitle"/>
                 <TextBlock Text="{Binding CurrentPageSubtitle}" Style="{StaticResource Body}" Margin="0,4,0,0"/>
             </StackPanel>
 
-            <Grid Grid.Row="1" Margin="32,0,32,24">
+            <Grid Grid.Row="1" Margin="32,0,32,24" x:Name="PageHost"
+                  MaxWidth="{StaticResource PageMaxWidth}">
                 <views:TodayView DataContext="{Binding Today}"
                                  Visibility="{Binding DataContext.IsTodayPage,
                                               RelativeSource={RelativeSource AncestorType=Window},
@@ -295,6 +303,7 @@
                                     <TextBox Style="{StaticResource Field}" Margin="0,0,0,12"
                                              Text="{Binding Query, UpdateSourceTrigger=PropertyChanged}"
                                              AutomationProperties.AutomationId="FirstRunSearchInput"
+                                             AutomationProperties.HelpText="Search your apps"
                                              AutomationProperties.Name="Search apps"/>
                                 </StackPanel>
                                 <ListBox ItemsSource="{Binding Apps}" MaxHeight="300" MinHeight="160"
@@ -338,45 +347,51 @@
                                 </ListBox>
                             </DockPanel>
 
-                            <!-- step 2: how strict -->
-                            <StackPanel Visibility="{Binding IsStep2, Converter={StaticResource BoolVis}}">
+                            <!-- step 2: how strict. Scrolls on its own, so at the
+                                 smallest window the three option cards never push
+                                 Sealed's explanation under the footer (#406). -->
+                            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                                          Focusable="False"
+                                          Visibility="{Binding IsStep2, Converter={StaticResource BoolVis}}"
+                                          AutomationProperties.AutomationId="FirstRunShieldScroll">
+                            <StackPanel Margin="0,0,8,0">
                                 <TextBlock Text="How strict should the shield be?" Style="{StaticResource H1}"/>
                                 <TextBlock Style="{StaticResource Body}" TextWrapping="Wrap" Margin="0,8,0,16"
                                            Text="You can change this before any sprint."/>
-                                <RadioButton GroupName="FirstRunShield" Margin="0,0,0,12"
+                                <RadioButton Style="{StaticResource OptionCard}" GroupName="FirstRunShield"
                                              IsChecked="{Binding Shield, Converter={StaticResource EnumEq},
                                                          ConverterParameter={x:Static models:ShieldLevel.Soft}}"
                                              AutomationProperties.AutomationId="FirstRunShield_Soft"
                                              AutomationProperties.Name="Soft">
-                                     <StackPanel Margin="8,0,0,0">
+                                     <StackPanel>
                                          <TextBlock Text="Soft" Foreground="{DynamicResource Ink}" FontWeight="SemiBold"/>
-                                         <TextBlock Text="{Binding SoftPromise}" Style="{StaticResource Caption}"
+                                         <TextBlock Text="{Binding SoftPromise}" Style="{StaticResource Caption}" TextWrapping="Wrap"
                                                     AutomationProperties.AutomationId="FirstRunSoftPromise"/>
-                                         <TextBlock Text="{Binding SoftBestFor}" Style="{StaticResource Caption}"
+                                         <TextBlock Text="{Binding SoftBestFor}" Style="{StaticResource Caption}" TextWrapping="Wrap"
                                                     AutomationProperties.AutomationId="FirstRunSoftBestFor"/>
                                      </StackPanel>
                                 </RadioButton>
-                                <RadioButton GroupName="FirstRunShield" Margin="0,0,0,12"
+                                <RadioButton Style="{StaticResource OptionCard}" GroupName="FirstRunShield"
                                              IsChecked="{Binding Shield, Converter={StaticResource EnumEq},
                                                          ConverterParameter={x:Static models:ShieldLevel.Firm}}"
                                              AutomationProperties.AutomationId="FirstRunShield_Firm"
                                              AutomationProperties.Name="Firm (recommended)">
-                                     <StackPanel Margin="8,0,0,0">
+                                     <StackPanel>
                                          <TextBlock Foreground="{DynamicResource Ink}" FontWeight="SemiBold">
                                              <Run Text="Firm"/><Run Text="  recommended" Foreground="{DynamicResource Primary}" FontWeight="Normal"/>
                                          </TextBlock>
-                                         <TextBlock Text="{Binding FirmPromise}" Style="{StaticResource Caption}"
+                                         <TextBlock Text="{Binding FirmPromise}" Style="{StaticResource Caption}" TextWrapping="Wrap"
                                                     AutomationProperties.AutomationId="FirstRunFirmPromise"/>
-                                         <TextBlock Text="{Binding FirmBestFor}" Style="{StaticResource Caption}"
+                                         <TextBlock Text="{Binding FirmBestFor}" Style="{StaticResource Caption}" TextWrapping="Wrap"
                                                     AutomationProperties.AutomationId="FirstRunFirmBestFor"/>
                                      </StackPanel>
                                 </RadioButton>
-                                <RadioButton GroupName="FirstRunShield"
+                                <RadioButton Style="{StaticResource OptionCard}" GroupName="FirstRunShield" Margin="0"
                                              IsChecked="{Binding Shield, Converter={StaticResource EnumEq},
                                                          ConverterParameter={x:Static models:ShieldLevel.Sealed}}"
                                              AutomationProperties.AutomationId="FirstRunShield_Sealed"
                                              AutomationProperties.Name="Sealed">
-                                     <StackPanel Margin="8,0,0,0">
+                                     <StackPanel>
                                          <TextBlock Text="Sealed" Foreground="{DynamicResource Ink}" FontWeight="SemiBold"/>
                                          <TextBlock Text="{Binding SealedPromise}" Style="{StaticResource Caption}" TextWrapping="Wrap"
                                                     AutomationProperties.AutomationId="FirstRunSealedPromise"/>
@@ -385,6 +400,7 @@
                                      </StackPanel>
                                 </RadioButton>
                             </StackPanel>
+                            </ScrollViewer>
 
                             <!-- step 3: first sprint -->
                             <StackPanel Visibility="{Binding IsStep3, Converter={StaticResource BoolVis}}">

@@ -14,12 +14,15 @@
                  its brushes live inside DrawingImages, and a DynamicResource
                  inside a Freezable resolves once and never again.
 
+                 Pickers.xaml follows Theme.xaml and gives date inputs and their calendars the shared control styles.
+
                  BrandMark.xaml (the Causeway tile) has fixed colours and is
                  never reloaded. -->
             <ResourceDictionary.MergedDictionaries>
                 <ResourceDictionary Source="Styles/Tokens.xaml"/>
                 <ResourceDictionary Source="Styles/ShieldGlyphs.xaml"/>
                 <ResourceDictionary Source="Styles/Theme.xaml"/>
+                <ResourceDictionary Source="Styles/Pickers.xaml"/>
                 <ResourceDictionary Source="Styles/BrandMark.xaml"/>
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>

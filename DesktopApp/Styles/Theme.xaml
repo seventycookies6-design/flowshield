@@ -1,6 +1,7 @@
 ﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-                    xmlns:inf="clr-namespace:FlowShield.Infrastructure">
+                    xmlns:inf="clr-namespace:FlowShield.Infrastructure"
+                    xmlns:sys="clr-namespace:System;assembly=mscorlib">
 
     <!-- ============================================================ palette
          Every colour comes from Tokens.xaml, generated from design/tokens.json by
@@ -34,6 +35,11 @@
     <CornerRadius x:Key="RadiusChip">6</CornerRadius>
     <CornerRadius x:Key="RadiusControl">10</CornerRadius>
     <CornerRadius x:Key="RadiusCard">14</CornerRadius>
+
+    <!-- The widest a page's content gets, margins aside (#406). Past it, the
+         page sits centred beside the rail rather than spreading its cards
+         across an ultrawide screen. -->
+    <sys:Double x:Key="PageMaxWidth">1280</sys:Double>
 
     <!-- Spacing scale, DESIGN_SYSTEM.md §4: 4, 8, 12, 16, 24, 32, 48, 64.
          Page margins 32, card padding 24 (CardPadding above via the Card
@@ -412,6 +418,10 @@
         <Setter Property="BorderThickness" Value="0"/>
         <Setter Property="Foreground" Value="{DynamicResource InkDim}"/>
         <Setter Property="FontWeight" Value="Normal"/>
+        <!-- 12, not BtnBase's 20: a quiet button reads as text until hovered,
+             so one at the start of a line takes Margin="-12,…" and its label
+             lines up with the text above it (#406; with 20 it sat 8 px in). -->
+        <Setter Property="Padding" Value="12,0"/>
         <Style.Triggers>
             <Trigger Property="IsMouseOver" Value="True">
                 <Setter Property="Background" Value="{DynamicResource Surface2}"/>
@@ -478,31 +488,44 @@
         <Setter Property="Padding" Value="12,8"/>
         <Setter Property="Template">
             <Setter.Value>
+                <!-- Drawn like the main rail's NavButton (#406): a rounded
+                     Surface2 fill and a pill-shaped Primary bar, so the two
+                     rails mark "you are here" the same way. -->
                 <ControlTemplate TargetType="RadioButton">
-                    <Border x:Name="bd" Background="Transparent" Padding="{TemplateBinding Padding}"
-                            BorderThickness="3,0,0,0" BorderBrush="Transparent">
-                        <ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center"/>
-                    </Border>
+                    <Grid>
+                        <Border x:Name="bd" Background="Transparent" Padding="{TemplateBinding Padding}"
+                                CornerRadius="{StaticResource RadiusControl}">
+                            <ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                        </Border>
+                        <Border x:Name="bar" Width="3" HorizontalAlignment="Left" VerticalAlignment="Stretch"
+                                Margin="0,8" inf:Pill.IsRound="True" Background="{DynamicResource Primary}"
+                                Opacity="0"/>
+                    </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="bd" Property="Background" Value="{DynamicResource Surface2}"/>
                             <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
                         </Trigger>
                         <Trigger Property="IsChecked" Value="True">
-                            <Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource Primary}"/>
+                            <Setter TargetName="bd" Property="Background" Value="{DynamicResource Surface2}"/>
+                            <Setter TargetName="bar" Property="Opacity" Value="1"/>
                             <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
                             <Setter Property="FontWeight" Value="SemiBold"/>
                         </Trigger>
                         <!-- F22: on narrow windows the rail's WrapPanel switches to
                              Orientation="Horizontal" (chip row) — the selected
-                             indicator becomes a 2px bottom bar instead of the 3px
-                             left bar, so it still reads as an underline in a row
-                             rather than a stray left tick. Bold weight plus the bar
-                             carries the selected state; colour is never the only
+                             indicator becomes a 2px bar under the label instead of
+                             the 3px left bar, so it still reads as an underline in a
+                             row rather than a stray left tick. Bold weight plus the
+                             bar carries the selected state; colour is never the only
                              signal. -->
                         <DataTrigger Binding="{Binding Orientation, RelativeSource={RelativeSource
                                      FindAncestor, AncestorType=WrapPanel}}" Value="Horizontal">
-                            <Setter TargetName="bd" Property="BorderThickness" Value="0,0,0,2"/>
+                            <Setter TargetName="bar" Property="Width" Value="NaN"/>
+                            <Setter TargetName="bar" Property="Height" Value="2"/>
+                            <Setter TargetName="bar" Property="HorizontalAlignment" Value="Stretch"/>
+                            <Setter TargetName="bar" Property="VerticalAlignment" Value="Bottom"/>
+                            <Setter TargetName="bar" Property="Margin" Value="12,0"/>
                         </DataTrigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -531,10 +554,24 @@
                             BorderBrush="{TemplateBinding BorderBrush}"
                             BorderThickness="{TemplateBinding BorderThickness}"
                             CornerRadius="{StaticResource RadiusControl}">
-                        <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}"
-                                      VerticalAlignment="Center"/>
+                        <Grid Margin="{TemplateBinding Padding}" VerticalAlignment="Center">
+                            <!-- An empty field shows its HelpText as a faint
+                                 placeholder, so no box on screen is blank with no
+                                 hint of what goes in it (#406). text-faint on
+                                 surface-2 measures 4.74:1 dark, 5.91:1 light. The
+                                 2 px lines it up with the text's own inset. -->
+                            <TextBlock x:Name="hint" Margin="2,0,0,0" IsHitTestVisible="False"
+                                       Visibility="Collapsed" TextTrimming="CharacterEllipsis"
+                                       Foreground="{DynamicResource InkFaint}"
+                                       Text="{Binding (AutomationProperties.HelpText),
+                                              RelativeSource={RelativeSource TemplatedParent}}"/>
+                            <ScrollViewer x:Name="PART_ContentHost"/>
+                        </Grid>
                     </Border>
                     <ControlTemplate.Triggers>
+                        <Trigger Property="Text" Value="">
+                            <Setter TargetName="hint" Property="Visibility" Value="Visible"/>
+                        </Trigger>
                         <Trigger Property="IsKeyboardFocused" Value="True">
                             <Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource Primary}"/>
                         </Trigger>
@@ -626,12 +663,14 @@
         <Setter Property="FontWeight" Value="SemiBold"/>
         <Setter Property="Foreground" Value="{DynamicResource InkDim}"/>
         <Setter Property="Margin" Value="0,0,8,0"/>
+        <Setter Property="Padding" Value="16,8"/>
+        <Setter Property="HorizontalContentAlignment" Value="Center"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="RadioButton">
                     <Border x:Name="bd" Background="{DynamicResource Surface2}" BorderBrush="{DynamicResource Edge}"
-                            BorderThickness="1" CornerRadius="{StaticResource RadiusControl}" Padding="16,8">
-                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            BorderThickness="1" CornerRadius="{StaticResource RadiusControl}" Padding="{TemplateBinding Padding}">
+                        <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="Center"/>
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
@@ -684,6 +723,18 @@
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
+    </Style>
+
+    <!-- A pick-one choice with a title and a line or two of explanation, such
+         as first-run's shield levels: the Segment look, as a full-width row
+         (#406). These were stock radio buttons, the only ones left in the app
+         with a white circle and a dot. -->
+    <Style x:Key="OptionCard" TargetType="RadioButton" BasedOn="{StaticResource Segment}">
+        <Setter Property="FontSize" Value="14"/>
+        <Setter Property="FontWeight" Value="Normal"/>
+        <Setter Property="Margin" Value="0,0,0,12"/>
+        <Setter Property="Padding" Value="16,12"/>
+        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
     </Style>
 
     <!-- The same chip for a choice of several (F6's day chips): a CheckBox, so

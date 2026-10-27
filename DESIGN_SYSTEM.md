@@ -249,13 +249,15 @@ All roles are Inter.
   - `lift` for dialogs and the lock screen card.
   - The dark design favours a surface step over a shadow.
 - **Layout:**
-  - **App:** a 240 px navigation rail and a content area that every page uses at full width, aligned with its page title. No page sits in a fixed-width column in the middle of the window.
+  - **App:** a 240 px navigation rail and a content area aligned with its page title. The content grows with the window up to 1280 px (`PageMaxWidth` in `Theme.xaml`); past that, the title and page stay together in a 1280 px column centred beside the rail, so an ultrawide screen doesn't spread a page's cards apart (#406). The mouse wheel over the margins either side still scrolls the page.
   - **The app adapts to its window.** Each breakpoint reads the width the element actually has, not the window's, so a view responds to its own space:
     - **Rail:** below a 1000 px window client width it compacts to 72 px of icons, with the names as tooltips (`MainWindow.CompactRailBelow`).
-    - **Settings-like pages** (Settings, Schedule) flow their cards into as many columns as fit at 400 px or more each, up to three, in order, balancing the heights (`inf:AdaptiveColumns`). Gaps are in the panel's `Spacing`, rather than the cards' margins.
+    - **Card grids** (`inf:AdaptiveColumns`: History, Schedule) lay cards out in rows, left to right in reading order, as many columns as fit at the panel's minimum width, up to its maximum. Cards in a row share the row's height, so neighbours' edges line up (#406; this was a masonry layout that left them uneven). The column count is balanced over the rows, so five cards that would fit four abreast sit three and two. `FillLastRow` lets a short last row share the full width, for rows of unlike cards. Gaps are in the panel's `Spacing`, rather than the cards' margins.
+    - **Settings** is one column of full-width cards, like Windows' own Settings: its groups hold one to three cards each, and no row of them could line up at every width.
     - **Two-pane pages** give the side pane a proportional width with a minimum and maximum: Today's stats (`0.4*`, 300–420 px) and Blocked Apps' picker (`0.65*`, 260–460 px). Below a view width of 700 px (Today) or 780 px (Blocked Apps), the side pane stacks under the main one and the page scrolls.
     - **Fully round shapes** use `inf:Pill.IsRound`; see the engineering fact above.
-    - Settings is six labelled groups with a section rail; below 900px the rail becomes a chip row.
+    - Settings is six labelled groups with a section rail; below 900px the rail becomes a chip row. The rail marks the current group like the main rail does: a `surface-2` fill and a `primary` bar (an underline in the chip row).
+    - **Today's timer ring** is drawn at 222 px and scaled as a whole to about a third of the page's height, up to 320 px, so a tall window isn't left half empty.
   - **Engineering fact — fixed-height controls:** vertical padding consumes the space available for content. `BtnBase` fixes the height at 40, and navigation rows are 44 with no vertical padding, leaving room for their 20 px icons.
   - **Site:** a 1120 px maximum width (`--maxw`).
   - **Minimum app size:** 800 × 540 (Roadmap 1.13).
@@ -264,7 +266,7 @@ All roles are Inter.
 
 ### 5. Icons
 
-- **Navigation glyphs:** Lucide replaced the Unicode glyphs (`◷`, `⊘`, `☾`, `⚙`) in #151. Those rendered differently across Windows versions and did not match each other.
+- **Navigation glyphs:** Lucide replaced the Unicode glyphs (`◷`, `⊘`, `☾`, `⚙`) in #151. Those rendered differently across Windows versions and did not match each other. Every rail icon covers the same square 18 of the 24 grid, so `Stretch=Uniform` draws them at one size; the Settings gear is an eight-tooth gear drawn for that square (#406), since the earlier one covered 15 × 19 and drew tall. A tier 5 test measures each rail icon's bounds.
 - **Outline icons:** the design uses [Lucide](https://lucide.dev), at 1.75 px stroke on a 24 px grid, as XAML `Path` geometry and inline SVG on the site. Its ISC notice ships with the icons; Part A keeps that requirement binding.
 - **Sizes:** 16 px inline with text, 20 px in navigation and buttons, 24 px for feature headings.
 - **Icons inherit** the text colour of their context; only an active item's icon is `primary`.
@@ -317,10 +319,13 @@ site it's a class in `styles.css`. Names match across the two.
 
 #### Form controls
 
-- **Text inputs:** 40 high, `surface-2` fill, `border`, radius 10; `border-strong` on hover; `focus-ring` on focus.
-- **Labels and hints:** labels sit above in `label` type; hints below in `caption`.
+- **Text inputs:** 40 high, `surface-2` fill, `border`, radius 10; `border-strong` on hover; `focus-ring` on focus. An empty field shows its `AutomationProperties.HelpText` as a `text-faint` placeholder (4.74:1 dark, 5.91:1 light on `surface-2`).
+- **Date pickers** (`Styles/Pickers.xaml`) look like a text input with a calendar icon; the calendar drops down on a card surface, its selected day drawn like a selected segment.
+- **Labels and hints:** field labels sit above as eyebrows (upper case), hints below in `caption`, both starting at the field's left edge.
 - **Toggles:** a 46 × 26 track. Off is `surface-2` with a `text-faint` knob; on is `primary` with a `primary-ink` knob. The label sits to the left, with an optional one-line caption.
-- **Segmented choices** (sprint length, shield level): chips in a row, radius 10, `surface-2`; the selected chip gets `primary-soft` fill and a `primary` outline.
+- **Segmented choices** (sprint length, shield level, daily goal, export format, theme): chips in a row, radius 10, `surface-2`; the selected chip gets `primary-soft` fill and a `primary` outline. Every pick-one choice in the app uses them; there are no stock radio buttons.
+- **Option cards** (`OptionCard`, first-run's shield levels): the segmented look as a full-width row, for a choice that needs a title and a line or two of explanation.
+- **Quiet buttons** pad 12 either side; one that starts a line takes a -12 margin, so its label lines up with the text above it.
 
 #### Timer ring (Today)
 

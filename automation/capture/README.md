@@ -45,6 +45,34 @@ with the trend chart.
 It is never a real blocklist and never a real licence: the app is in its free
 trial in every capture.
 
+## Layout audit captures
+
+`audit_layouts.py` captures the main pages and overlays from the local Release
+build at the supported review sizes. It reuses the sample blocklist and sprint
+history, selects the requested appearance, and restores the real AppData and
+trial settings when it exits. Its HTML index groups PNGs by page and labels the
+actual window DIP and physical pixel size.
+
+By default, sizes that fit the current work area use the on-screen capture path;
+larger sizes use `automation/probe/LayoutProbe`, which starts the real WPF app
+in-process and renders its content without a display-sized window. Use
+`--offscreen` to force every requested size through that renderer. Offscreen
+pages with scrollable content also get a `-full` PNG, and the index marks those
+images as offscreen.
+
+Build and run a focused audit from the repository root:
+
+```powershell
+cd DesktopApp; dotnet build -c Release; cd ..
+python automation/capture/audit_layouts.py --sizes laptop-125,ultrawide-125 --theme dark
+python automation/capture/audit_layouts.py --offscreen --sizes 1080p-125,ultrawide-125 --theme dark
+```
+
+Use `--sizes` and `--pages` with comma-separated labels to narrow a run,
+`--theme dark|light|both` to select appearance, or `--out DIR` to choose where
+the review sheet is written. By default, output goes to a timestamped folder
+under `reports/ui-audit/` (gitignored).
+
 ## The recording needs a real blocked app
 
 `record_shield_closing.py` expects something on the blocklist that is actually

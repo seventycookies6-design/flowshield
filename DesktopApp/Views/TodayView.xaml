@@ -44,7 +44,7 @@
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
                     <Button Content="Dismiss" Style="{StaticResource BtnQuiet}" HorizontalAlignment="Left"
-                            Margin="0,12,0,0" Command="{Binding DismissWhatsNewCommand}"
+                            Margin="-12,12,0,0" Command="{Binding DismissWhatsNewCommand}"
                             AutomationProperties.AutomationId="WhatsNewDismiss"/>
                 </StackPanel>
             </ContentControl>
@@ -84,7 +84,15 @@
                          it drains from full; RingRemaining (code-behind) glides
                          between the once-a-second ticks unless Windows'
                          animation effects are off (§7). The digits never ease. -->
-                    <Grid Width="222" Height="222" x:Name="TimerRing" HorizontalAlignment="Center" Margin="0,8,0,0">
+                    <!-- The ring is drawn at 222 and scaled as a whole by
+                         RingScale, so on a tall page it grows (up to
+                         TimerRingSize.Largest) instead of leaving the lower half of the
+                         window empty (#406). Scaling keeps every proportion
+                         below: stroke, digits, and the captions that must fit
+                         inside it. TodayView.OnSizeChanged sets its size. -->
+                    <Viewbox x:Name="RingScale" Width="222" Height="222" Stretch="Uniform"
+                             HorizontalAlignment="Center" Margin="0,8,0,0">
+                    <Grid Width="222" Height="222" x:Name="TimerRing">
                         <Ellipse Width="222" Height="222" Stroke="{DynamicResource Track}" StrokeThickness="12"/>
                         <Grid Visibility="{Binding SprintRingVisible, Converter={StaticResource BoolVis}}">
                             <Ellipse Width="222" Height="222" Stroke="{DynamicResource Primary}" StrokeThickness="12"
@@ -159,6 +167,7 @@
                                        AutomationProperties.AutomationId="SprintIntentionText"/>
                         </StackPanel>
                     </Grid>
+                    </Viewbox>
 
                     <!-- templates (F6): a preset, not a lock. Each chip fills in
                          length, shield, cycle and profile; hidden while a sprint
@@ -478,6 +487,7 @@
                              Text="{Binding IntentionText, UpdateSourceTrigger=PropertyChanged}"
                              IsEnabled="{Binding IsRunning, Converter={StaticResource InvBool}}"
                              AutomationProperties.AutomationId="IntentionInput"
+                             AutomationProperties.HelpText="What is this sprint for?"
                              AutomationProperties.Name="What are you working on?"/>
                     <TextBlock Text="Optional. It's shown on the timer and again when the sprint ends."
                                Style="{StaticResource Caption}" Margin="0,8,0,0"/>
@@ -581,6 +591,7 @@
                             <TextBox Style="{StaticResource Field}"
                                      Text="{Binding JournalText, UpdateSourceTrigger=PropertyChanged}"
                                      AutomationProperties.AutomationId="JournalInput"
+                                     AutomationProperties.HelpText="What got done?"
                                      AutomationProperties.Name="Session journal"/>
                             <Button Style="{StaticResource BtnGhost}" Content="Save entry"
                                     Command="{Binding SaveJournalCommand}"

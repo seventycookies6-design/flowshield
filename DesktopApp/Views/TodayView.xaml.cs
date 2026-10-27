@@ -84,6 +84,7 @@ public partial class TodayView : UserControl
     private void OnSizeChanged(object sender, SizeChangedEventArgs e)
     {
         bool narrow = e.NewSize.Width < StackStatsBelow;
+        RingScale.Width = RingScale.Height = TimerRingSize.For(e.NewSize.Height);
 
         if (narrow)
         {

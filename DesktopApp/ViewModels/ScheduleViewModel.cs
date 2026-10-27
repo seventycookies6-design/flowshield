@@ -291,13 +291,14 @@ public class ScheduleViewModel : ViewModelBase
     private string _templateBreak = "";
     public string TemplateBreak { get => _templateBreak; set => Set(ref _templateBreak, value); }
 
-    /// <summary>"Sprint minutes (5-240)": the label over the field, from the same bounds Save checks.</summary>
+    /// <summary>"SPRINT MINUTES (5-240)": the label over the field, from the same bounds Save checks.
+    /// Upper case like every other field label (#406).</summary>
     public string SprintMinutesLabel =>
-        $"Sprint minutes ({StudyTemplate.MinSprintMinutes}\u2013{StudyTemplate.MaxSprintMinutes})";
+        $"SPRINT MINUTES ({StudyTemplate.MinSprintMinutes}\u2013{StudyTemplate.MaxSprintMinutes})";
 
-    /// <summary>"Break minutes (1-60)", likewise.</summary>
+    /// <summary>"BREAK MINUTES (1-60)", likewise.</summary>
     public string BreakMinutesLabel =>
-        $"Break minutes ({CycleState.MinBreakMinutes}\u2013{CycleState.MaxBreakMinutes})";
+        $"BREAK MINUTES ({CycleState.MinBreakMinutes}\u2013{CycleState.MaxBreakMinutes})";
 
     /// <summary>"Active profile" first (a null value: whichever is active when it starts), then each blocklist.</summary>
     public ObservableCollection<Choice<BlocklistProfile?>> TemplateProfiles { get; } = new();

@@ -5,17 +5,20 @@ using Size = System.Windows.Size;
 namespace FlowShield.Infrastructure;
 
 /// <summary>
-/// Lays its children out in as many columns as the width allows, from one up
-/// to <see cref="MaxColumns"/>, each at least <see cref="MinColumnWidth"/>
-/// wide. DESIGN_SYSTEM.md §4: a settings-like page fills the window as two
-/// columns on a wide screen and stacks into one on a narrow one, rather than
-/// sitting in a fixed-width column in the middle of it.
+/// Lays its children out as a grid of as many columns as the width allows,
+/// from one up to <see cref="MaxColumns"/>, each at least
+/// <see cref="MinColumnWidth"/> wide. DESIGN_SYSTEM.md §4: a settings-like
+/// page fills its width in columns on a wide screen and stacks into one on a
+/// narrow one.
 ///
-/// Children keep their order. Each goes into whichever column is currently
-/// shortest, so the columns stay balanced: in one column this is a plain
-/// stack, in the original order. Put the gaps in <see cref="Spacing"/>, not
-/// in the children's margins, so a stacked layout and a column layout space
-/// alike.
+/// Children keep their reading order, left to right and then down. Every
+/// child in a row is as tall as the row's tallest, so cards beside each other
+/// share their top and bottom edges (#406: the earlier masonry layout put
+/// each card in the shortest column, which left neighbours at different
+/// heights). The column count is then balanced across the rows, so five cards
+/// that would fit four abreast are laid out three and two rather than four and
+/// one. Put the gaps in <see cref="Spacing"/>, not in the children's margins,
+/// so a stacked layout and a grid space alike.
 /// </summary>
 public class AdaptiveColumns : Panel
 {
@@ -30,6 +33,22 @@ public class AdaptiveColumns : Panel
     public static readonly DependencyProperty SpacingProperty = DependencyProperty.Register(
         nameof(Spacing), typeof(double), typeof(AdaptiveColumns),
         new FrameworkPropertyMetadata(16.0, FrameworkPropertyMetadataOptions.AffectsMeasure));
+
+    public static readonly DependencyProperty FillLastRowProperty = DependencyProperty.Register(
+        nameof(FillLastRow), typeof(bool), typeof(AdaptiveColumns),
+        new FrameworkPropertyMetadata(false, FrameworkPropertyMetadataOptions.AffectsMeasure));
+
+    /// <summary>
+    /// When the last row is short, its children share the row's whole width
+    /// instead of keeping a column's: for rows of unlike cards, where one left
+    /// at half width beside a gap reads as a mistake. Off for rows of like
+    /// figures, which stay on the grid.
+    /// </summary>
+    public bool FillLastRow
+    {
+        get => (bool)GetValue(FillLastRowProperty);
+        set => SetValue(FillLastRowProperty, value);
+    }
 
     /// <summary>The narrowest a column may get before the panel drops a column.</summary>
     public double MinColumnWidth
@@ -64,39 +83,72 @@ public class AdaptiveColumns : Panel
         return Math.Clamp(fit, 1, Math.Max(1, maxColumns));
     }
 
+    /// <summary>
+    /// The columns to use for <paramref name="count"/> children when
+    /// <paramref name="fit"/> would fit: the fewest that still needs no more
+    /// rows, so the last row is as full as it can be.
+    /// </summary>
+    public static int BalancedColumns(int count, int fit)
+    {
+        if (count <= 0 || fit <= 1) return Math.Max(1, fit);
+        var rows = (int)Math.Ceiling(count / (double)fit);
+        return (int)Math.Ceiling(count / (double)rows);
+    }
+
     private int _columns = 1;
-    private double _columnWidth;
     private double _measuredWidth = double.NaN;
-    private readonly List<(int Column, double Top)> _slots = new();
+    private readonly List<(int Column, int Row)> _slots = new();
+    private readonly List<double> _rowHeights = new();
 
     protected override Size MeasureOverride(Size available)
     {
         _measuredWidth = available.Width;
-        _columns = ColumnsFor(available.Width, MinColumnWidth, MaxColumns, Spacing);
-        _columnWidth = double.IsInfinity(available.Width)
+        var visible = InternalChildren.Cast<UIElement>().Count(c => c.Visibility != Visibility.Collapsed);
+        _columns = BalancedColumns(visible, ColumnsFor(available.Width, MinColumnWidth, MaxColumns, Spacing));
+        var columnWidth = double.IsInfinity(available.Width)
             ? double.PositiveInfinity
             : Math.Max(0, (available.Width - Spacing * (_columns - 1)) / _columns);
 
-        var heights = new double[_columns];
         _slots.Clear();
+        _rowHeights.Clear();
         double widest = 0;
+        var index = 0;
         foreach (UIElement child in InternalChildren)
         {
-            child.Measure(new Size(_columnWidth, double.PositiveInfinity));
+            child.Measure(new Size(columnWidth, double.PositiveInfinity));
             if (child.Visibility == Visibility.Collapsed)
             {
-                _slots.Add((0, 0));
+                _slots.Add((0, -1));
                 continue;
             }
-            var column = Shortest(heights);
-            var top = heights[column] > 0 ? heights[column] + Spacing : 0;
-            _slots.Add((column, top));
-            heights[column] = top + child.DesiredSize.Height;
+            var row = index / _columns;
+            _slots.Add((index % _columns, row));
+            if (row == _rowHeights.Count) _rowHeights.Add(0);
+            _rowHeights[row] = Math.Max(_rowHeights[row], child.DesiredSize.Height);
             widest = Math.Max(widest, child.DesiredSize.Width);
+            index++;
+        }
+
+        // A short last row that fills the width is measured at the width it
+        // will be given, or its text keeps a column's wrapping and the row
+        // its taller height.
+        var lastRow = _rowHeights.Count - 1;
+        var inLastRow = _slots.Count(slot => slot.Row == lastRow && lastRow >= 0);
+        if (FillLastRow && inLastRow > 0 && inLastRow < _columns && !double.IsInfinity(available.Width))
+        {
+            var lastWidth = Math.Max(0, (available.Width - Spacing * (inLastRow - 1)) / inLastRow);
+            _rowHeights[lastRow] = 0;
+            for (var i = 0; i < InternalChildren.Count; i++)
+            {
+                if (_slots[i].Row != lastRow) continue;
+                InternalChildren[i].Measure(new Size(lastWidth, double.PositiveInfinity));
+                _rowHeights[lastRow] = Math.Max(_rowHeights[lastRow], InternalChildren[i].DesiredSize.Height);
+            }
         }
 
         var width = double.IsInfinity(available.Width) ? widest : available.Width;
-        return new Size(width, heights.Length == 0 ? 0 : heights.Max());
+        var height = _rowHeights.Sum() + Spacing * Math.Max(0, _rowHeights.Count - 1);
+        return new Size(width, height);
     }
 
     protected override Size ArrangeOverride(Size final)
@@ -111,20 +163,28 @@ public class AdaptiveColumns : Panel
         }
         var columnWidth = Math.Max(0, (final.Width - Spacing * (_columns - 1)) / _columns);
 
+        var lastRow = _rowHeights.Count - 1;
+        var inLastRow = _slots.Count(slot => slot.Row == lastRow && lastRow >= 0);
+        var lastRowWidth = FillLastRow && inLastRow > 0
+            ? Math.Max(0, (final.Width - Spacing * (inLastRow - 1)) / inLastRow)
+            : columnWidth;
+
+        var tops = new double[_rowHeights.Count];
+        for (var r = 1; r < tops.Length; r++)
+            tops[r] = tops[r - 1] + _rowHeights[r - 1] + Spacing;
+
         for (var i = 0; i < InternalChildren.Count; i++)
         {
             var child = InternalChildren[i];
-            var (column, top) = _slots[i];
-            child.Arrange(new Rect(column * (columnWidth + Spacing), top, columnWidth, child.DesiredSize.Height));
+            var (column, row) = _slots[i];
+            if (row < 0)
+            {
+                child.Arrange(new Rect(0, 0, 0, 0));
+                continue;
+            }
+            var width = row == lastRow ? lastRowWidth : columnWidth;
+            child.Arrange(new Rect(column * (width + Spacing), tops[row], width, _rowHeights[row]));
         }
         return final;
-    }
-
-    private static int Shortest(double[] heights)
-    {
-        var best = 0;
-        for (var i = 1; i < heights.Length; i++)
-            if (heights[i] < heights[best]) best = i;
-        return best;
     }
 }

@@ -54,7 +54,7 @@
                 <TextBlock x:Name="Header_Licence" Text="License" Style="{StaticResource SettingsGroupHeader}"
                            Margin="0,0,0,12"
                            AutomationProperties.AutomationId="SettingsGroup_Licence"/>
-                <inf:AdaptiveColumns MinColumnWidth="400" MaxColumns="3" Spacing="16">
+                <inf:AdaptiveColumns MinColumnWidth="400" MaxColumns="1" Spacing="16">
                     <Border Style="{StaticResource Card}" Padding="24">
                         <StackPanel>
                             <Grid Margin="0,0,0,16">
@@ -112,6 +112,7 @@
                             <TextBox Style="{StaticResource Field}"
                                      Text="{Binding LicenseEmailInput, UpdateSourceTrigger=PropertyChanged}"
                                      AutomationProperties.AutomationId="LicenseEmailInput"
+                                     AutomationProperties.HelpText="The email you paid with"
                                      AutomationProperties.Name="License email"/>
 
                             <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
@@ -232,7 +233,7 @@
             <StackPanel x:Name="Group_Focus">
                 <TextBlock x:Name="Header_Focus" Text="Focus" Style="{StaticResource SettingsGroupHeader}"
                            AutomationProperties.AutomationId="SettingsGroup_Focus"/>
-                <inf:AdaptiveColumns MinColumnWidth="400" MaxColumns="3" Spacing="16">
+                <inf:AdaptiveColumns MinColumnWidth="400" MaxColumns="1" Spacing="16">
 
                     <!-- ================================================ daily goal -->
                     <Border Style="{StaticResource Card}" Padding="24">
@@ -241,15 +242,19 @@
                             <TextBlock Text="With a goal set, a day counts towards your streak only once you reach it."
                                        Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,16"/>
 
-                            <RadioButton GroupName="DailyGoal" Content="No goal" IsChecked="{Binding GoalOff}"
-                                         Foreground="{DynamicResource Ink}" FontSize="13" Margin="0,0,0,12"
-                                         AutomationProperties.AutomationId="GoalOffRadio"/>
-                            <RadioButton GroupName="DailyGoal" Content="Minutes focused" IsChecked="{Binding GoalInMinutes}"
-                                         Foreground="{DynamicResource Ink}" FontSize="13" Margin="0,0,0,12"
-                                         AutomationProperties.AutomationId="GoalMinutesRadio"/>
-                            <RadioButton GroupName="DailyGoal" Content="Sprints completed" IsChecked="{Binding GoalInSprints}"
-                                         Foreground="{DynamicResource Ink}" FontSize="13"
-                                         AutomationProperties.AutomationId="GoalSprintsRadio"/>
+                            <!-- Segmented, like every other pick-one choice (#406); the ids
+                                 stay on the three controls. -->
+                            <WrapPanel>
+                                <RadioButton Style="{StaticResource Segment}" GroupName="DailyGoal" Content="No goal"
+                                             IsChecked="{Binding GoalOff}"
+                                             AutomationProperties.AutomationId="GoalOffRadio"/>
+                                <RadioButton Style="{StaticResource Segment}" GroupName="DailyGoal" Content="Minutes focused"
+                                             IsChecked="{Binding GoalInMinutes}"
+                                             AutomationProperties.AutomationId="GoalMinutesRadio"/>
+                                <RadioButton Style="{StaticResource Segment}" GroupName="DailyGoal" Content="Sprints completed"
+                                             IsChecked="{Binding GoalInSprints}"
+                                             AutomationProperties.AutomationId="GoalSprintsRadio"/>
+                            </WrapPanel>
 
                             <StackPanel Margin="0,16,0,0"
                                         Visibility="{Binding GoalTargetVisible, Converter={StaticResource BoolVis}}">
@@ -364,7 +369,7 @@
             <StackPanel x:Name="Group_App">
                 <TextBlock x:Name="Header_App" Text="App" Style="{StaticResource SettingsGroupHeader}"
                            AutomationProperties.AutomationId="SettingsGroup_App"/>
-                <inf:AdaptiveColumns MinColumnWidth="400" MaxColumns="3" Spacing="16">
+                <inf:AdaptiveColumns MinColumnWidth="400" MaxColumns="1" Spacing="16">
 
                     <!-- =============================================== preferences -->
                     <Border Style="{StaticResource Card}" Padding="24">
@@ -439,7 +444,7 @@
             <StackPanel x:Name="Group_Notifications">
                 <TextBlock x:Name="Header_Notifications" Text="Notifications" Style="{StaticResource SettingsGroupHeader}"
                            AutomationProperties.AutomationId="SettingsGroup_Notifications"/>
-                <inf:AdaptiveColumns MinColumnWidth="400" MaxColumns="3" Spacing="16">
+                <inf:AdaptiveColumns MinColumnWidth="400" MaxColumns="1" Spacing="16">
                     <Border Style="{StaticResource Card}" Padding="24">
                         <StackPanel>
                             <TextBlock Text="NOTIFICATIONS" Style="{StaticResource Eyebrow}" Margin="0,0,0,8"/>
@@ -542,7 +547,7 @@
             <StackPanel x:Name="Group_Data">
                 <TextBlock x:Name="Header_Data" Text="Data" Style="{StaticResource SettingsGroupHeader}"
                            AutomationProperties.AutomationId="SettingsGroup_Data"/>
-                <inf:AdaptiveColumns MinColumnWidth="400" MaxColumns="3" Spacing="16">
+                <inf:AdaptiveColumns MinColumnWidth="400" MaxColumns="1" Spacing="16">
 
                     <!-- ============================================ journal export -->
                     <Border Style="{StaticResource Card}" Padding="24">
@@ -566,16 +571,15 @@
                                 </StackPanel>
                             </StackPanel>
 
-                            <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
-                                <RadioButton GroupName="ExportFormat" Content="CSV (spreadsheet)"
+                            <TextBlock Text="FORMAT" Style="{StaticResource Eyebrow}" Margin="0,0,0,8"/>
+                            <WrapPanel Margin="0,0,0,16">
+                                <RadioButton Style="{StaticResource Segment}" GroupName="ExportFormat" Content="CSV (spreadsheet)"
                                              IsChecked="{Binding ExportAsCsv}"
-                                             Foreground="{DynamicResource Ink}" FontSize="13"
                                              AutomationProperties.AutomationId="ExportCsvRadio"/>
-                                <RadioButton GroupName="ExportFormat" Content="Markdown"
-                                             IsChecked="{Binding ExportAsMarkdown}" Margin="24,0,0,0"
-                                             Foreground="{DynamicResource Ink}" FontSize="13"
+                                <RadioButton Style="{StaticResource Segment}" GroupName="ExportFormat" Content="Markdown"
+                                             IsChecked="{Binding ExportAsMarkdown}"
                                              AutomationProperties.AutomationId="ExportMarkdownRadio"/>
-                            </StackPanel>
+                            </WrapPanel>
 
                             <StackPanel Orientation="Horizontal">
                                 <Button Style="{StaticResource BtnPrimary}" Content="Export…"
@@ -646,7 +650,7 @@
             <StackPanel x:Name="Group_About">
                 <TextBlock x:Name="Header_About" Text="About" Style="{StaticResource SettingsGroupHeader}"
                            AutomationProperties.AutomationId="SettingsGroup_About"/>
-                <inf:AdaptiveColumns MinColumnWidth="400" MaxColumns="3" Spacing="16">
+                <inf:AdaptiveColumns MinColumnWidth="400" MaxColumns="1" Spacing="16">
 
                     <!-- ==================================================== updates -->
                     <Border Style="{StaticResource Card}" Padding="24">
@@ -692,13 +696,13 @@
                             <TextBlock Text="ADVANCED" Style="{StaticResource Eyebrow}" Margin="0,0,0,16"/>
 
                             <StackPanel x:Name="DevOnlyFields">
-                                <TextBlock Text="License server" Style="{StaticResource Caption}" Margin="4,0,0,8"/>
+                                <TextBlock Text="LICENSE SERVER" Style="{StaticResource Eyebrow}" Margin="0,0,0,8"/>
                                 <TextBox Style="{StaticResource Field}"
                                          Text="{Binding LicenseServerUrl, UpdateSourceTrigger=LostFocus}"
                                          AutomationProperties.AutomationId="LicenseServerUrlInput"
                                          AutomationProperties.Name="License server URL"/>
 
-                                <TextBlock Style="{StaticResource Caption}" Margin="4,16,0,0" TextWrapping="Wrap">
+                                <TextBlock Style="{StaticResource Caption}" Margin="0,16,0,0" TextWrapping="Wrap">
                                     <Run Text="Settings are DPAPI-encrypted at"/>
                                     <Run Text="{Binding SettingsFilePath, Mode=OneWay}" Foreground="{DynamicResource InkDim}"/>
                                 </TextBlock>
@@ -706,7 +710,7 @@
 
                             <TextBlock Text="{Binding DataContext.TermsAcceptedText,
                                              RelativeSource={RelativeSource AncestorType=Window}}"
-                                       Style="{StaticResource Caption}" Margin="4,16,0,0" TextWrapping="Wrap"
+                                       Style="{StaticResource Caption}" Margin="0,16,0,0" TextWrapping="Wrap"
                                        Visibility="{Binding DataContext.HasAcceptedTerms,
                                                     RelativeSource={RelativeSource AncestorType=Window},
                                                     Converter={StaticResource BoolVis}}"
