@@ -44,7 +44,7 @@
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
                     <Button Content="Dismiss" Style="{StaticResource BtnQuiet}" HorizontalAlignment="Left"
-                            Margin="0,12,0,0" Command="{Binding DismissWhatsNewCommand}"
+                            Margin="-12,12,0,0" Command="{Binding DismissWhatsNewCommand}"
                             AutomationProperties.AutomationId="WhatsNewDismiss"/>
                 </StackPanel>
             </ContentControl>

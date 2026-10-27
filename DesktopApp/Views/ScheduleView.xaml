@@ -261,7 +261,10 @@
                 </Border>
             </inf:AdaptiveColumns>
 
-            <TextBlock Text="SLEEP WINDOW" Style="{StaticResource Eyebrow}" Margin="0,24,0,12"/>
+            <!-- A section heading at the same level as the status line above,
+                 as Settings heads its sections (#406); an eyebrow here read as
+                 a card's label with no card. -->
+            <TextBlock Text="Sleep window" Style="{StaticResource H2}" Margin="0,32,0,16"/>
             <!-- The sleep view brings its own ScrollViewer, which has nothing to
                  scroll here but would swallow the mouse wheel; the code-behind
                  hands each turn to this page instead. The negative right margin

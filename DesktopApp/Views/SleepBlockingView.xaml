@@ -129,7 +129,7 @@
                             </WrapPanel>
 
                             <TextBlock Text="24-hour time, e.g. 22:00. A window that crosses midnight is fine."
-                                       Style="{StaticResource Caption}" Margin="4,12,0,0"/>
+                                       Style="{StaticResource Caption}" Margin="0,12,0,0"/>
                     </StackPanel>
                 </Border>
             </inf:AdaptiveColumns>
