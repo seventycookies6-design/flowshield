@@ -12,6 +12,8 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
+import org.robolectric.shadows.ShadowSystemClock
+import java.time.Duration
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], manifest = Config.NONE, application = android.app.Application::class)
@@ -115,5 +117,22 @@ class RepositoryTest {
         repository.saveJournal(active.id, "  Read chapter three\nprivate second line  ")
         assertEquals("Read chapter three", database.history().find(active.id)!!.journal)
         assertNull(repository.current().pendingSummaryId)
+    }
+
+    @Test fun aLockedPhoneStillEarnsTheSprintWhileTheServiceRuns() = runBlocking {
+        // The CPU sleeps through the whole sprint, so the service's last heartbeat is at the start.
+        store.update { Settings(true, true, now, active = ActiveSprint("asleep", now - 26 * 60_000L, 25, Shield.FIRM)) }
+        repository.startWatching()
+        ShadowSystemClock.advanceBy(Duration.ofMinutes(26))
+        assertTrue(repository.settleIfElapsed(now))
+        assertEquals("Completed", database.history().find("asleep")!!.outcome)
+    }
+
+    @Test fun reopeningTheAppMidSprintKeepsTheServicesScreenOffCredit() = runBlocking {
+        store.update { Settings(true, true, now, active = ActiveSprint("open", now - 10 * 60_000L, 25, Shield.SOFT)) }
+        repository.startWatching()
+        ShadowSystemClock.advanceBy(Duration.ofMinutes(10))
+        assertTrue(repository.recover())
+        assertTrue(repository.current().active!!.watchedMillis >= 9 * 60_000L)
     }
 }

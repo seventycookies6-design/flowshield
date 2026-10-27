@@ -207,7 +207,9 @@
         computers and you can see and remove your own devices. The identifier is
         a one-way hash of a Windows installation id, specific to Basalt. The
         name is your computer's name and Windows user name, which may contain
-        your name. Nothing else about the computer is sent.</li>
+        your name. Nothing else about the computer is sent. The Android app,
+        while in testing, sends a one-way hash of the phone's Android ID instead,
+        specific to Basalt, and the phone's maker and model as its name.</li>
   </ul>
 
   <p>When automatic update checks are on, Basalt asks GitHub (the release host)
@@ -221,6 +223,10 @@
   schedules and preferences are stored locally and encrypted with Windows DPAPI
   under your user account. <strong>None of it is uploaded.</strong> We do not know which
   applications or websites you block, when you work, or what you write in your journal.</p>
+  <p>On Android these are kept in the app's private storage instead of DPAPI.
+  If backup is turned on for your phone, Android may include them in your
+  phone's backup to your Google account. That backup goes to Google under your
+  account, not to us.</p>
   <p>If you add websites to your block list, then during a sprint Basalt reads
   the title of the browser window in front of you, to see whether it names one
   of them. The title is checked on your computer and then dropped: it is not

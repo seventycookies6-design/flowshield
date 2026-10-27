@@ -68,8 +68,21 @@ class Repository(private val context: Context, private val database: HistoryData
         null
     }
 
-    suspend fun heartbeat(now: Long) = lock.withLock {
-        store.update { s -> s.copy(active = s.active?.heartbeat(now)) }
+    /** Monotonic time of the service's last look, while it runs in this process; null otherwise. */
+    @Volatile private var watchedAtRealtime: Long? = null
+
+    fun startWatching() { watchedAtRealtime = SystemClock.elapsedRealtime() }
+    fun stopWatching() { watchedAtRealtime = null }
+
+    suspend fun heartbeat(now: Long) = lock.withLock { creditWatching(now) }
+
+    /** A locked phone sleeps the CPU while the service stays alive, so that whole gap was watched.
+     * Monotonic time bounds it, so a changed wall clock can't add credit. Callers hold the lock. */
+    private suspend fun creditWatching(now: Long) {
+        val since = watchedAtRealtime ?: return
+        val realtime = SystemClock.elapsedRealtime()
+        store.update { s -> s.copy(active = s.active?.heartbeat(now, realtime - since + 1_000)) }
+        watchedAtRealtime = realtime
     }
 
     /** Called on boot/start before heartbeats, so offline time is not counted. */
@@ -84,7 +97,9 @@ class Repository(private val context: Context, private val database: HistoryData
         }
         when (a.resumeDecision(System.currentTimeMillis())) {
             ResumeDecision.RESUME -> {
-                store.update { it.copy(active = a.copy(lastSeenAt = maxOf(a.lastSeenAt, System.currentTimeMillis()))) }
+                // A new activity while the service still runs must not drop its screen-off credit.
+                if (watchedAtRealtime != null) creditWatching(System.currentTimeMillis())
+                else store.update { it.copy(active = a.copy(lastSeenAt = maxOf(a.lastSeenAt, System.currentTimeMillis()))) }
                 true
             }
             ResumeDecision.DISCARD -> { store.update { it.copy(active = null) }; false }
@@ -94,6 +109,7 @@ class Repository(private val context: Context, private val database: HistoryData
     }
 
     suspend fun settleIfElapsed(now: Long): Boolean = lock.withLock {
+        creditWatching(now)
         val a = store.flow.first().active ?: return@withLock true
         if (now < a.endsAt) return@withLock false
         record(a, if (a.resumeDecision(now) == ResumeDecision.COMPLETED) "Completed" else "Interrupted")
@@ -105,7 +121,9 @@ class Repository(private val context: Context, private val database: HistoryData
         if (a.id != sprintId) return@withLock "This sprint has already changed."
         val now = System.currentTimeMillis()
         if (now >= a.endsAt) {
-            record(a, if (a.resumeDecision(now) == ResumeDecision.COMPLETED) "Completed" else "Interrupted")
+            creditWatching(now)
+            val watched = store.flow.first().active ?: return@withLock null
+            record(watched, if (watched.resumeDecision(now) == ResumeDecision.COMPLETED) "Completed" else "Interrupted")
             return@withLock null
         }
         if (!SprintPolicy.canEnd(a, now, requestAtMonotonic, SystemClock.elapsedRealtime(), phrase))

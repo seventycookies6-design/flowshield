@@ -19,7 +19,8 @@ class SprintService : Service() {
     private val soft = SoftOverlayPolicy()
     private var foreground: String? = null
     private var handledForeground: String? = null
-    private var cursor = System.currentTimeMillis() - 15_000
+    // Replay enough history to know which app is already in front when the service restarts.
+    private var cursor = System.currentTimeMillis() - 30 * 60_000
 
     override fun onCreate() {
         super.onCreate()
@@ -36,6 +37,7 @@ class SprintService : Service() {
             try {
                 repository.initialize()
                 if (!repository.recover()) { stopSelf(); return@launch }
+                repository.startWatching()
                 val protected = AppCatalog.protected(this@SprintService)
                 val usage = getSystemService(UsageStatsManager::class.java)
                 var lastHeartbeat = SystemClock.elapsedRealtime()
@@ -106,7 +108,7 @@ class SprintService : Service() {
                         soft.isQuiet(foreground!!, now)) handledForeground = null
                     delay(650)
                 }
-            } finally { overlay.hide() }
+            } finally { repository.stopWatching(); overlay.hide() }
         }
         return START_STICKY
     }

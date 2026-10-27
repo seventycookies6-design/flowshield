@@ -405,7 +405,7 @@ private fun AboutScreen(permissions: () -> Unit) {
         Text("Version 0.1.0 · Android closed test")
         Text("A focus timer with three shields. Your phone remains yours: you can always open Settings, use your phone, or uninstall Basalt. Apps stay open when you return to focus.")
         Text("Privacy", style = MaterialTheme.typography.titleMedium)
-        Text("Basalt reads foreground-app package names only while a sprint runs. Your blocklist, sprint history and one-line journal stay in app storage. No analytics, ads, accounts or sync. The only app network request is the license check described on the License screen.")
+        Text("Basalt reads foreground-app package names only while a sprint runs. Your blocklist, sprint history and one-line journal stay in app storage. No analytics, ads or accounts. The only app network request is the license check described on the License screen.")
         Text("Android Auto Backup can back up your local trial, settings and history according to your phone's backup settings. Restoring on a different device requires another license check. Clearing app data may restart the trial and removes local history.")
         Text("Blocking is best effort. Android or your phone's battery saver can stop the service. Reopen Basalt to resume a saved sprint. Permissions can be changed at any time in Android Settings.")
         Action("Review permissions", onClick = permissions)
