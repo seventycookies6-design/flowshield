@@ -24,7 +24,7 @@ try:
 except (AttributeError, OSError):
     pass
 
-from config import APP_EXE, PROJECT_ROOT, SETTINGS_PATH
+from config import APP_EXE, DESKTOP_TFM, PROJECT_ROOT, SETTINGS_PATH
 from core.settings_guard import preserve_user_settings
 from desktop.app_controller import DesktopController
 
@@ -240,7 +240,7 @@ def close_app(app):
 
 
 LAYOUT_PROBE_DIR = REPO_ROOT / "automation" / "probe" / "LayoutProbe"
-LAYOUT_PROBE_EXE = LAYOUT_PROBE_DIR / "bin" / "Release" / "net8.0-windows" / "LayoutProbe.exe"
+LAYOUT_PROBE_EXE = LAYOUT_PROBE_DIR / "bin" / "Release" / DESKTOP_TFM / "LayoutProbe.exe"
 OFFSCREEN_ONLY_PAGES = {"lock-screen", "first-run-welcome"}
 
 

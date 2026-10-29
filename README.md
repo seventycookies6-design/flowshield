@@ -33,7 +33,7 @@ One bad afternoon shouldn't erase a month. Every sprint ends with a one-line
 
 | Path | What it is |
 | --- | --- |
-| `DesktopApp/` | .NET 8 WPF app (MVVM). Settings are DPAPI-encrypted per user. |
+| `DesktopApp/` | .NET 10 WPF app (MVVM). Settings are DPAPI-encrypted per user. |
 | `AndroidApp/` | Native Kotlin/Compose Android app, pure JVM core policies, local history and Usage Access blocker. |
 | `Server/` | Express + SQLite license server, real Stripe one-time payments. |
 | `Website/` | Static marketing site and post-checkout license page. |
@@ -44,7 +44,7 @@ One bad afternoon shouldn't erase a month. Every sprint ends with a one-line
 
 ## Prerequisites
 
-.NET SDK 8+ (10 works — it builds `net8.0-windows`), Node 18+, Python 3.11+.
+.NET SDK 10 (the app builds `net10.0-windows`), Node 18+, Python 3.11+.
 
 Android needs JDK 21, Android SDK platform 36 and build-tools 36. Point
 `ANDROID_HOME` at the SDK or create an untracked `AndroidApp/local.properties`

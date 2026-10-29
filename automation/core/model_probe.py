@@ -15,9 +15,11 @@ import shutil
 import subprocess
 from pathlib import Path
 
+from config import DESKTOP_TFM
+
 ROOT = Path(__file__).resolve().parents[2]
 PROBE_DIR = ROOT / "automation" / "csharp" / "ModelProbe"
-PROBE_EXE = PROBE_DIR / "bin" / "Release" / "net8.0-windows" / "ModelProbe.exe"
+PROBE_EXE = PROBE_DIR / "bin" / "Release" / DESKTOP_TFM / "ModelProbe.exe"
 
 BUILD_TIMEOUT = 300
 RUN_TIMEOUT = 60
@@ -57,7 +59,7 @@ def _run(command: list[str], what: str, *, timeout: int,
 def _build() -> Path:
     dotnet = shutil.which("dotnet")
     if dotnet is None:
-        raise ProbeError("ModelProbe needs the .NET 8 SDK, and dotnet is not on PATH")
+        raise ProbeError("ModelProbe needs the .NET 10 SDK, and dotnet is not on PATH")
     result = _run(
         [dotnet, "build", str(PROBE_DIR / "ModelProbe.csproj"), "-c", "Release", "-nologo", "-v", "q"],
         "dotnet build of ModelProbe", timeout=BUILD_TIMEOUT,

@@ -362,3 +362,49 @@ class TestReportHistory:
         report = tmp_path / "docs/history/FINAL_REPORT.md"
         assert "# Basalt" in report.read_text(encoding="utf-8")
         assert not (tmp_path / report.name).exists()
+
+
+class TestOneDotnetTarget:
+    """
+    #415 moved the app from .NET 8 (out of support 10 Nov 2026) to .NET 10.
+    Build output lands in bin/Release/<TargetFramework>, and conftest skips
+    every app test when config.APP_EXE is missing, so a project, the test
+    paths and CI's SDK that disagree on the version would skip the app tests
+    instead of failing them.
+    """
+
+    ROOT = Path(SERVER_DIR).parent
+
+    def _projects(self):
+        return sorted(
+            path for folder in ("DesktopApp", "automation")
+            for path in (self.ROOT / folder).rglob("*.csproj")
+            if not {"bin", "obj"} & set(path.parts)
+        )
+
+    def test_every_project_targets_the_framework_the_tests_look_in(self):
+        import re
+        from config import APP_EXE, DESKTOP_TFM
+
+        assert DESKTOP_TFM == "net10.0-windows"
+        assert APP_EXE.parent.name == DESKTOP_TFM
+        projects = self._projects()
+        assert (self.ROOT / "DesktopApp" / "FlowShield.csproj") in projects
+        for project in projects:
+            targets = re.findall(r"<TargetFrameworks?>([^<]+)</TargetFrameworks?>",
+                                 project.read_text(encoding="utf-8"))
+            assert targets == [DESKTOP_TFM], (
+                f"{project.relative_to(self.ROOT)} targets {targets}, but the "
+                f"tests look for build output under {DESKTOP_TFM}"
+            )
+
+    def test_ci_installs_the_sdk_for_that_framework(self):
+        import re
+        from config import DESKTOP_TFM
+
+        workflow = (self.ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+        versions = re.findall(r"dotnet-version:\s*([\w.]+)", workflow)
+        major = re.match(r"net(\d+)\.", DESKTOP_TFM).group(1)
+        assert versions == [f"{major}.0.x"], (
+            f"CI installs .NET {versions}, but the projects target {DESKTOP_TFM}"
+        )

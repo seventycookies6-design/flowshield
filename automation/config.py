@@ -26,7 +26,10 @@ for _d in (LOG_DIR, SCREENSHOT_DIR, REPORT_DIR):
 STRIPE_KEYS_PATH = PROJECT_ROOT / ".stripe_keys.json"
 
 APP_NAME = "Basalt"
-APP_EXE = DESKTOP_DIR / "bin" / "Release" / "net8.0-windows" / "FlowShield.exe"
+# The TargetFramework every .csproj here builds. Build output lands in a folder
+# named after it, so a stale value makes every app test skip as "not built".
+DESKTOP_TFM = "net10.0-windows"
+APP_EXE = DESKTOP_DIR / "bin" / "Release" / DESKTOP_TFM / "FlowShield.exe"
 APP_WINDOW_TITLE = "Basalt"
 APP_PROCESS_NAME = "FlowShield"
 
