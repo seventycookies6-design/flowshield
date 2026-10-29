@@ -33,9 +33,9 @@
             </StackPanel>
 
             <TextBox x:Name="PreviewText" Grid.Row="1" Style="{StaticResource Field}"
-                     IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap"
+                     IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap"
                      VerticalContentAlignment="Top"
-                     VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
+                     VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                      FontFamily="Cascadia Mono, Consolas, monospace" FontSize="12"
                      AutomationProperties.AutomationId="DiagnosticsPreviewText"
                      AutomationProperties.Name="Diagnostics, read only"/>

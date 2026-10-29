@@ -1080,6 +1080,12 @@ class TestGetHelpIsHonest:
         code = (self.APP / "Views" / "DiagnosticsPreviewDialog.xaml.cs").read_text(encoding="utf-8")
         assert "SaveFileDialog" in code and "*.txt" in code and "Clipboard.SetText" in code
 
+    def test_the_preview_wraps_instead_of_scrolling_sideways(self):
+        # The app's ScrollBar style is vertical-only: a horizontal one drew as a
+        # 9px sliver with a white corner square, and long lines were cut off.
+        dialog = (self.APP / "Views" / "DiagnosticsPreviewDialog.xaml").read_text(encoding="utf-8")
+        assert 'TextWrapping="Wrap"' in dialog and 'HorizontalScrollBarVisibility="Disabled"' in dialog
+
     def test_the_bundle_code_cannot_send_anything(self):
         code = self.sources("DiagnosticsService.cs", "DiagnosticsPreviewDialog.xaml.cs")
         assert len(code) == 2
