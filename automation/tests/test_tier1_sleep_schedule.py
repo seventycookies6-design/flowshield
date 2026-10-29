@@ -156,6 +156,12 @@ class TestDaylightSaving:
         assert out["next"]["startLocal"] == "2026-03-08T03:00"
         assert out["next"]["end"] == "2026-03-08T09:00:00Z"
 
+    def test_a_window_lost_to_the_skipped_hour_moves_to_the_next_week(self):
+        # Sunday 02:10-02:20 doesn't exist on 2026-03-08, so from Friday the
+        # next window is the Sunday after, nine days on.
+        out = window(enabled("02:10:00", "02:20:00", days=[SUN]), "2026-03-06T17:00:00Z")
+        assert out["next"]["startLocal"] == "2026-03-15T02:10"
+
     def test_fall_back_lengthens_the_night(self):
         out = window(enabled(days=[SAT]), "2026-10-31T12:00:00Z")
         assert out["next"]["start"] == "2026-11-01T03:00:00Z"

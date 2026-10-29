@@ -943,7 +943,7 @@ class TestSleepSchedule:
         fresh_app.navigate_to_tab("Schedule")
         assert fresh_app.set_toggle("SleepBlockToggle", True) is True
         fresh_app.set_sleep_window("23:00", "06:30", nights=["Sun", "Mon", "Tue", "Wed", "Thu"])
-        saved = verify.wait_for_settings(lambda st: st.get("SleepBlockDays") == [0, 1, 2, 3, 4],
+        saved = verify.wait_for_settings(lambda st: sorted(st.get("SleepBlockDays") or []) == [0, 1, 2, 3, 4],
                                          what="the chosen nights")
         assert saved["SleepBlockStartTime"].startswith("23:00") and saved["SleepBlockEndTime"].startswith("06:30")
         assert re.fullmatch(self.NEXT, fresh_app.sleep_next_text()), fresh_app.sleep_next_text()

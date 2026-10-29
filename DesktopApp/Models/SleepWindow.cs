@@ -97,7 +97,8 @@ public sealed class SleepWindow
     {
         if (!CanOpen) return null;
         var today = ToLocal(nowUtc).Date;
-        for (var i = -1; i <= 8; i++)
+        // Two weeks: a one-night window lost to the skipped spring hour opens the week after.
+        for (var i = -1; i <= 15; i++)
         {
             if (OnDate(today.AddDays(i)) is { } w && w.StartUtc > nowUtc) return w;
         }
