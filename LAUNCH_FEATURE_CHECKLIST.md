@@ -193,7 +193,7 @@ A summary of the research, to explain the choices below.
 | Blocks websites | Cold Turkey, Freedom, FocusMe, LeechBlock NG, BlockSite | **Not at all** | F10 |
 | Progress that motivates | Forest (trees), RescueTime and Windows (streaks, goals) | Momentum score and day streak; no history, goals or summaries | F12–F17 |
 | Quick, guided first run | RescueTime (after simplifying), FocusMe (setup wizard) | None; the app opens on an empty Today page | F18 |
-| One-time price | Cold Turkey ($39), Forest (~$3.99 on iOS); most others are $30–$60 a year | **$4.99 once**, 3 PCs | F24 |
+| One-time price | Cold Turkey ($39), Forest (~$3.99 on iOS); most others are $30–$60 a year | **$4.99 once**, up to 3 devices | F24 |
 | Privacy, no account | SelfControl, LeechBlock NG, SiteBlocker, DigitalZen | **Core strength**: local, encrypted, no account | F23 |
 | Trustworthy installer | Established, signed products | Unsigned; SmartScreen warns | F25 |
 
@@ -720,7 +720,7 @@ Build to Roadmap 4.2. As scheduling, profiles and notifications arrive (F5–F9,
 **How to build it**
 - **Site pricing:**
   - "Pay once. Keep it. No subscription."
-  - "Up to 3 PCs."
+  - "Up to 3 devices."
   - "Try everything free for 7 days — no card."
 - **A general comparison line**, such as "Most blockers charge $30–$60 every year." Only name a competitor or quote an exact price after re-checking the source and adding the check date in a code comment. Prices change, and naming competitors carries legal and accuracy risk. An unnamed range is safer.
 - **Keep the promise consistent** everywhere: app lock screen, success page, legal page and licence email already say it; keep them in step.

@@ -225,7 +225,7 @@ public class SettingsViewModel : ViewModelBase
                 // with the list to act on inline, instead of just an error.
                 LicenseStatusText = "❌ Not activated";
                 var limit = _main.Settings.DeviceLimit > 0 ? _main.Settings.DeviceLimit : 3;
-                LicenseDetailText = $"This license is on {limit} PCs. Release one to activate here.";
+                LicenseDetailText = $"This license is on {limit} devices. Release one to activate here.";
                 await LoadDevicesAsync(force: true);
                 IsDevicesExpanded = true;
             }
@@ -248,7 +248,7 @@ public class SettingsViewModel : ViewModelBase
         LicenseEmailInput = "";
         _main.OnTierChanged();
         RefreshLicenseStatus();
-        _main.Toast("Deactivated on this device. Its seat is free for another machine.");
+        _main.Toast("Deactivated on this device. Its seat is free for another device.");
     }
 
     private string _deviceText = "";
@@ -272,7 +272,7 @@ public class SettingsViewModel : ViewModelBase
             // a seat limit discovered at the moment it blocks you feels arbitrary.
             DeviceText = settings.DeviceLimit > 0
                 ? $"Active on {settings.DeviceCount} of {settings.DeviceLimit} devices. "
-                  + "Deactivating here frees this one for another machine."
+                  + "Deactivating here frees this one for another device."
                 : "";
         }
         else if (_main.IsTrial)
@@ -391,7 +391,7 @@ public class SettingsViewModel : ViewModelBase
             if (ok)
             {
                 Devices.Remove(device);
-                _main.Toast($"Released {device.Name}. That seat is free for another machine.");
+                _main.Toast($"Released {device.Name}. That seat is free for another device.");
                 await LoadDevicesAsync(force: true);
             }
             else

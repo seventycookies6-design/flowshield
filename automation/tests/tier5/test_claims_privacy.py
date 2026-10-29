@@ -7,7 +7,7 @@ import time
 from pathlib import Path
 import pytest
 from config import APP_EXE, DESKTOP_DIR, SERVER_DIR, TEST_BLOCK_APP, WEBSITE_DIR
-from ._helpers import _PricingFeatureParser
+from ._helpers import _PricingFeatureParser, customer_copy_surface_paths
 
 
 
@@ -893,8 +893,22 @@ class TestHonestLimitsAndPriceComparison:
 
     def test_the_price_claim_agrees_with_the_rest_of_the_site(self):
         site = " ".join(self._site().split())
-        assert "$4.99, once, for up to 3 PCs" in site
-        assert "3 PCs" in site
+        assert "$4.99, once, for up to 3 devices" in site
+        assert "up to 3 devices" in site
+
+    def test_customer_seat_copy_uses_devices_instead_of_pcs_or_computers(self):
+        """A customer must not be told that a licence covers only PCs."""
+        stale_seat_copy = re.compile(
+            r"(?:\b(?:3|three)|\{\w*limit\w*\})[\s-]+(?:pcs?|computers?)\b|"
+            r"\b(?:per|each)[\s-]+(?:pc|computer)\b",
+            re.IGNORECASE,
+        )
+        matches = []
+        for path in customer_copy_surface_paths():
+            for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+                if stale_seat_copy.search(line):
+                    matches.append(f"{path}:{line_number}: {line.strip()}")
+        assert not matches, "stale PC/computer seat wording reached customer surfaces:\n" + "\n".join(matches)
 
 class TestThirdPartyNoticesShip:
     """
