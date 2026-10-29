@@ -86,8 +86,10 @@ public static class DiagnosticsService
         RegexOptions.Compiled);
 
     // C:\Users\<name>\ names the person; the rest of the path stays useful.
+    // A name may hold spaces or an apostrophe, so when a backslash follows,
+    // the whole folder name goes.
     private static readonly Regex UserFolder = new(
-        @"(?i)([A-Z]:\\Users\\)[^\\/\s""']+", RegexOptions.Compiled);
+        @"(?i)([A-Z]:\\Users\\)(?:[^\\/\r\n""]+(?=\\)|[^\\/\s""']+)", RegexOptions.Compiled);
 
     /// <summary>
     /// The whole bundle. <paramref name="knownSecrets"/> are values to remove

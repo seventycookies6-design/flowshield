@@ -130,6 +130,12 @@ class TestWhatTheBundleNeverContains:
         assert "jane.doe" not in text
         assert r"AppData\Roaming\FlowShield\logs" in text
 
+    @pytest.mark.parametrize("name,tail", [("Jane Doe", "Doe"), ("Sean O'Brien", "Brien")])
+    def test_a_user_name_with_a_space_or_apostrophe_is_removed_whole(self, name, tail):
+        text = build(lines=[rf"settings load failed: C:\Users\{name}\AppData\Roaming\FlowShield\settings.json"])
+        assert tail not in text
+        assert r"settings load failed: C:\Users\[redacted]\AppData\Roaming\FlowShield\settings.json" in text
+
     def test_journal_intentions_and_history_never_appear(self):
         text = build(settings_with_secrets())
         for private in (JOURNAL, INTENTION, RUNNING_INTENTION, "Sessions", "ActiveSprint"):
