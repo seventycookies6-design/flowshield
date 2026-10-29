@@ -35,6 +35,7 @@ class SettingsStore(context: Context) {
             put("licenseEmail", s.licenseEmail); put("licenseStatus", s.licenseStatus)
             put("licenseDeviceId", s.licenseDeviceId); put("licenseCheckedAt", s.licenseCheckedAt)
             put("deviceCount", s.deviceCount); put("deviceLimit", s.deviceLimit)
+            put("letStarredContactsThrough", s.letStarredContactsThrough)
         }.toString()
 
         internal fun decode(raw: String?): Settings {
@@ -58,6 +59,7 @@ class SettingsStore(context: Context) {
                 licenseDeviceId = j.optString("licenseDeviceId"),
                 licenseCheckedAt = if (j.has("licenseCheckedAt")) j.getLong("licenseCheckedAt") else null,
                 deviceCount = j.optInt("deviceCount"), deviceLimit = j.optInt("deviceLimit"),
+                letStarredContactsThrough = j.optBoolean("letStarredContactsThrough"),
             )
         }
     }

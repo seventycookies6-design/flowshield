@@ -21,4 +21,11 @@ class SettingsStoreTest {
     @Test fun `unset optional values remain absent`() {
         assertEquals(Settings(), SettingsStore.decode(SettingsStore.encode(Settings())))
     }
+
+    @Test fun `starred contact silencing is opt in and survives a restart`() {
+        assertFalse(SettingsStore.decode(null).letStarredContactsThrough)
+        assertFalse(SettingsStore.decode("{}").letStarredContactsThrough)
+        val enabled = Settings(letStarredContactsThrough = true)
+        assertTrue(SettingsStore.decode(SettingsStore.encode(enabled)).letStarredContactsThrough)
+    }
 }

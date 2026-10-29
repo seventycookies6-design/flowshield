@@ -12,7 +12,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
 import com.basaltfocus.app.blocking.Permissions
 
-enum class PermissionStep { USAGE, OVERLAY, NOTIFICATIONS }
+enum class PermissionStep { USAGE, OVERLAY, NOTIFICATIONS, DND }
 
 @Composable
 fun PermissionScreen(step: PermissionStep, revision: Int, onContinue: () -> Unit) {
@@ -24,22 +24,26 @@ fun PermissionScreen(step: PermissionStep, revision: Int, onContinue: () -> Unit
         PermissionStep.USAGE -> Permissions.usage(context)
         PermissionStep.OVERLAY -> Permissions.overlay(context)
         PermissionStep.NOTIFICATIONS -> Permissions.notifications(context)
+        PermissionStep.DND -> Permissions.dnd(context)
     } }
     val title = when (step) {
         PermissionStep.USAGE -> "Usage Access"
         PermissionStep.OVERLAY -> "Display over other apps"
         PermissionStep.NOTIFICATIONS -> "Sprint notifications"
+        PermissionStep.DND -> "Do Not Disturb access"
     }
     Page(title) {
         Text(when (step) {
             PermissionStep.USAGE -> "Basalt reads which app is in front while your sprint runs. It compares the app's package name with your blocklist. App activity never leaves your phone."
             PermissionStep.OVERLAY -> "Basalt displays a focus notice over an app you chose to block. This permission does not read the app's screen or messages. Your blocklist and notices never leave your phone."
             PermissionStep.NOTIFICATIONS -> "Basalt shows time left in an ongoing sprint notification. This permission does not read your other notifications. Sprint information stays on your phone."
+            PermissionStep.DND -> "Let starred contacts through uses Android Do Not Disturb during a sprint. It allows calls and messages from starred contacts and silences everyone else. Choose people by starring them in your Contacts app. Basalt reads no contacts or messages, and nothing new leaves your phone."
         })
         Text(when (step) {
             PermissionStep.USAGE -> "On the next system screen, choose Basalt and allow Usage Access. Without it, Basalt cannot detect blocked apps."
             PermissionStep.OVERLAY -> "On the next system screen, choose Basalt and allow display over other apps. Firm and Sealed also use this permission to return you to the home screen."
             PermissionStep.NOTIFICATIONS -> "You may decline. Your sprint can still run; Android may only show the service in its active-app controls. A recovery notification after a restart needs this permission."
+            PermissionStep.DND -> "On the next system screen, choose Basalt and allow Do Not Disturb access. This is optional: without access, the setting changes nothing. Your own Do Not Disturb settings return when the sprint ends or Basalt next starts after a crash or reboot. Basalt leaves detected changes you make alone. Android's system exceptions still apply, and other modes can still silence starred contacts."
         })
         Text(if (granted) "Allowed" else "Not allowed", style = MaterialTheme.typography.titleMedium)
         if (detail.isNotEmpty()) Text(detail)
@@ -48,6 +52,7 @@ fun PermissionScreen(step: PermissionStep, revision: Int, onContinue: () -> Unit
                 when (step) {
                     PermissionStep.USAGE -> context.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
                     PermissionStep.OVERLAY -> context.startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${context.packageName}")))
+                    PermissionStep.DND -> context.startActivity(Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS))
                     PermissionStep.NOTIFICATIONS -> if (Build.VERSION.SDK_INT >= 33 && !granted)
                         notification.launch(Manifest.permission.POST_NOTIFICATIONS)
                     else context.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName))

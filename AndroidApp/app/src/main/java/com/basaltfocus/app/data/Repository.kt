@@ -8,6 +8,7 @@ import androidx.room.withTransaction
 import com.basaltfocus.app.BuildConfig
 import com.basaltfocus.app.blocking.AppCatalog
 import com.basaltfocus.app.blocking.Permissions
+import com.basaltfocus.app.blocking.DndController
 import com.basaltfocus.app.license.DeviceIdentity
 import com.basaltfocus.app.license.LicenseClient
 import com.basaltfocus.app.license.LicenseCachePolicy
@@ -23,7 +24,8 @@ import kotlinx.coroutines.sync.withLock
 /** One process-wide writer; the history row is committed before clearing active state.
  * Replaying after process death finds the same primary key and never awards twice. */
 class Repository(private val context: Context, private val database: HistoryDatabase,
-                 private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)) {
+                 private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
+                 private val dnd: DndController = DndController.forContext(context)) {
     private val lock = Mutex()
     private val licenseLock = Mutex()
     private val store = SettingsStore(context)
@@ -36,6 +38,7 @@ class Repository(private val context: Context, private val database: HistoryData
     suspend fun current(): Settings = store.flow.first()
 
     suspend fun initialize() = lock.withLock {
+        dnd.recoverOnce()
         store.update { s -> s.copy(initialized = true,
             trialStartedAt = s.trialStartedAt ?: System.currentTimeMillis(),
             // Auto Backup must not copy one phone's license seat to another.
@@ -43,6 +46,11 @@ class Repository(private val context: Context, private val database: HistoryData
     }
 
     suspend fun finishOnboarding() = store.update { it.copy(onboardingDone = true) }
+
+    suspend fun setLetStarredContactsThrough(enabled: Boolean) = lock.withLock {
+        store.update { it.copy(letStarredContactsThrough = enabled) }
+        if (!enabled) dnd.finish()
+    }
 
     suspend fun start(minutes: Int, shield: Shield): String? = lock.withLock {
         val s = store.flow.first()
@@ -54,6 +62,7 @@ class Repository(private val context: Context, private val database: HistoryData
         val now = System.currentTimeMillis()
         val a = ActiveSprint(UUID.randomUUID().toString(), now, minutes, shield)
         store.update { it.copy(active = a) }
+        dnd.start(s.letStarredContactsThrough)
         null
     }
 
@@ -87,6 +96,7 @@ class Repository(private val context: Context, private val database: HistoryData
 
     /** Called on boot/start before heartbeats, so offline time is not counted. */
     suspend fun recover(): Boolean = lock.withLock {
+        dnd.recoverOnce()
         // A new activity while the service still runs must not drop its screen-off credit.
         creditWatching(System.currentTimeMillis())
         val s = store.flow.first()
@@ -103,22 +113,23 @@ class Repository(private val context: Context, private val database: HistoryData
                     store.update { it.copy(active = a.copy(lastSeenAt = maxOf(a.lastSeenAt, System.currentTimeMillis()))) }
                 true
             }
-            ResumeDecision.DISCARD -> { store.update { it.copy(active = null) }; false }
+            ResumeDecision.DISCARD -> { store.update { it.copy(active = null) }; dnd.finish(); false }
             ResumeDecision.COMPLETED -> { record(a, "Completed"); false }
             ResumeDecision.INTERRUPTED -> { record(a, "Interrupted"); false }
         }
     }
 
     suspend fun settleIfElapsed(now: Long): Boolean = lock.withLock {
+        dnd.recoverOnce()
         creditWatching(now)
-        val a = store.flow.first().active ?: return@withLock true
+        val a = store.flow.first().active ?: run { dnd.finish(); return@withLock true }
         if (now < a.endsAt) return@withLock false
         record(a, if (a.resumeDecision(now) == ResumeDecision.COMPLETED) "Completed" else "Interrupted")
         true
     }
 
     suspend fun end(sprintId: String, requestAtMonotonic: Long?, phrase: String?): String? = lock.withLock {
-        val a = store.flow.first().active ?: return@withLock null
+        val a = store.flow.first().active ?: run { dnd.finish(); return@withLock null }
         if (a.id != sprintId) return@withLock "This sprint has already changed."
         val now = System.currentTimeMillis()
         if (now >= a.endsAt) {
@@ -131,6 +142,7 @@ class Repository(private val context: Context, private val database: HistoryData
             return@withLock "Wait for the countdown and check the phrase."
         if (EndSprintPolicy.flowFor(a.shield, now - a.startedAt) == EndFlow.CANCEL) {
             store.update { it.copy(active = null) }
+            dnd.finish()
         } else record(a, "Ended early")
         null
     }
@@ -151,6 +163,7 @@ class Repository(private val context: Context, private val database: HistoryData
             }
         }
         store.update { it.copy(active = null, pendingSummaryId = a.id) }
+        dnd.finish()
     }
 
     suspend fun saveJournal(id: String, text: String) = lock.withLock {

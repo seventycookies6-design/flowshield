@@ -2,6 +2,7 @@ package com.basaltfocus.app.blocking
 
 import android.Manifest
 import android.app.AppOpsManager
+import android.app.NotificationManager
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
@@ -19,4 +20,5 @@ object Permissions {
     fun notifications(context: Context): Boolean = Build.VERSION.SDK_INT < 33 ||
         context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
     fun canBlock(context: Context): Boolean = usage(context) && overlay(context)
+    fun dnd(context: Context): Boolean = context.getSystemService(NotificationManager::class.java).isNotificationPolicyAccessGranted
 }

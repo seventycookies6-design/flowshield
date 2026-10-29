@@ -54,6 +54,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         message.value = repository.setBlocked(packageName, checked).orEmpty()
     }
     fun onboardingDone() = viewModelScope.launch { repository.finishOnboarding() }
+    fun letStarredContactsThrough(enabled: Boolean) = viewModelScope.launch {
+        repository.setLetStarredContactsThrough(enabled)
+    }
     fun saveJournal(id: String, line: String) = viewModelScope.launch { repository.saveJournal(id, line) }
     fun activate(input: String) {
         if (activating.value) return
