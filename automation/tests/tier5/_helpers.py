@@ -12,6 +12,21 @@ NODE = r"C:\Program Files\nodejs\node.exe"
 NODE_EXE = NODE if Path(NODE).exists() else "node"
 
 
+def customer_copy_surface_paths():
+    """Files that can carry visible seat-limit copy for customers."""
+    website = Path(WEBSITE_DIR)
+    desktop = Path(DESKTOP_DIR)
+    server = Path(SERVER_DIR)
+    candidates = [
+        *website.rglob("*.html"), *desktop.rglob("*.xaml"), *desktop.rglob("*.cs"),
+        *server.rglob("*.js"), *server.rglob("*.html"),
+    ]
+    return sorted(
+        (path for path in candidates if "node_modules" not in path.parts),
+        key=lambda path: str(path).lower(),
+    )
+
+
 # ====================== the site only sells implemented features
 
 class _PricingFeatureParser(HTMLParser):

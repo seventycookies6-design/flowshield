@@ -759,7 +759,7 @@ app.post('/validate', limiter.middleware('validate'), async (req, res) => {
         deviceLimit: seat.limit,
         message:
           `This license is already active on ${seat.count} devices, the maximum per ` +
-          `license. Deactivate Basalt on a machine you no longer use, then try again.`,
+          `license. Deactivate Basalt on a device you no longer use, then try again.`,
       });
     }
 
