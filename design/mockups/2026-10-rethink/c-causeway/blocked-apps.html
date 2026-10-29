@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en-US" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1280">
+<title>Basalt · Causeway · Blocked apps</title>
+<style>
+:root{--bg:#141517;--bg-soft:#191A1C;--surface:#1F2022;--surface-2:#27292B;--text:#EDEDEB;--text-muted:#AEB0B3;--text-faint:#909398;--primary:#3AA892;--primary-hover:#4FBEA7;--primary-ink:#0B1F1B;--border:rgba(237,237,235,.12);--border-strong:rgba(237,237,235,.22);--track:rgba(237,237,235,.08);--primary-soft:rgba(58,168,146,.20);--ok:#5EC987;--warn:#E0B35A;--danger:#EF7A88;--focus-ring:rgba(58,168,146,.5);--backdrop:#1E1F22;--heat-1:#223F39;--heat-2:#265A4F;--heat-3:#2B7466;--heat-4:#4FBEA7;--heat-ink-0:#AEB0B3;--heat-ink-1:#EDEDEB;--heat-ink-2:#EDEDEB;--heat-ink-3:#EDEDEB;--heat-ink-4:#0B1F1B;--tick:#909398;--tick-dim:#3A3C3F;}
+
+@font-face{font-family:"Inter";src:url("../../../../Website/fonts/InterVariable.woff2") format("woff2");font-weight:100 900;font-display:block}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:1280px;height:860px;overflow:hidden}
+body{font-family:"Inter","Segoe UI Variable","Segoe UI",system-ui,sans-serif;font-size:14px;line-height:21px;
+  color:var(--text);background:var(--bg);-webkit-font-smoothing:antialiased;font-optical-sizing:auto}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+input{font:inherit;color:inherit}
+.num{font-variant-numeric:tabular-nums}
+.mono{font-family:"Cascadia Mono",Consolas,monospace}
+.muted{color:var(--text-muted)} .faint{color:var(--text-faint)}
+svg{display:block}
+.ico{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round;flex:none}
+html[data-theme=dark]{--field:var(--bg-soft)} html[data-theme=light]{--field:var(--surface-2)}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+/* the keyboard focus ring, shown on one control per screen to prove it is designed */
+.focus{outline:2px solid var(--focus-ring);outline-offset:2px}
+
+
+.capbtns{margin-left:auto;display:flex;height:100%}
+.capbtns span{width:46px;height:100%;display:grid;place-items:center;color:var(--text)}
+
+.legend{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--text-muted);flex-wrap:wrap}
+.legend .lg{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+
+.mono-tile{display:inline-grid;place-items:center;flex:none;background:var(--surface-2);border:1px solid var(--border);
+  color:var(--text-muted);font-weight:600;font-family:"Inter",sans-serif}
+
+.sw{width:40px;height:22px;border-radius:11px;border:1.5px solid var(--border-strong);position:relative;flex:none;display:inline-block}
+.sw span{position:absolute;top:3px;left:3px;width:13px;height:13px;border-radius:50%;background:var(--text-muted)}
+.sw.on{background:var(--primary);border-color:var(--primary)}
+.sw.on span{left:21px;background:var(--primary-ink)}
+
+body{background:var(--backdrop)}
+.win{height:860px;display:grid;grid-template-columns:248px 1fr;grid-template-rows:40px 1fr;background:var(--backdrop) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0.1 0 0 0 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>")}
+[data-theme=light] .win{background:var(--backdrop) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0.08 0 0 0 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>")}
+.tb{grid-column:1/3;display:flex;align-items:center;gap:10px;padding-left:16px;font-size:12px;color:var(--text-muted)}
+.side{padding:6px 10px 16px 12px;display:flex;flex-direction:column}
+.nav{display:flex;flex-direction:column;gap:2px}
+.nav a{display:flex;align-items:center;gap:14px;height:40px;padding:0 12px;border-radius:6px;color:var(--text);position:relative;font-weight:400}
+.nav a .ico{color:var(--text-muted)}
+.nav a.on{background:var(--track);font-weight:600}
+.nav a.on .ico{color:var(--text)}
+.nav a.on::before{content:"";position:absolute;left:0;top:12px;bottom:12px;width:3px;border-radius:2px;background:var(--primary)}
+.side.quiet .nav a{color:var(--text-faint)} .side.quiet .nav a .ico{color:var(--text-faint)}
+.side.quiet .nav a.on{background:none;font-weight:400} .side.quiet .nav a.on::before{background:var(--border-strong)}
+.status{margin:20px 12px 0;padding-top:16px;border-top:1px solid var(--border)}
+.status .k{font-size:12px;line-height:16px;color:var(--text-muted)}
+.status .v{font-size:26px;line-height:32px;font-weight:600;letter-spacing:-.02em}
+.status .s{font-size:13px;color:var(--text-muted)}
+.status .s b{color:var(--text);font-weight:600}
+.trial{margin-top:auto;padding:14px 12px 4px;font-size:13px;color:var(--text-muted)}
+.trial .btn{margin-top:10px;width:100%}
+.slab{background:var(--bg);border-top-left-radius:10px;border-top:1px solid var(--border);border-left:1px solid var(--border);
+  padding:28px 40px 24px;min-height:0;overflow:hidden;display:flex;flex-direction:column}
+[data-theme=light] .slab{background:var(--surface)}
+h1{font-size:28px;line-height:34px;font-weight:600;letter-spacing:-.02em}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:8px}
+[data-theme=light] .card{background:var(--surface-2)}
+.lbl{display:block;font-size:13px;line-height:18px;color:var(--text-muted);font-weight:500;margin-bottom:8px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:36px;padding:0 16px;border-radius:6px;font-weight:600}
+.btn.primary{background:var(--primary);color:var(--primary-ink)}
+.btn.primary.big{height:48px;font-size:15px;padding:0 32px}
+.btn.secondary{background:var(--surface-2);border:1px solid var(--border-strong)}
+.combo{display:flex;align-items:center;justify-content:space-between;height:40px;padding:0 12px;border-radius:6px;background:var(--surface-2);border:1px solid var(--border-strong);border-bottom-color:var(--text-faint);font-weight:500}
+.combo .ico{width:16px;height:16px;color:var(--text-faint)}
+.field{height:40px;border-radius:6px;background:var(--field);border:1px solid var(--border-strong);border-bottom:2px solid var(--text-faint);padding:0 12px;display:flex;align-items:center;color:var(--text-faint)}
+
+.pv{display:flex;align-items:center;gap:4px;margin-top:16px;border-bottom:1px solid var(--border)}
+.pv>span{padding:10px 14px 12px;color:var(--text-muted);font-weight:500;position:relative}
+.pv>span.on{color:var(--text);font-weight:600}
+.pv>span.on::after{content:"";position:absolute;left:14px;right:14px;bottom:-1px;height:3px;border-radius:2px;background:var(--primary)}
+.btn.quiet{color:var(--text-muted);font-weight:500;height:32px;padding:0 10px}
+.pv .more{margin-left:auto}
+.cols{display:grid;grid-template-columns:1fr 340px;gap:24px;margin-top:18px;align-items:start}
+.sub{margin-bottom:12px}
+.grid{list-style:none;display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.app{padding:16px;display:flex;flex-direction:column}
+.app .top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px}
+.app b{font-weight:600;font-size:15px;line-height:21px}
+.app span{font-size:13px;line-height:19px}
+.app .mono{font-size:12px;overflow-wrap:anywhere;margin-bottom:12px}
+.app .bot{margin-top:auto!important;display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding-top:10px;border-top:1px solid var(--border)}
+.app .x{width:28px;height:28px;display:grid;place-items:center;border-radius:6px;color:var(--text-muted)}
+.web{display:flex;gap:14px;align-items:center;padding:16px 18px;margin-top:12px}
+.web .ico{color:var(--text-muted)}
+.web>div{flex:1}
+.web b{font-weight:600}
+.web p{font-size:13px;line-height:19px}
+.picker{padding:18px 18px 16px}
+.picker h2{font-size:17px;line-height:24px;font-weight:600;margin-bottom:12px}
+.picker .field{gap:10px}
+.picker ul{list-style:none;margin-top:6px}
+.picker li{display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid var(--border)}
+.picker li>div{flex:1;display:flex;flex-direction:column}
+.picker li b{font-weight:600}
+.picker li span{font-size:12px;line-height:17px}
+.btn.sm{height:30px;font-size:13px;padding:0 12px}
+.added{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--text-muted)}
+.manual{display:block;margin-top:12px;font-size:13px;color:var(--text-muted);text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--border-strong)}
+
+</style>
+</head>
+<body>
+
+<div class="win">
+  <div class="tb"><svg width="13.6" height="16" viewBox="22 17 56 66" role="img" aria-label="Basalt"><g stroke="var(--backdrop)" stroke-width="1.6" stroke-linejoin="round"><polygon points="46.25,25.5 53.75,32 53.75,68 46.25,61.5" fill="#A3A6AA"/><polygon points="53.75,32 68.75,32 68.75,68 53.75,68" fill="#74777C"/><polygon points="68.75,32 76.25,25.5 76.25,61.5 68.75,68" fill="#4B4E53"/><polygon points="76.25,25.5 68.75,32 53.75,32 46.25,25.5 53.75,19 68.75,19" fill="#E6E6E3"/><polygon points="23.75,41 31.25,47.5 31.25,74.5 23.75,68" fill="#A3A6AA"/><polygon points="31.25,47.5 46.25,47.5 46.25,74.5 31.25,74.5" fill="#74777C"/><polygon points="46.25,47.5 53.75,41 53.75,68 46.25,74.5" fill="#4B4E53"/><polygon points="53.75,41 46.25,47.5 31.25,47.5 23.75,41 31.25,34.5 46.25,34.5" fill="#E6E6E3"/><polygon points="46.25,56.5 53.75,63 53.75,81 46.25,74.5" fill="#A3A6AA"/><polygon points="53.75,63 68.75,63 68.75,81 53.75,81" fill="#74777C"/><polygon points="68.75,63 76.25,56.5 76.25,74.5 68.75,81" fill="#4B4E53"/><polygon points="76.25,56.5 68.75,63 53.75,63 46.25,56.5 53.75,50 68.75,50" fill="#E6E6E3"/></g></svg><span>Basalt</span><div class="capbtns" aria-hidden="true"><span><svg width="10" height="10" viewBox="0 0 10 10"><path d="M0 5.5h10" stroke="currentColor" stroke-width="1" fill="none"/></svg></span><span><svg width="10" height="10" viewBox="0 0 10 10"><rect x=".5" y=".5" width="9" height="9" stroke="currentColor" stroke-width="1" fill="none"/></svg></span><span><svg width="10" height="10" viewBox="0 0 10 10"><path d="M0 0l10 10M10 0L0 10" stroke="currentColor" stroke-width="1" fill="none"/></svg></span></div></div>
+  <aside class="side"><nav class="nav" aria-label="Main"><a class=""><svg class="ico" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span>Today</span></a><a class=""><svg class="ico" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg><span>History</span></a><a class="on"><svg class="ico" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/></svg><span>Blocked apps</span></a><a class=""><svg class="ico" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/></svg><span>Schedule</span></a><a class=""><svg class="ico" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg><span>Settings</span></a></nav><div class="status"><div class="k">Momentum</div><div class="v num">186</div><div class="s">Streak <b class="num">8 days</b></div></div><div class="trial">Free trial · 5 days left<button class="btn secondary">Buy Basalt · $4.99</button></div></aside>
+  <main class="slab">
+<div class="hd"><h1>Blocked apps</h1></div>
+<div class="pv" role="tablist" aria-label="Blocklist profile">
+  <span class="on">Default <span class="faint num">3</span></span><span>Exam week <span class="faint num">5</span></span>
+  <button class="btn quiet"><svg class="ico" width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>New profile</button>
+  <button class="btn quiet more" aria-label="Rename, duplicate or delete Default"><svg class="ico" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
+</div>
+<div class="cols">
+  <section>
+    <p class="muted sub">The shield stops these during a sprint on the Default profile.</p>
+    <ul class="grid">
+<li class="card app">
+  <div class="top"><span class="mono-tile" style="width:40px;height:40px;border-radius:8px;font-size:17px" aria-hidden="true">D</span><span class="sw on" role="switch" aria-checked="true" aria-label="Block Discord"><span></span></span></div>
+  <b>Discord</b>
+  <span class="muted">Chat</span>
+  <span class="mono faint">discord.exe</span>
+  <div class="bot"><span class="num">Stopped 14 times</span><button class="x" aria-label="Remove Discord"><svg class="ico" width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button></div>
+</li>
+<li class="card app">
+  <div class="top"><span class="mono-tile" style="width:40px;height:40px;border-radius:8px;font-size:17px" aria-hidden="true">S</span><span class="sw on" role="switch" aria-checked="true" aria-label="Block Steam"><span></span></span></div>
+  <b>Steam</b>
+  <span class="muted">Games & launchers</span>
+  <span class="mono faint">steam.exe</span>
+  <div class="bot"><span class="num">Stopped 9 times</span><button class="x" aria-label="Remove Steam"><svg class="ico" width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button></div>
+</li>
+<li class="card app">
+  <div class="top"><span class="mono-tile" style="width:40px;height:40px;border-radius:8px;font-size:17px" aria-hidden="true">E</span><span class="sw on" role="switch" aria-checked="true" aria-label="Block Epic Games Launcher"><span></span></span></div>
+  <b>Epic Games Launcher</b>
+  <span class="muted">Games & launchers</span>
+  <span class="mono faint">epicgameslauncher.exe</span>
+  <div class="bot"><span class="faint">Not needed yet</span><button class="x" aria-label="Remove Epic Games Launcher"><svg class="ico" width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button></div>
+</li></ul>
+    <div class="card web">
+      <svg class="ico" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+      <div><b>Websites · notice only</b><p class="muted">A notice when the tab in front names one of these. Basalt reads the tab title only and never closes your browser.</p></div>
+      <button class="btn secondary">Add website</button>
+    </div>
+  </section>
+  <aside class="card picker">
+    <h2>Add an app</h2>
+    <div class="field focus"><svg class="ico" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg><span>Discord, Steam, Minecraft…</span></div>
+    <ul><li><span class="mono-tile" style="width:32px;height:32px;border-radius:6px;font-size:14px" aria-hidden="true">S</span><div><b>Spotify</b><span class="faint">Running now</span></div><button class="btn secondary sm">Block</button></li><li><span class="mono-tile" style="width:32px;height:32px;border-radius:6px;font-size:14px" aria-hidden="true">M</span><div><b>Minecraft Launcher</b><span class="faint">Installed</span></div><button class="btn secondary sm">Block</button></li><li><span class="mono-tile" style="width:32px;height:32px;border-radius:6px;font-size:14px" aria-hidden="true">R</span><div><b>Roblox</b><span class="faint">Suggested · Games & launchers</span></div><button class="btn secondary sm">Block</button></li><li><span class="mono-tile" style="width:32px;height:32px;border-radius:6px;font-size:14px" aria-hidden="true">W</span><div><b>WhatsApp</b><span class="faint">Suggested · Chat</span></div><button class="btn secondary sm">Block</button></li><li><span class="mono-tile" style="width:32px;height:32px;border-radius:6px;font-size:14px" aria-hidden="true">S</span><div><b>Steam</b><span class="faint">Installed</span></div><span class="added"><svg class="ico" width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>Added</span></li></ul>
+    <a class="manual">Add by process name or .exe path</a>
+  </aside>
+</div></main>
+</div>
+</body>
+</html>

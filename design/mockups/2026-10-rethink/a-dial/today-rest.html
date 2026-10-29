@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en-US" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1280">
+<title>Basalt · Dial · Today at rest</title>
+<style>
+:root{--bg:#141517;--bg-soft:#191A1C;--surface:#1F2022;--surface-2:#27292B;--text:#EDEDEB;--text-muted:#AEB0B3;--text-faint:#909398;--primary:#3AA892;--primary-hover:#4FBEA7;--primary-ink:#0B1F1B;--border:rgba(237,237,235,.12);--border-strong:rgba(237,237,235,.22);--track:rgba(237,237,235,.08);--primary-soft:rgba(58,168,146,.20);--ok:#5EC987;--warn:#E0B35A;--danger:#EF7A88;--focus-ring:rgba(58,168,146,.5);--backdrop:#1E1F22;--heat-1:#223F39;--heat-2:#265A4F;--heat-3:#2B7466;--heat-4:#4FBEA7;--heat-ink-0:#AEB0B3;--heat-ink-1:#EDEDEB;--heat-ink-2:#EDEDEB;--heat-ink-3:#EDEDEB;--heat-ink-4:#0B1F1B;--tick:#909398;--tick-dim:#3A3C3F;}
+
+@font-face{font-family:"Inter";src:url("../../../../Website/fonts/InterVariable.woff2") format("woff2");font-weight:100 900;font-display:block}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:1280px;height:860px;overflow:hidden}
+body{font-family:"Inter","Segoe UI Variable","Segoe UI",system-ui,sans-serif;font-size:14px;line-height:21px;
+  color:var(--text);background:var(--bg);-webkit-font-smoothing:antialiased;font-optical-sizing:auto}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+input{font:inherit;color:inherit}
+.num{font-variant-numeric:tabular-nums}
+.mono{font-family:"Cascadia Mono",Consolas,monospace}
+.muted{color:var(--text-muted)} .faint{color:var(--text-faint)}
+svg{display:block}
+.ico{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round;flex:none}
+html[data-theme=dark]{--field:var(--bg-soft)} html[data-theme=light]{--field:var(--surface-2)}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+/* the keyboard focus ring, shown on one control per screen to prove it is designed */
+.focus{outline:2px solid var(--focus-ring);outline-offset:2px}
+
+
+.capbtns{margin-left:auto;display:flex;height:100%}
+.capbtns span{width:46px;height:100%;display:grid;place-items:center;color:var(--text)}
+
+.legend{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--text-muted);flex-wrap:wrap}
+.legend .lg{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+
+.mono-tile{display:inline-grid;place-items:center;flex:none;background:var(--surface-2);border:1px solid var(--border);
+  color:var(--text-muted);font-weight:600;font-family:"Inter",sans-serif}
+
+.sw{width:40px;height:22px;border-radius:11px;border:1.5px solid var(--border-strong);position:relative;flex:none;display:inline-block}
+.sw span{position:absolute;top:3px;left:3px;width:13px;height:13px;border-radius:50%;background:var(--text-muted)}
+.sw.on{background:var(--primary);border-color:var(--primary)}
+.sw.on span{left:21px;background:var(--primary-ink)}
+
+.win{display:flex;flex-direction:column;height:860px}
+.tb{height:32px;flex:none;display:flex;align-items:center;gap:8px;padding-left:12px;font-size:12px;color:var(--text-muted);background:var(--bg)}
+.body{flex:1;display:flex;min-height:0}
+.side{width:224px;flex:none;border-right:1px solid var(--border);padding:18px 12px 18px;display:flex;flex-direction:column}
+.brand{display:flex;align-items:center;gap:10px;padding:2px 12px 22px;font-weight:600;font-size:16px;letter-spacing:-.01em}
+.nav{display:flex;flex-direction:column;gap:2px}
+.nav a{display:flex;align-items:center;gap:12px;height:40px;padding:0 12px;border-radius:8px;color:var(--text-muted);font-weight:500;position:relative;text-decoration:none}
+.nav a.on{color:var(--text);background:var(--surface)}
+.nav a.on::before{content:"";position:absolute;left:0;top:11px;bottom:11px;width:3px;border-radius:2px;background:var(--primary)}
+.side.quiet .nav a{color:var(--text-faint)}
+.side.quiet .nav a.on{color:var(--text-muted);background:none}
+.side.quiet .nav a.on::before{background:var(--border-strong)}
+.foot{margin-top:auto;padding:14px 12px 4px;border-top:1px solid var(--border);font-size:13px;line-height:19px}
+.foot .t{color:var(--text-muted)}
+.foot a{color:var(--text);font-weight:600;text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--border-strong)}
+.main{flex:1;min-width:0;padding:26px 40px 24px;display:flex;flex-direction:column}
+.head{display:flex;align-items:baseline;gap:16px;margin-bottom:22px}
+.head h1{font-size:26px;line-height:32px;font-weight:600;letter-spacing:-.02em}
+.head .aside{margin-left:auto;color:var(--text-muted)}
+.lbl{display:block;font-size:13px;line-height:18px;font-weight:500;color:var(--text-muted);margin-bottom:8px}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:12px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:40px;padding:0 16px;border-radius:8px;font-weight:600;font-size:14px}
+.btn.primary{background:var(--primary);color:var(--primary-ink);height:48px;font-size:15px}
+.btn.secondary{background:var(--surface-2);border:1px solid var(--border-strong)}
+.btn.quiet{color:var(--text-muted);padding:0 10px}
+.select{display:flex;align-items:center;justify-content:space-between;height:40px;padding:0 12px;border-radius:8px;
+  background:var(--surface-2);border:1px solid var(--border-strong);font-weight:500}
+.select .ico{color:var(--text-faint);width:16px;height:16px}
+.field{height:40px;border-radius:8px;background:var(--field);border:1px solid var(--border-strong);padding:0 12px;display:flex;align-items:center;color:var(--text-faint)}
+/* segmented control: one bar, selected = fill + outline + weight (never colour alone) */
+.seg{display:flex;background:var(--field);border:1px solid var(--border-strong);border-radius:10px;padding:3px;gap:3px}
+.seg>span{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;height:34px;border-radius:7px;color:var(--text-muted);font-weight:500}
+.seg>span.on{background:var(--primary-soft);box-shadow:inset 0 0 0 1.5px var(--primary);color:var(--text);font-weight:600}
+.seg.tall>span{height:42px}
+.seg .rn{font-size:12px;color:var(--text-faint);font-weight:500}
+
+.dialwrap{position:relative;flex:none}
+.dialwrap .readout{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.dialwrap .time{font-weight:600;letter-spacing:-.03em}
+.dialwrap .cap{margin-top:10px;color:var(--text-muted);font-size:14px}
+
+.grid{flex:1;display:grid;grid-template-columns:1fr 480px;gap:36px;min-height:0}
+.left{display:flex;flex-direction:column;align-items:center;gap:22px}
+.mom{width:100%;display:grid;grid-template-columns:120px 1fr;grid-template-rows:auto auto;column-gap:20px;padding:16px 20px 0}
+.mom .big{font-size:40px;line-height:44px;font-weight:600;letter-spacing:-.02em;margin-bottom:2px}
+.mom .m3{grid-column:1/3;display:flex;gap:18px;border-top:1px solid var(--border);margin-top:12px;padding:10px 0 12px;font-size:13px}
+.right{display:flex;flex-direction:column;gap:20px;padding-bottom:0}
+.tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.tile{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;padding:10px 10px;border-radius:10px;
+  background:var(--surface-2);border:1px solid var(--border-strong)}
+.tile .tn{font-weight:600;font-size:14px;line-height:20px}
+.tile .ts{font-size:12px;line-height:17px;color:var(--text-muted)}
+.tile.on{background:var(--primary-soft);border-color:var(--primary);box-shadow:inset 0 0 0 .5px var(--primary)}
+.promise{margin-top:8px;font-size:13px;line-height:18px;color:var(--text-muted)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.right .btn.primary{margin-top:2px}
+
+</style>
+</head>
+<body>
+
+<div class="win">
+  <div class="tb"><svg width="11.9" height="14" viewBox="22 17 56 66" role="img" aria-label="Basalt"><g stroke="#141517" stroke-width="1.6" stroke-linejoin="round"><polygon points="46.25,25.5 53.75,32 53.75,68 46.25,61.5" fill="#A3A6AA"/><polygon points="53.75,32 68.75,32 68.75,68 53.75,68" fill="#74777C"/><polygon points="68.75,32 76.25,25.5 76.25,61.5 68.75,68" fill="#4B4E53"/><polygon points="76.25,25.5 68.75,32 53.75,32 46.25,25.5 53.75,19 68.75,19" fill="#E6E6E3"/><polygon points="23.75,41 31.25,47.5 31.25,74.5 23.75,68" fill="#A3A6AA"/><polygon points="31.25,47.5 46.25,47.5 46.25,74.5 31.25,74.5" fill="#74777C"/><polygon points="46.25,47.5 53.75,41 53.75,68 46.25,74.5" fill="#4B4E53"/><polygon points="53.75,41 46.25,47.5 31.25,47.5 23.75,41 31.25,34.5 46.25,34.5" fill="#E6E6E3"/><polygon points="46.25,56.5 53.75,63 53.75,81 46.25,74.5" fill="#A3A6AA"/><polygon points="53.75,63 68.75,63 68.75,81 53.75,81" fill="#74777C"/><polygon points="68.75,63 76.25,56.5 76.25,74.5 68.75,81" fill="#4B4E53"/><polygon points="76.25,56.5 68.75,63 53.75,63 46.25,56.5 53.75,50 68.75,50" fill="#E6E6E3"/></g></svg><span>Basalt</span><div class="capbtns" aria-hidden="true"><span><svg width="10" height="10" viewBox="0 0 10 10"><path d="M0 5.5h10" stroke="currentColor" stroke-width="1" fill="none"/></svg></span><span><svg width="10" height="10" viewBox="0 0 10 10"><rect x=".5" y=".5" width="9" height="9" stroke="currentColor" stroke-width="1" fill="none"/></svg></span><span><svg width="10" height="10" viewBox="0 0 10 10"><path d="M0 0l10 10M10 0L0 10" stroke="currentColor" stroke-width="1" fill="none"/></svg></span></div></div>
+  <div class="body">
+    <aside class="side">
+      <div class="brand"><svg width="18.7" height="22" viewBox="22 17 56 66" role="img" aria-label="Basalt"><g stroke="#141517" stroke-width="1.6" stroke-linejoin="round"><polygon points="46.25,25.5 53.75,32 53.75,68 46.25,61.5" fill="#A3A6AA"/><polygon points="53.75,32 68.75,32 68.75,68 53.75,68" fill="#74777C"/><polygon points="68.75,32 76.25,25.5 76.25,61.5 68.75,68" fill="#4B4E53"/><polygon points="76.25,25.5 68.75,32 53.75,32 46.25,25.5 53.75,19 68.75,19" fill="#E6E6E3"/><polygon points="23.75,41 31.25,47.5 31.25,74.5 23.75,68" fill="#A3A6AA"/><polygon points="31.25,47.5 46.25,47.5 46.25,74.5 31.25,74.5" fill="#74777C"/><polygon points="46.25,47.5 53.75,41 53.75,68 46.25,74.5" fill="#4B4E53"/><polygon points="53.75,41 46.25,47.5 31.25,47.5 23.75,41 31.25,34.5 46.25,34.5" fill="#E6E6E3"/><polygon points="46.25,56.5 53.75,63 53.75,81 46.25,74.5" fill="#A3A6AA"/><polygon points="53.75,63 68.75,63 68.75,81 53.75,81" fill="#74777C"/><polygon points="68.75,63 76.25,56.5 76.25,74.5 68.75,81" fill="#4B4E53"/><polygon points="76.25,56.5 68.75,63 53.75,63 46.25,56.5 53.75,50 68.75,50" fill="#E6E6E3"/></g></svg><span>Basalt</span></div>
+      <nav class="nav" aria-label="Main"><a class="on" aria-current=page><svg class="ico" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span>Today</span></a><a class="" ><svg class="ico" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg><span>History</span></a><a class="" ><svg class="ico" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/></svg><span>Blocked apps</span></a><a class="" ><svg class="ico" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/></svg><span>Schedule</span></a><a class="" ><svg class="ico" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg><span>Settings</span></a></nav>
+      <div class="foot"><div class="t">Free trial · 5 days left</div><a>Buy Basalt · $4.99</a></div>
+    </aside>
+    <main class="main">
+<div class="head"><h1>Today</h1><span class="aside">Friday 16 October</span></div>
+<div class="grid">
+  <section class="left">
+    
+<div class="dialwrap" style="width:392px;height:392px">
+  <svg width="392" height="392" viewBox="0 0 392 392" role="img" aria-label="Timer face set to 45 minutes of 60"><circle cx="196.0" cy="196.0" r="194.0" fill="var(--surface)" stroke="var(--border)" stroke-width="1"/><circle cx="196.0" cy="196.0" r="185.18" fill="none" stroke="var(--track)" stroke-width="3.9"/><line x1="196.00" y1="23.56" x2="196.00" y2="39.24" stroke="var(--tick)" stroke-width="1.96" stroke-linecap="round"/><line x1="214.02" y1="24.50" x2="213.21" y2="32.30" stroke="var(--tick)" stroke-width="1.18" stroke-linecap="round"/><line x1="231.85" y1="27.33" x2="230.22" y2="35.00" stroke="var(--tick)" stroke-width="1.18" stroke-linecap="round"/><line x1="249.29" y1="32.00" x2="246.86" y2="39.46" stroke="var(--tick)" stroke-width="1.18" stroke-linecap="round"/><line x1="266.14" y1="38.47" x2="262.95" y2="45.63" stroke="var(--tick)" stroke-width="1.18" stroke-linecap="round"/><line x1="282.22" y1="46.66" x2="274.38" y2="60.24" stroke="var(--tick)" stroke-width="1.96" stroke-linecap="round"/><line x1="297.36" y1="56.49" x2="292.75" y2="62.84" stroke="var(--tick)" stroke-width="1.18" stroke-linecap="round"/><line x1="311.38" y1="67.85" x2="306.14" y2="73.68" stroke="var(--tick)" stroke-width="1.18" stroke-linecap="round"/><line x1="324.15" y1="80.62" x2="318.32" y2="85.86" stroke="var(--tick)" stroke-width="1.18" stroke-linecap="round"/><line x1="335.51" y1="94.64" x2="329.16" y2="99.25" stroke="var(--tick)" stroke-width="1.18" stroke-linecap="round"/><line x1="345.34" y1="109.78" x2="331.76" y2="117.62" stroke="var(--tick)" stroke-width="1.96" stroke-linecap="round"/><line x1="353.53" y1="125.86" x2="346.37" y2="129.05" stroke="var(--tick)" stroke-width="1.18" stroke-linecap="round"/><line x1="360.00" y1="142.71" x2="352.54" y2="145.14" stroke="var(--tick)" stroke-width="1.18" stroke-linecap="round"/><line x1="364.67" y1="160.15" x2="357.00" y2="161.78" stroke="var(--tick)" stroke-width="1.18" stroke-linecap="round"/><line x1="367.50" y1="177.98" x2="359.70" y2="178.79" stroke="var(--tick)" stroke-width="1.18" stroke-linecap="round"/><line x1="368.44" y1="196.00" x2="352.76" y2="196.00" stroke="var(--tick)" stroke-width="1.96" stroke-linecap="round"/><line x1="367.50" y1="214.02" x2="359.70" y2="213.21" stroke="var(--tick)" stroke-width="1.18" stroke-linecap="round"/><line x1="364.67" y1="231.85" x2="357.00" y2="230.22" stroke="var(--tick)" stroke-width="1.18" stroke-linecap="round"/><line x1="360.00" y1="249.29" x2="352.54" y2="246.86" stroke="var(--tick)" stroke-width="1.18" stroke-linecap="round"/><line x1="353.53" y1="266.14" x2="346.37" y2="262.95" stroke="var(--tick)" stroke-width="1.18" stroke-linecap="round"/><line x1="345.34" y1="282.22" x2="331.76" y2="274.38" stroke="var(--tick)" stroke-width="1.96" stroke-linecap="round"/><line x1="335.51" y1="297.36" x2="329.16" y2="292.75" stroke="var(--tick)" stroke-width="1.18" stroke-linecap="round"/><line x1="324.15" y1="311.38" x2="318.32" y2="306.14" stroke="var(--tick)" stroke-width="1.18" stroke-linecap="round"/><line x1="311.38" y1="324.15" x2="306.14" y2="318.32" stroke="var(--tick)" stroke-width="1.18" stroke-linecap="round"/><line x1="297.36" y1="335.51" x2="292.75" y2="329.16" stroke="var(--tick)" stroke-width="1.18" stroke-linecap="round"/><line x1="282.22" y1="345.34" x2="274.38" y2="331.76" stroke="var(--tick)" stroke-width="1.96" stroke-linecap="round"/><line x1="266.14" y1="353.53" x2="262.95" y2="346.37" stroke="var(--tick)" stroke-width="1.18" stroke-linecap="round"/><line x1="249.29" y1="360.00" x2="246.86" y2="352.54" stroke="var(--tick)" stroke-width="1.18" stroke-linecap="round"/><line x1="231.85" y1="364.67" x2="230.22" y2="357.00" stroke="var(--tick)" stroke-width="1.18" stroke-linecap="round"/><line x1="214.02" y1="367.50" x2="213.21" y2="359.70" stroke="var(--tick)" stroke-width="1.18" stroke-linecap="round"/><line x1="196.00" y1="368.44" x2="196.00" y2="352.76" stroke="var(--tick)" stroke-width="1.96" stroke-linecap="round"/><line x1="177.98" y1="367.50" x2="178.79" y2="359.70" stroke="var(--tick)" stroke-width="1.18" stroke-linecap="round"/><line x1="160.15" y1="364.67" x2="161.78" y2="357.00" stroke="var(--tick)" stroke-width="1.18" stroke-linecap="round"/><line x1="142.71" y1="360.00" x2="145.14" y2="352.54" stroke="var(--tick)" stroke-width="1.18" stroke-linecap="round"/><line x1="125.86" y1="353.53" x2="129.05" y2="346.37" stroke="var(--tick)" stroke-width="1.18" stroke-linecap="round"/><line x1="109.78" y1="345.34" x2="117.62" y2="331.76" stroke="var(--tick)" stroke-width="1.96" stroke-linecap="round"/><line x1="94.64" y1="335.51" x2="99.25" y2="329.16" stroke="var(--tick)" stroke-width="1.18" stroke-linecap="round"/><line x1="80.62" y1="324.15" x2="85.86" y2="318.32" stroke="var(--tick)" stroke-width="1.18" stroke-linecap="round"/><line x1="67.85" y1="311.38" x2="73.68" y2="306.14" stroke="var(--tick)" stroke-width="1.18" stroke-linecap="round"/><line x1="56.49" y1="297.36" x2="62.84" y2="292.75" stroke="var(--tick)" stroke-width="1.18" stroke-linecap="round"/><line x1="46.66" y1="282.22" x2="60.24" y2="274.38" stroke="var(--tick)" stroke-width="1.96" stroke-linecap="round"/><line x1="38.47" y1="266.14" x2="45.63" y2="262.95" stroke="var(--tick)" stroke-width="1.18" stroke-linecap="round"/><line x1="32.00" y1="249.29" x2="39.46" y2="246.86" stroke="var(--tick)" stroke-width="1.18" stroke-linecap="round"/><line x1="27.33" y1="231.85" x2="35.00" y2="230.22" stroke="var(--tick)" stroke-width="1.18" stroke-linecap="round"/><line x1="24.50" y1="214.02" x2="32.30" y2="213.21" stroke="var(--tick)" stroke-width="1.18" stroke-linecap="round"/><line x1="23.56" y1="196.00" x2="39.24" y2="196.00" stroke="var(--tick-dim)" stroke-width="1.96" stroke-linecap="round"/><line x1="24.50" y1="177.98" x2="32.30" y2="178.79" stroke="var(--tick-dim)" stroke-width="1.18" stroke-linecap="round"/><line x1="27.33" y1="160.15" x2="35.00" y2="161.78" stroke="var(--tick-dim)" stroke-width="1.18" stroke-linecap="round"/><line x1="32.00" y1="142.71" x2="39.46" y2="145.14" stroke="var(--tick-dim)" stroke-width="1.18" stroke-linecap="round"/><line x1="38.47" y1="125.86" x2="45.63" y2="129.05" stroke="var(--tick-dim)" stroke-width="1.18" stroke-linecap="round"/><line x1="46.66" y1="109.78" x2="60.24" y2="117.62" stroke="var(--tick-dim)" stroke-width="1.96" stroke-linecap="round"/><line x1="56.49" y1="94.64" x2="62.84" y2="99.25" stroke="var(--tick-dim)" stroke-width="1.18" stroke-linecap="round"/><line x1="67.85" y1="80.62" x2="73.68" y2="85.86" stroke="var(--tick-dim)" stroke-width="1.18" stroke-linecap="round"/><line x1="80.62" y1="67.85" x2="85.86" y2="73.68" stroke="var(--tick-dim)" stroke-width="1.18" stroke-linecap="round"/><line x1="94.64" y1="56.49" x2="99.25" y2="62.84" stroke="var(--tick-dim)" stroke-width="1.18" stroke-linecap="round"/><line x1="109.78" y1="46.66" x2="117.62" y2="60.24" stroke="var(--tick-dim)" stroke-width="1.96" stroke-linecap="round"/><line x1="125.86" y1="38.47" x2="129.05" y2="45.63" stroke="var(--tick-dim)" stroke-width="1.18" stroke-linecap="round"/><line x1="142.71" y1="32.00" x2="145.14" y2="39.46" stroke="var(--tick-dim)" stroke-width="1.18" stroke-linecap="round"/><line x1="160.15" y1="27.33" x2="161.78" y2="35.00" stroke="var(--tick-dim)" stroke-width="1.18" stroke-linecap="round"/><line x1="177.98" y1="24.50" x2="178.79" y2="32.30" stroke="var(--tick-dim)" stroke-width="1.18" stroke-linecap="round"/><text x="196.0" y="61.3" text-anchor="middle" font-size="12.7" fill="var(--text-faint)" class="num">0</text><text x="335.1" y="200.4" text-anchor="middle" font-size="12.7" fill="var(--text-faint)" class="num">15</text><text x="196.0" y="339.5" text-anchor="middle" font-size="12.7" fill="var(--text-faint)" class="num">30</text><text x="56.9" y="200.4" text-anchor="middle" font-size="12.7" fill="var(--text-faint)" class="num">45</text><path d="M196.00,10.82 A185.18,185.18 0 1 1 10.82,196.00" fill="none" stroke="var(--primary)" stroke-width="3.9" stroke-linecap="round"/><circle cx="10.82" cy="196.00" r="6.9" fill="var(--primary)" stroke="var(--surface)" stroke-width="2.9"/></svg>
+  <div class="readout">
+    <div class="time num" style="font-size:80px;line-height:80px">45:00</div>
+    <div class="cap">Ready when you are</div>
+  </div>
+</div>
+    <div class="panel mom">
+      <div class="m1">
+        <span class="lbl">Momentum</span>
+        <div class="big num">186</div>
+        <div class="muted">Streak <b class="num" style="color:var(--text);font-weight:600">8 days</b></div>
+      </div>
+      <div class="m2">
+        <span class="lbl">Momentum, last 30 days</span>
+        <svg width="270" height="104" viewBox="0 0 270 104" role="img" aria-label="Momentum over the last 30 days, rising to a peak of 186 today"><line x1="30" x2="264" y1="82.0" y2="82.0" stroke="var(--border)" stroke-width="1"/><text x="22" y="86.0" text-anchor="end" font-size="11" fill="var(--text-faint)" class="num">0</text><line x1="30" x2="264" y1="45.0" y2="45.0" stroke="var(--border)" stroke-width="1"/><text x="22" y="49.0" text-anchor="end" font-size="11" fill="var(--text-faint)" class="num">100</text><line x1="30" x2="264" y1="8.0" y2="8.0" stroke="var(--border)" stroke-width="1"/><text x="22" y="12.0" text-anchor="end" font-size="11" fill="var(--text-faint)" class="num">200</text><polyline points="30.0,77.9 38.1,75.3 46.1,75.3 54.2,75.3 62.3,70.9 70.3,70.9 78.4,68.3 86.5,63.9 94.6,64.2 102.6,64.6 110.7,59.4 118.8,55.0 126.8,48.0 134.9,48.7 143.0,46.5 151.0,46.9 159.1,38.0 167.2,38.7 175.2,34.6 183.3,25.8 191.4,21.7 199.4,22.8 207.5,21.0 215.6,16.5 223.7,15.0 231.7,11.3 239.8,9.5 247.9,18.7 255.9,16.9 264.0,13.2" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/><circle cx="264.0" cy="13.2" r="3.5" fill="var(--primary)"/><text x="30.0" y="100" text-anchor="start" font-size="11" fill="var(--text-faint)">17 Sep</text><text x="143.0" y="100" text-anchor="middle" font-size="11" fill="var(--text-faint)">1 Oct</text><text x="264.0" y="100" text-anchor="end" font-size="11" fill="var(--text-faint)">16 Oct</text></svg>
+      </div>
+      <div class="m3"><span class="muted">Today</span><span class="num">1 sprint</span><span class="num">45 min focused</span><span class="num">2 distractions stopped</span></div>
+    </div>
+  </section>
+  <section class="right" aria-label="Next sprint">
+    <div><span class="lbl">Template</span><div class="tiles"><button class="tile on" aria-pressed="true"><span class="tn">Homework evening</span><span class="ts num">45 min · Firm</span><span class="ts num">3 sprints</span></button><button class="tile" aria-pressed="false"><span class="tn">Exam prep</span><span class="ts num">90 min · Sealed</span><span class="ts num">One sprint</span></button><button class="tile" aria-pressed="false"><span class="tn">Light study</span><span class="ts num">25 min · Soft</span><span class="ts num">One sprint</span></button></div></div>
+    <div><span class="lbl">Sprint length, minutes</span><div class="seg"><span class=" num">15</span><span class=" num">25</span><span class="on num">45</span><span class=" num">60</span><span class=" num">90</span><span>Custom</span></div></div>
+    <div><span class="lbl">Shield</span><div class="seg tall"><span class=""><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M12,3 L19.5,6 L19.5,11.5 C19.5,16.2 16.3,19.8 12,21 C7.7,19.8 4.5,16.2 4.5,11.5 L4.5,6 Z" fill="none" stroke="var(--text-muted)" stroke-width="1.75" stroke-linejoin="round"/><path d="M8.5,11.5 L15.5,11.5" stroke="var(--text-muted)" stroke-width="1.75" stroke-linecap="round"/></svg><span>Soft</span><span class="rn">I</span></span><span class="on"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M12,3 L19.5,6 L19.5,11.5 C19.5,16.2 16.3,19.8 12,21 C7.7,19.8 4.5,16.2 4.5,11.5 L4.5,6 Z" fill="none" stroke="var(--primary)" stroke-width="1.75" stroke-linejoin="round"/><path d="M8.5,10.2 L15.5,10.2 M8.5,13.4 L15.5,13.4" stroke="var(--primary)" stroke-width="1.75" stroke-linecap="round"/></svg><span>Firm</span><span class="rn">II</span></span><span class=""><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M12,3 L19.5,6 L19.5,11.5 C19.5,16.2 16.3,19.8 12,21 C7.7,19.8 4.5,16.2 4.5,11.5 L4.5,6 Z" fill="var(--primary)"/><path d="M8.5,9.4 L15.5,9.4 M8.5,12 L15.5,12 M8.5,14.6 L15.5,14.6" stroke="var(--primary-ink)" stroke-width="1.75" stroke-linecap="round"/></svg><span>Sealed</span><span class="rn">III</span></span></div>
+      <p class="promise">Blocked apps are warned to save their work, then closed.</p></div>
+    <div class="two">
+      <div><span class="lbl">Blocklist</span><div class="select"><span>Default <span class="faint">· 3 apps</span></span><svg class="ico" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></div></div>
+      <div><span class="lbl">Cycle</span><div class="select"><span class="num">3 sprints <span class="faint">· 10 min breaks</span></span><svg class="ico" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></div></div>
+    </div>
+    <div><span class="lbl">Intention <span class="faint">(optional)</span></span><div class="field">Shown on the timer and again when the sprint ends</div></div>
+    <button class="btn primary">Start sprint</button>
+  </section>
+</div></main>
+  </div>
+</div>
+</body>
+</html>
