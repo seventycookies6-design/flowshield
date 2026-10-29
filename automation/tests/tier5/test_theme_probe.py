@@ -408,5 +408,11 @@ class TestSleepWindowPickersDrawRoadmap37:
             assert entry["name"].startswith("Sleep block"), f"{auto_id} has no accessible name"
             assert entry["width"] >= 60 and entry["height"] >= 28, f"{auto_id} drew at {entry['width']} x {entry['height']}"
 
+    def test_a_picked_value_shows_its_label_in_the_closed_box(self, theme_probe):
+        # The probe picks 22 in each hour box and 30 in each minute box.
+        for auto_id, entry in theme_probe["sleepPage"]["pickers"].items():
+            expected = "22" if auto_id.endswith("Hour") else "30"
+            assert entry["shown"] == expected, f"{auto_id} draws {entry['shown']!r}, not {expected!r}"
+
     def test_the_page_still_has_its_save_button(self, theme_probe):
         assert theme_probe["sleepPage"]["saveButton"] is True

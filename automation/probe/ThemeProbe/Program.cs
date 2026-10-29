@@ -223,6 +223,9 @@ internal static class Program
         foreach (var id in new[] { "SleepStartHour", "SleepStartMinute", "SleepEndHour", "SleepEndMinute" })
         {
             var combo = Find<System.Windows.Controls.ComboBox>(view, id);
+            // What the closed box draws once a value is picked: 22 for hours, 30 for minutes.
+            combo.SelectedIndex = id.EndsWith("Hour", StringComparison.Ordinal) ? 22 : 30;
+            view.UpdateLayout();
             pickers[id] = new Dictionary<string, object?>
             {
                 ["items"] = combo.Items.Count,
@@ -234,6 +237,7 @@ internal static class Program
                 ["width"] = Math.Round(combo.ActualWidth, 1),
                 ["height"] = Math.Round(combo.ActualHeight, 1),
                 ["focusable"] = combo.Focusable,
+                ["shown"] = string.Join(" ", TextsIn(combo)),
             };
         }
         return new Dictionary<string, object?>
@@ -241,6 +245,16 @@ internal static class Program
             ["pickers"] = pickers,
             ["saveButton"] = Find<System.Windows.Controls.Button>(view, "SaveSleepWindowButton").ActualHeight > 0,
         };
+    }
+
+    private static IEnumerable<string> TextsIn(DependencyObject root)
+    {
+        for (var i = 0; i < System.Windows.Media.VisualTreeHelper.GetChildrenCount(root); i++)
+        {
+            var child = System.Windows.Media.VisualTreeHelper.GetChild(root, i);
+            if (child is System.Windows.Controls.TextBlock { Text.Length: > 0 } text) yield return text.Text;
+            foreach (var nested in TextsIn(child)) yield return nested;
+        }
     }
 
     private static T Find<T>(DependencyObject root, string automationId) where T : DependencyObject =>

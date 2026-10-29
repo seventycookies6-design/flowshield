@@ -674,8 +674,11 @@
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
+                            <!-- The selector and string format carry DisplayMemberPath into the closed box. -->
                             <ContentPresenter Content="{TemplateBinding SelectionBoxItem}"
                                               ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                              ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}"
+                                              ContentStringFormat="{TemplateBinding SelectionBoxItemStringFormat}"
                                               VerticalAlignment="Center" Margin="0,0,10,0"/>
                             <Path Grid.Column="1" Data="M 0 0 L 4 4 L 8 0" Stroke="{DynamicResource InkFaint}"
                                   StrokeThickness="1.5" VerticalAlignment="Center" StrokeStartLineCap="Round"
