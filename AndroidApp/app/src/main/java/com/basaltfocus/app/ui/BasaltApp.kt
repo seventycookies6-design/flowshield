@@ -138,7 +138,8 @@ fun BasaltApp(model: MainViewModel, hingeFlow: StateFlow<FoldingFeature?>) {
                             Screen.TODAY -> if (settings.active != null)
                                 RunningScreen(settings.active!!, now, records.firstOrNull()?.momentumAfter ?: 0.0, model) { screen = Screen.BLOCKLIST }
                                 else TodayScreen(settings, records, now, model, { screen = Screen.BLOCKLIST },
-                                    { permission = PermissionStep.USAGE }, { screen = Screen.HISTORY })
+                                    { permission = PermissionStep.USAGE }, { screen = Screen.HISTORY },
+                                    { permission = PermissionStep.DND })
                             Screen.BLOCKLIST -> BlocklistScreen(settings, model)
                             Screen.HISTORY -> HistoryScreen(records)
                             Screen.LICENSE -> LicenseScreen(settings, now, model, locked)
@@ -154,10 +155,11 @@ fun BasaltApp(model: MainViewModel, hingeFlow: StateFlow<FoldingFeature?>) {
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun TodayScreen(s: Settings, records: List<SprintRecord>, now: Long, model: MainViewModel,
-                        blocklist: () -> Unit, permissions: () -> Unit, history: () -> Unit) {
+                        blocklist: () -> Unit, permissions: () -> Unit, history: () -> Unit, dndPermission: () -> Unit) {
     val context = LocalContext.current
     val revision by model.permissionRevision.collectAsStateWithLifecycle()
     val canBlock = remember(revision) { Permissions.canBlock(context) }
+    val dndGranted = remember(revision) { Permissions.dnd(context) }
     var preset by rememberSaveable { mutableIntStateOf(25) }
     var custom by rememberSaveable { mutableStateOf("") }
     var customSelected by rememberSaveable { mutableStateOf(false) }
@@ -217,6 +219,19 @@ private fun TodayScreen(s: Settings, records: List<SprintRecord>, now: Long, mod
         val count = s.blockedPackages.size
         Text(if (count == 0) "No apps on your blocklist yet." else "$count app${if (count == 1) "" else "s"} on your blocklist.")
         Action("Choose blocked apps", onClick = blocklist)
+        Panel {
+            Row(Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                .toggleable(s.letStarredContactsThrough, role = Role.Switch, onValueChange = { enabled ->
+                    model.letStarredContactsThrough(enabled)
+                    if (enabled && !dndGranted) dndPermission()
+                }).keyboardRing(), verticalAlignment = Alignment.CenterVertically) {
+                Text("Let starred contacts through", Modifier.weight(1f))
+                Switch(s.letStarredContactsThrough, onCheckedChange = null)
+            }
+            Text("During a sprint, Do Not Disturb allows calls and messages from starred contacts and silences everyone else. Choose people by starring them in Contacts. Basalt reads no contacts. Android's system exceptions still apply.")
+            if (s.letStarredContactsThrough && !dndGranted) Text("Do Not Disturb access is off. This setting will change nothing until you allow it.")
+            Action("About Do Not Disturb access", onClick = dndPermission)
+        }
         if (!canBlock) {
             Text("Basalt needs Usage Access and display over other apps before a sprint can block anything.")
             Action("Review permissions", primary = true, onClick = permissions)

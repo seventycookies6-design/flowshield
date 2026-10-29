@@ -1,6 +1,9 @@
 package com.basaltfocus.app.data
 
 import android.content.Context
+import android.app.NotificationManager
+import android.app.NotificationManager.Policy
+import com.basaltfocus.app.blocking.*
 import androidx.room.Room
 import com.basaltfocus.core.ActiveSprint
 import com.basaltfocus.core.Shield
@@ -142,5 +145,55 @@ class RepositoryTest {
         ShadowSystemClock.advanceBy(Duration.ofMinutes(26))
         assertFalse(repository.recover())
         assertEquals("Completed", database.history().find("expired")!!.outcome)
+    }
+
+    private suspend fun repositoryWithSavedDnd(newProcess: Boolean = false): Pair<Repository, () -> DndState> {
+        val policy = Policy(Policy.PRIORITY_CATEGORY_ALARMS, Policy.PRIORITY_SENDERS_ANY, Policy.PRIORITY_SENDERS_CONTACTS)
+        var state = DndState(NotificationManager.INTERRUPTION_FILTER_ALL, policy)
+        val snapshot = object : DndSnapshotStore {
+            var value: DndSnapshot? = null
+            override suspend fun read() = value
+            override suspend fun write(snapshot: DndSnapshot) { value = snapshot }
+            override suspend fun clear() { value = null }
+        }
+        val device = object : DndDevice {
+            override val granted = true
+            override val appScoped = false
+            override fun current() = state
+            override suspend fun setPolicy(policy: Policy) { state = state.copy(policy = policy) }
+            override suspend fun setFilter(filter: Int) { state = state.copy(filter = filter) }
+        }
+        val dnd = DndController(device, snapshot)
+        dnd.recoverOnce()
+        dnd.start(true)
+        return Repository(RuntimeEnvironment.getApplication(), database, scope,
+            if (newProcess) DndController(device, snapshot) else dnd) to { state }
+    }
+
+    @Test fun cancellationInGraceRestoresDnd() = runBlocking {
+        val (repo, state) = repositoryWithSavedDnd()
+        store.update { Settings(true, true, now, active = ActiveSprint("cancel-dnd", now, 25, Shield.SOFT)) }
+        assertNull(repo.end("cancel-dnd", null, null))
+        assertNull(repo.current().active)
+        assertEquals(NotificationManager.INTERRUPTION_FILTER_ALL, state().filter)
+        assertEquals(Policy.PRIORITY_CATEGORY_ALARMS, state().policy.priorityCategories)
+    }
+
+    @Test fun timerCompletionRestoresDnd() = runBlocking {
+        val (repo, state) = repositoryWithSavedDnd()
+        store.update { Settings(true, true, now, active = ActiveSprint("elapsed-dnd", now - 60_000, 1, Shield.SOFT, watchedMillis = 60_000)) }
+        assertTrue(repo.settleIfElapsed(now))
+        assertEquals(NotificationManager.INTERRUPTION_FILTER_ALL, state().filter)
+        assertEquals(Policy.PRIORITY_CATEGORY_ALARMS, state().policy.priorityCategories)
+    }
+
+    @Test fun startupRestoresSavedDndEvenIfAnUnexpiredSprintWillResume() = runBlocking {
+        val (repo, state) = repositoryWithSavedDnd(newProcess = true)
+        store.update { Settings(true, true, now, active = ActiveSprint("resumed-dnd", now, 25, Shield.SOFT)) }
+        repo.initialize()
+        assertTrue(repo.recover())
+        assertEquals("resumed-dnd", repo.current().active!!.id)
+        assertEquals(NotificationManager.INTERRUPTION_FILTER_ALL, state().filter)
+        assertEquals(Policy.PRIORITY_CATEGORY_ALARMS, state().policy.priorityCategories)
     }
 }

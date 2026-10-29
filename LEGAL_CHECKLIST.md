@@ -132,6 +132,16 @@ penalties run to about **$53,000 per violation**.
 | 5.8 | Cookie/consent banner | **OK, and don't add one** — the site sets no cookies; it stores only a theme choice in `localStorage`, which is a user preference, not tracking |
 | 5.9 | Data breach plan | **GAP** — no documented steps. Minimum: who is told, in what order, within 72 hours for EU data |
 
+Android's optional **Let starred contacts through** setting uses Do Not
+Disturb access to allow starred contacts' calls and messages during a sprint
+and silence everyone else, subject to Android's system exceptions and other
+active modes. Basalt reads no contacts or messages and sends
+nothing new off the phone. Its prior DND filter and full configurable policy
+are saved locally outside backup for sprint-end/startup/boot restoration;
+the preference stays in the existing settings backup. This touches 3.1
+(accurate feature copy), 5.1–5.3 (disclosure and local storage), and 9.5
+(the phone app and Settings stay available). No OWNER decision changes.
+
 **The device name is the sharpest edge here.** "KEENAN-PC (Keenan)" is personal
 data under GDPR. Options, cheapest first: stop sending the name and show the
 customer a shortened device id instead; or let the customer rename a device;

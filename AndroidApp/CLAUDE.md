@@ -66,6 +66,24 @@ Access, Switch Access) and app stores both in the picker and at enforcement.
 Permissions require separate explanation pages before opening system UI;
 denial and revocation must remain usable.
 
+Optional Do Not Disturb access (`ACCESS_NOTIFICATION_POLICY`) lets calls and
+messages from starred contacts through during a sprint and silences everyone
+else; people are chosen by starring them in Contacts, and Basalt reads no contacts.
+The setting is off by default. Without access it changes nothing. The full
+configurable notification policy and interruption filter are saved atomically
+in `noBackupFilesDir` before system changes, and restored on sprint end or the
+next process start/boot, even if the saved sprint resumes. Recovery does not
+re-enable DND for that resumed sprint. Android 15+ scopes these setters to
+Basalt's implicit DND rule: ending/recovery deactivates that rule, preserving
+the user's underlying modes (which can still silence starred contacts).
+Android's system exceptions, including user-designated priority notification
+channels, still apply; the public `NotificationManager.Policy` constructors
+cannot disable those channels. The permission explanation discloses this limit.
+On older Android versions, a changed filter or configurable policy is treated
+as a user override and left alone; a persisted write phase also lets recovery
+finish an interrupted apply/restore. Revoked access keeps the snapshot for a
+later retry. No contacts, notification listener, or Accessibility access is used.
+
 ## Persistence and privacy
 
 DataStore holds trial, settings, blocklist, license cache and active sprint.

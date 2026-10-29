@@ -21,6 +21,7 @@ data class Settings(
     val licenseCheckedAt: Long? = null,
     val deviceCount: Int = 0,
     val deviceLimit: Int = 0,
+    val letStarredContactsThrough: Boolean = false,
 )
 
 @Entity(tableName = "sprints")
