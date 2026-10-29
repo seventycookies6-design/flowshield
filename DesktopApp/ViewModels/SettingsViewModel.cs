@@ -225,7 +225,7 @@ public class SettingsViewModel : ViewModelBase
                 // with the list to act on inline, instead of just an error.
                 LicenseStatusText = "❌ Not activated";
                 var limit = _main.Settings.DeviceLimit > 0 ? _main.Settings.DeviceLimit : 3;
-                LicenseDetailText = $"This license is on {limit} PCs. Release one to activate here.";
+                LicenseDetailText = $"This license is on {limit} devices. Release one to activate here.";
                 await LoadDevicesAsync(force: true);
                 IsDevicesExpanded = true;
             }

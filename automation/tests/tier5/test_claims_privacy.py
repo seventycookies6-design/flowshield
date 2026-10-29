@@ -899,7 +899,7 @@ class TestHonestLimitsAndPriceComparison:
     def test_customer_seat_copy_uses_devices_instead_of_pcs_or_computers(self):
         """A customer must not be told that a licence covers only PCs."""
         stale_seat_copy = re.compile(
-            r"\b(?:3|three)[\s-]+(?:pcs?|computers?)\b|"
+            r"(?:\b(?:3|three)|\{\w*limit\w*\})[\s-]+(?:pcs?|computers?)\b|"
             r"\b(?:per|each)[\s-]+(?:pc|computer)\b",
             re.IGNORECASE,
         )

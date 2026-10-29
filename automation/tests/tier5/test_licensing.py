@@ -713,7 +713,7 @@ class TestDeviceCapShowsTheListInline:
             "\n    private async Task DeactivateAsync")[0]
         cap_branch = activate.split('result.Status == "device_limit_reached"')[1].split(
             "else")[0]
-        assert "PCs" in cap_branch
+        assert "devices" in cap_branch
         assert "Release one to activate here" in cap_branch
 
     def test_hitting_the_cap_loads_and_expands_the_device_list(self):
