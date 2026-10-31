@@ -1,0 +1,48 @@
+name: Apple
+
+on:
+  pull_request:
+    paths: ['AppleApps/**', '.github/workflows/apple.yml']
+  push:
+    branches: [main]
+    paths: ['AppleApps/**', '.github/workflows/apple.yml']
+
+concurrency:
+  group: apple-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  macos:
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - name: Select newest Xcode 26
+        run: |
+          XCODE_PATH=$(python3 - <<'PY'
+          import glob, os, re
+          candidates = glob.glob('/Applications/Xcode_26*.app')
+          def version(path):
+              return tuple(map(int, re.findall(r'\d+', os.path.basename(path))))
+          if not candidates:
+              raise SystemExit('No Xcode 26 installation found')
+          print(max(candidates, key=version))
+          PY
+          )
+          sudo xcode-select --switch "$XCODE_PATH/Contents/Developer"
+          xcodebuild -version
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Core tests
+        run: swift test --package-path AppleApps/BasaltCore
+      - name: Generate and build
+        working-directory: AppleApps
+        run: |
+          xcodegen generate
+          xcodebuild -project Basalt.xcodeproj -scheme Basalt -configuration Debug -destination 'generic/platform=macOS' -derivedDataPath DerivedData build CODE_SIGNING_ALLOWED=NO
+      - name: App tests
+        working-directory: AppleApps
+        run: xcodebuild -project Basalt.xcodeproj -scheme Basalt -configuration Debug -destination 'platform=macOS' -derivedDataPath DerivedData test CODE_SIGN_IDENTITY=-

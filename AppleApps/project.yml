@@ -1,0 +1,63 @@
+name: Basalt
+options:
+  minimumXcodeGenVersion: 2.46.0
+  deploymentTarget:
+    macOS: '26.0'
+packages:
+  BasaltCore:
+    path: BasaltCore
+settings:
+  base:
+    SWIFT_VERSION: '6.0'
+    MACOSX_DEPLOYMENT_TARGET: '26.0'
+    ENABLE_APP_SANDBOX: NO
+    ENABLE_HARDENED_RUNTIME: YES
+  configs:
+    Debug:
+      CODE_SIGN_IDENTITY: '-'
+      CODE_SIGNING_ALLOWED: YES
+      CODE_SIGN_STYLE: Manual
+targets:
+  Basalt:
+    type: application
+    platform: macOS
+    sources: [Basalt]
+    dependencies:
+      - package: BasaltCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.basaltfocus.mac
+        PRODUCT_NAME: Basalt
+        GENERATE_INFOPLIST_FILE: YES
+        MARKETING_VERSION: '0.1.0'
+        CURRENT_PROJECT_VERSION: 1
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+    info:
+      path: Generated/Info.plist
+      properties:
+        CFBundleDisplayName: Basalt
+        LSApplicationCategoryType: public.app-category.productivity
+        LSUIElement: false
+        CFBundleURLTypes:
+          - CFBundleURLName: com.basaltfocus.mac
+            CFBundleURLSchemes: [flowshield]
+  BasaltTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources: [BasaltTests]
+    dependencies:
+      - target: Basalt
+      - package: BasaltCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.basaltfocus.mac.tests
+        GENERATE_INFOPLIST_FILE: YES
+schemes:
+  Basalt:
+    build:
+      targets:
+        Basalt: all
+        BasaltTests: [test]
+    test:
+      targets: [BasaltTests]

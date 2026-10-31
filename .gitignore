@@ -34,3 +34,11 @@ local.properties
 captures/
 *.apk
 *.aab
+
+# AppleApps generated projects and local build state.
+AppleApps/**/*.xcodeproj/
+AppleApps/**/.build/
+AppleApps/**/DerivedData/
+AppleApps/**/xcuserdata/
+AppleApps/**/.swiftpm/
+AppleApps/Generated/

@@ -142,6 +142,16 @@ the preference stays in the existing settings backup. This touches 3.1
 (accurate feature copy), 5.1–5.3 (disclosure and local storage), and 9.5
 (the phone app and Settings stay available). No OWNER decision changes.
 
+The **Mac beta** (#426) isn't offered to customers, so nothing here changes
+yet. Its licence check sends the same four fields as Windows (tier 5's
+`test_apple_app.py` holds that); its device identifier is a one-way hash of the
+Mac's hardware UUID, computer name and user name, and its device name is
+`Computer name (User name)`. **Before the Mac app ships:** the privacy policy
+must describe it (5.2: the identifier's source; 5.3: Mac data is JSON in
+`~/Library/Application Support/Basalt` with owner-only file permissions, not
+DPAPI-encrypted), the terms gate and 9.x apply to Macs too, and signing and
+notarisation (#166) must be in place.
+
 **The device name is the sharpest edge here.** "KEENAN-PC (Keenan)" is personal
 data under GDPR. Options, cheapest first: stop sending the name and show the
 customer a shortened device id instead; or let the customer rename a device;

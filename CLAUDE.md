@@ -198,6 +198,8 @@ Read these alongside this file before working in the matching folder:
   AutomationIds and WPF controls.
 - [Server/CLAUDE.md](Server/CLAUDE.md) — licence-server guidance and shared rules.
 - [AndroidApp/CLAUDE.md](AndroidApp/CLAUDE.md) — Android build, permissions and blocker.
+- [AppleApps/CLAUDE.md](AppleApps/CLAUDE.md) — the Mac app: building on the team Mac,
+  the blocker on macOS and Apple's design guidelines.
 
 ## Commands
 
@@ -217,6 +219,13 @@ Android (JDK 21 and Android SDK 36):
 
 ```bash
 cd AndroidApp && ./gradlew :core:test :app:testDebugUnitTest :app:lintDebug :app:assembleDebug --stacktrace
+```
+
+Mac (Xcode 26+ and XcodeGen on a Mac; from Windows, over SSH to the team Mac):
+
+```bash
+bash tools/mac_remote.sh test     # BasaltCore tests
+bash tools/mac_remote.sh build    # generate the project and build the app
 ```
 
 Fast tests — no screen takeover, no Stripe keys needed. CI runs exactly this:

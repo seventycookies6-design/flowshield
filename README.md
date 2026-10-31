@@ -35,6 +35,7 @@ One bad afternoon shouldn't erase a month. Every sprint ends with a one-line
 | --- | --- |
 | `DesktopApp/` | .NET 10 WPF app (MVVM). Settings are DPAPI-encrypted per user. |
 | `AndroidApp/` | Native Kotlin/Compose Android app, pure JVM core policies, local history and Usage Access blocker. |
+| `AppleApps/` | Native SwiftUI Mac app (beta, not yet offered to customers) and `BasaltCore`, the Swift core it shares with the future iPhone app. |
 | `Server/` | Express + SQLite license server, real Stripe one-time payments. |
 | `Website/` | Static marketing site and post-checkout license page. |
 | `automation/` | pywinauto + Playwright + pytest suite that drives all of it. |
@@ -57,6 +58,10 @@ cd AndroidApp
 
 On Windows use `gradlew.bat` with `JAVA_HOME` set to JDK 21. Install
 `app/build/outputs/apk/debug/app-debug.apk` with `adb install -r`.
+
+The Mac app needs a Mac with Xcode 26 or later and XcodeGen (`brew install xcodegen`).
+From Windows, `tools/mac_remote.sh` builds and tests it over SSH on the team Mac.
+See [Mac folder rules](AppleApps/CLAUDE.md).
 
 ```bash
 python -m pip install -r automation/requirements.txt
