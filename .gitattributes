@@ -8,6 +8,11 @@
 *.bat   text eol=crlf
 *.cmd   text eol=crlf
 
+# Scripts run under bash, and AppleApps/ is copied from Windows checkouts to a
+# Mac (tools/mac_remote.sh): CRLF there breaks shell scripts.
+*.sh          text eol=lf
+AppleApps/**  text eol=lf
+
 # Binary — never touch.
 *.png   binary
 *.jpg   binary
