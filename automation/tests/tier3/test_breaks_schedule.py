@@ -920,3 +920,58 @@ class TestJumpList:
         sprint = self._running_sprint(fresh_app)
         assert sprint["Shield"] == 1 and sprint["PlannedMinutes"] == 15
         assert sprint.get("TemplateBreakMinutes") is None, "no template was involved"
+
+
+# ============================================ a sleep schedule people trust (3.7)
+#
+# Written for roadmap 3.7 but NOT run in the session that wrote it: UI tests
+# take over the screen. None of them turns Start with Windows on, which would
+# write the real Run key; the offer and the warning are checked by what they say.
+
+class TestSleepSchedule:
+    NEXT = r"Next: (Tonight|Today|Tomorrow|Next \w+day|\w+day) \d\d:\d\d \u2192 \d\d:\d\d"
+
+    def test_the_times_are_pickers_and_the_nights_are_chips(self, fresh_app):
+        fresh_app.navigate_to_tab("Schedule")
+        for auto_id in ("SleepStartHour", "SleepStartMinute", "SleepEndHour", "SleepEndMinute"):
+            assert fresh_app.exists(auto_id, timeout=3), auto_id
+        for day in ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"):
+            assert fresh_app.toggle_state(f"SleepNight_{day}") is True, day
+
+    def test_weeknights_are_saved_and_the_next_night_is_shown(self, fresh_app):
+        import re
+        fresh_app.navigate_to_tab("Schedule")
+        assert fresh_app.set_toggle("SleepBlockToggle", True) is True
+        fresh_app.set_sleep_window("23:00", "06:30", nights=["Sun", "Mon", "Tue", "Wed", "Thu"])
+        saved = verify.wait_for_settings(lambda st: sorted(st.get("SleepBlockDays") or []) == [0, 1, 2, 3, 4],
+                                         what="the chosen nights")
+        assert saved["SleepBlockStartTime"].startswith("23:00") and saved["SleepBlockEndTime"].startswith("06:30")
+        assert re.fullmatch(self.NEXT, fresh_app.sleep_next_text()), fresh_app.sleep_next_text()
+
+    def test_saving_with_no_night_is_refused_and_nothing_changes(self, fresh_app):
+        fresh_app.navigate_to_tab("Schedule")
+        before = verify.read_settings().get("SleepBlockDays")
+        for day in ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"):
+            fresh_app.set_toggle(f"SleepNight_{day}", False)
+        fresh_app.click("SaveSleepWindowButton")
+        time.sleep(0.6)
+        assert "at least one night" in fresh_app.sleep_status().lower()
+        assert verify.read_settings().get("SleepBlockDays") == before
+
+    def test_switching_it_on_offers_start_with_windows_and_the_page_keeps_saying_so(self, fresh_app):
+        fresh_app.navigate_to_tab("Schedule")
+        assert not fresh_app.exists("SleepStartWithWindowsButton", timeout=1)
+        assert fresh_app.set_toggle("SleepBlockToggle", True) is True
+        assert fresh_app.exists("SleepStartWithWindowsButton", timeout=3)
+        assert fresh_app.exists("SleepStartupNotNowButton", timeout=1)
+        assert "only works while Basalt is running" in fresh_app.text_of("SleepStartupText")
+        fresh_app.click("SleepStartupNotNowButton")
+        time.sleep(0.4)
+        assert not fresh_app.exists("SleepStartupNotNowButton", timeout=1), "the offer is made once"
+        assert fresh_app.exists("SleepStartWithWindowsButton", timeout=1), "the warning stays"
+        assert "isn't set to start when you sign in" in fresh_app.text_of("SleepStartupTitle")
+
+    def test_the_pickers_and_nights_are_locked_once_the_trial_has_ended(self, expired_app):
+        expired_app.navigate_to_tab("Schedule")
+        for auto_id in ("SleepStartHour", "SleepEndMinute", "SleepNight_Mon", "SaveSleepWindowButton"):
+            assert expired_app.is_control_enabled(auto_id) is False, auto_id

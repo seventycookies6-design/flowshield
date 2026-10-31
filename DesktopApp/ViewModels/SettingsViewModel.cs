@@ -835,6 +835,7 @@ public class SettingsViewModel : ViewModelBase
             Raise(nameof(NotifyBreakOver));
             Raise(nameof(NotifyScheduledSprint));
             Raise(nameof(NotifyUpdateReady));
+            Raise(nameof(NotifySleepWindowWarning));
         }
     }
 
@@ -885,6 +886,12 @@ public class SettingsViewModel : ViewModelBase
     {
         get => IsOn(NotificationKind.ScheduledSprint);
         set => SetNotification(NotificationKind.ScheduledSprint, value);
+    }
+
+    public bool NotifySleepWindowWarning
+    {
+        get => IsOn(NotificationKind.SleepWindowWarning);
+        set => SetNotification(NotificationKind.SleepWindowWarning, value);
     }
 
     public bool NotifyUpdateReady

@@ -295,19 +295,21 @@ public class AppBlockerService : IDisposable
         Log.Info("blocker stood down");
     }
 
-    /// <summary>True when local time falls inside the configured sleep window.</summary>
+    /// <summary>
+    /// True when the configured sleep window is open. The same
+    /// <see cref="SleepWindow"/> the page's "Tonight 23:00" and the ten-minute
+    /// warning read, so a night that isn't chosen, a window that crosses
+    /// midnight and a daylight-saving change all mean the same to each.
+    /// </summary>
     public static bool IsWithinSleepWindow(AppSettings settings, DateTime? nowLocal = null)
     {
         if (!settings.IsSleepBlockEnabled) return false;
 
-        var now = (nowLocal ?? DateTime.Now).TimeOfDay;
-        var start = settings.SleepBlockStartTime;
-        var end = settings.SleepBlockEndTime;
-
-        // A window like 22:00 → 06:00 wraps past midnight.
-        return start <= end
-            ? now >= start && now < end
-            : now >= start || now < end;
+        var nowUtc = nowLocal is not { } at ? DateTime.UtcNow
+            : at.Kind == DateTimeKind.Utc ? at
+            : at.Kind == DateTimeKind.Local ? at.ToUniversalTime()
+            : ScheduleMatcher.ToUtc(at, TimeZoneInfo.Local);
+        return SleepWindow.From(settings).Contains(nowUtc);
     }
 
     /// <summary>
