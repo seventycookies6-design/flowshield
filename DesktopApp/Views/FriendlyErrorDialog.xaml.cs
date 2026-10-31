@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Windows;
+using FlowShield.Models;
 using FlowShield.Services;
 
 namespace FlowShield.Views;
@@ -10,9 +11,6 @@ namespace FlowShield.Views;
 /// </summary>
 public partial class FriendlyErrorDialog : Window
 {
-    private const string SupportUrl =
-        "https://seventycookies6-design.github.io/flowshield/support.html";
-
     private readonly string _diagnostic;
 
     public FriendlyErrorDialog(Exception exception)
@@ -38,7 +36,7 @@ public partial class FriendlyErrorDialog : Window
     {
         try
         {
-            Process.Start(new ProcessStartInfo(SupportUrl) { UseShellExecute = true });
+            Process.Start(new ProcessStartInfo(HelpLinks.SupportUrl) { UseShellExecute = true });
         }
         catch
         {

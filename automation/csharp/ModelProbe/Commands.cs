@@ -109,6 +109,14 @@ internal static class Commands
                 ["back"] = Iso(TrialStart.Parse(TrialStart.Format(Utc((string)request["start"]!)))),
             },
             "packaged-apps" => PackagedApps(request),
+            "diagnostics" => Diagnostics(request),
+            "diagnostics-seeded" => DiagnosticsSeeded(request),
+            "help-links" => new JsonObject
+            {
+                ["support_url"] = HelpLinks.SupportUrl,
+                ["support_email"] = HelpLinks.SupportEmail,
+                ["has_support_email"] = HelpLinks.HasSupportEmail,
+            },
             "packaged-process" => new JsonObject
             {
                 ["process"] = PackagedApp.ProcessName((string?)request["exe"]),
@@ -570,6 +578,53 @@ internal static class Commands
         var settings = SettingsOf(request);
         var template = settings.FindTemplate((string)request["template_id"]!)!;
         return new JsonObject { ["profile"] = settings.ProfileFor(template).Name };
+    }
+
+    /// <summary>
+    /// DiagnosticsService.Build on {"settings", "log_dir"?, "log_lines"?, "secrets"?, "environment"?:
+    /// {"version", "windows", "runtime"}}. Without "environment" the real one for this PC is used.
+    /// </summary>
+    private static JsonNode Diagnostics(JsonObject request)
+    {
+        var settings = SettingsOf(request);
+        var env = request["environment"] is JsonObject e
+            ? new DiagnosticsEnvironment((string)e["version"]!, (string)e["windows"]!, (string)e["runtime"]!)
+            : DiagnosticsEnvironment.Current((string?)request["version"] ?? "9.9.9");
+        var lines = request["log_dir"] is { } dir
+            ? DiagnosticsService.ReadRecentLog((string)dir!)
+            : (request["log_lines"]?.AsArray().Select(x => (string)x!).ToList() ?? new List<string>());
+        var secrets = request["secrets"]?.AsArray().Select(x => (string?)x).ToArray() ?? Array.Empty<string?>();
+        return new JsonObject
+        {
+            ["text"] = DiagnosticsService.Build(settings, env, lines, secrets),
+            ["os_build"] = Environment.OSVersion.Version.Build,
+            ["runtime"] = System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription,
+        };
+    }
+
+    /// <summary>
+    /// Every text setting filled with a marker, then built: proves which ones the
+    /// bundle shows. Answers {"text", "markers": {name: marker}, "allowed": [name]}.
+    /// </summary>
+    private static JsonNode DiagnosticsSeeded(JsonObject request)
+    {
+        var settings = new AppSettings();
+        var markers = new JsonObject();
+        foreach (var p in typeof(AppSettings).GetProperties()
+                     .Where(p => p.PropertyType == typeof(string) && p.CanWrite && p.CanRead
+                                 && p.GetCustomAttributes(typeof(System.Text.Json.Serialization.JsonIgnoreAttribute), true).Length == 0))
+        {
+            var marker = "MARKER" + p.Name.ToUpperInvariant() + "ZZ";
+            p.SetValue(settings, marker);
+            markers[p.Name] = marker;
+        }
+        var env = new DiagnosticsEnvironment("1.2.3", "Windows 10.0, build 1", ".NET 8");
+        return new JsonObject
+        {
+            ["text"] = DiagnosticsService.Build(settings, env, Array.Empty<string>()),
+            ["markers"] = markers,
+            ["allowed"] = new JsonArray(DiagnosticsService.AllowedTextSettings.Select(a => (JsonNode)a).ToArray()),
+        };
     }
 
     /// <summary>{"settings", "wanted", "except_id"?} -> the name UniqueTemplateName hands back.</summary>

@@ -32,6 +32,9 @@ public class SettingsViewModel : ViewModelBase
         GetProCommand = new RelayCommand(() => _main.OpenUpgradePage());
         DeactivateCommand = new AsyncRelayCommand(DeactivateAsync, () => IsPro);
         OpenLogCommand = new RelayCommand(OpenLog);
+        OpenHelpFaqCommand = new RelayCommand(() => _main.OpenUrl(HelpLinks.SupportUrl));
+        CopySupportEmailCommand = new RelayCommand(CopySupportEmail, () => HasSupportEmail);
+        CreateDiagnosticsCommand = new RelayCommand(CreateDiagnostics);
         SkipTodayCommand = new RelayCommand(ToggleSkipToday, () => CanSkipToday || SkippedToday);
         ExportJournalCommand = new RelayCommand(ExportJournal);
         ExportDataCommand = new RelayCommand(ExportData);
@@ -53,6 +56,9 @@ public class SettingsViewModel : ViewModelBase
     public RelayCommand GetProCommand { get; }
     public AsyncRelayCommand DeactivateCommand { get; }
     public RelayCommand OpenLogCommand { get; }
+    public RelayCommand OpenHelpFaqCommand { get; }
+    public RelayCommand CopySupportEmailCommand { get; }
+    public RelayCommand CreateDiagnosticsCommand { get; }
     public AsyncRelayCommand CheckForUpdatesCommand { get; }
     public RelayCommand RestartForUpdateCommand { get; }
     public AsyncRelayCommand ToggleDevicesCommand { get; }
@@ -955,6 +961,64 @@ public class SettingsViewModel : ViewModelBase
     }
 
     private void OpenLog() => _main.OpenUrl(Log.Path);
+
+    // ------------------------------------------------------- get help (#400)
+
+    /// <summary>The support address, or null until the owner sets one in <see cref="HelpLinks"/>.</summary>
+    public string? SupportEmail => HelpLinks.SupportEmail;
+
+    /// <summary>The email row is shown only when there is a real address; never a placeholder.</summary>
+    public bool HasSupportEmail => HelpLinks.HasSupportEmail;
+
+    private string _helpStatusText = "";
+    public string HelpStatusText
+    {
+        get => _helpStatusText;
+        private set { Set(ref _helpStatusText, value); Raise(nameof(HelpStatusVisible)); }
+    }
+
+    public bool HelpStatusVisible => !string.IsNullOrEmpty(HelpStatusText);
+
+    private void CopySupportEmail()
+    {
+        if (!HasSupportEmail) return;
+        try
+        {
+            System.Windows.Clipboard.SetText(HelpLinks.SupportEmail!);
+            HelpStatusText = "Copied the support email.";
+        }
+        catch
+        {
+            // The clipboard can be held by another process; the address is on screen to select.
+            HelpStatusText = "Couldn't copy. Select the address and press Ctrl+C.";
+        }
+    }
+
+    /// <summary>
+    /// Builds the bundle and shows it. Nothing is sent: the dialog only lets the
+    /// customer copy it or save it, and what they do with it is theirs to decide.
+    /// </summary>
+    private void CreateDiagnostics()
+    {
+        HelpStatusText = "";
+        string text;
+        try
+        {
+            text = DiagnosticsService.Build(
+                _main.Settings,
+                DiagnosticsEnvironment.Current(Updates.CurrentVersion),
+                DiagnosticsService.ReadRecentLog(System.IO.Path.GetDirectoryName(Log.Path)),
+                DeviceIdentity.Id);
+        }
+        catch (Exception ex)
+        {
+            Log.Error("diagnostics could not be built", ex);
+            HelpStatusText = "Couldn't create diagnostics. Open the diagnostic log instead.";
+            return;
+        }
+
+        new Views.DiagnosticsPreviewDialog(text).ShowDialog();
+    }
 
     // --------------------------------------------------------- your data (F23)
 
