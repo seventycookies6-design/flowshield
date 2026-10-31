@@ -14,14 +14,17 @@ enum SettingsPane: String, CaseIterable, Identifiable {
 
 struct SettingsView: View {
   @Bindable var model: AppModel
-  var snapshotPane: SettingsPane?
   var body: some View {
-    VStack(spacing: 0) {
-      Picker("Settings pane", selection: $model.settingsPane) {
-        ForEach(SettingsPane.allCases) { pane in Label(pane.rawValue, systemImage: pane.symbol).tag(pane).accessibilityIdentifier(pane.automationID) }
-      }.pickerStyle(.segmented).padding(16).disabled(snapshotPane != nil)
-      SettingsPaneView(model: model, pane: snapshotPane ?? model.settingsPane)
-    }.frame(width: 650, height: 540)
+    // A TabView in the Settings scene is the standard Mac settings window: pane icons in
+    // the toolbar, the pane's name as the window title.
+    TabView(selection: $model.settingsPane) {
+      ForEach(SettingsPane.allCases) { pane in
+        SettingsPaneView(model: model, pane: pane)
+          .tabItem { Label(pane.rawValue, systemImage: pane.symbol) }
+          .tag(pane)
+          .accessibilityIdentifier(pane.automationID)
+      }
+    }.frame(width: 600)
       .preferredColorScheme(model.settings.theme == .system ? nil : model.settings.theme == .dark ? .dark : .light)
   }
 }
@@ -30,19 +33,16 @@ struct SettingsPaneView: View {
   let model: AppModel
   let pane: SettingsPane
   var body: some View {
-    ScrollView {
-      VStack(alignment: .leading, spacing: 20) {
-        Text(pane.rawValue).font(.title2)
-        switch pane {
-        case .focus: FocusSettings(model: model)
-        case .app: AppSettingsView(model: model)
-        case .notifications: NotificationSettings(model: model)
-        case .data: DataSettings(model: model)
-        case .license: LicenseSettings(model: model)
-        case .about: AboutSettings(model: model)
-        }
-      }.padding(24).frame(maxWidth: .infinity, alignment: .leading)
-    }.background(Color(nsColor: .windowBackgroundColor))
+    Group {
+      switch pane {
+      case .focus: FocusSettings(model: model)
+      case .app: AppSettingsView(model: model)
+      case .notifications: NotificationSettings(model: model)
+      case .data: DataSettings(model: model)
+      case .license: LicenseSettings(model: model)
+      case .about: AboutSettings(model: model)
+      }
+    }.frame(minHeight: 420)
   }
 }
 
@@ -126,12 +126,16 @@ struct NotificationSettings: View {
   static let labels: [NotificationKind: String] = [.sprintStarted: "Sprint started", .fiveMinutesLeft: "5 minutes left", .sprintComplete: "Sprint complete", .sprintInterrupted: "Sprint interrupted", .breakOver: "Break over", .scheduledSprint: "Scheduled sprint", .trialEnding: "Free trial ending", .appClosing: "A blocked app is closing", .updateReady: "Update ready"]
   var body: some View {
     Form {
+      Section {
       Toggle("Notifications", isOn: Binding(get: { model.settings.notificationsEnabled }, set: { value in Task { await model.setNotifications(value) } })).accessibilityIdentifier("NotificationsToggle")
       Text("Basalt notifies from the menu bar, and never about buying while a sprint is running.").font(.caption).foregroundStyle(.secondary)
+      }
+      Section("Notify me about") {
       ForEach(NotificationKind.allCases, id: \.self) { kind in
         Toggle(Self.labels[kind] ?? kind.rawValue, isOn: Binding(get: { model.settings.notificationKinds[kind.rawValue, default: true] }, set: { value in Task { await model.setNotifications(value, kind: kind) } })).disabled(!model.settings.notificationsEnabled || kind == .updateReady).accessibilityIdentifier("Notify\(kind.rawValue)Toggle")
         if kind == .trialEnding { Text("Once, on the last day. Never during a sprint.").font(.caption).foregroundStyle(.secondary) }
         if kind == .updateReady { Text("Automatic updates aren't available on Mac yet.").font(.caption).foregroundStyle(.secondary) }
+      }
       }
     }.formStyle(.grouped)
   }
@@ -145,17 +149,19 @@ struct DataSettings: View {
   @State private var status = ""
   @State private var deleting = false
   var body: some View {
-    VStack(alignment: .leading, spacing: 20) {
-      Card("Export your journal") {
-        Text("Save your sprints and journal lines as a file you keep. It is written only where you choose — nothing is uploaded.")
+    Form {
+      Section("Export your journal") {
+        Text("Save your sprints and journal lines as a file you keep. It is written only where you choose — nothing is uploaded.").font(.caption).foregroundStyle(.secondary)
         DatePicker("From", selection: $from, displayedComponents: .date).accessibilityIdentifier("ExportFromDate")
         DatePicker("To", selection: $through, displayedComponents: .date).accessibilityIdentifier("ExportToDate")
         Picker("Format", selection: $format) { Text("CSV (spreadsheet)").tag(ExportFormat.csv).accessibilityIdentifier("ExportCsvRadio"); Text("Markdown").tag(ExportFormat.markdown).accessibilityIdentifier("ExportMarkdownRadio") }.pickerStyle(.segmented).accessibilityIdentifier("ExportFormatPicker")
         Button("Export…") { save(journal: true) }.disabled(!model.canManageData || LocalDay(from) > LocalDay(through)).accessibilityIdentifier("ExportJournalButton")
       }
-      Card("Your data") {
-        Text("Sprints, journal, blocklist, momentum and your license are stored on this Mac, in a private JSON file at")
-        Text(model.options.dataDirectory.path).font(.caption).textSelection(.enabled)
+      Section("Your data") {
+        LabeledContent("Stored on this Mac") {
+          Text(model.options.dataDirectory.path).font(.caption).textSelection(.enabled).multilineTextAlignment(.trailing)
+        }
+        Text("Sprints, journal, blocklist, momentum and your license are kept in a private JSON file in that folder.").font(.caption).foregroundStyle(.secondary)
         Text("A license check sends your license key, the email you used at checkout, a salted device identifier, and your device name to the license server to confirm your purchase.").font(.caption).foregroundStyle(.secondary).accessibilityIdentifier("WhatLeavesText")
         HStack {
           Button("Export everything…") { save(journal: false) }.disabled(!model.canManageData).accessibilityIdentifier("ExportDataButton")
@@ -163,8 +169,8 @@ struct DataSettings: View {
         }
         if !model.canManageData { Text("Finish your sprint first — deleting everything restarts the app, which would end it.").foregroundStyle(.secondary).accessibilityIdentifier("DeleteEverythingBlockedText") }
       }
-      Text(status).font(.caption).accessibilityIdentifier("ExportStatusText")
-    }.confirmationDialog("Delete everything?", isPresented: $deleting, titleVisibility: .visible) {
+      if !status.isEmpty { Text(status).font(.caption).accessibilityIdentifier("ExportStatusText") }
+    }.formStyle(.grouped).confirmationDialog("Delete everything?", isPresented: $deleting, titleVisibility: .visible) {
       Button("Delete everything", role: .destructive) { Task { await model.deleteEverything() } }
       Button("Keep my data", role: .cancel) {}
     } message: { Text("Your sprints, journal, blocklists, templates, schedules and settings will be removed from this Mac. This cannot be undone.") }
@@ -191,25 +197,40 @@ struct LicenseSettings: View {
   @State private var releaseToken: String?
   @State private var server = ""
   var body: some View {
-    VStack(alignment: .leading, spacing: 16) {
-      if !trialGate {
-        Text(model.settings.isPro ? "Purchased" : model.trialDaysLeft > 0 ? "\(model.trialDaysLeft) days left on free trial" : "Free trial ended").font(.headline).accessibilityIdentifier("LicenseStatusText")
-        if !model.settings.isPro && !model.isRunning { Link("Buy Basalt — $4.99", destination: model.buyURL).accessibilityIdentifier("GetProButton") }
-      }
-      TextField("License key", text: $model.activationKey, prompt: Text("FS-XXXX-XXXX-XXXX-XXXX")).textFieldStyle(.roundedBorder).accessibilityIdentifier(trialGate ? "LockLicenseKeyInput" : "LicenseKeyInput")
-      TextField("Email used at checkout (optional)", text: $email).textFieldStyle(.roundedBorder).accessibilityIdentifier("LicenseEmailInput")
+    if trialGate {
+      VStack(alignment: .leading, spacing: 16) { fields }.onAppear(perform: load)
+    } else {
+      Form {
+        Section {
+          LabeledContent("Status") {
+            Text(model.settings.isPro ? "Purchased" : model.trialDaysLeft > 0 ? "\(model.trialDaysLeft) days left on free trial" : "Free trial ended").accessibilityIdentifier("LicenseStatusText")
+          }
+          if !model.settings.isPro && !model.isRunning { Link("Buy Basalt — $4.99", destination: model.buyURL).accessibilityIdentifier("GetProButton") }
+        }
+        Section("Activate") { fields }
+        if model.settings.isPro { Section("Your devices · \(model.settings.deviceCount) / \(model.settings.deviceLimit)") { devices } }
+        Section {
+          DisclosureGroup("Advanced") {
+            TextField("License server", text: $server).accessibilityIdentifier("LicenseServerUrlInput")
+            Button("Save server") { Task { await model.setLicenseServer(server) } }.accessibilityIdentifier("SaveLicenseServerButton")
+          }
+        }
+      }.formStyle(.grouped).onAppear(perform: load)
+    }
+  }
+  private func load() { email = model.settings.licenseEmail; server = model.settings.licenseServerUrl; if model.activationKey.isEmpty { model.activationKey = model.settings.licenseKey } }
+  @ViewBuilder private var fields: some View {
+      TextField("License key", text: $model.activationKey, prompt: Text("FS-XXXX-XXXX-XXXX-XXXX")).accessibilityIdentifier(trialGate ? "LockLicenseKeyInput" : "LicenseKeyInput")
+      TextField("Email", text: $email, prompt: Text("Used at checkout (optional)")).accessibilityIdentifier("LicenseEmailInput")
       HStack {
         Button("Activate license") { Task { await model.activateLicense(key: model.activationKey, email: email) } }.disabled(model.licenseBusy || model.activationKey.isEmpty).accessibilityIdentifier(trialGate ? "LockActivateButton" : "ActivateProButton")
         if model.settings.isPro { Button("Deactivate") { Task { await model.deactivateLicense() } }.disabled(model.licenseBusy).accessibilityIdentifier("DeactivateButton") }
         if model.licenseBusy { ProgressView().controlSize(.small); Text("Checking…").accessibilityIdentifier("LicenseBusyText") }
       }
-      Text(model.licenseMessage).font(.callout).accessibilityIdentifier("LicenseDetailText")
-      if model.settings.isPro {
-        Divider()
-        HStack {
-          Text("Your devices · \(model.settings.deviceCount) / \(model.settings.deviceLimit)").font(.headline)
-          Spacer(); Button("Refresh") { Task { await model.listDevices() } }.disabled(model.licenseBusy).accessibilityIdentifier("DevicesRefreshButton")
-        }
+      if !model.licenseMessage.isEmpty { Text(model.licenseMessage).font(.callout).accessibilityIdentifier("LicenseDetailText") }
+  }
+  @ViewBuilder private var devices: some View {
+        Button("Refresh") { Task { await model.listDevices() } }.disabled(model.licenseBusy).accessibilityIdentifier("DevicesRefreshButton")
         ForEach(model.devices, id: \.deviceToken) { device in
           HStack {
             VStack(alignment: .leading) {
@@ -224,27 +245,23 @@ struct LicenseSettings: View {
             } else { Button("Release") { releaseToken = device.deviceToken }.accessibilityLabel("Release \(device.name)").accessibilityIdentifier("ReleaseDevice_\(device.deviceToken)") }
           }.disabled(model.licenseBusy)
         }
-      }
-      if !trialGate { DisclosureGroup("Advanced") {
-        VStack(alignment: .leading, spacing: 10) {
-          TextField("License server", text: $server).textFieldStyle(.roundedBorder).accessibilityIdentifier("LicenseServerUrlInput")
-          Button("Save server") { Task { await model.setLicenseServer(server) } }.accessibilityIdentifier("SaveLicenseServerButton")
-        }.padding(.top, 8)
-      } }
-    }.onAppear { email = model.settings.licenseEmail; server = model.settings.licenseServerUrl; if model.activationKey.isEmpty { model.activationKey = model.settings.licenseKey } }
   }
 }
 
 struct AboutSettings: View {
   let model: AppModel
   var body: some View {
-    VStack(alignment: .leading, spacing: 18) {
-      Text("Basalt \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.1.0")").font(.headline).accessibilityIdentifier("VersionText")
-      Text("Automatic updates aren't available on Mac yet.")
-      Text("Terms accepted: \(model.settings.termsAcceptedVersion)").font(.caption).foregroundStyle(.secondary).accessibilityIdentifier("TermsAcceptedText")
-      Link("Terms of service", destination: URL(string: LegalTerms.termsURL(model.settings))!).accessibilityIdentifier("SettingsTermsButton")
-      Link("Privacy policy", destination: URL(string: LegalTerms.privacyURL(model.settings))!).accessibilityIdentifier("SettingsPrivacyButton")
-      Button("Open log folder") { NSWorkspace.shared.open(model.options.dataDirectory) }.accessibilityIdentifier("OpenLogButton")
-    }
+    Form {
+      Section {
+        LabeledContent("Version") { Text(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.1.0").accessibilityIdentifier("VersionText") }
+        LabeledContent("Updates") { Text("Automatic updates aren't available on Mac yet.") }
+      }
+      Section("Legal") {
+        LabeledContent("Terms accepted") { Text(model.settings.termsAcceptedVersion).accessibilityIdentifier("TermsAcceptedText") }
+        Link("Terms of service", destination: URL(string: LegalTerms.termsURL(model.settings))!).accessibilityIdentifier("SettingsTermsButton")
+        Link("Privacy policy", destination: URL(string: LegalTerms.privacyURL(model.settings))!).accessibilityIdentifier("SettingsPrivacyButton")
+      }
+      Section { Button("Open log folder") { NSWorkspace.shared.open(model.options.dataDirectory) }.accessibilityIdentifier("OpenLogButton") }
+    }.formStyle(.grouped)
   }
 }

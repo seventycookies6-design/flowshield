@@ -121,7 +121,7 @@ struct SidebarView: View {
       ForEach(MainPage.allCases) { item in
         Label(item.rawValue, systemImage: item.symbol).tag(item).accessibilityIdentifier(item.automationID)
       }
-    }.safeAreaInset(edge: .bottom) {
+    }.listStyle(.sidebar).safeAreaInset(edge: .bottom) {
       VStack(alignment: .leading, spacing: 10) {
         Label(model.settings.isPro ? "Purchased" : model.trialDaysLeft > 0 ? "\(model.trialDaysLeft) days left on free trial" : "Trial ended", systemImage: model.settings.isPro ? "checkmark.seal" : "circle")
           .font(.caption).accessibilityIdentifier("TierBadge")

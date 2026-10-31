@@ -40,7 +40,7 @@ struct BlockedAppsView: View {
             Toggle(app.displayName, isOn: Binding(get: { app.isEnabled }, set: { value in Task { await model.toggleBlockedApp(at: index, enabled: value) } }))
               .accessibilityIdentifier("AppEnabledSwitch_\(app.processName.isEmpty ? app.bundleIdentifier : app.processName)")
             Spacer()
-            Button("Remove", role: .destructive) { Task { await model.removeBlockedApp(at: index) } }.accessibilityLabel("Remove \(app.displayName)").accessibilityIdentifier("RemoveApp_\(app.processName.isEmpty ? app.bundleIdentifier : app.processName)")
+            Button("Remove", role: .destructive) { Task { await model.removeBlockedApp(at: index) } }.buttonStyle(.borderless).accessibilityLabel("Remove \(app.displayName)").accessibilityIdentifier("RemoveApp_\(app.processName.isEmpty ? app.bundleIdentifier : app.processName)")
           }.disabled(!model.canEditBlocklist)
           Divider()
         }
@@ -57,7 +57,7 @@ struct AppIcon: View {
   let path: String?
   var body: some View {
     if let path { Image(nsImage: NSWorkspace.shared.icon(forFile: path)).resizable().frame(width: 28, height: 28).accessibilityHidden(true) }
-    else { Image(systemName: "app").frame(width: 28, height: 28).accessibilityHidden(true) }
+    else { Image(nsImage: NSWorkspace.shared.icon(for: .applicationBundle)).resizable().frame(width: 28, height: 28).accessibilityHidden(true) }
   }
 }
 

@@ -31,7 +31,7 @@ struct BasaltApp: App {
     }
     Settings { SettingsView(model: model) }
     MenuBarExtra { MenuContent(model: model) } label: { BasaltMenuLabel(model: model, delegate: delegate) }
-      .menuBarExtraStyle(.window)
+      .menuBarExtraStyle(.menu)
   }
 }
 
@@ -87,7 +87,7 @@ struct BasaltMenuLabel: View {
         if let directory = model.options.snapshotDirectory {
           do { try await SnapshotExporter.run(directory: directory, options: model.options) }
           catch { model.log.write("snapshot failed: \(error.localizedDescription)") }
-          NSApp.terminate(nil); return
+          exit(0)
         }
         #endif
         await model.load()
@@ -103,14 +103,14 @@ struct MenuContent: View {
   let model: AppModel
   @Environment(\.openWindow) private var openWindow
   var body: some View {
-    VStack(alignment: .leading, spacing: 12) {
-      Text(model.isRunning ? "\(ShieldCopy.name(model.activeSprint!.shield)) · \(model.remainingText)" : model.isOnBreak ? "Break · \(model.remainingText)" : "No sprint running").font(.headline)
-      Button("Start last sprint") { Task { await model.start() } }.disabled(!model.canStart).accessibilityIdentifier("TrayStartSprint")
-      Button("End sprint") { Task { await model.requestEnd() } }.disabled(!model.isRunning).accessibilityIdentifier("TrayEndSprint")
-      Button("Open Basalt") { openWindow(id: "main"); NSApp.activate(ignoringOtherApps: true) }.accessibilityIdentifier("TrayOpen")
-      SettingsLink { Text("Settings…") }.accessibilityIdentifier("TraySettings")
-      Divider()
-      Button("Quit") { Task { await model.requestQuit() } }.accessibilityIdentifier("TrayQuit")
-    }.padding().frame(width: 260)
+    Text(model.isRunning ? "\(ShieldCopy.name(model.activeSprint!.shield)) · \(model.remainingText) left" : model.isOnBreak ? "Break · \(model.remainingText) left" : "No sprint running")
+    Divider()
+    Button("Start last sprint") { Task { await model.start() } }.disabled(!model.canStart).accessibilityIdentifier("TrayStartSprint")
+    Button("End sprint…") { Task { await model.requestEnd() } }.disabled(!model.isRunning).accessibilityIdentifier("TrayEndSprint")
+    Divider()
+    Button("Open Basalt") { openWindow(id: "main"); NSApp.activate(ignoringOtherApps: true) }.accessibilityIdentifier("TrayOpen")
+    SettingsLink { Text("Settings…") }.keyboardShortcut(",").accessibilityIdentifier("TraySettings")
+    Divider()
+    Button("Quit Basalt") { Task { await model.requestQuit() } }.keyboardShortcut("q").accessibilityIdentifier("TrayQuit")
   }
 }

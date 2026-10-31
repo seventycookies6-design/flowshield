@@ -68,15 +68,12 @@ struct SprintSetupView: View {
         }
       }
       Card("Sprint length") {
-        HStack {
+        Picker("Sprint length", selection: lengthChoice) {
           ForEach(SprintLength.presets, id: \.self) { minutes in
-            Button("\(minutes) min") { custom = false; model.customMinutesValid = true; Task { await model.setSprintMinutes(minutes) } }
-              .tint(model.settings.defaultSprintMinutes == minutes && !custom ? .accentColor : nil)
-              .accessibilityAddTraits(model.settings.defaultSprintMinutes == minutes && !custom ? .isSelected : [])
-              .accessibilityIdentifier("SprintLength_\(minutes)")
+            Text("\(minutes) min").tag(minutes).accessibilityIdentifier("SprintLength_\(minutes)")
           }
-          Button("Custom…") { custom = true; customText = "\(model.settings.lastCustomSprintMinutes)" }.accessibilityIdentifier("SprintLength_Custom")
-        }
+          Text("Custom").tag(Self.customTag).accessibilityIdentifier("SprintLength_Custom")
+        }.pickerStyle(.segmented).labelsHidden().accessibilityIdentifier("SprintLengthPicker")
         if custom {
           HStack { TextField("Minutes", text: $customText).frame(width: 90).accessibilityIdentifier("CustomMinutesInput"); Text("min (5–240)").foregroundStyle(.secondary) }
             .onChange(of: customText) { _, value in
@@ -113,6 +110,19 @@ struct SprintSetupView: View {
     }.disabled(model.isRunning || model.isOnBreak)
       .onAppear { custom = !SprintLength.presets.contains(model.settings.defaultSprintMinutes); customText = "\(model.settings.defaultSprintMinutes)" }
   }
+  private static let customTag = -1
+  private var lengthChoice: Binding<Int> {
+    Binding(
+      get: { custom ? Self.customTag : model.settings.defaultSprintMinutes },
+      set: { choice in
+        if choice == Self.customTag {
+          custom = true; customText = "\(model.settings.lastCustomSprintMinutes)"
+        } else {
+          custom = false; model.customMinutesValid = true
+          Task { await model.setSprintMinutes(choice) }
+        }
+      })
+  }
   private var templateMenu: some View {
     Menu("Templates") {
       ForEach(model.settings.templates, id: \.id) { template in
@@ -126,15 +136,12 @@ struct ShieldPicker: View {
   let model: AppModel
   var prefix = "Shield_"
   var body: some View {
-    HStack {
+    Picker("Shield level", selection: Binding(get: { model.settings.defaultShield }, set: { shield in Task { await model.selectShield(shield) } })) {
       ForEach(ShieldLevel.allCases, id: \.self) { shield in
-        Button { Task { await model.selectShield(shield) } } label: {
-          Label(ShieldCopy.name(shield), systemImage: shield.symbol).frame(maxWidth: .infinity)
-        }.tint(model.settings.defaultShield == shield ? .accentColor : nil)
-          .accessibilityAddTraits(model.settings.defaultShield == shield ? .isSelected : [])
+        Label(ShieldCopy.name(shield), systemImage: shield.symbol).tag(shield)
           .accessibilityIdentifier(prefix + ShieldCopy.name(shield))
       }
-    }.disabled(model.isRunning)
+    }.pickerStyle(.segmented).labelsHidden().disabled(model.isRunning).accessibilityIdentifier(prefix + "Picker")
   }
 }
 

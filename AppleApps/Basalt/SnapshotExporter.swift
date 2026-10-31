@@ -49,7 +49,7 @@ import BasaltCore
       try await render(MainView(model: model, snapshotPage: .today), name: "today-running-narrow", scheme: scheme, directory: directory, width: 800, height: 540)
       try await render(SoftNoticeView(name: "Discord", sprint: model.activeSprint!, tryNumber: 3, unlocksAt: Date().addingTimeInterval(20), answer: { _ in }), name: "soft-notice", scheme: scheme, directory: directory, width: 640, height: 520)
       try await render(FirmWarningView(message: GracefulClose.warning("Discord")).padding(28), name: "firm-warning", scheme: scheme, directory: directory)
-      try await render(MenuContent(model: model), name: "menu-bar", scheme: scheme, directory: directory, width: 300, height: 320)
+      try await render(VStack(alignment: .leading, spacing: 8) { MenuContent(model: model) }.padding(), name: "menu-bar", scheme: scheme, directory: directory, width: 300, height: 320)
       model.prepareSnapshot("running-apps")
       try await render(RunningAppsView(model: model), name: "open-apps-confirmation", scheme: scheme, directory: directory)
     }
