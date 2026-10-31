@@ -42,7 +42,7 @@ sync() {
 build() {
   sync
   remote "xcodegen generate --quiet && xcodebuild -project Basalt.xcodeproj -scheme Basalt \
-    -configuration Debug -derivedDataPath \"\$HOME/$DIR/DerivedData\" build CODE_SIGNING_ALLOWED=NO"
+    -configuration Debug -derivedDataPath \"\$HOME/$DIR/DerivedData\" build CODE_SIGN_IDENTITY=- CODE_SIGNING_ALLOWED=YES"
 }
 
 case "${1:-}" in

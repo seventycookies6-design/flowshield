@@ -12,6 +12,11 @@ settings:
     MACOSX_DEPLOYMENT_TARGET: '26.0'
     ENABLE_APP_SANDBOX: NO
     ENABLE_HARDENED_RUNTIME: YES
+  configs:
+    Debug:
+      CODE_SIGN_IDENTITY: '-'
+      CODE_SIGNING_ALLOWED: YES
+      CODE_SIGN_STYLE: Manual
 targets:
   Basalt:
     type: application

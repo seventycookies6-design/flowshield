@@ -2,7 +2,7 @@ import Foundation
 
 public enum SprintStartResult: Equatable, Sendable {
   case started, termsRequired, firstRunRequired, invalidLength, accessLocked, alreadyRunning,
-    confirmRunningApps
+    confirmRunningApps, persistenceFailed
 }
 public enum SprintLifecycle {
   /// The caller saves the returned active record before starting enforcement.
