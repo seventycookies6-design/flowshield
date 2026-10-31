@@ -350,6 +350,7 @@ final class AppModel {
   func tick(at date: Date = Date()) async {
     guard isReady, !isTransitioning else { return }
     now = date
+    if settings.isSleepBlockEnabled && !hasAccess { settings.isSleepBlockEnabled = false; await changed() }
     if let sprint = activeSprint {
       if now >= sprint.endsUtc {
         // Account for only the capped stretch actually observed after a sleep.

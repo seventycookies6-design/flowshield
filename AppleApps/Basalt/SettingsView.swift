@@ -223,7 +223,7 @@ struct LicenseSettings: View {
       TextField("License key", text: $model.activationKey, prompt: Text("FS-XXXX-XXXX-XXXX-XXXX")).accessibilityIdentifier(trialGate ? "LockLicenseKeyInput" : "LicenseKeyInput")
       TextField("Email", text: $email, prompt: Text("Used at checkout (optional)")).accessibilityIdentifier("LicenseEmailInput")
       HStack {
-        Button("Activate license") { Task { await model.activateLicense(key: model.activationKey, email: email) } }.disabled(model.licenseBusy || model.activationKey.isEmpty).accessibilityIdentifier(trialGate ? "LockActivateButton" : "ActivateProButton")
+        Button("Activate license") { Task { await model.activateLicense(key: model.activationKey, email: email) } }.disabled(model.licenseBusy || (model.activationKey.trimmingCharacters(in: .whitespaces).isEmpty && email.trimmingCharacters(in: .whitespaces).isEmpty)).accessibilityIdentifier(trialGate ? "LockActivateButton" : "ActivateProButton")
         if model.settings.isPro { Button("Deactivate") { Task { await model.deactivateLicense() } }.disabled(model.licenseBusy).accessibilityIdentifier("DeactivateButton") }
         if model.licenseBusy { ProgressView().controlSize(.small); Text("Checking…").accessibilityIdentifier("LicenseBusyText") }
       }

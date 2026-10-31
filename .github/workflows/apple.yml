@@ -43,3 +43,6 @@ jobs:
         run: |
           xcodegen generate
           xcodebuild -project Basalt.xcodeproj -scheme Basalt -configuration Debug -destination 'generic/platform=macOS' -derivedDataPath DerivedData build CODE_SIGNING_ALLOWED=NO
+      - name: App tests
+        working-directory: AppleApps
+        run: xcodebuild -project Basalt.xcodeproj -scheme Basalt -configuration Debug -destination 'platform=macOS' -derivedDataPath DerivedData test CODE_SIGN_IDENTITY=-

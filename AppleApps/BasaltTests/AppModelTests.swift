@@ -161,6 +161,13 @@ struct AppModelTests {
       #expect(await model.addProfile(name: "Refused") == nil)
     }
   }
+  @Test func lockedAppTurnsOffNightlyBlocking() async throws {
+    var s = readySettings(); s.trialStartedUtc = Date().addingTimeInterval(-8 * 86400); s.isSleepBlockEnabled = true
+    try await withModel(s) { model, _, _ in
+      await model.tick()
+      #expect(!model.settings.isSleepBlockEnabled)
+    }
+  }
   @Test func completedCycleRunsBreakThenNextSprint() async throws {
     var s = readySettings(); s.cycleSprints = 2
     var sprint = RunningSprint(); sprint.startedUtc = Date().addingTimeInterval(-299)

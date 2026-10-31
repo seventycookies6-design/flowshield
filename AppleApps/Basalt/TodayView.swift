@@ -117,6 +117,8 @@ struct SprintSetupView: View {
       set: { choice in
         if choice == Self.customTag {
           custom = true; customText = "\(model.settings.lastCustomSprintMinutes)"
+          model.customMinutesValid = SprintLength.parse(customText) != nil
+          if let minutes = SprintLength.parse(customText) { Task { await model.setSprintMinutes(minutes) } }
         } else {
           custom = false; model.customMinutesValid = true
           Task { await model.setSprintMinutes(choice) }
