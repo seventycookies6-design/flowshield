@@ -58,6 +58,7 @@ large, and nothing flashes for attention.
 - **Licences:** fonts and icons stay licensed and embedded or self-hosted (Inter OFL, Lucide ISC), with notices shipped and no runtime web-font services, so they work offline and their terms are met.
 - **Automation:** keep existing `AutomationId`s and put ids on controls, not layout panels, because UI Automation does not surface panel ids (#134).
 - **Blocker:** follow `CLAUDE.md`'s deliberately timid blocker rule: protect critical processes; no admin rights, drivers, services or hosts-file edits, so focus never puts the machine at risk.
+- **Apple platforms:** the Mac app (and later the iPhone app) follows Apple's Human Interface Guidelines first, so it feels like a Mac app rather than a Windows port (Miles, #425). Apple's guidance decides structure, navigation, controls, type and materials: the system font (SF Pro) through text styles instead of Inter, semantic system colours for backgrounds and text, SF Symbols for interface icons, and Liquid Glass where the system applies it (toolbars, sidebars, sheets, menus, popovers, the menu bar extra), never on content. These replace the Inter, Lucide and window-backdrop rules above on Apple platforms only. Basalt's own rules still apply there: colour meaning and the token pipeline (teal is the accent; amber and rose are status), calm, the shield language, the word list, accessibility and the blocker rule. Accessibility identifiers take the place of `AutomationId`s.
 
 ### Binding words and honesty
 
@@ -434,6 +435,17 @@ use "licence". The copy pass in §15 remains open.
   - The app's Causeway tile (`FlowShield.ico`, built from `design/brand/basalt-icon.svg`).
   - During a sprint it counts down the minutes left, drawn in `primary` on `primary-ink` so it follows the app theme; the running tile (`FlowShield.Running.ico`, the Firm variant) is its fallback.
 
+### 12a. Mac app specifics
+
+The Mac beta (#426) applies Part A's Apple-platforms rule like this:
+
+- **Structure:** one main window with a `NavigationSplitView` sidebar (Today, History, Blocked Apps, Schedule). Settings isn't a page: it is the standard Settings window (⌘,) with panes. Toolbar actions also appear in the menus. A Sprint menu carries Start, End and the shield levels.
+- **Menu bar extra:** the Mac counterpart of the Windows tray. It shows the minutes left during a sprint and offers start, end, open and quit. Closing the main window keeps Basalt running there.
+- **Colour:** `tools/build_tokens.py` writes `AppleApps/Basalt/Tokens.xcassets`, one colour set per app token, named like the WPF keys (`Primary`, `Ink`, `Amber`…), with light and dark appearances, plus `AccentColor` = `primary`. Window and content backgrounds use the system's semantic colours; Basalt's tokens carry meaning (accent, status, shields, charts).
+- **Type:** SF Pro through SwiftUI text styles, with monospaced digits for the timer and stats.
+- **Shields:** SF Symbols escalate by shape, not colour: `shield` (Soft), `shield.lefthalf.filled` (Firm), `lock.shield.fill` (Sealed).
+- **Materials:** no custom glass on cards, lists or the timer. The Soft notice and the Firm warning are ordinary windows with solid surfaces, because they carry text the person must read.
+
 ---
 
 ### 13. Accessibility checklist
@@ -458,7 +470,7 @@ values in `DesktopApp/Styles/Theme.xaml` and `Website/styles.css` (§4); adding
 them to the JSON was the original plan, not a prerequisite for a design PR.
 
 1. `design/tokens.json` holds the colour tokens for both themes.
-2. `tools/build_tokens.py` generates `DesktopApp/Styles/Tokens.xaml` (dark), `DesktopApp/Styles/Tokens.Light.xaml` and the colour blocks between the `tokens:` markers in `Website/styles.css`. `App.xaml` merges the Tokens dictionary; see the engineering facts in §12.
+2. `tools/build_tokens.py` generates `DesktopApp/Styles/Tokens.xaml` (dark), `DesktopApp/Styles/Tokens.Light.xaml` and the colour blocks between the `tokens:` markers in `Website/styles.css`. `App.xaml` merges the Tokens dictionary; see the engineering facts in §12. It also writes the Mac app's colour sets in `AppleApps/Basalt/Tokens.xcassets` (§12a).
 3. A tier 5 test runs the generator's `--check` mode and fails if committed files are stale. This catches drift and gives the doc steward concrete evidence.
 4. `DESIGN_SYSTEM.md` is in the doc steward's editable list in `tools/doc_steward/config.json`, so these notes can stay in step with the implementation.
 
