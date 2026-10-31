@@ -16,6 +16,7 @@ it describes the version of Basalt it was installed with.
 
 System.Security.Cryptography.ProtectedData — Microsoft Corporation — MIT
     https://dot.net/
+    Part of the bundled .NET runtime from .NET 10 on.
 
 Velopack — Velopack contributors — MIT
     https://github.com/velopack/velopack

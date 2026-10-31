@@ -130,7 +130,7 @@
 
     <!-- Text scale, DESIGN_SYSTEM.md §3. Tracking is approximated through
          weight and size, per the doc's own WPF column — TextBlock has no
-         letter-spacing property on net8.0-windows (see the Eyebrow style
+         letter-spacing property on net10.0-windows (see the Eyebrow style
          below for what was tried and why it doesn't build). -->
 
     <!-- display: page titles, lock screen, section headings -->
@@ -183,7 +183,7 @@
          already (there's no WPF text-transform). §3's WPF column suggests
          TextBlock.CharacterSpacing for the +6% tracking, but that property
          was never ported from .NET Framework to .NET (Core) WPF — it does
-         not exist on net8.0-windows (confirmed: not in PresentationFramework
+         not exist on net8.0 or net10.0-windows (confirmed: not in PresentationFramework
          or PresentationCore, and MC4005 at build time). Tracking here is
          weight + size only, as the doc's own fallback rule allows. -->
     <Style x:Key="Eyebrow" TargetType="TextBlock" BasedOn="{StaticResource Caption}">

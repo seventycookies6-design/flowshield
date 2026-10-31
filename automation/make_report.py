@@ -247,7 +247,7 @@ month. Every sprint ends with a one-line "what moved?" journal entry.
 
 | Part | Stack | Location |
 | --- | --- | --- |
-| Desktop app | .NET 8 WPF, MVVM, DPAPI-encrypted settings | `DesktopApp/` |
+| Desktop app | .NET 10 WPF, MVVM, DPAPI-encrypted settings | `DesktopApp/` |
 | License server | Node.js + Express + SQLite + Stripe | `Server/` |
 | Marketing site | Static HTML/CSS/JS, dark glassmorphism | `Website/` |
 | Automation suite | Python, pywinauto + Playwright + pytest | `automation/` |
