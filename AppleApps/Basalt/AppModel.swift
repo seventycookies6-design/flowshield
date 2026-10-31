@@ -28,8 +28,12 @@ final class AppModel {
   var licensePromptVisible = false
   var errorMessage: String?
   var toast = ""
+  var selectedPage = MainPage.today
+  var settingsPane = SettingsPane.focus
+  var customMinutesValid = true
   var notificationDestination = MacNotifications.Destination.app
   var openWindowRequested: (() -> Void)?
+  var openSettingsRequested: (() -> Void)?
   private(set) var cycle = CycleState()
   let options: LaunchOptions
   @ObservationIgnored private let store: SettingsStore
@@ -79,8 +83,12 @@ final class AppModel {
     }
     notifications.onOpen = { [weak self] destination in
       self?.notificationDestination = destination
-      if destination == .license { self?.licensePromptVisible = true }
-      self?.openWindowRequested?()
+      if destination == .license {
+        self?.settingsPane = .license; self?.openSettingsRequested?()
+      } else {
+        if destination == .today || destination == .journal { self?.selectedPage = .today }
+        self?.openWindowRequested?()
+      }
     }
     hotkey.onPress = { [weak self] in Task { await self?.start() } }
   }
@@ -108,7 +116,21 @@ final class AppModel {
     TrialPolicy.shouldLock(settings, now: now, sprintRunning: isRunning, summaryVisible: summary != nil, journalVisible: journalVisible)
   }
   var goalProgress: String { DailyGoal.progressText(settings, day: LocalDay(now)) }
-  var canStart: Bool { isReady && !isTransitioning && !isRunning && hasAccess && !termsRequired && !firstRunVisible }
+  var canStart: Bool { isReady && !isTransitioning && !isRunning && !isOnBreak && customMinutesValid && hasAccess && !termsRequired && !firstRunVisible }
+  var buyURL: URL { URL(string: settings.websiteUrl.trimmingCharacters(in: CharacterSet(charactersIn: "/")) + "/index.html#pricing")! }
+  var hasModal: Bool { termsRequired || firstRunVisible || trialLocked || licensePromptVisible || pendingStart != nil || endConfirmation.flow != nil }
+  func dismissModal() {
+    if endConfirmation.flow != nil { keepGoing() }
+    else if pendingStart != nil { dismissStart() }
+    else if licensePromptVisible { licensePromptVisible = false }
+  }
+  func setKeepRunningOnClose(_ value: Bool) async { settings.keepRunningOnClose = value; await changed() }
+  func startNextSprint() async {
+    guard !isRunning else { return }
+    let wasCycle = cycle.startsNextSprint
+    await skipBreak()
+    if !wasCycle { _ = await start() }
+  }
   var canEndAnyway: Bool { endConfirmation.canEndAnyway(now: now) }
   var endButtonLabel: String {
     guard let sprint = activeSprint else { return "End sprint" }
@@ -201,8 +223,9 @@ final class AppModel {
 
   @discardableResult func start(minutes: Int? = nil, shield: ShieldLevel? = nil,
     confirmed: Bool = false, announcedName: String? = nil) async -> SprintStartResult {
-    guard isReady, !isTransitioning else { return .alreadyRunning }
+    guard isReady, !isTransitioning, !isOnBreak else { return .alreadyRunning }
     let minutes = minutes ?? settings.defaultSprintMinutes
+    guard customMinutesValid else { return .invalidLength }
     let shield = shield ?? settings.defaultShield
     let running = (shield != .soft || settings.hardKillModeEnabled)
       ? blocker.runningBlockedApps(targets: settings.blockedApps) : []
@@ -423,6 +446,22 @@ final class AppModel {
     settings.profiles[i].apps[index].isEnabled = enabled; await changed()
   }
   func refreshAppPicker() { pickerEntries = AppCatalog.discover() }
+  @discardableResult func addCustomBlockedApp(_ text: String) async -> Bool {
+    let text = text.trimmingCharacters(in: .whitespacesAndNewlines)
+    var app = BlockedApp()
+    if text.hasPrefix("/") {
+      let url = URL(fileURLWithPath: text)
+      guard url.pathExtension.lowercased() == "app", let bundle = Bundle(url: url), let id = bundle.bundleIdentifier else { return false }
+      app.bundleIdentifier = id; app.processName = bundle.executableURL?.lastPathComponent ?? ""
+      app.name = bundle.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String ?? url.deletingPathExtension().lastPathComponent
+      app.iconPath = url.path
+    } else {
+      guard text.contains("."), !text.contains(where: { $0.isWhitespace || $0 == "/" }) else { return false }
+      app.bundleIdentifier = text; app.name = text
+    }
+    guard !MacBlockerPolicy.isProtected(RunningAppIdentity(bundleIdentifier: app.bundleIdentifier, executableName: app.processName, isRegular: true)) else { return false }
+    return await addBlockedApp(app)
+  }
   func saveSchedule(_ value: SprintSchedule) async {
     guard settings.templates.contains(where: { $0.id == value.templateId }) else { return }
     var value = value; value.normalize()
@@ -563,8 +602,14 @@ final class AppModel {
     licenseBusy = false
     if released { await listDevices() } else { licenseMessage = "Couldn't release this device." }
   }
-  func exportAllData(to url: URL) throws { try DataPrivacy.export(settings, now: Date()).write(to: url, options: .atomic) }
+  enum DataActionError: Error { case sprintRunning }
+  var canManageData: Bool { isReady && !isRunning && !isOnBreak && !isTransitioning }
+  func exportAllData(to url: URL) throws {
+    guard canManageData else { throw DataActionError.sprintRunning }
+    try DataPrivacy.export(settings, now: Date()).write(to: url, options: .atomic)
+  }
   func exportJournal(to url: URL, from: LocalDay, through: LocalDay, format: ExportFormat) throws {
+    guard canManageData else { throw DataActionError.sprintRunning }
     try JournalExport.write(to: url, sessions: settings.sessions, from: from, to: through, format: format)
   }
   func deleteEverything() async {
@@ -595,4 +640,50 @@ final class AppModel {
       await changed()
     } catch { errorMessage = "Couldn't delete all data: \(error.localizedDescription)" }
   }
+
+  #if DEBUG
+  // Render fixtures never load storage, register integrations, or start enforcement.
+  func prepareSnapshot(_ state: String) {
+    guard options.isIsolated, options.snapshotDirectory != nil else { return }
+    now = Date(); settings = AppSettings(); settings.ensureProfiles(); settings.ensureTemplates()
+    LegalTerms.accept(&settings, now: now); settings.firstRunCompleted = true
+    settings.trialStartedUtc = now.addingTimeInterval(-86400 * 2); settings.notificationsEnabled = false
+    settings.dailyGoalKind = .minutes; settings.dailyGoalTarget = 90
+    settings.momentumScore = 82; settings.currentStreak = 4
+    for (id, name) in [("com.hnc.discord", "Discord"), ("com.valvesoftware.steam", "Steam"), ("com.spotify.client", "Spotify")] {
+      var app = BlockedApp(); app.bundleIdentifier = id; app.name = name; settings.profiles[0].apps.append(app)
+    }
+    for day in 0..<18 {
+      var session = FocusSession(); session.startedUtc = Calendar.current.date(byAdding: .day, value: -day, to: now)!.addingTimeInterval(-3600)
+      session.endedUtc = session.startedUtc.addingTimeInterval(25 * 60); session.plannedMinutes = 25; session.completed = day % 5 != 4
+      session.shield = day % 3 == 0 ? .sealed : .firm; session.blocksEnforced = day % 4
+      session.intention = "Read chapter \(day + 1)"; session.journal = "Read, made notes, and worked through the examples."
+      settings.sessions.append(session)
+    }
+    var momentum = 0.0
+    for index in settings.sessions.indices.reversed() {
+      settings.sessions[index].momentumAtStart = momentum
+      momentum = Momentum.after(momentum, session: settings.sessions[index])
+    }
+    settings.momentumScore = momentum
+    settings.profiles[0].apps[0].blockCount = settings.sessions.reduce(0) { $0 + $1.blocksEnforced }
+    var milestone = MilestoneRecord(); milestone.id = MilestoneKind.firstSealed.rawValue; milestone.earnedUtc = now; milestone.shown = false
+    settings.earnedMilestones = [milestone]
+    var schedule = SprintSchedule(); schedule.normalize(); schedule.templateId = settings.templates[0].id; schedule.days = [1, 2, 3, 4, 5]; settings.schedules = [schedule]
+    pickerEntries = AppCatalog.discover()
+    isReady = true; summary = nil; journalVisible = false; breakOffered = false; cycle = CycleState(); endConfirmation.keepGoing()
+    if ["running", "end-firm", "end-sealed"].contains(state) {
+      var sprint = RunningSprint(); sprint.startedUtc = now.addingTimeInterval(-600); sprint.plannedMinutes = 45
+      sprint.shield = state == "end-sealed" ? .sealed : .firm; sprint.intention = "Finish the chapter and its practice questions"
+      settings.activeSprint = sprint
+      if state.hasPrefix("end-") { endConfirmation.request(shield: sprint.shield, elapsed: 600, now: now) }
+    }
+    if ["summary", "break-offer", "break"].contains(state) {
+      summary = settings.sessions.first; journalVisible = true; breakOffered = state != "break"
+      if state == "break" { var rest = RunningBreak(); rest.minutes = 5; rest.startedUtc = now; rest.endsUtc = now.addingTimeInterval(210); settings.activeBreak = rest }
+    }
+    if state == "running-apps" { pendingStart = StartRequest(minutes: 25, shield: .firm); runningAppsToClose = ["Discord", "Spotify"] }
+    if state == "trial-ended" { settings.trialStartedUtc = now.addingTimeInterval(-8 * 86400) }
+  }
+  #endif
 }

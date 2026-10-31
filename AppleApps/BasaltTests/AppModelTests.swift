@@ -13,6 +13,57 @@ private actor EngineTransport: HTTPTransport {
 
 @Suite(.serialized) @MainActor
 struct AppModelTests {
+  @Test func breakRejectsStartCommandsUntilExplicitlySkipped() async throws {
+    var s = readySettings()
+    var rest = RunningBreak(); rest.startedUtc = Date(); rest.endsUtc = Date().addingTimeInterval(300); rest.minutes = 5
+    s.activeBreak = rest
+    try await withModel(s) { model, _, _ in
+      #expect(!model.canStart)
+      #expect(await model.start() == .alreadyRunning)
+      #expect(model.isOnBreak)
+      await model.startNextSprint()
+      #expect(model.isRunning)
+      #expect(!model.isOnBreak)
+      await model.cancel()
+    }
+  }
+  @Test func customBundleEntryRejectsCriticalAppsAndDuplicates() async throws {
+    try await withModel { model, _, _ in
+      #expect(!(await model.addCustomBlockedApp("com.apple.finder")))
+      #expect(!(await model.addCustomBlockedApp("not a bundle id")))
+      #expect(await model.addCustomBlockedApp("invalid.basalt.example"))
+      #expect(!(await model.addCustomBlockedApp("invalid.basalt.example")))
+      #expect(model.settings.blockedApps.count == 1)
+    }
+  }
+  @Test func invalidCustomInputRejectsMenuAndHotkeyStart() async throws {
+    try await withModel { model, _, _ in
+      model.customMinutesValid = false
+      #expect(!model.canStart)
+      #expect(await model.start() == .invalidLength)
+      #expect(!model.isRunning)
+    }
+  }
+  @Test func closePreferencePersistsAndNextSprintStartsOutsideACycle() async throws {
+    try await withModel { model, dir, _ in
+      await model.setKeepRunningOnClose(false)
+      #expect(!model.settings.keepRunningOnClose)
+      let stored = try await SettingsStore(url: dir.appendingPathComponent("settings.json")).load()
+      #expect(!stored.keepRunningOnClose)
+      await model.startNextSprint()
+      #expect(model.isRunning)
+      await model.cancel()
+    }
+  }
+  @Test func dataExportRefusesDuringASprint() async throws {
+    try await withModel { model, dir, _ in
+      _ = await model.start(minutes: 5, shield: .soft)
+      let file = dir.appendingPathComponent("refused.json")
+      #expect(throws: (any Error).self) { try model.exportAllData(to: file) }
+      #expect(!FileManager.default.fileExists(atPath: file.path))
+      await model.cancel()
+    }
+  }
   func readySettings() -> AppSettings {
     var s = AppSettings(); s.ensureProfiles(); s.ensureTemplates()
     s.notificationsEnabled = false; s.firstRunCompleted = true
