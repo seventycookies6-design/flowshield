@@ -8,6 +8,12 @@ redesign (#27), which the app adopted in #32.
 **Part A is binding.** Every app and site change follows it. **Part B describes
 the current implementation.** It is a starting point, not a ceiling (#366).
 
+**A redesign is in progress (2026-11).** Part A below already describes it:
+depth from Windows 11's own materials, Segoe UI Variable in the app, real
+controls, and the notice's input guard. Part B still describes what shipped.
+Each implementation PR updates its own Part B section. The target screens and
+the depth values are in [`design/redesign-2026-11/`](design/redesign-2026-11/README.md).
+
 The features these rules will be applied to are listed in
 **`LAUNCH_FEATURE_CHECKLIST.md`**.
 
@@ -23,7 +29,9 @@ app and not a game.**
 Basalt sits in a space no product in the category occupies (Part B §1): **the seriousness of a utility
 with the calm and clarity of a well-made instrument.** Think of a good watch
 face or a camera's controls. Everything has a purpose, the important number is
-large, and nothing flashes for attention.
+large, and nothing flashes for attention. Like a well-made instrument, it has
+real depth: surfaces that sit at different heights under one light, so you can
+see what you can touch and what matters now. Depth is never decoration.
 
 ### Six principles
 
@@ -38,7 +46,9 @@ large, and nothing flashes for attention.
 
 - Each screen has one job. The same fact is not stated twice on one screen.
 - Each view has one Primary action.
-- Controls appear where and when they are needed (progressive disclosure).
+- Controls appear where and when they are needed (progressive disclosure). A main screen shows a summary; the full set of settings is one click away (on Today, the setup panel).
+- Anything that acts looks like a control of its kind, so people can see what is clickable and what will happen. Buttons for actions, with one Primary per view. A disclosure with a chevron for showing more in place. Selectors, segmented controls or dropdowns for choices, and toggles for on and off. Plain links only for going to another place or to help.
+- Every section of a page reads as part of it, with a heading and real rows or controls. Nothing a customer needs is set as fine print under a divider.
 - Every empty state points to the next action.
 - Numbers show units and context: charts have legends; calendars have weekday labels.
 
@@ -48,17 +58,27 @@ large, and nothing flashes for attention.
 - **Contrast:** every token pair used for text passes measured WCAG AA (4.5:1); measure any new pair before shipping, so readable text is proved rather than guessed (§2 keeps the reference table).
 - **Meaningful colour:** `ok`/`warn`/`danger` mean status, never decoration; teal means state, selection or progress, so colour carries a consistent meaning.
 - **Accessibility:** controls are keyboard reachable, have a visible 2 px focus ring and accessible names; colour is never the only signal, text survives 200% scaling, and reduced motion is honoured everywhere (app: `SystemParameters.ClientAreaAnimation`; site: `prefers-reduced-motion`), so everyone can use the product.
-- **Calm:** nothing bounces, spins or shakes; no confetti, fireworks, sounds or alarm visuals; state failure neutrally, because the product helps without celebrating or blaming.
-- **Surfaces:** no decorative gradients or glows; glass/acrylic/Mica is allowed only for the window frame and navigation rail as a Windows 11 system backdrop, with AA text contrast measured over the worst case and a solid token surface on Windows 10 or when transparency effects are off; cards, controls and text never sit on translucent surfaces, so content stays legible.
+- **Calm:** nothing bounces, spins, shakes or pulses; no confetti, fireworks, sounds or alarm visuals; state failure neutrally, because the product helps without celebrating or blaming.
+- **Depth:** one depth system, built from Windows 11's own materials, so the app looks like flagship Windows software without decoration:
+  - **Base:** Mica is the window's base, title bar included. It is opaque, so text on it is unaffected.
+  - **Surfaces** sit above the base at two elevations: resting (sidebar, side cards, lists) and raised (the thing you act on now, such as Today's Now card). Higher is a step lighter, has a fine highlight on its top edge, and casts a larger shadow. There is one light, from above: highlights on top edges only, and shadows fall straight down and are never coloured. Buttons are raised; text fields and selector tracks are recessed.
+  - **Acrylic** is only for temporary surfaces: the setup panel, dropdowns, flyouts and menus, with a tint heavy enough that every text pair passes AA over the brightest thing behind it, and never behind a paragraph. The notice band is tinted to about 90%, because a game is behind it.
+  - **Gradients and glow appear only on live things:** the timer ring's progress arc, the Primary button, a toggle that is on, and a soft teal glow that is present only while a sprint runs ("Basalt is holding") and gone when it ends. It never pulses. No decorative gradients, glows, blobs or coloured shadows anywhere.
+  - **Fallback:** with transparency effects off, on Windows 10, in battery saver or when the window is inactive, Mica and acrylic become solid token surfaces and nothing else changes. High contrast uses system colours only, with solid borders and no gradients, shadows, glow or translucency.
+  - **Site:** the same language in CSS: an opaque base, surfaces at the same two elevations, the same buttons, and translucency only on the navigation bar.
+- **Interruptions:** the full-screen notice can't be dismissed by accident. No button is the default and none has focus when it appears, so Enter and stray typing do nothing. Every button ignores input for about 1.5 seconds, with the wait shown, then a click or a deliberate Tab then Space works. This keeps someone who is typing from dismissing it, and keeps it usable from the keyboard.
 - **Texture:** restrained material texture is allowed in the app and on the site, never under text, cards or controls, with contrast unaffected and off with reduced transparency where applicable; no photographs of rock or marble veining behind copy, so material never competes with content.
 - **Title bar:** a custom or extended title bar keeps Snap Layouts, the system menu, keyboard access, accessible names and correct drag regions, so changing the frame preserves Windows behaviour.
 - **Imagery:** real product only, with sample data and never a real blocklist or license; no stock photos, AI-generated people, fake device frames or mock-ups of unshipped screens, so marketing stays honest and private data stays private.
 - **Voice:** plain, specific words; no exclamation marks or emoji in product copy; use the binding word list below, so the product is clear and kind.
-- **Brand:** copy the Causeway mark from `design/brand/`, never redraw it, so the same mark reaches every surface.
-- **Licences:** fonts and icons stay licensed and embedded or self-hosted (Inter OFL, Lucide ISC), with notices shipped and no runtime web-font services, so they work offline and their terms are met.
+- **Brand:** copy the Causeway mark from `design/brand/`, never redraw it, so the same mark reaches every surface. One exception: a lit, dimensional rendering of the same geometry may appear at the big moments (first run, the end of a sprint, the end of the trial). It is made once, kept in `design/brand/`, and copied like the flat mark. Everywhere else the flat mark is used.
+- **Type and icons:**
+  - **App:** Segoe UI Variable, the Windows 11 system face, so the window's own title bar, menus and dialogs and the app's content are one typeface. Display for the countdown and titles, Text for everything else, falling back to Segoe UI on Windows 10. Icons are Segoe Fluent Icons (Segoe MDL2 Assets on Windows 10), plus Basalt's own shield glyphs. Both are part of Windows, so nothing is bundled.
+  - **Site:** Segoe UI Variable first, so a visitor on Windows sees the app's face, then Inter (self-hosted, OFL) everywhere else. Site icons stay Lucide (ISC).
+  - Fonts and icons stay licensed and embedded, self-hosted or supplied by the system, with notices shipped and no runtime web-font services, so they work offline and their terms are met.
 - **Automation:** keep existing `AutomationId`s and put ids on controls, not layout panels, because UI Automation does not surface panel ids (#134).
 - **Blocker:** follow `CLAUDE.md`'s deliberately timid blocker rule: protect critical processes; no admin rights, drivers, services or hosts-file edits, so focus never puts the machine at risk.
-- **Apple platforms:** the Mac app (and later the iPhone app) follows Apple's Human Interface Guidelines first, so it feels like a Mac app rather than a Windows port (Miles, #425). Apple's guidance decides structure, navigation, controls, type and materials: the system font (SF Pro) through text styles instead of Inter, semantic system colours for backgrounds and text, SF Symbols for interface icons, and Liquid Glass where the system applies it (toolbars, sidebars, sheets, menus, popovers, the menu bar extra), never on content. These replace the Inter, Lucide and window-backdrop rules above on Apple platforms only. Basalt's own rules still apply there: colour meaning and the token pipeline (teal is the accent; amber and rose are status), calm, the shield language, the word list, accessibility and the blocker rule. Accessibility identifiers take the place of `AutomationId`s.
+- **Apple platforms:** the Mac app (and later the iPhone app) follows Apple's Human Interface Guidelines first, so it feels like a Mac app rather than a Windows port (Miles, #425). Apple's guidance decides structure, navigation, controls, type and materials: the system font (SF Pro) through text styles instead of Inter, semantic system colours for backgrounds and text, SF Symbols for interface icons, and Liquid Glass where the system applies it (toolbars, sidebars, sheets, menus, popovers, the menu bar extra), never on content. These replace the type, icon and depth rules above on Apple platforms only. Basalt's own rules still apply there: colour meaning and the token pipeline (teal is the accent; amber and rose are status), calm, the shield language, the word list, accessibility and the blocker rule. Accessibility identifiers take the place of `AutomationId`s.
 
 ### Binding words and honesty
 

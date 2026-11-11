@@ -1,0 +1,100 @@
+/* Basalt round 4 — site. Same depth system as the app, in CSS:
+   an opaque tinted base, surfaces one or two steps above it, glass only on the navigation bar. */
+@font-face { font-family: "Inter"; font-weight: 100 900; font-display: swap; src: url("fonts/InterVariable.woff2") format("woff2"); }
+
+/* Type: the Windows face first, so on the PCs Basalt runs on the site matches the app.
+   Everywhere else it falls back to Inter, the face the site ships today. */
+.site { --font: "Segoe UI Variable Text", "Segoe UI Variable", "Segoe UI", "Inter", system-ui, sans-serif;
+  --font-display: "Segoe UI Variable Display", "Segoe UI Variable", "Segoe UI", "Inter", system-ui, sans-serif;
+  font-family: var(--font); font-size: 16px; line-height: 26px; color: var(--text);
+  background: var(--mica); min-height: 100vh; position: relative; }
+/* Mockup only: Selawik stands in for Segoe UI when the page is rendered off Windows. */
+.site.as-windows { --font: "Segoe UI Variable Text", "Segoe UI Variable", "Segoe UI", "Selawik", system-ui, sans-serif;
+  --font-display: "Segoe UI Variable Display", "Segoe UI Variable", "Segoe UI", "Selawik", system-ui, sans-serif; }
+.site.theme-light { --glass: rgba(238, 237, 233, .72); }
+.site.theme-dark { --glass: rgba(26, 27, 29, .72); }
+.wrap { max-width: 1120px; margin: 0 auto; padding: 0 24px; }
+
+/* nav: the one glass surface, because it is navigation and content scrolls under it */
+.s-nav { position: sticky; top: 0; z-index: 10; background: var(--glass);
+  -webkit-backdrop-filter: blur(20px) saturate(1.5); backdrop-filter: blur(20px) saturate(1.5);
+  box-shadow: inset 0 -1px 0 var(--divider), 0 1px 0 var(--ring-out); }
+.s-nav .wrap { height: 64px; display: flex; align-items: center; gap: 32px; }
+.s-brand { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 18px; color: var(--text); text-decoration: none; }
+.s-brand svg { width: 24px; height: 28px; }
+.s-links { display: flex; gap: 4px; margin-left: 8px; }
+.s-links a { color: var(--text2); text-decoration: none; font-size: 15px; padding: 10px 12px; border-radius: 8px; }
+.s-links a:hover { color: var(--text); text-decoration: underline; }
+.s-tools { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+.s-tools .menu { display: none; }
+.site .btn { height: 40px; font-size: 15px; }
+.site .btn.icon-only { width: 40px; }
+.site .btn.xl { height: 50px; padding: 0 24px; font-size: 16px; font-weight: 400; }
+.site .btn.primary.xl { font-weight: 600; }
+.site .btn svg { width: 18px; height: 18px; }
+.site .link { text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+
+/* hero */
+.hero { position: relative; overflow: hidden; }
+.hero .wrap { display: grid; grid-template-columns: 500px minmax(0, 1fr); column-gap: 56px; padding-top: 72px; padding-bottom: 40px; align-items: start; }
+.hero .kicker { color: var(--text2); font-size: 15px; line-height: 22px; }
+.hero h1 { font-family: var(--font-display); font-weight: 700; font-size: 66px; line-height: 68px; letter-spacing: -.028em; margin: 14px 0 22px; }
+.hero .lede { font-size: 19px; line-height: 30px; color: var(--text2); max-width: 30em; }
+.hero .lede b { color: var(--text); font-weight: 400; }
+.cta { display: flex; gap: 12px; margin-top: 30px; flex-wrap: wrap; }
+.terms { margin-top: 14px; font-size: 14px; line-height: 22px; color: var(--text2); }
+.callout { margin-top: 26px; padding: 14px 18px 16px 16px; display: grid; grid-template-columns: 22px 1fr; column-gap: 12px; font-size: 14px; line-height: 22px; color: var(--text2); }
+.callout svg { width: 22px; height: 22px; color: var(--text); margin-top: 1px; }
+.callout b { color: var(--text); font-weight: 600; }
+.callout .link { margin-top: 4px; }
+
+/* the capture: one legible window, bleeding off the edge rather than shrunk until it can't be read */
+.shot { position: relative; margin-top: 6px; width: 880px; }
+.shot img { display: block; width: 100%; height: auto; border-radius: 10px; box-shadow: 0 0 0 1px var(--ring-out), var(--sh3); }
+.shot figcaption, .cap { margin-top: 14px; font-size: 14px; line-height: 22px; color: var(--text2); }
+figure { margin: 0; }
+
+/* sections */
+.sec { padding: 80px 0 96px; }
+.sec h2 { font-family: var(--font-display); font-weight: 600; font-size: 36px; line-height: 42px; letter-spacing: -.022em; }
+.sec .sub { margin-top: 12px; font-size: 18px; line-height: 28px; color: var(--text2); max-width: 36em; }
+
+/* Soft / Firm / Sealed: three equal surfaces whose rows line up with each other */
+.levels { margin-top: 40px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: repeat(5, auto); gap: 0 24px; }
+.level { display: grid; grid-row: span 5; grid-template-rows: subgrid; padding: 28px 28px 30px; }
+.level .l-head { display: flex; align-items: center; gap: 14px; }
+.level .l-head svg { width: 30px; height: 30px; color: var(--teal); --on-icon: var(--e2); }
+.level h3 { font-family: var(--font-display); font-weight: 600; font-size: 26px; line-height: 32px; letter-spacing: -.015em; }
+.level .does { margin-top: 16px; font-size: 18px; line-height: 27px; color: var(--text); }
+.level .when { margin-top: 10px; font-size: 15px; line-height: 24px; color: var(--text2); }
+.level hr { border: 0; height: 1px; background: var(--divider); margin: 22px 0 18px; width: 100%; }
+.level ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 10px; align-content: start; }
+.level li { display: grid; grid-template-columns: 18px 1fr; column-gap: 12px; font-size: 15px; line-height: 24px; color: var(--text); }
+.level li svg { width: 18px; height: 18px; margin-top: 3px; color: var(--teal); }
+.after { margin-top: 28px; font-size: 15px; line-height: 24px; color: var(--text2); }
+
+.next-sec { border-top: 1px solid var(--divider); padding: 72px 0 0; }
+.next-sec .shot { width: 100%; margin-top: 36px; }
+.next-sec .shot img { border-radius: 10px 10px 0 0; }
+
+/* phone */
+@media (max-width: 720px) {
+  .wrap { padding: 0 16px; }
+  .s-nav .wrap { height: 60px; gap: 8px; }
+  .s-links, .s-tools .buy { display: none; }
+  .s-tools .menu { display: inline-flex; }
+  .site .btn.icon-only { width: 44px; height: 44px; }
+  .hero .wrap { display: block; padding-top: 26px; padding-bottom: 0; }
+  .hero .kicker { font-size: 14px; }
+  .hero h1 { font-size: 42px; line-height: 44px; margin: 10px 0 14px; }
+  .hero .lede { font-size: 17px; line-height: 26px; }
+  .cta { flex-direction: column; margin-top: 20px; gap: 10px; }
+  .cta .btn { width: 100%; height: 52px; }
+  .terms { margin-top: 12px; }
+  .shot { width: 680px; margin-top: 22px; }
+  .shot .crop { width: 680px; overflow: hidden; border-radius: 10px 0 0 0; box-shadow: 0 0 0 1px var(--ring-out), var(--sh3); }
+  .shot .crop img { width: 862px; max-width: none; margin-left: -200px; margin-top: -27px; border-radius: 0; box-shadow: none; }
+  .levels { grid-template-columns: 1fr; gap: 16px; }
+  .sec { padding: 56px 0; }
+  .sec h2 { font-size: 28px; line-height: 34px; }
+}
