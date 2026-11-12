@@ -214,3 +214,19 @@ public class AppsOnShieldLabelConverter : IValueConverter
 
     public object ConvertBack(object value, Type t, object p, CultureInfo c) => Binding.DoNothing;
 }
+
+/// <summary>
+/// A control's Padding with its top and bottom dropped. Buttons have a fixed
+/// height and centre their content, so vertical padding can only clip the
+/// label (a view's Padding="48,12" on a 40 px button left 14 px for a 19 px
+/// line once the redesign's 1 px edge and 14 px type arrived, #430). The
+/// horizontal padding still sets the button's width.
+/// </summary>
+public class HorizontalPaddingConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture) =>
+        value is Thickness t ? new Thickness(t.Left, 0, t.Right, 0) : new Thickness();
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}
