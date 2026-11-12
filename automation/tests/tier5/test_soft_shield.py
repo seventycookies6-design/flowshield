@@ -504,9 +504,12 @@ class TestTurnedBackIsRecordedAndShown:
             "the line sits under the distractions line"
 
         history = self.HISTORY_XAML.read_text(encoding="utf-8")
-        distractions = history.split('Text="DISTRACTIONS CAUGHT"', 1)[1].split("</Border>", 1)[0]
+        # #434: the week's figures are one part of the summary card now, and
+        # the shield "blocked", never "caught".
+        distractions = history.split('AutomationProperties.AutomationId="WeekDistractionsValue"', 1)[1] \
+            .split('AutomationProperties.AutomationId="MostBlockedApp"', 1)[0]
         assert 'AutomationProperties.AutomationId="HistoryTurnedBackText"' in distractions, \
-            "History's distractions card has no turned-back line"
+            "History's week has no turned-back line under the blocked count"
         line = distractions.split('AutomationProperties.AutomationId="HistoryTurnedBackText"', 1)[0] \
             .rsplit("<", 1)[1]
         assert line.startswith("TextBlock"), "the id must sit on the TextBlock itself (#134)"

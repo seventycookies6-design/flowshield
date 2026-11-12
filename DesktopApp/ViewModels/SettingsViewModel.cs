@@ -223,7 +223,7 @@ public class SettingsViewModel : ViewModelBase
             {
                 // Roadmap 5.7: show the cap right where it blocked the user,
                 // with the list to act on inline, instead of just an error.
-                LicenseStatusText = "❌ Not activated";
+                LicenseStatusText = "Not activated";
                 var limit = _main.Settings.DeviceLimit > 0 ? _main.Settings.DeviceLimit : 3;
                 LicenseDetailText = $"This license is on {limit} devices. Release one to activate here.";
                 await LoadDevicesAsync(force: true);
@@ -231,7 +231,7 @@ public class SettingsViewModel : ViewModelBase
             }
             else
             {
-                LicenseStatusText = "❌ Not activated";
+                LicenseStatusText = "Not activated";
                 LicenseDetailText = result.Message;
             }
         }
@@ -260,7 +260,7 @@ public class SettingsViewModel : ViewModelBase
 
         if (_main.IsPro)
         {
-            LicenseStatusText = "✅ License active";
+            LicenseStatusText = "License active";
             var checkedAt = settings.LicenseCheckedUtc?.ToLocalTime();
             LicenseDetailText =
                 (string.IsNullOrWhiteSpace(settings.LicenseEmail)
@@ -278,16 +278,21 @@ public class SettingsViewModel : ViewModelBase
         else if (_main.IsTrial)
         {
             var days = _main.TrialDaysLeft;
-            LicenseStatusText = $"Free trial — {days} day{(days == 1 ? "" : "s")} left";
-            LicenseDetailText = "Everything is unlocked during the trial. Buy Basalt once for $4.99 "
-                                + "to keep it — no subscription.";
+            // #434: the trial is stated once on the license card, here. The
+            // big "07 days left" number that repeated it is gone, and the
+            // price is on the card's one Buy button.
+            LicenseStatusText = $"Free trial, {days} day{(days == 1 ? "" : "s")} left";
+            LicenseDetailText = "Everything is unlocked during the trial. Basalt is a one-time "
+                                + "purchase, not a subscription.";
             DeviceText = "";
         }
         else
         {
-            LicenseStatusText = "Trial ended";
-            LicenseDetailText = "Buy Basalt once for $4.99 to keep using it, or enter the license "
-                                + "key you received when you bought it.";
+            // The lock screen covers Settings now and shows this detail line
+            // under its key field, so it stays empty until an activation
+            // answers: the lock screen's own paragraph says the rest (#434).
+            LicenseStatusText = "Free trial ended";
+            LicenseDetailText = "";
             DeviceText = "";
         }
 

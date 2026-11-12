@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import re
 import subprocess
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -1749,6 +1749,62 @@ class TestAppsOnShieldLabel:
                                          (2, "apps on the shield"), (12, "apps on the shield")])
     def test_the_label_agrees_with_the_count(self, n, label):
         assert probe({"cmd": "apps-on-shield", "n": n})["label"] == label
+
+
+class TestHistoryAndWelcome434:
+    """
+    #434: History's heatmap gets weekday labels (Part A: calendars have
+    weekday labels), its summary says how momentum moved this week, and the
+    welcome's app caption loses the stray leading dot ("· on this PC").
+    """
+
+    # Thursday 24 September 2026, local, as TestTurnedBack. Its week is Monday
+    # 21 to Sunday 27; noon UTC on the 22nd and 15th stays inside the right
+    # week in every time zone.
+    NOW = "2026-09-24T12:00:00"
+
+    def test_the_weekday_labels_follow_the_first_seven_days(self):
+        # 30 days ending 12 November 2026 start on Wednesday 14 October, so the
+        # columns run Wednesday to Tuesday, not Monday to Sunday.
+        labels = probe({"cmd": "heatmap-weekdays", "today": "2026-11-12T12:00:00"})["labels"]
+        start = date(2026, 11, 12) - timedelta(days=29)
+        expected = [(start + timedelta(days=i)).strftime("%a") for i in range(7)]
+        assert labels == expected
+        assert labels[0] == "Wed" and len(labels) == 7
+
+    def test_momentum_this_week_counts_only_this_weeks_sprints(self):
+        # A finished 25-minute sprint adds 10 (MomentumTrend.After).
+        change = probe({"cmd": "momentum-week", "now": self.NOW, "sessions": [
+            focus_session("2026-09-15T12:00:00Z"),      # last week: before the week began
+            focus_session("2026-09-22T12:00:00Z"),      # this week
+        ]})["change"]
+        assert change == 10
+
+    def test_a_quiet_week_has_no_change(self):
+        change = probe({"cmd": "momentum-week", "now": self.NOW, "sessions": [
+            focus_session("2026-09-15T12:00:00Z"),
+        ]})["change"]
+        assert change == 0
+
+    @pytest.mark.parametrize("change,text", [
+        (12, "Up 12 this week"),
+        (0, "No change this week"),
+        (-6, "Down 6 this week. It recovers with your next sprint."),
+    ])
+    def test_the_change_in_words_is_kind_about_a_drop(self, change, text):
+        assert probe({"cmd": "momentum-week-text", "change": change})["text"] == text
+
+    @pytest.mark.parametrize("source,on_pc,text", [
+        ("", True, "On this PC"),                    # a suggestion found here: was "· on this PC"
+        ("Installed", True, "Installed, on this PC"),
+        ("Running now", True, "Running now, on this PC"),
+        ("", False, ""),
+        ("Installed", False, "Installed"),
+    ])
+    def test_the_welcome_caption_has_no_stray_dot(self, source, on_pc, text):
+        caption = probe({"cmd": "first-run-caption", "source": source, "on_this_pc": on_pc})["text"]
+        assert caption == text
+        assert "·" not in caption
 
 
 class TestBlocklistAppCount:

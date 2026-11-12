@@ -6,6 +6,18 @@ namespace FlowShield.Models;
 /// </summary>
 public static class FirstRunPolicy
 {
+    /// <summary>
+    /// The caption under an app in the welcome's list (#434): where it came
+    /// from and whether it is on this PC. The round-one audit found a stray
+    /// leading dot, "· on this PC", because a suggested app has no source
+    /// label and the dot was joined on regardless. No middle dots now: a comma
+    /// between the two facts, and just "On this PC" when there is one.
+    /// </summary>
+    public static string SourceCaption(string sourceLabel, bool onThisPc) =>
+        !onThisPc ? sourceLabel
+        : sourceLabel.Length == 0 ? "On this PC"
+        : $"{sourceLabel}, on this PC";
+
     /// <summary>Set by --skip-first-run so the UI test suite starts on Today.</summary>
     public static bool SkipForTests { get; set; }
 

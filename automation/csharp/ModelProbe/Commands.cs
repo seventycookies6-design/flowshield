@@ -80,6 +80,29 @@ internal static class Commands
             {
                 ["text"] = HistoryStats.TurnedBackText((int)request["n"]!),
             },
+            // #434: History's weekday labels and momentum this week, and the
+            // welcome's source caption.
+            "heatmap-weekdays" => new JsonObject
+            {
+                ["labels"] = new JsonArray(HistoryStats.WeekdayLabels(HistoryStats.Heatmap(
+                        new List<FocusSession>(),
+                        DateTime.Parse((string)request["today"]!, CultureInfo.InvariantCulture)))
+                    .Select(l => (JsonNode?)JsonValue.Create(l)).ToArray()),
+            },
+            "momentum-week" => new JsonObject
+            {
+                ["change"] = HistoryStats.MomentumChangeThisWeek(
+                    new AppSettings { Sessions = request["sessions"].Deserialize<List<FocusSession>>()! },
+                    DateTime.Parse((string)request["now"]!, CultureInfo.InvariantCulture)),
+            },
+            "momentum-week-text" => new JsonObject
+            {
+                ["text"] = HistoryStats.MomentumWeekText((int)request["change"]!),
+            },
+            "first-run-caption" => new JsonObject
+            {
+                ["text"] = FirstRunPolicy.SourceCaption((string)request["source"]!, (bool)request["on_this_pc"]!),
+            },
             "stopped-apps" => StoppedAppsList(request),
             "sprint-options-summary" => new JsonObject
             {

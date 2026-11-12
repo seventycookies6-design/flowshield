@@ -465,7 +465,11 @@ class TestHistoryPage:
         # across every profile, so the card's answer does not change when the
         # active blocklist does. EarnedMilestones (F14) is listed, not derived:
         # the History list shows each milestone once, with the day it was earned.
-        assert touched <= {"Sessions", "BlockedApps", "Profiles", "EarnedMilestones"}, \
+        # MomentumScore (#434): the summary shows the momentum number Today
+        # shows, read the same way; its change this week is replayed from
+        # Sessions (HistoryStats.MomentumChangeThisWeek).
+        assert touched <= {"Sessions", "BlockedApps", "Profiles", "EarnedMilestones",
+                           "MomentumScore"}, \
             f"History reads more of the settings than it should: {sorted(touched)}"
         assert "MostBlockedNoteText" in vm, \
             "the most-blocked card must state that its count is not this week's"
@@ -486,7 +490,8 @@ class TestHistoryPage:
 
     def test_the_page_uses_the_type_roles_and_the_radius_resources(self):
         xaml = self._read(self.XAML)
-        for style in ("Eyebrow", "Stat", "Caption", "Body"):
+        # #434: sentence-case card titles replaced the upper-case eyebrows.
+        for style in ("CardTitle", "Stat", "Caption", "Body"):
             assert f'Style="{{StaticResource {style}}}"' in xaml, f"§3's {style} role is unused"
         assert 'Style="{StaticResource Card}"' in xaml
         assert not re.search(r'CornerRadius="\d', xaml), \
@@ -540,7 +545,7 @@ class TestHistoryPage:
         """F14's quiet milestones are listed on History, each with its name,
         sentence and date, and the empty line says what to expect."""
         xaml = self._read(self.XAML)
-        assert "MILESTONES" in xaml
+        assert 'Text="Milestones"' in xaml  # sentence case since #434
         assert "{Binding MilestoneRows}" in xaml
         assert 'AutomationProperties.AutomationId="MilestoneTitle"' in xaml
         assert 'AutomationProperties.AutomationId="MilestonesEmptyText"' in xaml

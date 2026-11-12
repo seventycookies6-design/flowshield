@@ -648,6 +648,10 @@ class TestKeyboardAndFocusF21:
             # container for the same reason: its pickers keep their tab stops,
             # and Tab cycles inside the panel.
             "SetupPanelScroll",
+            # The lock screen's card scrolls on a very short window (#434); the
+            # key field, Buy and Activate inside keep their tab stops, and Tab
+            # cycles inside the panel.
+            "TrialEndedScroll",
         }
 
         offenders = []
@@ -1074,7 +1078,9 @@ class TestTodayRedesign431:
 
     def test_buy_is_hidden_while_a_sprint_runs(self):
         main_vm = self.read("ViewModels", "MainViewModel.cs")
-        assert re.search(r"public bool BuyVisible\s*=>\s*IsNotPro\s*&&\s*!Today\.IsRunning;", main_vm)
+        # #434 added "&& !PageHasItsOwnBuy" (Settings and the lock screen have
+        # their own Buy); the sprint condition is unchanged.
+        assert re.search(r"public bool BuyVisible\s*=>\s*IsNotPro\s*&&\s*!Today\.IsRunning\b", main_vm)
         changed = self.member(main_vm, "public void OnSprintStateChanged()")
         assert "Raise(nameof(BuyVisible));" in changed, "the button must follow the sprint as it starts and ends"
         window = self.read("MainWindow.xaml")
@@ -1215,3 +1221,178 @@ class TestTodayRedesign431:
         vm = self.read("ViewModels", "TodayViewModel.cs")
         assert "StartTemplate(row.Template, skipOpenAppsPanel: false)" in vm, \
             "Start goes through StartTemplate, so every gate Start has applies"
+
+
+class TestRemainingScreens434:
+    """
+    #434: History, Settings, first run and the trial-ended lock screen take
+    the redesign (Part A): sentence-case labels, no page subtitles, no middle
+    dots, real controls, the lit mark at the two big moments, and the
+    round-one audit's findings fixed. Tier 3 drives the same screens.
+    """
+
+    ROOT = Path(DESKTOP_DIR)
+
+    def read(self, *parts):
+        return self.ROOT.joinpath(*parts).read_text(encoding="utf-8")
+
+    @staticmethod
+    def uncommented(xaml):
+        return re.sub(r"<!--.*?-->", "", xaml, flags=re.S)
+
+    def lock_screen(self):
+        window = self.read("MainWindow.xaml")
+        return self.uncommented(window.split('AutomationProperties.AutomationId="TrialEndedPanel"', 1)[1]
+                                .split("<!-- ================================================= first run", 1)[0])
+
+    def first_run(self):
+        window = self.read("MainWindow.xaml")
+        return self.uncommented(window.split('AutomationProperties.AutomationId="FirstRunPanel"', 1)[1]
+                                .split("<!-- ============================================ activation link", 1)[0])
+
+    # ---- everywhere: sentence case, no middle dots, no subtitles
+
+    def test_no_capital_labels_or_middle_dots_on_history_settings_first_run_or_the_lock(self):
+        for name, xaml in (("HistoryView.xaml", self.read("Views", "HistoryView.xaml")),
+                           ("SettingsView.xaml", self.read("Views", "SettingsView.xaml")),
+                           ("first run", self.first_run()),
+                           ("lock screen", self.lock_screen())):
+            assert 'Style="{StaticResource Eyebrow}"' not in xaml, name
+            for text in re.findall(r'(?<![\w.])(?:Text|Content)="([^"{]+)"', xaml):
+                assert "·" not in text and "!" not in text, (name, text)
+                assert not (text.isupper() and len(text) > 2), (name, text)
+
+    def test_history_and_settings_have_no_page_subtitle(self):
+        vm = self.read("ViewModels", "MainViewModel.cs")
+        subtitle = vm.split("public string CurrentPageSubtitle => CurrentPage switch", 1)[1].split("};", 1)[0]
+        assert re.findall(r'=> "([^"]*)"', subtitle) == ["", "", "", ""], "no page has a subtitle"
+
+    def test_history_rows_use_commas_not_middle_dots(self):
+        vm = self.read("ViewModels", "HistoryViewModel.cs")
+        assert "·" not in vm.split("public class HistoryRow", 1)[1].split("public class MilestoneRow", 1)[0]
+
+    # ---- History: the list is the page
+
+    def test_the_sprint_list_follows_one_summary_card(self):
+        """The audit found seven cards before the list. Now one card sits above it."""
+        xaml = self.read("Views", "HistoryView.xaml")
+        before_list = xaml.split('AutomationProperties.AutomationId="HistoryEmptyText"', 1)[0]
+        assert before_list.count('Style="{StaticResource Card}"') == 2, \
+            "the summary card, then the list's own card"
+        assert xaml.index("HistoryRowHeading") < xaml.index("MilestoneTitle"), \
+            "milestones come after the sprints"
+        for automation_id in ("HistoryMomentumValue", "HistoryMomentumChange", "WeekFocusHours",
+                              "WeekSprintsValue", "WeekDistractionsValue", "FocusHeatmap"):
+            assert xaml.index(automation_id) < xaml.index("HistoryEmptyText"), automation_id
+
+    def test_the_heatmap_has_weekday_labels_and_a_legend(self):
+        xaml = self.read("Views", "HistoryView.xaml")
+        assert '{Binding HeatmapWeekdays}' in xaml
+        assert xaml.index("HeatmapWeekday") < xaml.index('AutomationId="FocusHeatmap"'), \
+            "the labels head the columns"
+        for automation_id in ("HeatmapLegend", "HeatmapLegendLow", "HeatmapLegendHigh"):
+            assert f'AutomationProperties.AutomationId="{automation_id}"' in xaml
+        vm = self.read("ViewModels", "HistoryViewModel.cs")
+        assert "HistoryStats.WeekdayLabels(cells)" in vm, "the labels come from the cells shown"
+
+    def test_history_says_blocked_and_ended_early_never_caught(self):
+        for name in (("Views", "HistoryView.xaml"), ("ViewModels", "HistoryViewModel.cs")):
+            text = self.uncommented(self.read(*name))
+            text = "\n".join(line for line in text.splitlines() if not line.strip().startswith("//"))
+            copy = " ".join(re.findall(r'"([^"{}]*)"', text))
+            assert "caught" not in copy.lower(), name
+        assert "JournalExport.Outcome(session)" in self.read("ViewModels", "HistoryViewModel.cs")
+
+    def test_nothing_needed_blocking_is_never_beside_a_blocked_count(self):
+        """The audit: "Distractions caught 2" beside "Nothing has needed blocking yet"."""
+        vm = " ".join(self.read("ViewModels", "HistoryViewModel.cs").split())
+        note = vm.split("public string MostBlockedNoteText =>", 1)[1].split(";", 1)[0]
+        assert '_weekBlocks == 0 ? "Nothing has needed blocking yet." : ""' in note
+        assert "_weekBlocks = week.Distractions;" in vm
+
+    def test_how_momentum_works_is_a_disclosure(self):
+        xaml = self.read("Views", "HistoryView.xaml")
+        toggle = re.search(r'<ToggleButton\b[^>]*AutomationProperties\.AutomationId="MomentumExplainerButton"[^>]*/>',
+                           xaml, re.S)
+        assert toggle and 'Style="{StaticResource Disclosure}"' in toggle.group(0)
+        assert 'IsChecked="{Binding ExplainerVisible}"' in toggle.group(0)
+
+    # ---- Settings: real controls, and the license said once
+
+    def test_settings_choices_are_segmented_groups(self):
+        xaml = self.read("Views", "SettingsView.xaml")
+        for automation_id in ("GoalOffRadio", "GoalMinutesRadio", "GoalSprintsRadio",
+                              "ThemeSystemRadio", "ThemeDarkRadio", "ThemeLightRadio",
+                              "ExportCsvRadio", "ExportMarkdownRadio"):
+            radio = re.search(r'<RadioButton\b(?=[^>]*AutomationProperties\.AutomationId="'
+                              + automation_id + r'")[^>]*>', xaml, re.S)
+            assert radio and 'Style="{StaticResource SegmentItem}"' in radio.group(0), automation_id
+        assert xaml.count('Style="{StaticResource SegmentGroup}"') == 3
+
+    def test_the_license_card_states_the_trial_once_with_one_buy(self):
+        xaml = self.read("Views", "SettingsView.xaml")
+        assert "TrialDaysLeft" not in xaml, "the big days-left number repeated the status line"
+        assert xaml.count('Content="Buy Basalt') == 1
+        assert xaml.count('Style="{StaticResource BtnPrimary}"') == 1, "Buy is Settings' one Primary"
+        main_vm = self.read("ViewModels", "MainViewModel.cs")
+        assert "private bool PageHasItsOwnBuy => IsSettingsPage || ShowLockScreen;" in main_vm
+        setter = main_vm.split("public AppPage CurrentPage", 1)[1].split("switch (value)", 1)[0]
+        assert "Raise(nameof(BuyVisible));" in setter, "the rail's Buy follows the page"
+        refresh = main_vm.split("public void RefreshLockScreen()", 1)[1].split("}", 1)[0]
+        assert "Raise(nameof(BuyVisible));" in refresh, "and the lock screen"
+
+    def test_license_status_has_no_emoji(self):
+        vm = self.read("ViewModels", "SettingsViewModel.cs")
+        for text in re.findall(r'LicenseStatusText = \$?"([^"]*)"', vm):
+            assert not re.search(r"[☀-➿\U0001F300-\U0001FAFF]", text), text
+
+    def test_your_devices_is_a_disclosure(self):
+        xaml = self.read("Views", "SettingsView.xaml")
+        toggle = re.search(r'<ToggleButton\b[^>]*AutomationProperties\.AutomationId="DevicesToggleButton"[^>]*/>',
+                           xaml, re.S)
+        assert toggle and 'Style="{StaticResource Disclosure}"' in toggle.group(0)
+        assert 'Command="{Binding ToggleDevicesCommand}"' in toggle.group(0), "still loads on first open"
+
+    # ---- the lock screen: each thing once, and true
+
+    def test_the_lock_screen_says_each_thing_once(self):
+        lock = self.lock_screen()
+        main_vm = self.read("ViewModels", "MainViewModel.cs")
+        paragraph = main_vm.split("public string TrialEndedText =>", 1)[1].split(";", 1)[0]
+        records = main_vm.split("public string TrialEndedRecordsText =>", 1)[1].split(";", 1)[0]
+        settings_vm = self.read("ViewModels", "SettingsViewModel.cs")
+        ended = settings_vm.split('LicenseStatusText = "Free trial ended";', 1)[1].split("}", 1)[0]
+
+        shown = lock + paragraph + records
+        assert shown.count("Already bought it?") == 1
+        assert shown.count("$4.99") == 1, "the price once, in the paragraph"
+        assert lock.count('Content="Buy Basalt') == 1
+        assert 'LicenseDetailText = "";' in ended, \
+            "the detail line under the key field stays empty until an activation answers"
+
+    def test_the_lock_screen_mentions_records_and_the_refund_truthfully(self):
+        main_vm = self.read("ViewModels", "MainViewModel.cs")
+        paragraph = main_vm.split("public string TrialEndedText =>", 1)[1].split(";", 1)[0]
+        records = main_vm.split("public string TrialEndedRecordsText =>", 1)[1].split(";", 1)[0]
+        legal = (self.ROOT.parent / "Website" / "legal.html").read_text(encoding="utf-8")
+        assert "refund" in paragraph and "14 days" in paragraph
+        assert "within 14 days of your\n  purchase" in legal or "within 14 days of your purchase" in " ".join(legal.split()), \
+            "the app's refund promise must match legal.html's"
+        assert "stay on this PC" in records
+        assert "stored locally" in legal, "legal.html says the records are stored locally"
+        assert 'AutomationProperties.AutomationId="TrialEndedRecordsText"' in self.lock_screen()
+
+    # ---- the lit mark at the big moments
+
+    def test_the_lit_mark_is_on_first_run_and_the_lock_screen(self):
+        assert 'Source="{StaticResource BrandMarkLit}"' in self.first_run()
+        assert 'Source="{StaticResource BrandMarkLit}"' in self.lock_screen()
+        assert 'Style="{StaticResource CardRaised}"' in self.first_run()
+        assert 'Style="{StaticResource CardRaised}"' in self.lock_screen()
+
+    def test_first_run_keeps_its_question_and_the_edge_warning(self):
+        assert 'Text="What pulls you away?"' in self.first_run()
+        assert "{Binding Entry.Note}" in self.first_run(), "the Edge warning still shows under Edge"
+        vm = self.read("ViewModels", "FirstRunViewModel.cs")
+        assert "· on this PC" not in vm
+        assert "FirstRunPolicy.SourceCaption(Entry.SourceLabel, Entry.ExePath is not null)" in vm

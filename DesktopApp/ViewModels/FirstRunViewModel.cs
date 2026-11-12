@@ -39,7 +39,7 @@ public class FirstRunApp : ViewModelBase
 
     public string Caption => AlreadyBlocked
         ? "Already blocked"
-        : Entry.ExePath is not null ? $"{Entry.SourceLabel} · on this PC" : Entry.SourceLabel;
+        : FirstRunPolicy.SourceCaption(Entry.SourceLabel, Entry.ExePath is not null);
 
     public string AutomationId => "FirstRun" + Entry.AutomationId;
 }

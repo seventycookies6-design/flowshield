@@ -155,6 +155,43 @@ public static class HistoryStats
         return Math.Clamp((int)share, 1, Steps - 1);
     }
 
+    /// <summary>
+    /// The heatmap's column headings (#434): the weekday of each of its first
+    /// seven cells. Seven cells to a row, so every column is one weekday, but
+    /// which one depends on the day the window starts; the headings follow it
+    /// rather than assuming Monday. Part A: calendars have weekday labels.
+    /// </summary>
+    public static IReadOnlyList<string> WeekdayLabels(IReadOnlyList<Cell> cells) =>
+        cells.Take(7).Select(c => c.Day.ToString("ddd")).ToList();
+
+    // ---------------------------------------------------- momentum this week
+
+    /// <summary>
+    /// How far momentum moved this week (#434): the replayed score now, less
+    /// the score at the end of the Sunday before the week began. Both ends
+    /// come from <see cref="MomentumTrend.Points"/>, the replay Today's line
+    /// is drawn from, so the change and the line can never disagree.
+    /// </summary>
+    public static int MomentumChangeThisWeek(AppSettings settings, DateTime nowLocal)
+    {
+        // One point for the day before the week, then one per day so far.
+        var days = (nowLocal.Date - WeekStart(nowLocal)).Days + 2;
+        var points = MomentumTrend.Points(settings, nowLocal, days);
+        return (int)Math.Round(points[^1].Score) - (int)Math.Round(points[0].Score);
+    }
+
+    /// <summary>
+    /// The change in words, kind about a drop (Part A, principle 5): "Up 12
+    /// this week", "Down 6 this week. It recovers with your next sprint.",
+    /// "No change this week".
+    /// </summary>
+    public static string MomentumWeekText(int change) => change switch
+    {
+        > 0 => $"Up {change} this week",
+        < 0 => $"Down {-change} this week. It recovers with your next sprint.",
+        _ => "No change this week",
+    };
+
     // -------------------------------------------------- the most-blocked app
 
     /// <summary>
