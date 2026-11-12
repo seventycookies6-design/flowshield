@@ -237,6 +237,42 @@ class TestSoftShowsTheNotice:
         assert self._wait_until_focusable(back, timeout), "the notice's buttons never unlocked"
 
     @staticmethod
+    def _log_mark(app) -> int:
+        """
+        How many lines the app log holds now. The log outlives a --reset
+        launch, so an earlier test's "back to work from charmap" is still in
+        it: a test that asserts something did *not* happen reads only the
+        lines written after its own mark.
+        """
+        path = app.app_log_path()
+        if path is None:
+            return 0
+        try:
+            return len(path.read_text(encoding="utf-8", errors="replace").splitlines())
+        except OSError:
+            return 0
+
+    @staticmethod
+    def _logged_since(app, mark: int, needle: str) -> bool:
+        path = app.app_log_path()
+        if path is None:
+            return False
+        try:
+            lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+        except OSError:
+            return False
+        return any(needle.lower() in line.lower() for line in lines[mark:])
+
+    def _wait_logged_since(self, app, mark: int, needle: str, timeout=10) -> bool:
+        """Raced against a deadline rather than slept on (#146)."""
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            if self._logged_since(app, mark, needle):
+                return True
+            time.sleep(0.25)
+        return False
+
+    @staticmethod
     def _shows(overlay, auto_id, timeout=1.0) -> bool:
         """A collapsed element leaves the UIA tree, so a hidden one doesn't exist."""
         try:
@@ -296,6 +332,7 @@ class TestSoftShowsTheNotice:
         """
         process = self._decoy()
         try:
+            mark = self._log_mark(fresh_app)
             self._arm_and_start(fresh_app, process)
 
             overlay = self._overlay()
@@ -318,9 +355,9 @@ class TestSoftShowsTheNotice:
             time.sleep(1.5)
 
             assert self._overlay(timeout=2) is not None, "Enter must not answer the notice"
-            assert not fresh_app.app_log_contains(f"back to work from {self.TARGET}"), (
+            assert not self._logged_since(fresh_app, mark, f"back to work from {self.TARGET}"), (
                 "Enter must not be Back to work: no button is the default")
-            assert not fresh_app.app_log_contains(f"(pid {process.pid}) to close, as the user chose"), (
+            assert not self._logged_since(fresh_app, mark, f"soft notice: close {self.TARGET} chosen"), (
                 "Enter must never ask the blocked app to close"
             )
             assert process.poll() is None, "Enter must never close the blocked app"
@@ -339,6 +376,7 @@ class TestSoftShowsTheNotice:
         app = long_lock_app
         process = self._decoy()
         try:
+            mark = self._log_mark(app)
             self._arm_and_start(app, process)
 
             overlay = self._overlay()
@@ -361,9 +399,9 @@ class TestSoftShowsTheNotice:
             assert wait.startswith("Buttons unlock"), wait
             time.sleep(1.0)
             assert self._overlay(timeout=2) is not None, "a click inside the lock must be ignored"
-            assert not app.app_log_contains(f"soft notice: close {self.TARGET} chosen"), (
+            assert not self._logged_since(app, mark, f"soft notice: close {self.TARGET} chosen"), (
                 "Close was answered inside the lock")
-            assert not app.app_log_contains(f"back to work from {self.TARGET}")
+            assert not self._logged_since(app, mark, f"back to work from {self.TARGET}")
             assert process.poll() is None, "nothing may close the app inside the lock"
 
             self._wait_until_unlocked(overlay)
@@ -378,11 +416,8 @@ class TestSoftShowsTheNotice:
             assert back.has_keyboard_focus(), "Tab from the band must land on Back to work"
             overlay.type_keys("{SPACE}", set_foreground=False)
 
-            went_back = f"back to work from {self.TARGET}"
-            deadline = time.time() + 10
-            while time.time() < deadline and not app.app_log_contains(went_back):
-                time.sleep(0.25)
-            assert app.app_log_contains(went_back), "Tab then Space after the lock is Back to work"
+            assert self._wait_logged_since(app, mark, f"back to work from {self.TARGET}"), (
+                "Tab then Space after the lock is Back to work")
             assert process.poll() is None, "Back to work leaves the app running"
             assert self._overlay(timeout=2) is None, "Back to work takes the notice down"
         finally:
@@ -429,6 +464,7 @@ class TestSoftShowsTheNotice:
         app = real_wait_app
         process = self._decoy()
         try:
+            mark = self._log_mark(app)
             self._arm_and_start(app, process)
 
             allow = self._first_sight_of("SoftOverlayAllowButton")
@@ -451,11 +487,8 @@ class TestSoftShowsTheNotice:
                 allow.window_text() == "Allow 5 minutes", allow.window_text()
 
             overlay.child_window(auto_id="SoftOverlayBackToWorkButton").click_input()
-            went_back = f"back to work from {self.TARGET}"
-            deadline = time.time() + 10
-            while time.time() < deadline and not app.app_log_contains(went_back):
-                time.sleep(0.25)
-            assert app.app_log_contains(went_back), "Back to work was never answered"
+            assert self._wait_logged_since(app, mark, f"back to work from {self.TARGET}"), (
+                "Back to work was never answered")
 
             # Second try, after Back to work's few quiet seconds.
             time.sleep(6.0)
@@ -471,15 +504,13 @@ class TestSoftShowsTheNotice:
             allow.click_input()
             time.sleep(1.0)
             assert self._overlay(timeout=2) is not None, "a click on a waiting Allow must be ignored"
-            assert not app.app_log_contains(f"{self.TARGET} allowed for"), (
+            assert not self._logged_since(app, mark, f"{self.TARGET} allowed for"), (
                 "Allow was answered before its wait ran out")
 
             assert self._wait_until_focusable(allow, timeout=15), "Allow's wait never ran out"
             allow.click_input()
-            deadline = time.time() + 10
-            while time.time() < deadline and not app.app_log_contains(f"{self.TARGET} allowed for"):
-                time.sleep(0.25)
-            assert app.app_log_contains(f"{self.TARGET} allowed for"), "Allow works once its wait is over"
+            assert self._wait_logged_since(app, mark, f"{self.TARGET} allowed for"), (
+                "Allow works once its wait is over")
             assert process.poll() is None
         finally:
             if process.poll() is None:
