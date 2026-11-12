@@ -13,7 +13,7 @@ depth from Windows 11's own materials, Segoe UI Variable in the app, real
 controls, and the notice's input guard. Part B describes what has shipped;
 each implementation PR updates its own Part B section. The foundations (depth
 tokens, Segoe UI Variable, Segoe Fluent Icons, the control styles and Mica)
-shipped in #430; the screens are re-laid out in the PRs after it. The target screens and
+shipped in #430, and Today with its setup panel in #431; the other screens are re-laid out in the PRs after it. The target screens and
 the depth values are in [`design/redesign-2026-11/`](design/redesign-2026-11/README.md).
 
 The features these rules will be applied to are listed in
@@ -197,8 +197,8 @@ for the translucent highlights and is not emitted on its own.
 | `thumb` (`Thumb`) | `#3A3D41` | `#FFFFFF` | The picked segment (raised) |
 | `primary-grad-top` / `-bottom` | `#4FBBA4` → `#37A08B` | `#0F7A69` → `#0A5F52` | The Primary button's gradient, and a switch that is on |
 | `primary-highlight` / `primary-edge` / `primary-shadow` | white 34%, black 10%, black 34% | white 22%, black 12%, `text` 26% | The Primary button's lit edge, outline and shadow line |
-| `ring-grad-start` / `-end` | `#5CC7B0` → `#2F947F` | `#14917C` → `#0A5A4E` | The ring's progress arc (used from the Today PR) |
-| `glow` (`Glow`) | `primary` at 20% | `primary` at 13% | The teal glow while a sprint runs (used from the Today PR) |
+| `ring-grad-start` / `-end` | `#5CC7B0` → `#2F947F` | `#14917C` → `#0A5A4E` | The ring's progress arc (`RingGradient`, Today since #431) |
+| `glow` (`Glow`) | `primary` at 20% | `primary` at 13% | The teal glow while a sprint runs (`GlowGradient`, Today since #431) |
 
 The generator also writes multi-colour resources from `app_brushes` into both
 Tokens dictionaries, so they swap with the theme: `Elev1Surface`,
@@ -219,7 +219,7 @@ composited onto its top rows, since WPF has no inset shadow),
 
   The primary action is teal because it is the thing that changes state. Nothing is teal just to look branded: no teal headings, dividers, borders, illustrations or background washes. If everything is teal, nothing is. What earns the colour is that it always means the same thing, not that it is rare. (Replaces the earlier "teal is scarce" rule, #147.)
 - **Status colours are for status only.** Amber and rose never decorate. `ok` green is for "done", not for "go".
-- **Depth:** since #430 the app has the redesign's depth system: Mica (or its solid fallback) as the base, E1 cards and rail, E2 for the selected rail item, E3 flyouts, raised controls and recessed fields (§4, §7). Gradients appear only on the Primary button and a switch that is on so far; the ring arc and the glow arrive with the Today PR.
+- **Depth:** since #430 the app has the redesign's depth system: Mica (or its solid fallback) as the base, E1 cards and rail, E2 for the selected rail item, E3 flyouts, raised controls and recessed fields (§4, §7). Gradients appear in their four places only: the Primary button, a switch that is on, and since #431 the ring's arc and the glow behind it while a sprint runs.
 
 #### Contrast reference
 
@@ -264,6 +264,19 @@ translucent layer is composited onto what it sits on first, so "`text` on
 A tier 5 test (`TestDepthTokens430`) computes every passing row above from
 `design/tokens.json`. Any new token or pairing gets measured the same way
 before it ships.
+
+The setup panel's acrylic (#431), measured on 12 November 2026: the page's
+snapshot is drawn at 35% over solid `elev-3`, then the `acrylic` tint over
+that, so whatever is behind the panel contributes about a tenth. The worst
+case is the brightest (dark) or darkest (light) thing that could sit behind it:
+
+| Pair, over acrylic with … behind | Dark | Light | Result |
+| --- | --- | --- | --- |
+| `text` / `text-muted`, the Primary button behind | 9.9 / 5.3 | 14.4 / 6.3 | Pass |
+| `text` / `text-muted`, pure white (dark) or black (light) behind | 8.7 / 4.7 | 13.7 / 6.0 | Pass |
+| `warn` (the custom length's error), the same | 5.2 | 5.5 | Pass |
+
+`TestAcrylicContrast431` (tier 5) computes these from `design/tokens.json` too.
 
 ---
 
@@ -331,8 +344,9 @@ at weight 600 and the other buttons at 400.
 - **Depth in the app (#430):** the redesign's depth table, built from the tokens in §2:
   - **E0, the base:** the main window is Mica, or the solid `mica-fallback` (see "Mica and its fallback" below).
   - **E1 (`Card`, the rail):** `Elev1Surface`, a 1 px `hairline`, `ShadowE1` (blur 6, 2 down).
-  - **E2 (`CardRaised`, the selected rail item):** `Elev2Surface`, `hairline`, `ShadowE2` (blur 28, 10 down). Nothing uses `CardRaised` yet; Today's Now card will.
-  - **E3 (`Flyout`, the dropdown and the date picker's calendar):** `Elev3Surface`, `hairline`, `ShadowE3` (blur 56, 24 down). Solid E3 is acrylic's fallback; acrylic itself isn't built yet.
+  - **E2 (`CardRaised`, the selected rail item):** `Elev2Surface`, `hairline`, `ShadowE2` (blur 28, 10 down). Today's Now card uses it (#431).
+  - **E3 (`Flyout`, the dropdown, the date picker's calendar and the setup panel):** `Elev3Surface`, `hairline`, `ShadowE3` (blur 56, 24 down). Solid E3 is acrylic's fallback.
+  - **Acrylic (the setup panel, #431):** WPF has no backdrop blur, so `Views/SetupPanel.xaml.cs` takes one snapshot of the page under the panel (a `VisualBrush` of the title and page into a `RenderTargetBitmap`, reaching 1.5 blur radii past the panel), blurs it once with a 28 px `BlurEffect` into a second, frozen bitmap, and shows that under the `acrylic` tint (`elev-3` at 74%, light 78%), over the solid E3 base. Nothing blurs live: the snapshot is re-taken, debounced, when the panel opens, on a resize, a theme change, or when what Today shows beneath it changes. It is drawn only while the window's backdrop is Mica (`WindowBackdrop.Changed`), so with transparency effects off, on battery saver, on Windows 10, in software rendering or while the window is inactive the panel is solid E3, which is also what every text pair on it is measured against. **Not yet seen on a real Windows 11 PC:** on the test VM the policy reports Mica, so the acrylic is drawn there (over a window Windows paints solid).
   - **Engineering fact — highlights:** WPF has no inset box-shadow, so each surface's 1 px top highlight is the first rows of its background brush (an absolute-mapped gradient the generator composites), drawn just inside the hairline. Each shadow is one `DropShadowEffect`, where the CSS uses two layers.
 - **Mica and its fallback (#430):** `Services/WindowBackdrop.cs` asks DWM for Mica (`DWMWA_SYSTEMBACKDROP_TYPE` = `DWMSBT_MAINWINDOW` from build 22621, `DWMWA_MICA_EFFECT` on 21H2), extends the frame into the client area and clears WPF's composition background. `Models/BackdropPolicy.cs` then decides what the window's base shows: Mica (a clear background) only with transparency effects on, Windows 11, battery saver off, WPF rendering on the GPU, DWM's acceptance and the window active; otherwise the solid `MicaFallback`; and the system window colour in high contrast. It is re-decided on activation, `WM_SETTINGCHANGE`, `WM_POWERBROADCAST`, `WM_DWMCOMPOSITIONCHANGED` and rendering-tier changes. The standard title bar stays, so Snap Layouts and the system menu are Windows' own. High contrast so far changes only the base; the rest of the app's high-contrast pass (system colours on every control) is still to do. **Not yet seen on real hardware:** the test VM has no 3D, so Windows draws its own solid fallback there even though DWM accepts the request.
 - **Borders:** 1 px `hairline` on surfaces since #430; controls use `control-edge` (raised) or `well-edge` (recessed). `border` and `border-strong` remain for chips, rows and hover.
@@ -346,10 +360,11 @@ at weight 600 and the other buttons at 400.
     - **Rail:** below a 1000 px window client width it compacts to 72 px of icons, with the names as tooltips (`MainWindow.CompactRailBelow`).
     - **Card grids** (`inf:AdaptiveColumns`: History, Schedule) lay cards out in rows, left to right in reading order, as many columns as fit at the panel's minimum width, up to its maximum. Cards in a row share the row's height, so neighbours' edges line up (#406; this was a masonry layout that left them uneven). The column count is balanced over the rows, so five cards that would fit four abreast sit three and two. `FillLastRow` lets a short last row share the full width, for rows of unlike cards. Gaps are in the panel's `Spacing`, rather than the cards' margins.
     - **Settings** is one column of full-width cards, like Windows' own Settings: its groups hold one to three cards each, and no row of them could line up at every width.
-    - **Two-pane pages** give the side pane a proportional width with a minimum and maximum: Today's stats (`0.4*`, 300–420 px) and Blocked Apps' picker (`0.65*`, 260–460 px). Below a view width of 700 px (Today) or 780 px (Blocked Apps), the side pane stacks under the main one and the page scrolls.
+    - **Two-pane pages** give the side pane a proportional width with a minimum and maximum: Today's side cards (`0.46*`, 300–400 px, #431) and Blocked Apps' picker (`0.65*`, 260–460 px). Below a view width of 900 px, Today's Up next and Momentum leave the Now card's side and sit in a row under it, and below 600 px one above the other (the small-window mockup); below 780 px Blocked Apps' picker stacks under its list and the page scrolls.
+    - **Today on a short page** (view height under 600 px, #431): the cards keep their order and tighten their spacing (10 between cards, smaller padding, a 36 px Set up, field and Start, 52 px template cards, a sparkline without its range and peak), and the window's page title takes less room below a 640 px client height, so the 1092 × 614 small window shows Now, Up next, Momentum and Templates without scrolling.
     - **Fully round shapes** use `inf:Pill.IsRound`; see the engineering fact above.
     - Settings is six labelled groups with a section rail; below 900px the rail becomes a chip row. The rail marks the current group like the main rail does: a `surface-2` fill and a `primary` bar (an underline in the chip row).
-    - **Today's timer ring** is drawn at 222 px and scaled as a whole to about a third of the page's height, up to 320 px, so a tall window isn't left half empty.
+    - **Today's timer ring** is drawn at 222 px and scaled as a whole to about a third of the page's height, between 160 and 228 px since #431 (`TimerRingSize`), so it sits in the Now card at the mockups' size and shrinks on a short window.
   - **Engineering fact — fixed-height controls:** vertical padding consumes the space available for content. `BtnBase` fixes the height at 40, and navigation rows are 44 with no vertical padding, leaving room for their 20 px icons. Since #430 the button templates apply only a button's horizontal padding (`HorizontalPaddingConverter`), because a view's `Padding="48,12"` clipped the 14 px label inside the 40 px height.
   - **Site:** a 1120 px maximum width (`--maxw`).
   - **Minimum app size:** 800 × 540 (Roadmap 1.13).
@@ -358,11 +373,12 @@ at weight 600 and the other buttons at 400.
 
 ### 5. Icons
 
-- **App icons (#430):** Segoe Fluent Icons, with Segoe MDL2 Assets as the Windows 10 fallback (`IconFont` in `Styles/Icons.xaml`). Each icon is one code point (`IconToday` Clock, `IconHistory` AreaChart, `IconBlocked` Blocked, `IconSleep` QuietHours, `IconSettings`, `IconRefresh`, `IconCalendar`, the chevrons, `IconClose`, `IconMore`), shown in a `TextBlock` with the `Icon` (20) or `IconSmall` (16) style, centred in a square box. Every code point used exists in both fonts. Both fonts are part of Windows, so nothing is bundled and no notice ships.
+- **App icons (#430):** Segoe Fluent Icons, with Segoe MDL2 Assets as the Windows 10 fallback (`IconFont` in `Styles/Icons.xaml`). Each icon is one code point (`IconToday` Clock, `IconHistory` AreaChart, `IconBlocked` Blocked, `IconSleep` QuietHours, `IconSettings`, `IconRefresh`, `IconCalendar`, the chevrons, `IconClose`, `IconMore`, and since #431 `IconSetup` Equalizer, `IconPlay` and `IconUp`), shown in a `TextBlock` with the `Icon` (20) or `IconSmall` (16) style, centred in a square box. Every code point used exists in both fonts. Both fonts are part of Windows, so nothing is bundled and no notice ships.
 - **History:** Unicode glyphs (`◷`, `⊘`, `☾`, `⚙`) rendered differently across Windows versions; Lucide outlines replaced them in #151 and were the app's icons until #430. A tier 5 test still bans those symbol glyphs in views.
 - **Site icons:** [Lucide](https://lucide.dev), at 1.75 px stroke on a 24 px grid, as inline SVG. Its ISC notice ships with the site (`icons-LICENSE.txt`).
 - **Sizes:** 16 px inline with text, 20 px in navigation and buttons, 24 px for feature headings.
 - **Icons inherit** the text colour of their context; only an active item's icon is `primary`.
+- **The lit mark** (#431): `design/brand/basalt-mark-lit.svg`, the one dimensional rendering of the Causeway geometry that Part A allows at the big moments, copied into `BrandMarkLit` in `Styles/BrandMark.xaml`. Today shows it at the end of a sprint. See `design/brand/README.md`.
 - **The Causeway mark** (three basalt columns; source SVGs and spec in `design/brand/`) is the only filled brand icon. Keep it identical everywhere: the site favicon and header, the app's navigation, title bar and taskbar icon (Roadmap 1.6), the tray icon and the installer. Copy it from `design/brand/`, never redraw it; `tools/build_icons.py` builds the app's `.ico` files from those SVGs. The tile (`basalt-icon.svg`) is the same in both themes; the bare mark beside the wordmark swaps between its on-light and on-dark copies. Lit column tops (teal) mean a sprint is running: `FlowShield.Running.ico` is the Firm tile, the tray's fallback when its minute countdown can't be drawn. The shield-level glyphs in §6 stay shields.
 
 ---
@@ -381,7 +397,7 @@ notifications, the tray and the summary card.
 
 - **Strength escalates through fill and bars, never through colour changes** such as green to amber to red. That would read as danger and clash with principle 3.
 - **Selected state:** since #430 the picked chip is raised (`thumb`, a lit top edge) with the teal marker under it and its label at 600; the others are recessed (§7, segmented choices).
-- **During a sprint** the active shield's glyph sits beside the timer and in the tray icon.
+- **During a sprint** the active shield's glyph sits in the sprint's Details (#431) and in the tray icon. Before a sprint, Today's shield level is one `SegmentGroup`, each option with its glyph and name.
 - **Shared glyphs:** a XAML `DrawingImage` resource and an SVG symbol on the site, built once per platform.
 
 ---
@@ -399,7 +415,8 @@ site it's a class in `styles.css`. Names match across the two.
 | Secondary | `BtnGhost` (= `BtnBase`) | `.btn-ghost` | App (#430): raised: `control` fill, `control-highlight` top edge, `control-edge` outline, a 1 px `control-shadow` line under it, `text` label at 400. Site: `surface-2` fill, `border` | Alternatives: Copy key, Rename |
 | Quiet | `BtnQuiet` | `.btn-quiet` | No fill, `text-muted` label, `control` fill on hover | Low-emphasis: Deactivate, Open log |
 | Destructive | `BtnDanger` | `.btn-danger` | The raised control with a `danger` label and outline | Remove, End sprint anyway |
-| Icon | `BtnIcon` | — | The raised control, 36 square, a glyph inside and an `AutomationProperties.Name` | Close on a panel (from the Today PR) |
+| Icon | `BtnIcon` | — | The raised control, 36 square, a glyph inside and an `AutomationProperties.Name` | Close on the setup panel (#431) |
+| Link | `BtnLink` | — | `primary` label at 13 px with a drawn chevron, no fill, `control` on hover (#431) | Going to another place or to help only: "Edit schedules", "How momentum works" |
 
 - **App (#430):** height 40, radius 8, horizontal padding 20, 14 px. Only the horizontal padding is applied inside the fixed height (§4).
 - **Site:** height 44, radius 10, `label` type.
@@ -417,25 +434,38 @@ site it's a class in `styles.css`. Names match across the two.
 
 - **Text inputs (`Field`, #430):** recessed: the `well` fill, a `well-edge` outline and the Windows bottom line (`well-line`), which turns `primary` and 2 px thick on keyboard focus, with the 2 px focus ring as well; radius 8. An empty field shows its `AutomationProperties.HelpText` as a `text-faint` placeholder (5.41:1 dark, 6.11:1 light on the well over E2).
 - **Date pickers** (`Styles/Pickers.xaml`) are recessed like a text input, with a calendar glyph; the calendar drops down as an E3 flyout, its selected day drawn like a selected segment.
-- **Dropdown (`Dropdown`, `DropdownItem`, #430):** a `ComboBox` drawn as the recessed well with a chevron, opening an E3 flyout; the picked item has the teal marker. Not used by a screen yet (the setup panel's blocklist will be the first).
-- **Disclosure (`Disclosure`, #430):** a raised `ToggleButton` whose chevron turns to point up while open, for showing more in place (a running sprint's Details, from the Today PR). UI Automation reports it as a toggle.
-- **Labels and hints:** field labels sit above as eyebrows (upper case), hints below in `caption`, both starting at the field's left edge.
+- **Dropdown (`Dropdown`, `DropdownItem`, #430):** a `ComboBox` drawn as the recessed well with a chevron, opening an E3 flyout; the picked item has the teal marker. The setup panel's blocklist is the first screen to use it (#431).
+- **Disclosure (`Disclosure`, #430):** a raised `ToggleButton` whose chevron turns to point up while open, for showing more in place (a running sprint's Details, #431). UI Automation reports it as a toggle.
+- **Labels and hints:** field labels sit above, hints below in `caption`, both starting at the field's left edge. Since #431 Today and the setup panel label fields in sentence case (`FieldLabel`, 13 px, `text-muted`: "Shield level", "Your plan (optional)"); the other screens still use upper-case eyebrows until their own PRs. On the setup panel (E3) hints use `text-muted`, never `text-faint`.
 - **Toggles (`Switch`, #430):** a 40 × 20 recessed track with a `well-line` outline and a 12 px `text-muted` knob at the left when off; when on, the `PrimaryGradient` track with a 14 px `primary-ink` knob at the right. The label sits to the left, with an optional one-line caption. `SwitchStated` adds the state written beside the track ("On" / "Off"), for Plans' schedules.
-- **Segmented choices** (sprint length, shield level, daily goal, export format, theme), since #430: an option you could pick is recessed (the `segment-track` tone with a `well-edge` outline); the picked one is raised (the `thumb` fill, a lit top edge, `control-edge`), set at 600, with the same teal marker as the rail under its label, so selection never rests on tone alone. Radius 8. They still sit loose in rows on today's screens; `SegmentGroup` and `SegmentItem` are the grouped selector of the mockups (one recessed track, one raised thumb) for the screens that adopt it. Every pick-one choice in the app uses them; there are no stock radio buttons.
+- **Segmented choices** (sprint length, shield level, daily goal, export format, theme), since #430: an option you could pick is recessed (the `segment-track` tone with a `well-edge` outline); the picked one is raised (the `thumb` fill, a lit top edge, `control-edge`), set at 600, with the same teal marker as the rail under its label, so selection never rests on tone alone. Radius 8. Today's shield level and the setup panel's length and sprints in a row use the grouped `SegmentGroup` and `SegmentItem` (one recessed track, one raised thumb) since #431; the other screens' choices still sit loose in rows until their own PRs. Every pick-one choice in the app uses them; there are no stock radio buttons.
 - **Option cards** (`OptionCard`, first-run's shield levels): the segmented look as a full-width row, for a choice that needs a title and a line or two of explanation, with the teal marker at its left edge.
 - **Quiet buttons** pad 12 either side; one that starts a line takes a -12 margin, so its label lines up with the text above it.
 
+#### Today (#431)
+
+Today is a raised **Now** card (E2) beside two resting cards (E1), **Up next** and **Momentum**, with **Templates** below. There is no page subtitle, no upper-case label and no middle dot between facts.
+
+- **Now's status line**, beside "Now", says what is blocked right now (`RingCaption`): "Nothing is blocked.", "Sleep blocking is on." inside the nightly window, "Basalt is holding. 3 apps blocked at Firm." while a sprint runs (with a teal state dot), "Sprint complete. Nothing is blocked." after one.
+- **Ready:** the ring with the length and "ends 10:49 PM / if you start now"; a one-line summary ("One 45-minute sprint, Default blocklist, 3 apps") with **Set up**; the shield level (`SegmentGroup`) and its explanation; "Your plan (optional)" and the view's Primary, **Start sprint**. Set up opens the setup panel.
+- **Setup panel:** a right-side E3 flyout (acrylic over Mica, §4) with length (15 / 25 / 45 / 60 / 90 / Custom, segmented; Custom shows a number field), sprints in a row (1 to 4) and the blocklist (dropdown), Close and Done. The ring and the summary beneath follow each choice. Esc, Close, Done and a click outside close it, except while a custom length Start would refuse is showing its reason; Tab cycles inside it, and focus returns to Set up.
+- **Running:** the ring's arc in `RingGradient` with a soft `GlowGradient` behind it (only while a sprint runs, never during a break, never pulsing); "until 10:19 PM" under the countdown, which the title bar repeats; the plan at full contrast; a **Details** disclosure (shield, blocklist, start time, what has been blocked so far) and the end button. No Primary, and Buy leaves the rail until the sprint ends.
+- **End of a sprint:** the lit mark (§5) in the countdown's place; the result ("15 minutes focused") with its line of facts ("Firm, 10:04 PM to 10:19 PM. No blocked app was opened."); "You planned: …. What moved?", the note and the Primary **Save note** (or Not now). After a finished sprint, a **Take a break** card offers Start break and Start next sprint; there is no Skip break, and a running break has End break. Momentum then comes first in the side column, with today's change ("Up 6 today, from 186") and "Day 9 of your streak".
+- **Up next:** the next schedule start or the sleep window, whichever comes first ("10:30 PM / Sleep blocking until 6:30 AM"), or "Nothing scheduled", with a link to the Schedule page.
+- **Momentum:** the number, today's facts without zero counters ("No sprint yet today", "2 sprints today, 50 minutes focused") and the streak, with the 30-day line.
+- **Templates:** one card per template; clicking the card fills it in (a preset, not a lock), and its **Start** starts it through every gate Start has.
+
 #### Timer ring (Today)
 
-- **Ring:** 12 px stroke on a `track` circle, with the progress arc in `primary` and a round cap. Diameter: 222px, matching the app-today sketches' proportions at the app's default 1280-wide layout; scales down gracefully to the 800×540 minimum via the existing `today-small` layout path.
-- **Centre:** the `timer` number, a `caption` state line ("Shield II engaged"), and the shield glyph.
-- **Progress:** the ring shows the time left, so it starts full and drains as the sprint or break runs. The arc glides linearly between the once-a-second ticks; the digits in the centre never ease. When reduced motion is on, the arc steps once a second instead, and no pulse or glow is ever added.
+- **Ring:** a 12 px `track` circle and the progress arc, a `Path` with an `ArcSegment` stroked in `RingGradient` with round caps (#431; WPF has no conic brush, so the gradient is diagonal). Drawn at 222 px and scaled as a whole between 160 and 228 px (§4).
+- **Centre:** the `timer` number in the Display cut, then "ends …" and "if you start now" before a sprint, or "until …" during a sprint or break, and "Sprint 2 of 3" in a cycle. The status line that sat here moved to the top of the Now card in #431.
+- **Progress:** the ring shows the time left, so it starts full and drains as the sprint or break runs. The arc glides linearly between the once-a-second ticks; the digits in the centre never ease. When reduced motion is on, the arc steps once a second instead. A break's arc is `text-muted`.
 
-#### Sprint summary card (checklist F12)
+#### Sprint summary (checklist F12)
 
-- A `surface` card with **three stats in a row**: minutes, distractions caught, momentum change.
-- Below it the intention ("You planned: …"), then the one-line journal input.
-- A completed sprint shows a small `ok` check; an early end shows a neutral `text-muted` dot, never red.
+- Since #431 the end of a sprint takes the countdown's place in the Now card (see "Today" above): the minutes as a headline, one line of facts, and what the shield stopped (#349) beneath; the momentum change and the streak are in the Momentum card.
+- The plan is said once, in the note's prompt ("You planned: …. What moved?"), then the one-line note.
+- Ending early adds one neutral line under the headline ("Ended early. It'll recover."), never red.
 
 #### Lock screen (trial ended)
 
@@ -525,8 +555,9 @@ use "licence". The copy pass in §15 remains open.
   - Settings → Appearance offers System, Dark and Light; **System is the default**, and follows Windows' own app theme (`AppsUseLightTheme` under HKCU, read-only), changing with it without a restart. Done in F21 (#237).
   - **Engineering fact — Tokens merge:** the light theme is the same tokens in a second `ResourceDictionary`, rather than per-view overrides. `App.xaml` merges `Styles/Tokens.xaml` as its own entry and `ThemeService` swaps that entry for `Styles/Tokens.Light.xaml`. Nothing else may merge a Tokens file: a later merge shadows the swapped one. Every colour reference in XAML is a `DynamicResource` so it re-resolves; Part A keeps this binding.
   - **Engineering fact — Freezables and drawing:** two things cannot follow a swapped dictionary and are handled in code instead: a `DynamicResource` inside a Freezable (the shield glyphs' `DrawingImage` brushes), which is why `ShieldGlyphs.xaml` is reloaded on a change; and anything drawn rather than bound (the tray countdown icon, the DWM title bar), which re-reads its tokens on `ThemeService.Changed`.
+- **The rail's Buy button** is Secondary since #431, so it never competes with Start sprint, and it is hidden while a sprint runs (`MainViewModel.BuyVisible`).
 - **Window:**
-  - The app uses the standard Windows title bar, which Mica covers too (#430). Part A allows a custom or extended title bar when it preserves Windows behaviour and accessibility.
+  - The app uses the standard Windows title bar, which Mica covers too (#430). While a sprint runs it reads "Basalt — 11:26", the same text as the ring. Part A allows a custom or extended title bar when it preserves Windows behaviour and accessibility.
   - The window's base is Mica or its solid fallback (§4, "Mica and its fallback").
 - **Tray icon:**
   - The app's Causeway tile (`FlowShield.ico`, built from `design/brand/basalt-icon.svg`).
@@ -589,6 +620,7 @@ before/after screenshots in both themes.
 - [x] Shield glyphs built and used on Today, the site, notifications and the tray (section 6). Done in #176 (A4: `DesktopApp/Styles/ShieldGlyphs.xaml`, shared by the shield chips and the beside-timer glyph) and #178 (B3: inline SVG `<symbol>` set in `Website/index.html` reusing the same crest geometry, used by the shields section).
 - [x] Destructive and quiet button variants added (section 7). Done in #180 (A3: `BtnQuiet`/`BtnDanger` styles in `Theme.xaml`) and #178 (B3: `.btn-quiet`/`.btn-danger` classes in `styles.css`).
 - [ ] Copy pass against the word list and tone rules, including one consistent spelling of licence/license (section 9). Partial: B4/B6 (#184, #188) fixed tone on the site, but the two spellings are still mixed rather than one chosen consistently — `DesktopApp/Views/SettingsView.xaml` shows the user-facing label `Text="LICENSE KEY"` and `AutomationProperties.Name="License key"` (American), while other app and email copy uses "licence" (British); the site mixes both across `index.html`/`legal.html`/`success.html`/`checkout.js`. Left unticked.
+- [x] Today redesigned (#431): the Now card in its three states, Up next, Momentum and template cards, the setup panel with acrylic over Mica, the ring's gradient arc and the glow, the lit mark, and Buy made Secondary and hidden during a sprint ("Today" in section 7).
 - [x] Redesign foundations in the app (#430): the depth tokens and generated surfaces, gradients and shadows (sections 2, 14); Segoe UI Variable with named optical cuts, replacing the embedded Inter (section 3); Segoe Fluent Icons, replacing Lucide in the app (section 5); radii 6 / 8 / 12 and Mica with its fallback (section 4); raised buttons, recessed fields, the segmented selector, the stated switch, the disclosure and the dropdown (section 7). The screens' new layouts follow in their own PRs.
 - [x] Reduced-motion support in the app and on the site (section 8). Done in #176 (A4: `DesktopApp/Infrastructure/Motion.cs` reads `SystemParameters.ClientAreaAnimation` and zeroes every duration when it's off) and pre-existing site support (`prefers-reduced-motion` in `Website/index.html`/`styles.css`).
 - [x] Light theme in the app (section 12, checklist F21). Done in #237: `App.xaml` merges `Styles/Tokens.xaml` as its own entry and `DesktopApp/Services/ThemeService.cs` swaps it for the generated `Tokens.Light.xaml`; Settings → Appearance offers System (the default, following Windows) / Dark / Light, and every colour reference in the app's XAML is a `DynamicResource`.

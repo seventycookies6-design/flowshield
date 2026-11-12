@@ -336,8 +336,9 @@ class TestCustomSprintLengths:
     def test_the_input_is_bound_as_text_so_garbage_is_rejected(self):
         # An int-typed binding swallows "abc" as a silent binding error and
         # leaves the previous length in place with no message.
+        # #431: the custom length is in the setup panel.
         view = (Path(SERVER_DIR).parent / "DesktopApp" / "Views"
-                / "TodayView.xaml").read_text(encoding="utf-8-sig")
+                / "SetupPanel.xaml").read_text(encoding="utf-8-sig")
         assert "{Binding CustomMinutesText, UpdateSourceTrigger=PropertyChanged}" in view
         assert 'AutomationProperties.AutomationId="CustomMinutesError"' in view
 
@@ -534,14 +535,15 @@ class TestMomentumTrendView:
         horizontal gridlines in border.
         """
         xaml = self.XAML.read_text(encoding="utf-8")
-        chart = xaml.split('<Grid Height="64"', 1)[1].split("</Grid>", 1)[0]
+        chart = xaml.split('<Grid x:Name="TrendBox"', 1)[1].split("</Grid>", 1)[0]
 
         # DynamicResource since F21: a colour reference has to re-resolve when
         # the light theme swaps the tokens dictionary under it.
         assert 'Stroke="{DynamicResource Primary}"' in chart
         assert 'StrokeThickness="2"' in chart
         assert "Fill=" not in chart, "a line chart has no area fill"
-        assert chart.count("<Polyline") == 1, "no more than one series"
+        # #431: one Path that keeps the chart's box while it takes the card's width.
+        assert chart.count("<Path") == 1, "no more than one series"
         assert 'Stroke="{DynamicResource Edge}"' in chart, "gridlines use the border token"
 
         for line in chart.split("<Line")[1:]:

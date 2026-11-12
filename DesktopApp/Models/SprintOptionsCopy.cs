@@ -1,24 +1,18 @@
 namespace FlowShield.Models;
 
 /// <summary>
-/// The one line Today shows in place of the length, shield and cycle pickers
-/// (#147, the Today declutter): "25 min · Firm shield · One sprint".
+/// The one line the Now card shows for what Start will do (#147, redrawn in
+/// #431): "One 45-minute sprint", followed by the blocklist line. The setup
+/// panel holds the length, cycle and blocklist pickers; the shield selector
+/// sits right under this line, so the line no longer repeats the shield.
 ///
-/// Today leads with the timer and Start sprint, and the template chips already
-/// preset all three choices (F6), so the pickers fold away behind this line and
-/// its Change button. The line has to say what Start will actually do, so it
-/// is built from the same values Start reads, never from a template's name.
+/// The line has to say what Start will actually do, so it is built from the
+/// same values Start reads, never from a template's name. No middle dots
+/// (DESIGN_SYSTEM.md Part A, Voice; redesign README).
 /// </summary>
 public static class SprintOptionsCopy
 {
-    public const string Separator = " · ";
-
-    public static string ShieldName(ShieldLevel level) => level switch
-    {
-        ShieldLevel.Soft => "Soft shield",
-        ShieldLevel.Firm => "Firm shield",
-        _ => "Sealed shield",
-    };
+    private static readonly string[] Counts = { "One", "One", "Two", "Three", "Four" };
 
     /// <summary>0 or 1 means a single sprint; 2 to 4 is a cycle with breaks between (F5).</summary>
     public static string CycleName(int cycleSprints) => cycleSprints > 1
@@ -26,13 +20,17 @@ public static class SprintOptionsCopy
         : "One sprint";
 
     /// <summary>
+    /// "One 45-minute sprint", or "Three 45-minute sprints with breaks".
     /// <paramref name="minutes"/> is 0 while a custom length is being typed and
     /// isn't valid yet; the line says so rather than showing a length Start
     /// would refuse.
     /// </summary>
-    public static string Summary(int minutes, ShieldLevel shield, int cycleSprints)
+    public static string Summary(int minutes, int cycleSprints)
     {
-        var length = minutes > 0 ? $"{minutes} min" : "Custom length";
-        return length + Separator + ShieldName(shield) + Separator + CycleName(cycleSprints);
+        var count = cycleSprints > 1 && cycleSprints < Counts.Length ? Counts[cycleSprints] : "One";
+        var many = cycleSprints > 1;
+        if (minutes <= 0)
+            return many ? $"{count} sprints of a custom length" : "One sprint of a custom length";
+        return many ? $"{count} {minutes}-minute sprints with breaks" : $"One {minutes}-minute sprint";
     }
 }

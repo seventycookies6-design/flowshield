@@ -77,6 +77,12 @@ public sealed class WindowBackdrop
     /// <summary>The backdrop in force, for tests and the log.</summary>
     public Backdrop? Current => _current;
 
+    /// <summary>
+    /// Raised when the backdrop in force changes, so translucent surfaces (the
+    /// setup panel's acrylic, #431) follow the same policy as the window.
+    /// </summary>
+    public event EventHandler? Changed;
+
     /// <summary>What the last DWM request returned (0 is S_OK), or null if none was made.</summary>
     public int? LastResult { get; private set; }
 
@@ -172,6 +178,7 @@ public sealed class WindowBackdrop
                 break;
         }
         Log.Info($"backdrop: {backdrop.ToString().ToLowerInvariant()} ({reason}; after {why})");
+        Changed?.Invoke(this, EventArgs.Empty);
     }
 
     private BackdropConditions Read() => new(

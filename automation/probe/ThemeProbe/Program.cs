@@ -132,35 +132,32 @@ internal static class Program
     }
 
     /// <summary>
-    /// Every caption the view model can put under the timer ring (#304), laid
-    /// out in the real TodayView: the ring, the timer line, the shield glyph
-    /// beside a running sprint's caption, and the caption's own wrapping and
-    /// MaxWidth. Nothing is shown; the view is measured and arranged offscreen.
-    ///
-    /// Each caption is laid out twice: with nothing below it, where it sits
-    /// lowest and the ring is narrowest, and with a cycle's "Sprint 4 of 4"
-    /// below it, which a wrapped caption pushes further down. Boxes are in the
-    /// ring's own coordinates, as [x, y, width, height].
+    /// Every status line the view model can put beside "Now" (#304, moved out
+    /// of the ring by #431), laid out in the real TodayView with the app's own
+    /// resources and font, and the lines that stay inside the ring: the
+    /// countdown, "ends …" or "until …", "if you start now" and a cycle's
+    /// "Sprint 4 of 4". Nothing is shown; the view is measured and arranged
+    /// offscreen. Status boxes are in the Now card's coordinates and ring
+    /// boxes in the ring's own, as [x, y, width, height].
     /// </summary>
     private static List<Dictionary<string, object?>> RingCaptions()
     {
         var view = new FlowShield.Views.TodayView();
         var ring = (FrameworkElement)view.FindName("TimerRing");
+        var card = (FrameworkElement)view.FindName("NowCard");
         var caption = Find<System.Windows.Controls.TextBlock>(view, "SessionStateText");
-        var glyph = ((System.Windows.Controls.Panel)caption.Parent).Children
-            .OfType<System.Windows.Controls.Image>().Single();
         var timer = Find<System.Windows.Controls.TextBlock>(view, "SprintTimerText");
+        var ends = Find<System.Windows.Controls.TextBlock>(view, "RingEndsText");
         var cycle = Find<System.Windows.Controls.TextBlock>(view, "CycleProgressText");
-        var intention = Find<System.Windows.Controls.TextBlock>(view, "SprintIntentionText");
+        var hint = Find<System.Windows.Controls.TextBlock>(view, "RingEndsHint");
         var stroke = ((System.Windows.Shapes.Ellipse)((System.Windows.Controls.Panel)ring).Children[0]).StrokeThickness;
 
-        // Nothing is bound: the probe sets each piece the view model would. The
-        // glyph needs a real image, or it lays out at 0 × 0 inside its slot.
+        // Nothing is bound: the probe sets each piece the view model would.
         // Under an hour the timer reads MM:SS in tabular digits, so every
         // such time is as wide, and as tall, as this one; longer ones shrink.
-        glyph.Source = (ImageSource)Application.Current.FindResource("ShieldGlyphFirm");
         timer.Text = "25:00";
-        intention.Visibility = Visibility.Collapsed;
+        ends.Text = "until 10:49 PM";
+        hint.Text = "if you start now";
         cycle.Text = "Sprint 4 of 4";
 
         var typeface = new Typeface(caption.FontFamily, caption.FontStyle, caption.FontWeight, caption.FontStretch);
@@ -172,13 +169,14 @@ internal static class Program
             foreach (var below in new[] { "none", "cycle" })
             {
                 caption.Text = text;
-                glyph.Visibility = running ? Visibility.Visible : Visibility.Collapsed;
+                hint.Visibility = running ? Visibility.Collapsed : Visibility.Visible;
                 cycle.Visibility = below == "cycle" ? Visibility.Visible : Visibility.Collapsed;
 
-                // The default window's Today page is wider than this; the ring
-                // is a fixed 222 px either way.
-                view.Measure(new System.Windows.Size(900, 1600));
-                view.Arrange(new Rect(0, 0, 900, 1600));
+                // The smallest Today the window allows (800 wide less the
+                // compact rail and margins); the ring is laid out at 222 and
+                // scaled as a whole, so its own boxes don't depend on it.
+                view.Measure(new System.Windows.Size(660, 1600));
+                view.Arrange(new Rect(0, 0, 660, 1600));
                 view.UpdateLayout();
 
                 var lineHeight = caption.LineHeight > 0 ? caption.LineHeight : caption.FontSize * 1.4;
@@ -191,10 +189,12 @@ internal static class Program
                     ["fontSize"] = caption.FontSize,
                     ["font"] = font,
                     ["lines"] = (int)Math.Round(caption.ActualHeight / lineHeight),
+                    ["cardWidth"] = card.ActualWidth,
+                    ["caption"] = Box(caption, card),
                     ["ringDiameter"] = ring.ActualWidth,
                     ["ringStroke"] = stroke,
-                    ["caption"] = Box(caption, ring),
-                    ["glyph"] = running ? Box(glyph, ring) : null,
+                    ["ends"] = Box(ends, ring),
+                    ["hint"] = running ? null : Box(hint, ring),
                     ["cycle"] = below == "cycle" ? Box(cycle, ring) : null,
                     ["timerText"] = timer.Text,
                     ["timer"] = Box(timer, ring),

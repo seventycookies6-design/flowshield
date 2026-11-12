@@ -71,6 +71,10 @@
          computed off the stroke's own centreline, not the outer box. -->
     <inf:ProgressToDashConverter x:Key="ProgressDash" Radius="105" Thickness="12"/>
     <inf:PositiveToVisibilityConverter x:Key="PositiveVis"/>
+    <inf:ProgressToArcConverter x:Key="ProgressArc" Radius="105" Centre="111"/>
+    <inf:TrendGeometryConverter x:Key="TrendGeometry" Width="250" Height="64"/>
+    <inf:AppNamesConverter x:Key="AppNames"/>
+    <inf:AppNamesRefreshingConverter x:Key="AppNamesRefreshing"/>
     <inf:NonEmptyToVisibilityConverter x:Key="NonEmptyVis"/>
     <inf:ShieldLevelToGlyphConverter x:Key="ShieldGlyph"/>
     <inf:ResourceKeyToBrushConverter x:Key="ResourceKeyToBrush"/>
@@ -196,6 +200,33 @@
         <Setter Property="FontWeight" Value="SemiBold"/>
         <Setter Property="FontSize" Value="11"/>
         <Setter Property="LineHeight" Value="14"/>
+    </Style>
+
+    <!-- A card's own title, in sentence case (#431): "Now", "Up next",
+         "Momentum", "Templates". Smaller than H2, since a card title labels a
+         surface rather than heading a page section. -->
+    <Style x:Key="CardTitle" TargetType="TextBlock" BasedOn="{StaticResource Body}">
+        <Setter Property="FontSize" Value="15"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="LineHeight" Value="20"/>
+        <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
+        <Setter Property="TextWrapping" Value="NoWrap"/>
+    </Style>
+
+    <!-- A label above a control, in sentence case (#431 replaced the upper-case
+         eyebrows on Today): "Shield level", "Your plan (optional)". -->
+    <Style x:Key="FieldLabel" TargetType="TextBlock" BasedOn="{StaticResource Body}">
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="LineHeight" Value="18"/>
+        <Setter Property="Margin" Value="0,0,0,8"/>
+    </Style>
+
+    <!-- The end of a sprint's headline: "15 minutes focused". The Display cut,
+         like the countdown it stands in for. -->
+    <Style x:Key="ResultTitle" TargetType="TextBlock" BasedOn="{StaticResource H1}">
+        <Setter Property="FontSize" Value="34"/>
+        <Setter Property="LineHeight" Value="42"/>
+        <Setter Property="TextWrapping" Value="Wrap"/>
     </Style>
 
     <!-- F22: header for each of Settings' six labelled groups. Focusable so
@@ -500,6 +531,100 @@
                         </Trigger>
                         <Trigger Property="IsPressed" Value="True">
                             <Setter TargetName="bd" Property="Background" Value="{DynamicResource ControlPressed}"/>
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="focus" Property="Opacity" Value="1"/>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="bd" Property="Opacity" Value="0.45"/>
+                            <Setter Property="Cursor" Value="Arrow"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Link: going to another place or to help, and nothing else (Part A,
+         Information hierarchy): "Edit schedules", "How momentum works". The
+         label in primary (5.0:1 or better on E1 and E2, section 2) with a
+         small chevron, no fill; the control fill on hover. From the Today
+         redesign (#431). -->
+    <Style x:Key="BtnLink" TargetType="Button" BasedOn="{StaticResource BtnQuiet}">
+        <Setter Property="Foreground" Value="{DynamicResource Primary}"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="Height" Value="28"/>
+        <Setter Property="Padding" Value="8,0"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Grid>
+                        <Border x:Name="bd" Background="Transparent" CornerRadius="{StaticResource RadiusChip}"
+                                Padding="{Binding Padding, RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource HorizontalPadding}}">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <ContentPresenter VerticalAlignment="Center"/>
+                                <!-- A drawn chevron: the icon font's glyph sits low beside text. -->
+                                <Path Data="M0,0 L3.5,3.5 L0,7" Stroke="{TemplateBinding Foreground}" StrokeThickness="1.3"
+                                      StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                                      Margin="8,1,0,0" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Border>
+                        <Border x:Name="focus" BorderBrush="{DynamicResource FocusRing}" BorderThickness="2"
+                                CornerRadius="{StaticResource RadiusControl}" Margin="-3" Opacity="0" IsHitTestVisible="False"/>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="bd" Property="Background" Value="{DynamicResource Control}"/>
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="bd" Property="Background" Value="{DynamicResource ControlPressed}"/>
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="focus" Property="Opacity" Value="1"/>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="bd" Property="Opacity" Value="0.45"/>
+                            <Setter Property="Cursor" Value="Arrow"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- A template card on Today (#431): the whole card is a button that fills
+         the template in (a preset, not a lock, F6), drawn as a row of the
+         raised control material. Its Start button sits on top of it, beside
+         it in the tree rather than inside it. -->
+    <sys:Double x:Key="TemplateCardHeight">56</sys:Double>
+    <Style x:Key="TemplateCard" TargetType="Button" BasedOn="{StaticResource BtnBase}">
+        <!-- Dynamic, so Today's short-page density can lower it (#431). -->
+        <Setter Property="Height" Value="{DynamicResource TemplateCardHeight}"/>
+        <Setter Property="Padding" Value="14,0"/>
+        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Grid>
+                        <Border x:Name="bd" Background="{DynamicResource Control}" BorderBrush="{DynamicResource ControlEdge}"
+                                BorderThickness="1" CornerRadius="{StaticResource RadiusControl}">
+                            <Grid>
+                                <Border x:Name="lit" BorderBrush="{DynamicResource ControlHighlight}" BorderThickness="0,1,0,0"
+                                        CornerRadius="{StaticResource RadiusControl}" IsHitTestVisible="False"/>
+                                <ContentPresenter Margin="{Binding Padding, RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource HorizontalPadding}}"
+                                                  HorizontalAlignment="Stretch" VerticalAlignment="Center"/>
+                            </Grid>
+                        </Border>
+                        <Border x:Name="focus" BorderBrush="{DynamicResource FocusRing}" BorderThickness="2"
+                                CornerRadius="{StaticResource RadiusCard}" Margin="-4" Opacity="0" IsHitTestVisible="False"/>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="bd" Property="Background" Value="{DynamicResource ControlHover}"/>
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="bd" Property="Background" Value="{DynamicResource ControlPressed}"/>
+                            <Setter TargetName="lit" Property="Visibility" Value="Hidden"/>
                         </Trigger>
                         <Trigger Property="IsKeyboardFocused" Value="True">
                             <Setter TargetName="focus" Property="Opacity" Value="1"/>

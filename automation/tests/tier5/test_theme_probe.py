@@ -98,56 +98,44 @@ class TestBreakCopyTracksScheduledSleepWindow:
             "tick, because the window can open or close mid-break"
         )
         caption = self.copy().split("public static string Caption(")[1]
-        # #304: the resumed one is parallel again, on two lines.
-        for line in ('"Break — sleep shield still up"',
-                     '"Break resumed —\\nsleep shield still up"'):
+        # #431: one line each, beside "Now"; inside the window it names the sleep shield.
+        for line in ('"On a break. The sleep shield is still up."',
+                     '"Break resumed. The sleep shield is still up."'):
             assert line in caption, f"#301: the caption needs {line} for the sleep window"
 
-    def test_every_ring_caption_fits_inside_the_ring(self, theme_probe):
+    def test_every_status_line_fits_the_now_card_and_the_ring_lines_fit_the_ring(self, theme_probe):
         """
-        #301 and #304. The caption under the ring sat in a horizontal
-        StackPanel, which measures it at unlimited width, so it never wrapped.
-        A line wider than the ring at that height painted across the stroke,
-        and one wider than the whole ring was clipped at both ends: #301's
-        first wording showed as "eak resumed — the sleep shield is still u",
-        and "Sprint finished while Basalt was closed" (247.6 px) and
-        "Break resumed — the shield is down" (206.5 px) still overran the
-        ring's ~177 px at the caption line.
-
-        Since #304 the caption wraps, centred, inside a MaxWidth. Whether that
-        fits is a question about pixels, so the probe lays out the real
+        #301 and #304, redrawn by #431. The status line sat under the ring,
+        where a line wider than the ring painted across its stroke; since #431
+        it sits beside "Now" at the top of the Now card, where it wraps. Whether
+        that fits is a question about pixels, so the probe lays out the real
         TodayView with the app's own resources and font (Segoe UI Variable
-        Text since #430, or Segoe UI where Windows has no Variable): every
-        caption RingCaption lists, with the shield glyph beside it when a
-        sprint runs, and with nothing below it (the caption at its lowest,
-        where the ring is narrowest) or with "Sprint 4 of 4" below it. Every
-        box it reports must sit inside the ring's inner circle, corners
-        included, and no caption may take more than two lines. (The timer's
-        own box is not checked: its corners are empty line padding.)
+        Text, or Segoe UI where Windows has no Variable) at the narrowest Today
+        the window allows: every line RingCaption lists must stay inside the
+        card in at most two lines. What stays inside the ring (the countdown,
+        "until …", "if you start now" and "Sprint 4 of 4") must sit inside the
+        ring's inner circle, corners included. (The timer's own box is not
+        checked: its corners are empty line padding.)
         """
         entries = theme_probe["ringCaptions"]
-        assert entries, "the probe measured no ring captions"
-        # The measured fact the font stack relies on: a named optical cut of
-        # Segoe UI Variable resolves to SEGUIVAR.TTF (bare "Segoe UI Variable"
-        # would give plain Segoe UI), and Windows without it falls back to
-        # Segoe UI. CI's Windows Server image may be either.
+        assert entries, "the probe measured no status lines"
         import os
         fonts = Path(os.environ.get("WINDIR", r"C:\Windows")) / "Fonts"
         expected = "seguivar.ttf" if (fonts / "SEGUIVAR.TTF").exists() else "segoeui.ttf"
         for entry in entries:
             where = f"\"{entry['text']}\" ({entry['below']} below)"
-            assert entry["styled"] and entry["fontSize"] == 12, entry
+            assert entry["styled"] and entry["fontSize"] == 14, entry
             assert (entry["font"] or "").lower() == expected, (
                 f"{where} was measured in {entry['font']}, not {expected}")
-            # MM:SS in tabular digits is the widest the timer gets without
-            # shrinking further, so it is also the tallest: the worst case.
             assert re.fullmatch(r"\d\d:\d\d", entry["timerText"]), entry["timerText"]
             assert entry["timer"][3] > 55, f"{where}: the timer line was not laid out: {entry['timer']}"
             assert entry["lines"] <= 2, f"#304: {where} takes {entry['lines']} lines"
+            x, y, w, h = entry["caption"]
+            assert x >= 0 and x + w <= entry["cardWidth"], f"{where}: the status line {entry['caption']} leaves the card"
 
             radius = entry["ringDiameter"] / 2 - entry["ringStroke"]
             centre = entry["ringDiameter"] / 2
-            for name in ("caption", "glyph", "cycle"):
+            for name in ("ends", "hint", "cycle"):
                 box = entry[name]
                 if box is None:
                     continue
@@ -158,16 +146,18 @@ class TestBreakCopyTracksScheduledSleepWindow:
                         f"#304: {where}: the {name} box {box} reaches {reach:.1f} px from the "
                         f"centre, past the ring's {radius:.1f} px inner edge")
 
-    def test_the_layout_probe_covers_both_sleep_states_and_the_glyph(self, theme_probe):
+    def test_the_layout_probe_covers_both_sleep_states_and_every_shield(self, theme_probe):
         entries = theme_probe["ringCaptions"]
-        texts = {" ".join(e["text"].split()) for e in entries}
-        for text in ("Break — the shield is down", "Break resumed — the shield is down",
-                     "Break — sleep shield still up", "Break resumed — sleep shield still up",
-                     "Sprint finished while Basalt was closed", "Sprint resumed — shield III"):
+        texts = {e["text"] for e in entries}
+        for text in ("On a break. The shield is down.", "Break resumed. The shield is down.",
+                     "On a break. The sleep shield is still up.",
+                     "Break resumed. The sleep shield is still up.",
+                     "Sprint finished while Basalt was closed. Sleep blocking is on.",
+                     "Sprint resumed. 3 apps blocked at Sealed."):
             assert text in texts, f"#304: {text!r} was not laid out"
         assert {e["below"] for e in entries} == {"none", "cycle"}
-        assert all((e["glyph"] is not None) == e["running"] for e in entries), (
-            "the glyph shows beside a running sprint's caption and nowhere else")
+        assert all((e["hint"] is None) == e["running"] for e in entries), (
+            "\"if you start now\" shows before a sprint and nowhere else")
 
     def test_the_view_model_hard_codes_no_line_about_the_shield_being_down(self):
         """Every break line comes from BreakCopy, which knows about the window."""
@@ -252,13 +242,18 @@ class TestBreakCopyTracksScheduledSleepWindow:
         assignments = re.findall(r"SessionStateText\s*=(?!=)\s*([^;]*);", code)
         assignments += re.findall(r"(?<!void )BeginRunning\(([^;]*)\);", code)
         assignments += re.findall(r"_sessionStateText\s*=\s*([^;]*);", code)
-        assert len(assignments) >= 9, assignments
+        # #431: the idle lines go through one helper, ShowIdleStatus, which
+        # writes RingCaption.Status; the calls into it are checked below.
+        assert len(assignments) >= 6, assignments
         for rhs in assignments:
             rhs = " ".join(rhs.split())
             if rhs == "stateText":  # BeginRunning's own parameter
                 continue
             assert '"' not in rhs, f"#304: {rhs!r} is typed into the view model; add it to RingCaption"
             assert "RingCaption." in rhs or "BreakCopy.Caption(" in rhs, rhs
+        for lead in re.findall(r"(?<!void )ShowIdleStatus\(([^;]*)\);", code):
+            lead = " ".join(lead.split())
+            assert '"' not in lead and "RingCaption." in lead, lead
 
     def test_ring_caption_lists_every_line_it_defines(self):
         assert self.RING_CAPTION.exists(), "#304: the ring's captions live in Models/RingCaption.cs"
@@ -271,12 +266,12 @@ class TestBreakCopyTracksScheduledSleepWindow:
             assert re.search(rf"\b{member}\b", every), f"#304: RingCaption.Every() leaves out {member}"
         assert "BreakCopy.Caption(" in every, "and the four break captions"
 
-    def test_the_caption_wraps_centred_inside_the_ring(self):
+    def test_the_status_line_wraps_beside_now(self):
+        """#304's wrapping, kept since #431 moved the line to the top of the Now card."""
         xaml = (Path(DESKTOP_DIR) / "Views" / "TodayView.xaml").read_text(encoding="utf-8")
         block = xaml.split('AutomationProperties.AutomationId="SessionStateText"')[0]
         block = block[block.rindex("<TextBlock"):]
-        assert 'TextWrapping="Wrap"' in block and 'TextAlignment="Center"' in block, block
-        assert re.search(r'MaxWidth="\d+"', block), block
+        assert 'TextWrapping="Wrap"' in block, block
 
     def test_the_checklist_qualifies_the_shield_being_down_during_breaks(self):
         checklist = (Path(DESKTOP_DIR).parent / "LAUNCH_FEATURE_CHECKLIST.md").read_text(encoding="utf-8")

@@ -579,6 +579,8 @@ public class BlockedAppsViewModel : ViewModelBase
         Raise(nameof(CanEditApps));
         Raise(nameof(CanSwitchProfile));
         Raise(nameof(CanEditProfiles));
+        // Today's summary counts the blocklist's apps (#431).
+        _main.Today.RefreshProfileCaption();
         Raise(nameof(CanDeleteProfile));
     }
 

@@ -278,7 +278,9 @@ class TestBreaksAndCyclesSource:
         assert "Models.CycleState.UseShortTimers = true;" in app
 
     def test_today_names_the_break_and_the_cycle(self):
-        xaml = self.TODAY_XAML.read_text(encoding="utf-8")
+        # #431: the cycle chooser moved into the setup panel, ids and all.
+        xaml = self.TODAY_XAML.read_text(encoding="utf-8") + \
+            (self.ROOT / "Views" / "SetupPanel.xaml").read_text(encoding="utf-8")
         for automation_id in ("StartBreakButton", "SkipBreakButton", "StartNextSprintButton",
                               "BreakPanelTitle", "CycleProgressText",
                               "Cycle_Off", "Cycle_2", "Cycle_3", "Cycle_4"):
@@ -352,10 +354,10 @@ class TestBreakCopyInTheSleepWindow:
         assert long_offer.startswith("4 sprints in a row, so this break is 15 minutes."), long_offer
 
     @pytest.mark.parametrize("in_window,resumed,expected", [
-        (False, False, "Break — the shield is down"),
-        (False, True, "Break resumed —\nthe shield is down"),
-        (True, False, "Break — sleep shield still up"),
-        (True, True, "Break resumed —\nsleep shield still up"),
+        (False, False, "On a break. The shield is down."),
+        (False, True, "Break resumed. The shield is down."),
+        (True, False, "On a break. The sleep shield is still up."),
+        (True, True, "Break resumed. The sleep shield is still up."),
     ])
     def test_the_caption(self, in_window, resumed, expected):
         self.source()
@@ -365,7 +367,7 @@ class TestBreakCopyInTheSleepWindow:
     def test_inside_the_window_the_caption_says_the_sleep_shield_is_up(self, resumed):
         self.source()
         caption = break_caption(True, resumed)
-        assert "sleep shield" in caption and caption.endswith(" up"), caption
+        assert "sleep shield" in caption and caption.rstrip(".").endswith(" up"), caption
         assert "down" not in caption, "inside the window only the sprint's shield is down"
 
     @pytest.mark.parametrize("in_window,on_break,is_long", BREAK_COPY_CASES)

@@ -27,6 +27,7 @@ teal only for *state*, one mark identical everywhere.
 | `basalt-mark-on-light.svg` | Bare mark (no tile) beside the wordmark on light backgrounds (`bg` `#ECEBE7`). Joints are `#ECEBE7`. |
 | `basalt-mark-on-dark.svg` | Bare mark on dark backgrounds (`bg` `#141517`). Joints are `#141517`. |
 | `basalt-mark-mono.svg` | One colour via `currentColor`; set `--basalt-ground` to the surface colour (joints). Tray, print, engraving. |
+| `basalt-mark-lit.svg` | The lit mark: the one dimensional rendering, for the big moments only (see below). |
 
 ## Geometry (all coordinates in the 100x100 tile)
 
@@ -55,6 +56,30 @@ Lit tops use the teal for *state* (a sprint is running), which is exactly the
 meaning DESIGN_SYSTEM.md §2 allows. Shield level is shown by how many tops are
 lit (1 Soft, 2 Firm, 3 Sealed), consistent with §6: escalation by fill and
 count, never by a colour change.
+
+## The lit mark
+
+DESIGN_SYSTEM.md Part A allows one exception to the flat mark: a lit,
+dimensional rendering of the same geometry at the big moments (the end of a
+sprint, first run, the end of the trial). `basalt-mark-lit.svg` is that
+rendering, made once in #431 and copied like the flat mark, never redrawn.
+
+- **Geometry:** the twelve polygons of `basalt-mark-on-dark.svg`, unchanged
+  and in the same order. Only the fills and the joints differ.
+- **Light:** one light, from above. Top faces are brightest (`#F6F6F4` to
+  `#D3D4D1` from back to front edge), and each side face runs from lighter at
+  its top edge to darker at its foot: left `#B9BCC0` to `#7C7F84`, front
+  `#8E9196` to `#4F5257`, right `#62656A` to `#323438`. So the faces keep the
+  flat mark's order (left lightest, right darkest).
+- **Joints:** 0.8 unit strokes in `#202124`, `stroke-linejoin: round`.
+- **Ground:** a soft contact shadow under the columns (black, 34% at its
+  centre, fading to nothing), so the mark stands on the surface.
+- **Same in both themes:** fixed greys like the flat mark, not theme tokens.
+- **In the app:** `BrandMarkLit` in `DesktopApp/Styles/BrandMark.xaml`, copied
+  face for face from the SVG. Today shows it in the countdown's place at the
+  end of a sprint.
+- **Never** use it as the app icon, in the rail or anywhere small, and never
+  derive a new flat mark from it.
 
 ## Wordmark
 

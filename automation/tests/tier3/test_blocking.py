@@ -468,7 +468,6 @@ class TestDistractionsAreCountedPerApp:
             time.sleep(0.6)
 
             fresh_app.navigate_to_tab("Today")
-            assert fresh_app.text_of("BlocksTodayValue") == "0"
 
             fresh_app.choose("Shield_Firm")
             time.sleep(0.4)
@@ -488,8 +487,11 @@ class TestDistractionsAreCountedPerApp:
             )
 
             time.sleep(2.5)
-            counted = fresh_app.text_of("BlocksTodayValue")
-            assert counted == "1", (
+            # #431: the running sprint's count is in Details (Today's three
+            # counters went); the same deduplicated count the summary shows.
+            fresh_app.click("SprintDetailsToggle")
+            counted = fresh_app.text_of("SprintBlocksText")
+            assert counted == "1 distraction blocked so far", (
                 f"{len(processes)} processes of one blocked app were closed; the "
                 f"customer should see one distraction, not {counted}"
             )

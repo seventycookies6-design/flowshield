@@ -90,8 +90,10 @@ class TestBreaksAndCycles:
             "a completed sprint must offer a break"
         assert cycle_app.text_of("BreakPanelTitle") == "Take a break"
         assert "5 minutes" in cycle_app.text_of("BreakPanelText")
-        for control in ("StartBreakButton", "SkipBreakButton", "StartNextSprintButton"):
+        for control in ("StartBreakButton", "StartNextSprintButton"):
             assert cycle_app.exists(control, timeout=3), f"{control} is missing from the card"
+        # #431: no Skip break on the offer; starting the next sprint is the skip.
+        assert not cycle_app.exists("SkipBreakButton", timeout=1), "the offer has no Skip break"
 
     def test_a_sprint_ended_early_offers_no_break(self, fresh_app):
         """A normal 15-minute sprint, ended by hand after its grace period."""
@@ -101,7 +103,7 @@ class TestBreaksAndCycles:
         fresh_app.stop_sprint()
         time.sleep(1.0)
 
-        assert fresh_app.exists("SummaryTitle", timeout=5), "the summary card should be up"
+        assert fresh_app.exists("SummaryMinutesValue", timeout=5), "the end of the sprint should be up"
         assert not fresh_app.exists("StartBreakButton", timeout=2), \
             "ending early must not be rewarded with a break"
 
@@ -217,14 +219,19 @@ class TestBreaksAndCycles:
         assert cycle_app.exists("StartBreakButton", timeout=20)
 
         momentum_before = cycle_app.text_of("MomentumValue")
-        minutes_before = cycle_app.text_of("FocusMinutesValue")
+        cycle_app.click("SaveJournalButton")          # Today's facts show once the note is done
+        today_before = cycle_app.text_of("TodayFactsText")
 
+        # #431: no Skip break on the offer, so the break is taken and cut
+        # short with End break, the same free path the old Skip took mid-break.
+        cycle_app.click("StartBreakButton")
+        assert cycle_app.exists("SkipBreakButton", timeout=3), "End break shows while a break runs"
         cycle_app.click("SkipBreakButton")
         time.sleep(1.0)
 
         assert cycle_app.text_of("MomentumValue") == momentum_before, \
-            "skipping a break must not change momentum"
-        assert cycle_app.text_of("FocusMinutesValue") == minutes_before, \
+            "a break must not change momentum"
+        assert cycle_app.text_of("TodayFactsText") == today_before, \
             "a break is not focus time"
 
 
@@ -536,7 +543,7 @@ class TestScheduledSprints:
     def _wait_for_sprint(app, timeout: float = 40) -> bool:
         deadline = time.time() + timeout
         while time.time() < deadline:
-            if "Shield" in app.session_state():
+            if "holding" in app.session_state():
                 return True
             time.sleep(0.5)
         return False
@@ -595,7 +602,7 @@ class TestScheduledSprints:
         # Past the start and its on-time window: nothing started.
         self._wait_past_the_start(at)
         assert verify.read_settings().get("ActiveSprint") is None
-        assert "Shield" not in schedule_app.session_state()
+        assert "holding" not in schedule_app.session_state()
 
     def test_the_heads_up_names_the_app_it_will_close_and_stands_in_for_the_question(
             self, schedule_app, tmp_path):
@@ -703,7 +710,7 @@ class TestScheduledSprints:
         seen = len(self._log_lines(schedule_app))
         assert stopped_at < at, f"the sprint ended after the start; too slow for the {self.LEAD_SECONDS}-second lead"
         ended_by = time.time() + 5
-        while "Shield" in schedule_app.session_state():
+        while "holding" in schedule_app.session_state():
             assert time.time() < ended_by, "the Stop press did not end the sprint"
             time.sleep(0.2)
 
@@ -717,7 +724,7 @@ class TestScheduledSprints:
         # Past the start and its on-time window: offered, not started.
         self._wait_past_the_start(at)
         assert verify.read_settings().get("ActiveSprint") is None
-        assert "Shield" not in schedule_app.session_state()
+        assert "holding" not in schedule_app.session_state()
         assert schedule_app.exists("HeadsUpStartNowButton", timeout=0.5), "the offer stays up"
         assert self._start_notices_since(schedule_app, seen, "ScheduledSprint") == ["ScheduledSprint"], \
             "the offer is announced once, and no start is"
@@ -739,38 +746,40 @@ class TestScheduledSprints:
         settings = verify.wait_for_settings(lambda st: st["CycleSprints"] == 3, what="the template's cycle")
         assert settings["CycleSprints"] == 3
 
-    def test_the_sprint_options_are_folded_until_change(self, fresh_app):
+    def test_the_sprint_options_are_in_the_setup_panel_until_set_up(self, fresh_app):
         """
-        #147: idle, Today is the timer, the templates and Start sprint. The
-        pickers sit behind one summary line, and a template chip updates the
-        line without opening them. Looked up by element() directly, which
-        does not go through the driver's unfolding.
+        #147, moved into the setup panel by #431: idle, Today is the ring, the
+        shield level, the plan and Start sprint. Length, cycle and blocklist
+        sit in the panel behind Set up, and a template card updates the summary
+        without opening it. Looked up by element() directly, which does not go
+        through the driver's opening of the panel.
         """
         fresh_app.navigate_to_tab("Today")
         toggle = fresh_app.element("SprintOptionsToggle", timeout=3)
-        assert toggle.window_text() == "Change sprint options"
+        assert toggle.window_text() == "Set up this sprint"
         assert self._shown_without_unfolding(fresh_app, "SprintLength_25") is False, \
-            "the length picker is folded away by default"
+            "the length picker is in the closed panel by default"
+        assert self._shown_without_unfolding(fresh_app, "Shield_Firm") is True, \
+            "the shield level stays on Today, next to Start"
 
         fresh_app.click("TemplateChip_Homework evening")
-        assert fresh_app.text_of("SprintOptionsSummary") == \
-            "45 min · Firm shield · 3 sprints with breaks"
-        assert self._shown_without_unfolding(fresh_app, "Shield_Firm") is False, \
-            "a template fills the choices in without unfolding them"
+        assert fresh_app.text_of("SprintOptionsSummary") == "Three 45-minute sprints with breaks"
+        assert self._shown_without_unfolding(fresh_app, "Cycle_3") is False, \
+            "a template fills the choices in without opening the panel"
 
         fresh_app.click("SprintOptionsToggle")
-        assert self._shown_without_unfolding(fresh_app, "Shield_Firm") is True
-        assert fresh_app.element("SprintOptionsToggle").window_text() == "Hide sprint options"
+        assert self._shown_without_unfolding(fresh_app, "Cycle_3") is True
+        assert fresh_app.element("SprintOptionsToggle").window_text() == "Close sprint setup"
 
-        fresh_app.click("SprintOptionsToggle")
-        assert self._shown_without_unfolding(fresh_app, "Shield_Firm") is False
+        fresh_app.click("SetupPanelDone")
+        assert self._shown_without_unfolding(fresh_app, "Cycle_3") is False
 
     def test_the_sprint_options_hide_while_a_sprint_runs(self, fresh_app):
         fresh_app.navigate_to_tab("Today")
-        fresh_app.click("SprintOptionsToggle")
         fresh_app.start_sprint()
         fresh_app.wait_until_gone("SprintOptionsToggle")      # the timer is the screen (§1)
         assert self._shown_without_unfolding(fresh_app, "Shield_Firm") is False
+        assert self._shown_without_unfolding(fresh_app, "SprintLength_25") is False
 
     @staticmethod
     def _shown_without_unfolding(app, auto_id: str) -> bool:

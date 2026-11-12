@@ -384,7 +384,9 @@ class TestBlocklistProfilesKeepTheirPromises:
     def test_the_switcher_is_also_disabled_while_sealed(self):
         assert "public bool CanSwitchProfile => !IsSealed && !_main.IsLocked;" in self.BLOCKED_VM
         assert 'IsEnabled="{Binding CanSwitchProfile}"' in self.BLOCKED_XAML
-        assert 'IsEnabled="{Binding CanSwitchProfile}"' in self.TODAY_XAML
+        # #431: Today's switcher is the setup panel's blocklist dropdown.
+        panel = (Path(DESKTOP_DIR) / "Views" / "SetupPanel.xaml").read_text(encoding="utf-8")
+        assert 'IsEnabled="{Binding CanSwitchProfile}"' in panel
 
     def test_renaming_duplicating_and_deleting_are_sealed_too(self):
         """A Sealed sprint's blocklist cannot be renamed out from under it either."""

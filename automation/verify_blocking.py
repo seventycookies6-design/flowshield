@@ -125,14 +125,15 @@ def main() -> int:
             raise AssertionError(f"{TARGET} survived a relaunch mid-sprint: {survived}")
         log.passed("closed again on relaunch")
 
-        log.begin("The block is counted in Today's stats")
+        log.begin("The block is counted in the sprint's summary")
         ctrl.stop_sprint()
         time.sleep(1.2)
-        blocks = ctrl.text_of("BlocksTodayValue")
+        # #431: Today's counters went; the end of the sprint says what the shield did.
+        blocks = ctrl.text_of("SummaryDistractionsValue")
         log.shot("today-stats", ctrl.hwnd)
-        if not blocks.strip().isdigit() or int(blocks) < 1:
-            raise AssertionError(f"'Distractions blocked' shows {blocks!r}, expected at least 1")
-        log.passed(f"distractions blocked today = {blocks}")
+        if not blocks.startswith(("Basalt closed", "Basalt sent")) and "caught" not in blocks:
+            raise AssertionError(f"the summary says {blocks!r}, expected a closed or caught app")
+        log.passed(f"the summary says: {blocks}")
 
     except Exception as exc:                       # noqa: BLE001
         log.exception(exc)

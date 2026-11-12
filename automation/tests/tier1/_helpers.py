@@ -724,14 +724,12 @@ def break_panel_text(in_window: bool, on_break: bool, is_long: bool, minutes, en
 
 def break_caption(in_window: bool, resumed: bool) -> str:
     """
-    Mirror of BreakCopy.Caption: the state line under the ring while a break
-    runs. Since #304 it may take two lines inside the ring (tier 5 lays each
-    one out), so the resumed pair is parallel again, and each breaks after
-    its dash rather than wherever the width runs out.
+    Mirror of BreakCopy.Caption: the status line beside "Now" while a break
+    runs (#431; it sat under the ring before). One line each, as sentences.
     """
     if in_window:
-        return "Break resumed —\nsleep shield still up" if resumed else "Break — sleep shield still up"
-    return "Break resumed —\nthe shield is down" if resumed else "Break — the shield is down"
+        return "Break resumed. The sleep shield is still up." if resumed else "On a break. The sleep shield is still up."
+    return "Break resumed. The shield is down." if resumed else "On a break. The shield is down."
 
 
 #: Inside or outside the window × running or offered × long or short.

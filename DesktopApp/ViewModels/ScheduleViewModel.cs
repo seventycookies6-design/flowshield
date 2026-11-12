@@ -248,6 +248,7 @@ public class ScheduleViewModel : ViewModelBase
         Refresh();
         // A card on Today for this schedule has nothing left to offer (F6).
         _main.Today.DropStaleHeadsUp(DateTime.UtcNow);
+        _main.Today.RefreshUpNext(DateTime.UtcNow);
         Log.Info($"schedule deleted: {row.TemplateName}");
     }
 
@@ -261,6 +262,7 @@ public class ScheduleViewModel : ViewModelBase
         _main.SaveSettings();
         NextUpText = BuildNextUp(DateTime.UtcNow, TimeZoneInfo.Local);
         _main.Today.DropStaleHeadsUp(DateTime.UtcNow);
+        _main.Today.RefreshUpNext(DateTime.UtcNow);
         Log.Info($"schedule {(enabled ? "on" : "off")}: {row.TemplateName}");
     }
 
@@ -404,6 +406,7 @@ public class ScheduleViewModel : ViewModelBase
         Refresh();
         TemplatesChanged?.Invoke(this, EventArgs.Empty);
         _main.Today.DropStaleHeadsUp(DateTime.UtcNow);
+        _main.Today.RefreshUpNext(DateTime.UtcNow);
         Log.Info($"template deleted: {template.Name}, with {count} schedule(s)");
     }
 
@@ -473,6 +476,10 @@ public class TemplateRow : ViewModelBase
 
     public StudyTemplate Template { get; }
     public string Name => Template.Name;
+
+    /// <summary>Today's template card (#431): "45 min at Firm", beside the shield's glyph.</summary>
+    public string Detail => $"{Template.SprintMinutes} min at {Template.Shield}";
+    public ShieldLevel Shield => Template.Shield;
 }
 
 /// <summary>One chip in an editor: a day, a template or a blocklist.</summary>

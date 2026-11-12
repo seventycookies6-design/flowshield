@@ -75,7 +75,9 @@ class TestRingSizeFor:
     def test_clamps_scales_monotonically_and_handles_non_finite_heights(self):
         heights = [0, 400, 700, 900, 1200, 2000, "NaN", "Infinity", "-Infinity"]
         sizes = probe({"cmd": "ring-size", "heights": heights})["sizes"]
-        assert sizes[:1] == [222]
+        # #431: the ring sits inside the Now card, 160 on the small window
+        # and 228 (the mockups' size) on a tall one.
+        assert sizes[:1] == [160]
         assert sizes[1:6] == sorted(sizes[1:6])
-        assert sizes[1] == 222 and sizes[5] == 320
-        assert sizes[6:] == [222, 222, 222]
+        assert sizes[1] == 160 and sizes[5] == 228
+        assert sizes[6:] == [160, 160, 160]

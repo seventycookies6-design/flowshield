@@ -1,0 +1,205 @@
+<UserControl x:Class="FlowShield.Views.SetupPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Name="Root"
+             IsVisibleChanged="OnIsVisibleChanged">
+    <!-- The setup panel (#431): the full sprint settings, one click from
+         Today's Set up (Part A, Information hierarchy). A right-side flyout,
+         E3: acrylic while the window's backdrop is Mica (one blurred snapshot
+         of the page under it, SetupPanel.xaml.cs), and the solid E3 surface
+         otherwise, which is also what every text pair here is measured on.
+         text-faint fails contrast on E3, so nothing here uses it (no Caption
+         style, no placeholder). Length, sprints in a row and the blocklist
+         live here; the shield level stays on Today next to Start. Close,
+         Done, Esc and a click outside all close it, unless a custom length
+         Start would refuse is showing its reason (#147). -->
+    <Grid>
+        <!-- A click outside the panel closes it (light dismiss). Transparent,
+             so the ring and the summary stay visible as they change. -->
+        <Border x:Name="Outside" Background="Transparent" MouseDown="OnOutsideMouseDown"/>
+
+        <Grid x:Name="Panel" Width="480" HorizontalAlignment="Right" Margin="0,8,8,8"
+              KeyboardNavigation.TabNavigation="Cycle" KeyboardNavigation.ControlTabNavigation="Cycle"
+              PreviewKeyDown="OnPanelKeyDown" SizeChanged="OnPanelSizeChanged">
+            <!-- The base: E3 with its shadow. Under acrylic it is what shows
+                 where the page beneath is clear (Mica). -->
+            <Border x:Name="PanelBase" Style="{StaticResource Flyout}" Padding="0"/>
+
+            <!-- Acrylic: the page beneath, blurred once, under the 74% tint.
+                 The snapshot is drawn at 35% over the solid E3 base, so the
+                 page shows through at about a tenth: then every text pair
+                 here passes AA over the brightest thing that could be behind
+                 it, pure white or black included (Part A, Depth; measured in
+                 DESIGN_SYSTEM.md section 2). -->
+            <Grid x:Name="AcrylicLayer" Visibility="Collapsed" IsHitTestVisible="False">
+                <Image x:Name="AcrylicImage" Stretch="None" HorizontalAlignment="Left" VerticalAlignment="Top" Opacity="0.35"/>
+                <Border Background="{DynamicResource Acrylic}"/>
+            </Grid>
+
+            <!-- The hairline and the 1 px top highlight, over either base. -->
+            <Border BorderBrush="{DynamicResource Hairline}" BorderThickness="1" CornerRadius="{StaticResource RadiusCard}"
+                    IsHitTestVisible="False"/>
+            <Border BorderBrush="{DynamicResource Highlight3}" BorderThickness="0,1,0,0" Margin="1"
+                    CornerRadius="{StaticResource RadiusCard}" IsHitTestVisible="False"/>
+
+            <DockPanel Margin="24,20,24,20">
+                <!-- header -->
+                <Grid DockPanel.Dock="Top">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel>
+                        <TextBlock Text="Set up this sprint" Style="{StaticResource H2}" FontSize="20" LineHeight="28"
+                                   AutomationProperties.AutomationId="SetupPanelTitle"/>
+                        <TextBlock Text="{Binding SetupPanelEndsText}" Style="{StaticResource Body}" Margin="0,2,0,0"
+                                   AutomationProperties.AutomationId="SetupPanelEndsText"/>
+                    </StackPanel>
+                    <Button x:Name="CloseButton" Grid.Column="1" Style="{StaticResource BtnIcon}" VerticalAlignment="Top"
+                            Command="{Binding CloseSprintOptionsCommand}"
+                            AutomationProperties.AutomationId="SetupPanelClose"
+                            AutomationProperties.Name="Close sprint setup">
+                        <TextBlock Style="{StaticResource IconSmall}" FontSize="12" Text="{StaticResource IconClose}"/>
+                    </Button>
+                </Grid>
+
+                <!-- footer -->
+                <StackPanel DockPanel.Dock="Bottom">
+                    <Border Height="1" Background="{DynamicResource Divider}" Margin="-24,16,-24,16"/>
+                    <Grid>
+                        <TextBlock Text="The shield level stays on Today, next to Start." Style="{StaticResource Body}"
+                                   FontSize="13" VerticalAlignment="Center" Margin="0,0,96,0"/>
+                        <Button Style="{StaticResource BtnGhost}" Content="Done" HorizontalAlignment="Right" Padding="28,0"
+                                Command="{Binding CloseSprintOptionsCommand}"
+                                AutomationProperties.AutomationId="SetupPanelDone"
+                                AutomationProperties.Name="Done"/>
+                    </Grid>
+                </StackPanel>
+
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False"
+                              Margin="0,16,0,0" AutomationProperties.AutomationId="SetupPanelScroll">
+                    <StackPanel>
+                        <!-- length -->
+                        <TextBlock Text="Length in minutes" Style="{StaticResource FieldLabel}"/>
+                        <Border Style="{StaticResource SegmentGroup}" HorizontalAlignment="Stretch"
+                                IsEnabled="{Binding IsRunning, Converter={StaticResource InvBool}}">
+                            <UniformGrid Rows="1">
+                                <RadioButton x:Name="FirstLength" Style="{StaticResource SegmentItem}" GroupName="SprintLength" Content="15"
+                                             Padding="4,0"
+                                             AutomationProperties.AutomationId="SprintLength_15"
+                                             AutomationProperties.Name="15 minute sprint"
+                                             IsChecked="{Binding PresetMinutes, Converter={StaticResource IntEq}, ConverterParameter=15}"/>
+                                <RadioButton Style="{StaticResource SegmentItem}" GroupName="SprintLength" Content="25" Padding="4,0"
+                                             AutomationProperties.AutomationId="SprintLength_25"
+                                             AutomationProperties.Name="25 minute sprint"
+                                             IsChecked="{Binding PresetMinutes, Converter={StaticResource IntEq}, ConverterParameter=25}"/>
+                                <RadioButton Style="{StaticResource SegmentItem}" GroupName="SprintLength" Content="45" Padding="4,0"
+                                             AutomationProperties.AutomationId="SprintLength_45"
+                                             AutomationProperties.Name="45 minute sprint"
+                                             IsChecked="{Binding PresetMinutes, Converter={StaticResource IntEq}, ConverterParameter=45}"/>
+                                <RadioButton Style="{StaticResource SegmentItem}" GroupName="SprintLength" Content="60" Padding="4,0"
+                                             AutomationProperties.AutomationId="SprintLength_60"
+                                             AutomationProperties.Name="60 minute sprint"
+                                             IsChecked="{Binding PresetMinutes, Converter={StaticResource IntEq}, ConverterParameter=60}"/>
+                                <RadioButton Style="{StaticResource SegmentItem}" GroupName="SprintLength" Content="90" Padding="4,0"
+                                             AutomationProperties.AutomationId="SprintLength_90"
+                                             AutomationProperties.Name="90 minute sprint"
+                                             IsChecked="{Binding PresetMinutes, Converter={StaticResource IntEq}, ConverterParameter=90}"/>
+                                <RadioButton Style="{StaticResource SegmentItem}" GroupName="SprintLength" Content="Custom" Padding="4,0"
+                                             AutomationProperties.AutomationId="SprintLength_Custom"
+                                             AutomationProperties.Name="Custom sprint length"
+                                             IsChecked="{Binding IsCustomSelected}"/>
+                            </UniformGrid>
+                        </Border>
+
+                        <!-- Custom shows a number field (redesign control table). -->
+                        <StackPanel Margin="0,12,0,0"
+                                    Visibility="{Binding CustomInputVisible, Converter={StaticResource BoolVis}}">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBox Width="80" Height="40" Style="{StaticResource Field}"
+                                         Text="{Binding CustomMinutesText, UpdateSourceTrigger=PropertyChanged}"
+                                         AutomationProperties.AutomationId="CustomMinutesInput"
+                                         AutomationProperties.Name="Custom minutes"/>
+                                <TextBlock Text="minutes, from 5 to 240" Style="{StaticResource Body}" FontSize="13"
+                                           VerticalAlignment="Center" Margin="12,0,0,0"/>
+                            </StackPanel>
+                            <TextBlock Text="{Binding CustomMinutesError}" Style="{StaticResource Body}" FontSize="13"
+                                       Foreground="{DynamicResource Amber}" Margin="0,8,0,0"
+                                       Visibility="{Binding CustomMinutesErrorVisible, Converter={StaticResource BoolVis}}"
+                                       AutomationProperties.AutomationId="CustomMinutesError"/>
+                        </StackPanel>
+
+                        <!-- cycle (F5): sprints in a row, with breaks between them -->
+                        <TextBlock Text="Sprints in a row" Style="{StaticResource FieldLabel}" Margin="0,24,0,8"/>
+                        <Border Style="{StaticResource SegmentGroup}"
+                                IsEnabled="{Binding IsRunning, Converter={StaticResource InvBool}}">
+                            <StackPanel Orientation="Horizontal">
+                                <RadioButton Style="{StaticResource SegmentItem}" GroupName="Cycle" Content="1" Width="52" Padding="0"
+                                             AutomationProperties.AutomationId="Cycle_Off"
+                                             AutomationProperties.Name="One sprint, no cycle"
+                                             IsChecked="{Binding CycleSprints, Converter={StaticResource IntEq}, ConverterParameter=0}"/>
+                                <RadioButton Style="{StaticResource SegmentItem}" GroupName="Cycle" Content="2" Width="52" Padding="0"
+                                             AutomationProperties.AutomationId="Cycle_2"
+                                             AutomationProperties.Name="Two sprints with breaks"
+                                             IsChecked="{Binding CycleSprints, Converter={StaticResource IntEq}, ConverterParameter=2}"/>
+                                <RadioButton Style="{StaticResource SegmentItem}" GroupName="Cycle" Content="3" Width="52" Padding="0"
+                                             AutomationProperties.AutomationId="Cycle_3"
+                                             AutomationProperties.Name="Three sprints with breaks"
+                                             IsChecked="{Binding CycleSprints, Converter={StaticResource IntEq}, ConverterParameter=3}"/>
+                                <RadioButton Style="{StaticResource SegmentItem}" GroupName="Cycle" Content="4" Width="52" Padding="0"
+                                             AutomationProperties.AutomationId="Cycle_4"
+                                             AutomationProperties.Name="Four sprints with breaks"
+                                             IsChecked="{Binding CycleSprints, Converter={StaticResource IntEq}, ConverterParameter=4}"/>
+                            </StackPanel>
+                        </Border>
+                        <TextBlock Text="{Binding CycleDescription}" Style="{StaticResource Body}" FontSize="13"
+                                   Margin="0,8,0,0" TextWrapping="Wrap"
+                                   AutomationProperties.AutomationId="CycleDescriptionText"/>
+
+                        <!-- blocklist (F9): the same switch as Blocked Apps, so
+                             Sealed's lock is one rule in one place -->
+                        <TextBlock Text="Blocklist" Style="{StaticResource FieldLabel}" Margin="0,24,0,8"/>
+                        <ComboBox Style="{StaticResource Dropdown}" Height="44"
+                                  ItemsSource="{Binding Profiles}"
+                                  SelectedItem="{Binding SelectedProfile, Mode=TwoWay}"
+                                  IsEnabled="{Binding CanSwitchProfile}"
+                                  AutomationProperties.AutomationId="TodayBlocklistDropdown"
+                                  AutomationProperties.Name="Blocklist for this sprint">
+                            <ComboBox.ItemContainerStyle>
+                                <Style TargetType="ComboBoxItem" BasedOn="{StaticResource DropdownItem}">
+                                    <Setter Property="AutomationProperties.AutomationId"
+                                            Value="{Binding Name, StringFormat=TodayProfile_{0}}"/>
+                                    <Setter Property="AutomationProperties.Name"
+                                            Value="{Binding Name, StringFormat=Use the {0} blocklist}"/>
+                                </Style>
+                            </ComboBox.ItemContainerStyle>
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" Foreground="{DynamicResource Ink}"
+                                                   VerticalAlignment="Center"/>
+                                        <TextBlock Foreground="{DynamicResource InkDim}" Margin="12,0,0,0" VerticalAlignment="Center"
+                                                   TextTrimming="CharacterEllipsis" MaxWidth="300">
+                                            <TextBlock.Text>
+                                                <!-- the revision makes it re-read Apps, a plain list -->
+                                                <MultiBinding Converter="{StaticResource AppNamesRefreshing}">
+                                                    <Binding Path="Apps"/>
+                                                    <Binding Path="DataContext.ProfilesRevision"
+                                                             RelativeSource="{RelativeSource AncestorType=ComboBox}"/>
+                                                </MultiBinding>
+                                            </TextBlock.Text>
+                                        </TextBlock>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                        <Button Style="{StaticResource BtnLink}" Content="Edit blocklists" HorizontalAlignment="Left"
+                                Margin="-8,8,0,0" Command="{Binding OpenBlocklistsCommand}"
+                                AutomationProperties.AutomationId="SetupPanelBlocklistsLink"
+                                AutomationProperties.Name="Edit blocklists, on the Blocked Apps page"/>
+                    </StackPanel>
+                </ScrollViewer>
+            </DockPanel>
+        </Grid>
+    </Grid>
+</UserControl>

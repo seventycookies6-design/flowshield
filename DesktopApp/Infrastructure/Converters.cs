@@ -6,6 +6,8 @@ using System.Windows.Media;
 // System.Drawing is in scope through the tray code's global usings, and it has a
 // Color of its own; this file means the WPF one.
 using MediaColor = System.Windows.Media.Color;
+using Point = System.Windows.Point;
+using Size = System.Windows.Size;
 
 namespace FlowShield.Infrastructure;
 
@@ -84,6 +86,99 @@ public class ProgressToDashConverter : IValueConverter
     }
 
     public object ConvertBack(object value, Type t, object p, CultureInfo c) => Binding.DoNothing;
+}
+
+/// <summary>
+/// The ring's progress arc as a geometry (#431): a <c>Path</c> with an
+/// <c>ArcSegment</c>, clockwise from 12 o'clock, so a stroke brush (the
+/// ring's diagonal <c>RingGradient</c>) lies across the arc itself rather
+/// than along a dash pattern. The value is the fraction still to run, 0 to 1;
+/// a full ring is drawn as a circle, since an arc can't close on itself.
+/// </summary>
+public class ProgressToArcConverter : IValueConverter
+{
+    /// <summary>The stroke's centre line: the ring's 222 box less half its 12 px stroke.</summary>
+    public double Radius { get; set; } = 105;
+    public double Centre { get; set; } = 111;
+
+    public object Convert(object value, Type t, object p, CultureInfo c)
+    {
+        var fraction = value is double d ? Math.Clamp(d, 0, 1) : 0;
+        if (fraction >= 0.9999)
+        {
+            var circle = new EllipseGeometry(new Point(Centre, Centre), Radius, Radius);
+            circle.Freeze();
+            return circle;
+        }
+        var angle = fraction * 2 * Math.PI;
+        var start = new Point(Centre, Centre - Radius);
+        var end = new Point(Centre + Radius * Math.Sin(angle), Centre - Radius * Math.Cos(angle));
+        var figure = new PathFigure { StartPoint = start, IsClosed = false, IsFilled = false };
+        figure.Segments.Add(new ArcSegment(end, new Size(Radius, Radius), 0, fraction > 0.5,
+            SweepDirection.Clockwise, isStroked: true));
+        var geometry = new PathGeometry(new[] { figure });
+        geometry.Freeze();
+        return geometry;
+    }
+
+    public object ConvertBack(object value, Type t, object p, CultureInfo c) => Binding.DoNothing;
+}
+
+/// <summary>
+/// The momentum trend's points as a geometry that keeps the chart's own box
+/// (#431). Drawn with <c>Stretch="Fill"</c> so the line takes the card's full
+/// width, but with two unstroked points at the box's corners, so stretching
+/// never rescales the y axis to the line's own lowest point: zero stays at
+/// the bottom, and the stroke keeps its 2 px.
+/// </summary>
+public class TrendGeometryConverter : IValueConverter
+{
+    public double Width { get; set; } = 250;
+    public double Height { get; set; } = 64;
+
+    public object Convert(object value, Type t, object p, CultureInfo c)
+    {
+        var geometry = new PathGeometry();
+        geometry.Figures.Add(new PathFigure(new Point(0, 0), new[] { new LineSegment(new Point(0, 0), false) }, false));
+        geometry.Figures.Add(new PathFigure(new Point(Width, Height), new[] { new LineSegment(new Point(Width, Height), false) }, false));
+        if (value is PointCollection points && points.Count > 1)
+        {
+            var line = new PathFigure { StartPoint = points[0], IsFilled = false };
+            line.Segments.Add(new PolyLineSegment(points.Skip(1), isStroked: true));
+            geometry.Figures.Add(line);
+        }
+        geometry.Freeze();
+        return geometry;
+    }
+
+    public object ConvertBack(object value, Type t, object p, CultureInfo c) => Binding.DoNothing;
+}
+
+/// <summary>A blocklist's apps by name, for its row in the setup panel's dropdown (#431).</summary>
+public class AppNamesConverter : IValueConverter
+{
+    public object Convert(object value, Type t, object p, CultureInfo c) =>
+        FlowShield.Models.TodayCopy.AppNames(value is IEnumerable<FlowShield.Models.BlockedApp> apps
+            ? apps.Select(a => a.Name)
+            : Enumerable.Empty<string>());
+
+    public object ConvertBack(object value, Type t, object p, CultureInfo c) => Binding.DoNothing;
+}
+
+/// <summary>
+/// <see cref="AppNamesConverter"/> as a MultiBinding: the first value is the
+/// blocklist's apps, and any later value (Today's ProfilesRevision) only makes
+/// WPF convert again, because a plain list never says it changed.
+/// </summary>
+public class AppNamesRefreshingConverter : IMultiValueConverter
+{
+    private static readonly AppNamesConverter Single = new();
+
+    public object Convert(object[] values, Type t, object p, CultureInfo c) =>
+        Single.Convert(values.Length > 0 ? values[0] : null!, t, p, c);
+
+    public object[] ConvertBack(object value, Type[] t, object p, CultureInfo c) =>
+        t.Select(_ => Binding.DoNothing).ToArray();
 }
 
 /// <summary>
