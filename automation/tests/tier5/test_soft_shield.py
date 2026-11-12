@@ -591,3 +591,19 @@ class TestTurnedBackIsRecordedAndShown:
         assert line.startswith("TextBlock"), "the id must sit on the TextBlock itself (#134)"
         assert 'Text="{Binding WeekTurnedBackText}"' in line
         assert 'Visibility="{Binding WeekTurnedBackText, Converter={StaticResource NonEmptyVis}}"' in line
+
+
+class TestTheNoticeTimeStaysOnOneLine432:
+    """
+    Found on a real Windows 11 laptop (#432 follow-up): with no plan, the 52 px
+    headline is the blocklist sentence, and it broke as "until 10:29 / AM",
+    leaving "AM" alone on the second line. The time's spaces are no-break.
+    """
+
+    MODEL = Path(DESKTOP_DIR) / "Models" / "SoftOverlayPolicy.cs"
+
+    def test_the_end_time_uses_no_break_spaces(self):
+        source = self.MODEL.read_text(encoding="utf-8")
+        until = source.split("public static string Until(DateTime endsAtLocal)", 1)[1].split(";", 1)[0]
+        assert ".Replace(' ', '\\u00A0')" in until
+        assert ".Replace('\\u202F', '\\u00A0')" in until, "Windows' own narrow space too"

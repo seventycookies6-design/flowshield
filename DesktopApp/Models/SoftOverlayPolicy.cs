@@ -278,7 +278,11 @@ public static class SoftOverlayCopy
 
     /// <summary>The sprint's end time in the user's own short-time format.</summary>
     public static string Until(DateTime endsAtLocal) =>
-        endsAtLocal.ToString("t", CultureInfo.CurrentCulture);
+        // A no-break space (and Windows' narrow one) keeps "10:29 AM" on one
+        // line: the 52 px headline broke it as "10:29 / AM" on a real PC.
+        endsAtLocal.ToString("t", CultureInfo.CurrentCulture)
+            .Replace(' ', '\u00A0')
+            .Replace('\u202F', '\u00A0');
 
     /// <summary>The countdown in the notice's ring: "14:50", or "1:02:03" past an hour.</summary>
     public static string Clock(TimeSpan remaining)
