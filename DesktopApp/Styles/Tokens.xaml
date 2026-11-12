@@ -22,6 +22,36 @@
     <Color x:Key="FocusRingColor">#803AA892</Color>
     <Color x:Key="ScrimColor">#F2141517</Color>
     <Color x:Key="ShadowColor">#FF000000</Color>
+    <Color x:Key="MicaColor">#FF18191B</Color>
+    <Color x:Key="MicaFallbackColor">#FF1B1C1E</Color>
+    <Color x:Key="Elev1Color">#FF1F2123</Color>
+    <Color x:Key="Elev2Color">#FF27292C</Color>
+    <Color x:Key="Elev3Color">#FF2C2E32</Color>
+    <Color x:Key="AcrylicColor">#BD2C2E32</Color>
+    <Color x:Key="Highlight1Color">#0EFFFFFF</Color>
+    <Color x:Key="Highlight2Color">#16FFFFFF</Color>
+    <Color x:Key="Highlight3Color">#1FFFFFFF</Color>
+    <Color x:Key="HairlineColor">#57000000</Color>
+    <Color x:Key="DividerColor">#12FFFFFF</Color>
+    <Color x:Key="ControlColor">#12FFFFFF</Color>
+    <Color x:Key="ControlHoverColor">#1CFFFFFF</Color>
+    <Color x:Key="ControlPressedColor">#0AFFFFFF</Color>
+    <Color x:Key="ControlHighlightColor">#33FFFFFF</Color>
+    <Color x:Key="ControlEdgeColor">#1FFFFFFF</Color>
+    <Color x:Key="ControlShadowColor">#4C000000</Color>
+    <Color x:Key="WellColor">#42000000</Color>
+    <Color x:Key="WellEdgeColor">#1AFFFFFF</Color>
+    <Color x:Key="WellLineColor">#8FFFFFFF</Color>
+    <Color x:Key="SegmentTrackColor">#42000000</Color>
+    <Color x:Key="ThumbColor">#FF3A3D41</Color>
+    <Color x:Key="PrimaryGradTopColor">#FF4FBBA4</Color>
+    <Color x:Key="PrimaryGradBottomColor">#FF37A08B</Color>
+    <Color x:Key="PrimaryHighlightColor">#57FFFFFF</Color>
+    <Color x:Key="PrimaryEdgeColor">#1A000000</Color>
+    <Color x:Key="PrimaryShadowColor">#57000000</Color>
+    <Color x:Key="RingGradStartColor">#FF5CC7B0</Color>
+    <Color x:Key="RingGradEndColor">#FF2F947F</Color>
+    <Color x:Key="GlowColor">#333AA892</Color>
 
     <SolidColorBrush x:Key="Bg" Color="{StaticResource BgColor}"/>
     <SolidColorBrush x:Key="BgSoft" Color="{StaticResource BgSoftColor}"/>
@@ -43,4 +73,66 @@
     <SolidColorBrush x:Key="FocusRing" Color="{StaticResource FocusRingColor}"/>
     <SolidColorBrush x:Key="Scrim" Color="{StaticResource ScrimColor}"/>
     <SolidColorBrush x:Key="Shadow" Color="{StaticResource ShadowColor}"/>
+    <SolidColorBrush x:Key="Mica" Color="{StaticResource MicaColor}"/>
+    <SolidColorBrush x:Key="MicaFallback" Color="{StaticResource MicaFallbackColor}"/>
+    <SolidColorBrush x:Key="Elev1" Color="{StaticResource Elev1Color}"/>
+    <SolidColorBrush x:Key="Elev2" Color="{StaticResource Elev2Color}"/>
+    <SolidColorBrush x:Key="Elev3" Color="{StaticResource Elev3Color}"/>
+    <SolidColorBrush x:Key="Acrylic" Color="{StaticResource AcrylicColor}"/>
+    <SolidColorBrush x:Key="Highlight1" Color="{StaticResource Highlight1Color}"/>
+    <SolidColorBrush x:Key="Highlight2" Color="{StaticResource Highlight2Color}"/>
+    <SolidColorBrush x:Key="Highlight3" Color="{StaticResource Highlight3Color}"/>
+    <SolidColorBrush x:Key="Hairline" Color="{StaticResource HairlineColor}"/>
+    <SolidColorBrush x:Key="Divider" Color="{StaticResource DividerColor}"/>
+    <SolidColorBrush x:Key="Control" Color="{StaticResource ControlColor}"/>
+    <SolidColorBrush x:Key="ControlHover" Color="{StaticResource ControlHoverColor}"/>
+    <SolidColorBrush x:Key="ControlPressed" Color="{StaticResource ControlPressedColor}"/>
+    <SolidColorBrush x:Key="ControlHighlight" Color="{StaticResource ControlHighlightColor}"/>
+    <SolidColorBrush x:Key="ControlEdge" Color="{StaticResource ControlEdgeColor}"/>
+    <SolidColorBrush x:Key="ControlShadow" Color="{StaticResource ControlShadowColor}"/>
+    <SolidColorBrush x:Key="Well" Color="{StaticResource WellColor}"/>
+    <SolidColorBrush x:Key="WellEdge" Color="{StaticResource WellEdgeColor}"/>
+    <SolidColorBrush x:Key="WellLine" Color="{StaticResource WellLineColor}"/>
+    <SolidColorBrush x:Key="SegmentTrack" Color="{StaticResource SegmentTrackColor}"/>
+    <SolidColorBrush x:Key="Thumb" Color="{StaticResource ThumbColor}"/>
+    <SolidColorBrush x:Key="PrimaryGradTop" Color="{StaticResource PrimaryGradTopColor}"/>
+    <SolidColorBrush x:Key="PrimaryGradBottom" Color="{StaticResource PrimaryGradBottomColor}"/>
+    <SolidColorBrush x:Key="PrimaryHighlight" Color="{StaticResource PrimaryHighlightColor}"/>
+    <SolidColorBrush x:Key="PrimaryEdge" Color="{StaticResource PrimaryEdgeColor}"/>
+    <SolidColorBrush x:Key="PrimaryShadow" Color="{StaticResource PrimaryShadowColor}"/>
+    <SolidColorBrush x:Key="RingGradStart" Color="{StaticResource RingGradStartColor}"/>
+    <SolidColorBrush x:Key="RingGradEnd" Color="{StaticResource RingGradEndColor}"/>
+    <SolidColorBrush x:Key="Glow" Color="{StaticResource GlowColor}"/>
+
+    <LinearGradientBrush x:Key="Elev1Surface" MappingMode="Absolute" StartPoint="0,0" EndPoint="0,2">
+        <GradientStop Color="#FF2B2D2F" Offset="0"/>
+        <GradientStop Color="#FF2B2D2F" Offset="1"/>
+        <GradientStop Color="#FF1F2123" Offset="1"/>
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="Elev2Surface" MappingMode="Absolute" StartPoint="0,0" EndPoint="0,2">
+        <GradientStop Color="#FF393B3E" Offset="0"/>
+        <GradientStop Color="#FF393B3E" Offset="1"/>
+        <GradientStop Color="#FF27292C" Offset="1"/>
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="Elev3Surface" MappingMode="Absolute" StartPoint="0,0" EndPoint="0,2">
+        <GradientStop Color="#FF45474B" Offset="0"/>
+        <GradientStop Color="#FF45474B" Offset="1"/>
+        <GradientStop Color="#FF2C2E32" Offset="1"/>
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="PrimaryGradient" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#FF4FBBA4" Offset="0"/>
+        <GradientStop Color="#FF37A08B" Offset="1"/>
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="RingGradient" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="#FF5CC7B0" Offset="0"/>
+        <GradientStop Color="#FF2F947F" Offset="1"/>
+    </LinearGradientBrush>
+    <RadialGradientBrush x:Key="GlowGradient">
+        <GradientStop Color="#333AA892" Offset="0"/>
+        <GradientStop Color="#003AA892" Offset="1"/>
+    </RadialGradientBrush>
+    <DropShadowEffect x:Key="ShadowE1" BlurRadius="6" ShadowDepth="2" Direction="270" Opacity="0.3" Color="{StaticResource ShadowColor}"/>
+    <DropShadowEffect x:Key="ShadowE2" BlurRadius="28" ShadowDepth="10" Direction="270" Opacity="0.4" Color="{StaticResource ShadowColor}"/>
+    <DropShadowEffect x:Key="ShadowE3" BlurRadius="56" ShadowDepth="24" Direction="270" Opacity="0.5" Color="{StaticResource ShadowColor}"/>
+    <DropShadowEffect x:Key="ShadowPrimary" BlurRadius="8" ShadowDepth="3" Direction="270" Opacity="0.22" Color="{StaticResource ShadowColor}"/>
 </ResourceDictionary>

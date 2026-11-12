@@ -44,6 +44,9 @@ public partial class MainWindow : Window
     private bool _hotkeyRegistered;
     private HwndSource? _hotkeySource;
 
+    /// <summary>The window's Mica base and its fallback (Services/WindowBackdrop.cs).</summary>
+    private WindowBackdrop? _backdrop;
+
     public MainWindow()
     {
         InitializeComponent();
@@ -177,6 +180,10 @@ public partial class MainWindow : Window
         // screen; pull it inside the work area before it is first drawn (#296).
         FitToWorkArea();
         ApplyTitleBarTheme();
+        // Mica, or its solid fallback, under everything (#430). After the title
+        // bar theme, which tells DWM whether the material is drawn dark or light.
+        _backdrop = new WindowBackdrop(this);
+        _backdrop.Attach();
         SetUpGlobalHotkey();
     }
 

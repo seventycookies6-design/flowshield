@@ -46,9 +46,9 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
-                    <Border Background="{DynamicResource Surface2}" CornerRadius="{DynamicResource RadiusControl}">
+                    <Border Background="{DynamicResource Control}" CornerRadius="{DynamicResource RadiusControl}">
                         <Grid>
-                            <Path Style="{DynamicResource IconSmall}" Data="{DynamicResource IconCalendar}"
+                            <TextBlock Style="{DynamicResource IconSmall}" Text="{DynamicResource IconCalendar}"
                                   HorizontalAlignment="Center"/>
                         </Grid>
                     </Border>
@@ -76,13 +76,13 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="primitives:CalendarDayButton">
-                    <Border x:Name="Cell" Background="{DynamicResource Surface}" BorderBrush="{x:Null}"
+                    <Border x:Name="Cell" Background="Transparent" BorderBrush="{x:Null}"
                             BorderThickness="1" CornerRadius="{DynamicResource RadiusControl}">
                         <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="Cell" Property="Background" Value="{DynamicResource Surface2}"/>
+                            <Setter TargetName="Cell" Property="Background" Value="{DynamicResource ControlHover}"/>
                         </Trigger>
                         <Trigger Property="IsToday" Value="True">
                             <Setter Property="Foreground" Value="{DynamicResource Primary}"/>
@@ -121,13 +121,13 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="primitives:CalendarButton">
-                    <Border x:Name="Cell" Background="{DynamicResource Surface}" BorderBrush="{x:Null}"
+                    <Border x:Name="Cell" Background="Transparent" BorderBrush="{x:Null}"
                             BorderThickness="1" CornerRadius="{DynamicResource RadiusControl}">
                         <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="Cell" Property="Background" Value="{DynamicResource Surface2}"/>
+                            <Setter TargetName="Cell" Property="Background" Value="{DynamicResource ControlHover}"/>
                         </Trigger>
                         <Trigger Property="HasSelectedDays" Value="True">
                             <Setter TargetName="Cell" Property="Background" Value="{DynamicResource PrimarySoft}"/>
@@ -169,15 +169,15 @@
                         </Grid.ColumnDefinitions>
                         <Button x:Name="PART_PreviousButton" Grid.Column="0" Style="{DynamicResource BtnQuiet}"
                                 Width="32" Height="32" Padding="0" AutomationProperties.Name="Previous month">
-                            <Path Style="{DynamicResource IconSmall}" Width="6" Height="12"
-                                  Data="{DynamicResource IconChevronLeft}"/>
+                            <TextBlock Style="{DynamicResource IconSmall}"
+                                       Text="{DynamicResource IconChevronLeft}"/>
                         </Button>
                         <Button x:Name="PART_HeaderButton" Grid.Column="1" Style="{DynamicResource BtnQuiet}"
                                 Height="32" Padding="8,0" FontWeight="Medium" Foreground="{DynamicResource Ink}"/>
                         <Button x:Name="PART_NextButton" Grid.Column="2" Style="{DynamicResource BtnQuiet}"
                                 Width="32" Height="32" Padding="0" AutomationProperties.Name="Next month">
-                            <Path Style="{DynamicResource IconSmall}" Width="6" Height="12"
-                                  Data="{DynamicResource IconChevronRight}"/>
+                            <TextBlock Style="{DynamicResource IconSmall}"
+                                       Text="{DynamicResource IconChevronRight}"/>
                         </Button>
                         <!-- CalendarItem populates these exact 7x7 and 3x4 grids. -->
                         <Grid x:Name="PART_MonthView" Grid.Row="1" Grid.ColumnSpan="3" Margin="0,4,0,0">
@@ -227,8 +227,10 @@
         <Setter Property="FontFamily" Value="{DynamicResource FontStack}"/>
         <Setter Property="FontSize" Value="13"/>
         <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
-        <Setter Property="Background" Value="{DynamicResource Surface}"/>
-        <Setter Property="BorderBrush" Value="{DynamicResource Edge}"/>
+        <!-- An E3 flyout (DESIGN_SYSTEM.md Part A, Depth): solid E3 with its top
+             highlight and hairline, and the tallest shadow. -->
+        <Setter Property="Background" Value="{DynamicResource Elev3Surface}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource Hairline}"/>
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="Padding" Value="12"/>
         <Setter Property="IsTodayHighlighted" Value="True"/>
@@ -238,15 +240,11 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Calendar">
-                    <!-- Space for the same shadow as Card, including inside Popup. -->
-                    <Grid x:Name="PART_Root" Margin="12">
+                    <!-- Room for the E3 shadow, which falls straight down, inside the Popup. -->
+                    <Grid x:Name="PART_Root" Margin="24,8,24,40">
                         <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}" Padding="{TemplateBinding Padding}"
-                                CornerRadius="{DynamicResource RadiusCard}">
-                            <Border.Effect>
-                                <DropShadowEffect BlurRadius="24" ShadowDepth="6" Direction="270" Opacity="0.45"
-                                                  Color="{DynamicResource ShadowColor}"/>
-                            </Border.Effect>
+                                CornerRadius="{DynamicResource RadiusCard}" Effect="{DynamicResource ShadowE3}">
                             <primitives:CalendarItem x:Name="PART_CalendarItem" Style="{TemplateBinding CalendarItemStyle}"
                                                      FontFamily="{TemplateBinding FontFamily}"
                                                      Foreground="{TemplateBinding Foreground}"/>
@@ -267,8 +265,9 @@
         <Setter Property="FontFamily" Value="{DynamicResource FontStack}"/>
         <Setter Property="FontSize" Value="13"/>
         <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
-        <Setter Property="Background" Value="{DynamicResource Surface2}"/>
-        <Setter Property="BorderBrush" Value="{DynamicResource Edge}"/>
+        <!-- Recessed, like the Field text box: a well with the Windows bottom line. -->
+        <Setter Property="Background" Value="{DynamicResource Well}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource WellEdge}"/>
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="Height" Value="40"/>
         <Setter Property="SelectedDateFormat" Value="Short"/>
@@ -296,19 +295,22 @@
                                         Style="{StaticResource PickerCalendarButton}"/>
                             </Grid>
                         </Border>
+                        <Border x:Name="BottomLine" BorderBrush="{DynamicResource WellLine}" BorderThickness="0,0,0,1"
+                                CornerRadius="{DynamicResource RadiusControl}" IsHitTestVisible="False"/>
                         <Border x:Name="TextFocusRing" Margin="-4" BorderThickness="2" IsHitTestVisible="False"
                                 BorderBrush="{DynamicResource FocusRing}" CornerRadius="{DynamicResource RadiusCard}"
                                 Visibility="Collapsed"/>
                         <!-- DatePicker supplies Child and opens/closes this popup. -->
                         <Popup x:Name="PART_Popup" Placement="Bottom" StaysOpen="False" AllowsTransparency="True"
-                               PlacementTarget="{Binding ElementName=PART_Root}" HorizontalOffset="-12" VerticalOffset="-8"/>
+                               PlacementTarget="{Binding ElementName=PART_Root}" HorizontalOffset="-24" VerticalOffset="-4"/>
                     </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="FieldBorder" Property="BorderBrush" Value="{DynamicResource EdgeBright}"/>
                         </Trigger>
                         <Trigger SourceName="PART_TextBox" Property="IsKeyboardFocused" Value="True">
-                            <Setter TargetName="FieldBorder" Property="BorderBrush" Value="{DynamicResource Primary}"/>
+                            <Setter TargetName="BottomLine" Property="BorderBrush" Value="{DynamicResource Primary}"/>
+                            <Setter TargetName="BottomLine" Property="BorderThickness" Value="0,0,0,2"/>
                             <Setter TargetName="TextFocusRing" Property="Visibility" Value="Visible"/>
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
