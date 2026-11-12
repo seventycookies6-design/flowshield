@@ -202,6 +202,32 @@ again on 5 October 2026 for the stone neutrals (#336):
 
 Any new token or pairing gets measured the same way before it ships.
 
+#### The site's depth pairs (#435)
+
+The site adopted the redesign's depth in #435 with the same tokens as the app
+(`elev-1`/`-2`/`-3`, the highlights, `hairline`, `divider`, the `control` and
+`well` sets, the Primary gradient), listed in `css_site` in `design/tokens.json`,
+plus one site-only token: **`nav-glass`**, `bg` at 88% in both themes, the
+sticky navigation bar's translucent fill. The site's base stays the opaque
+`bg`. Measured on 12 November 2026, WCAG 2.1, a translucent layer composited
+onto what is under it:
+
+| Pair | Dark | Light | Result |
+| --- | --- | --- | --- |
+| `text` / `text-muted` on `elev-1` (cards) | 13.8 / 7.4 | 15.6 / 6.8 | Pass |
+| `text` / `text-muted` on `elev-2` (the raised note, Buy card) | 12.4 / 6.7 | 16.6 / 7.2 | Pass |
+| `text` / `text-muted` on `elev-3` (download guide, phone menu) | 11.6 / 6.3 | 16.2 / 7.1 | Pass |
+| `primary` (links) on `bg` / `elev-1` / `elev-2` | 6.3 / 5.5 / 5.0 | 5.4 / 5.9 / 6.3 | Pass |
+| `primary-ink` on `primary-grad-top` / `-bottom` / `primary-hover` | 7.3 / 5.4 / 7.6 | 4.85 / 7.0 / 8.1 | Pass |
+| `text` on `control` on `bg` / `elev-1` (Secondary buttons) | 13.1 / 11.2 | 16.0 / 16.4 | Pass |
+| `text` on `control-hover` on `bg` / `elev-1` | 11.4 / 9.9 | 16.7 / 16.9 | Pass |
+| `text` / `text-faint` (placeholder) on `well` on `bg` | 16.3 / 6.2 | 16.3 / 5.9 | Pass |
+| `text-muted` (nav links) on `nav-glass` over `bg` | 8.4 | 6.2 | Pass |
+| `text-muted` on `nav-glass` over the worst case beneath it, pure white (dark) or pure black (light), blur ignored | 6.0 | 4.72 | Pass |
+| `text` on `nav-glass` over that worst case | 11.1 | 10.8 | Pass |
+
+`TestSiteDepth435` (tier 5, `test_website.py`) recomputes the `nav-glass` rows from the tokens.
+
 ---
 
 ### 3. Typography
@@ -260,9 +286,7 @@ All roles are Inter.
 - **Corner radius:** 6 for small chips and tags, 10 for buttons, inputs and toggles, 14 for cards and dialogs, and fully round for pills and the tier badge. The app previously used 8, 10, 11, 12, 13 and 14 interchangeably; normalised to this set (A2, issue #147).
 - **Where these values live:** corner radii are three resources — `RadiusChip`/`RadiusControl`/`RadiusCard` — in `DesktopApp/Styles/Theme.xaml`, and values in `Website/styles.css`. The eight spacing numbers are literals per element. Neither is in `design/tokens.json`, which is colour only (§14); a future issue may unify them the way colour is unified.
 - **Engineering fact — round shapes:** fully round elements set `inf:Pill.IsRound="True"`, because WPF draws an oversized radius such as 9999 as an ellipse rather than clamping it like CSS.
-- **Stone (currently on the site, #336).** The product is named after basalt, so the site shows the material in two restrained ways:
-  - **Grain** on the page ground (`body`, and the `bg-soft` bands) through `--texture-grain`: an inline SVG noise, under 1 KB, dark specks in light mode and pale ones in dark, each at most about 8% opaque. It never goes on a surface: cards, buttons and text boxes stay solid, so every contrast figure in §2 still holds.
-  - **Basalt columns**: one faint row of columns seen side-on, standing on the hero's bottom edge inside its padding (`.hero::after`). It is drawn in `text` at 13% through a mask, so it follows the theme, and it is never placed behind text or a control.
+- **Site depth (#435).** The site has the app's depth language in CSS (§11). The stone texture of #336, a grain on the page ground and a row of basalt columns on the hero's bottom edge, was removed: Part A gives the site an opaque base and no decorative texture.
   - Depth comes from surface steps and shadows. Part A allows restrained material texture in the app too, with the same protections for content and contrast.
 - **Borders:** 1 px `border` on cards and controls; `border-strong` on hover and focus.
 - **Shadows**, currently two levels:
@@ -429,7 +453,7 @@ use "licence". The copy pass in §15 remains open.
 ### 10. Imagery and marketing assets
 
 - **Real product only:** screenshots and screen recordings of the shipped app, with sample data and never a real blocklist or licence. No stock photos, AI-generated people, or mock-ups of unshipped screens.
-- **Framing:** screenshots sit in a `surface` frame with a 14 radius and a `soft` shadow, never a fake laptop or phone frame.
+- **Framing:** on the site since #435 a capture is its own window: radius 10, a 1 px `hairline` and the deepest shadow (`--depth-capture`), with its caption underneath. Never a fake laptop or phone frame.
 - **Video:** muted, looping, under about 2 MB on desktop and 1 MB on mobile, with a poster frame, `playsinline`, and a text description for screen readers.
 - **Illustration:** where a diagram helps, such as the "student day" timeline, use flat shapes in the token colours and the shield glyphs, not characters.
 - **Social and store images:** the same screenshots and type, on `bg`.
@@ -441,6 +465,16 @@ use "licence". The copy pass in §15 remains open.
 - **Adoption:** the site was the source of the palette. Contrast fixes, legacy `--violet`/`--cyan`/`--grad` removal, the icon set and shield glyphs, `.btn-quiet`/`.btn-danger`, Inter and tabular price figures are recorded in §15.
 - **Theme toggle:** light/dark toggle, defaulting to the visitor's system setting.
 - **Performance:** the hero renders text and the primary button before any image or video loads. Fonts use `swap`.
+- **The November 2026 redesign (#435),** following `design/redesign-2026-11/site-*.png`:
+  - **Depth:** the page base is the opaque `bg`. `.surface` is E1 (`elev-1`, `--depth-e1`: the `highlight-1` top edge, a 1 px `hairline`, a shadow straight down) and `.surface-raised` is E2 (`elev-2`, `--depth-e2`). The download guide and the phone menu are solid E3 (`--depth-e3`). The sticky nav is the only translucent surface (`nav-glass` with a 20 px backdrop blur; solid `bg` with `prefers-reduced-transparency`). Sections are divided by a `divider` rule instead of tinted bands. The `--depth-*` shadow strings are in `css_only` in `design/tokens.json`.
+  - **Buttons:** every button is raised (`control` fill, `--depth-control`); `.btn` alone is the Secondary, which `.btn-ghost` names in the markup. `.btn-primary` is the one gradient (`primary-grad-top` to `-bottom`, `--depth-primary`) and goes solid `primary-hover` on hover. `.btn-icon` is a square icon button (the theme and menu toggles, the guide's Close). Heights stay 44 (50 for `.btn-lg`), 40 in the desktop nav; radius 8.
+  - **Fields:** `.text-input` is recessed: a `well`, a `well-edge` outline and the `well-line` bottom line, which turns `primary` on focus.
+  - **Corners:** surfaces 12, controls 8, chips 6, captures 10.
+  - **Type:** `--font-sans` is `"Segoe UI Variable Text", "Segoe UI Variable", "Segoe UI"`, then the self-hosted Inter; `--font-display` (headings) starts with `"Segoe UI Variable Display"`. Inter's variable file has an optical-size axis, so off Windows the headings get its display cut too. The hero h1 is 42–66 px at 700, section headings 28–36 px at 600; prices keep tabular figures.
+  - **First screen:** a plain kicker, "Guard the hours that matter.", one sentence, the Primary "Download for Windows" (phones: "Get the download link") and the Secondary "Buy once — $4.99", the price line, and the SmartScreen note as an E2 card. The Today capture sits to the right at 880 px and runs off the page's edge (`.hero` clips it horizontally), so it stays legible; below 960 px it moves under the buttons, and on a phone it keeps a 680 px scale, cropped to the page beside the sidebar. In the source the copy and the note still come before the capture.
+  - **Soft / Firm / Sealed:** three equal E1 cards on a CSS subgrid, so the rows (name, what it does, what it's good for, a divider, three checks) line up across all three. About 45 to 55 words a card. No tinted card, pill or level tag.
+  - **Captures:** still the pre-redesign files in `Website/media/`; they are retaken from the redesigned app under #144.
+  - **Known deviations from the mockups:** the word list's *shield* and *shield level* replace the mockups' *strength* (#365 is open); check marks stay `text-muted` rather than teal (teal marks state, selection or progress); the mockups' "You pick the strength each time you start a sprint" line isn't used. The site still says "The price you see is the price you pay" rather than "plus tax where it applies", because Stripe Tax is off and no tax is charged (a tier 5 test ties the wording to `server.js`).
 
 ### 12. Desktop app specifics
 

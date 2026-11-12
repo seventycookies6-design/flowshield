@@ -85,10 +85,15 @@ def xaml(data: dict, theme_name: str) -> str:
 
 def css_block(data: dict, theme_name: str, indent: str = "  ") -> str:
     theme = data["themes"][theme_name]
-    skip = set(data.get("css_skip", []))
+    # A token reaches the CSS when the site lists it in css_site, or when it is
+    # a shared token (in app_names) that css_skip doesn't leave out. So the
+    # site's depth tokens are written whether or not the app also uses them.
+    site = set(data.get("css_site", []))
+    skip = set(data.get("css_skip", [])) - site
+    shared = set(data["app_names"]) | site
     out = [f"{indent}/* {HEADER} */"]
     for token in theme:
-        if token in skip:
+        if token in skip or token not in shared:
             continue
         r, g, b, a = resolve(theme, token)
         value = f"#{r:02x}{g:02x}{b:02x}" if a == 1.0 else f"rgba({r}, {g}, {b}, {_fmt_alpha(a)})"
