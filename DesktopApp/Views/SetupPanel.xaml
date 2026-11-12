@@ -196,7 +196,7 @@
                         <Button Style="{StaticResource BtnLink}" Content="Edit blocklists" HorizontalAlignment="Left"
                                 Margin="-8,8,0,0" Command="{Binding OpenBlocklistsCommand}"
                                 AutomationProperties.AutomationId="SetupPanelBlocklistsLink"
-                                AutomationProperties.Name="Edit blocklists, on the Blocked Apps page"/>
+                                AutomationProperties.Name="Edit blocklists, on the Plans page"/>
                     </StackPanel>
                 </ScrollViewer>
             </DockPanel>

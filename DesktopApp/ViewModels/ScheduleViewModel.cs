@@ -44,6 +44,16 @@ public class ScheduleViewModel : ViewModelBase
         SaveTemplateCommand = new RelayCommand(SaveTemplate, () => CanEdit && TemplateEditorVisible);
         CancelTemplateCommand = new RelayCommand(() => TemplateEditorVisible = false);
 
+        // Plans (#433): the sleep row's Edit opens the sleep window's own
+        // settings, and a template's Start starts it from here as Today's does.
+        EditSleepCommand = new RelayCommand(() =>
+        {
+            SleepEditorVisible = true;
+            EditorOpened?.Invoke(this, PlansEditor.Sleep);
+        });
+        CloseSleepEditorCommand = new RelayCommand(() => SleepEditorVisible = false);
+        StartTemplateCommand = new RelayCommand(p => StartTemplate(p as TemplateRow), p => p is TemplateRow);
+
         Refresh();
     }
 
@@ -60,6 +70,64 @@ public class ScheduleViewModel : ViewModelBase
     public RelayCommand SaveTemplateCommand { get; }
     public RelayCommand CancelTemplateCommand { get; }
 
+    // --------------------------------------------------------- Plans (#433)
+
+    /// <summary>Edit on the sleep-blocking row.</summary>
+    public RelayCommand EditSleepCommand { get; }
+
+    /// <summary>Done, under the sleep window's settings.</summary>
+    public RelayCommand CloseSleepEditorCommand { get; }
+
+    /// <summary>Start on a template's row: the same start as Today's template cards.</summary>
+    public RelayCommand StartTemplateCommand { get; }
+
+    /// <summary>Which of the section's editors just opened, so the view can bring it into view.</summary>
+    public enum PlansEditor { Sleep, Schedule, Template }
+
+    public event EventHandler<PlansEditor>? EditorOpened;
+
+    private bool _sleepEditorVisible;
+    /// <summary>The sleep window's start, end and Save, under the Schedules rows.</summary>
+    public bool SleepEditorVisible
+    {
+        get => _sleepEditorVisible;
+        private set => Set(ref _sleepEditorVisible, value);
+    }
+
+    /// <summary>The schedule being edited, for its Delete inside the editor; null for a new one.</summary>
+    public ScheduleRow? EditingScheduleRow => _editingSchedule is null
+        ? null
+        : Schedules.FirstOrDefault(r => ReferenceEquals(r.Schedule, _editingSchedule));
+
+    /// <summary>The template being edited, for its Delete inside the editor; null for a new one.</summary>
+    public TemplateRow? EditingTemplateRow => _editingTemplate is null
+        ? null
+        : Templates.FirstOrDefault(r => ReferenceEquals(r.Template, _editingTemplate));
+
+    public bool CanDeleteEditedSchedule => EditingScheduleRow is not null;
+    public bool CanDeleteEditedTemplate => EditingTemplateRow is not null;
+
+    /// <summary>
+    /// Start on a template row. The sprint runs on Today, and F7's open-apps
+    /// question is asked there, so the start goes through Today and the page
+    /// follows it; every gate (a sprint already running, the trial, Sealed)
+    /// is Today's own.
+    /// </summary>
+    private void StartTemplate(TemplateRow? row)
+    {
+        if (row is null) return;
+        _main.CurrentPage = AppPage.Today;
+        _main.Today.StartTemplateCommand.Execute(row);
+    }
+
+    private void RaiseEditing()
+    {
+        Raise(nameof(EditingScheduleRow));
+        Raise(nameof(EditingTemplateRow));
+        Raise(nameof(CanDeleteEditedSchedule));
+        Raise(nameof(CanDeleteEditedTemplate));
+    }
+
     /// <summary>The sleep window, exactly as before (Miles's Roadmap 3.7 reworks it in place).</summary>
     public SleepBlockingViewModel Sleep => _main.SleepBlocking;
 
@@ -75,7 +143,7 @@ public class ScheduleViewModel : ViewModelBase
     public ObservableCollection<TemplateRow> Templates { get; } = new();
 
     private string _nextUpText = "";
-    /// <summary>"Next: tonight 17:00 (middle dot) Homework evening", or why there is none.</summary>
+    /// <summary>"Next: tonight 17:00, Homework evening", or why there is none.</summary>
     public string NextUpText { get => _nextUpText; private set => Set(ref _nextUpText, value); }
 
     private string _statusText = "";
@@ -90,7 +158,18 @@ public class ScheduleViewModel : ViewModelBase
         // them dropped every template's row and buttons from the tree (and so
         // from screen readers) after the first save.
         Templates.Clear();
-        foreach (var t in S.Templates) Templates.Add(new TemplateRow(t));
+        foreach (var t in S.Templates)
+        {
+            var profile = S.FindProfile(t.ProfileId);
+            Templates.Add(new TemplateRow(t)
+            {
+                // The blocklist in use is the default and goes unsaid; it ran
+                // past the half-width card on a real PC and was cut off.
+                PlansDetail = profile is null
+                    ? $"{t.SprintMinutes} min at {t.Shield}"
+                    : $"{t.SprintMinutes} min at {t.Shield}, {profile.Name} blocklist",
+            });
+        }
 
         Schedules.Clear();
         foreach (var s in S.Schedules)
@@ -106,6 +185,7 @@ public class ScheduleViewModel : ViewModelBase
 
         if (IsSealed) StatusText = SealedText;
         else if (StatusText == SealedText) StatusText = "";
+        RaiseEditing();
 
         Raise(nameof(CanEdit));
         CommandManager.InvalidateRequerySuggested();
@@ -113,7 +193,9 @@ public class ScheduleViewModel : ViewModelBase
 
     private string BuildNextUp(DateTime nowUtc, TimeZoneInfo zone)
     {
-        if (S.Schedules.Count == 0) return "No schedules yet";
+        // "Other": Sleep blocking is always a row above this line, so a bare
+        // "No schedules yet" under it read as a contradiction (found on a real PC).
+        if (S.Schedules.Count == 0) return "No other schedules yet";
 
         var next = S.Schedules
             .Where(s => s.Enabled)
@@ -192,6 +274,8 @@ public class ScheduleViewModel : ViewModelBase
         EditorAskFirst = source.AskFirst;
         StatusText = "";
         ScheduleEditorVisible = true;
+        RaiseEditing();
+        EditorOpened?.Invoke(this, PlansEditor.Schedule);
     }
 
     /// <summary>One chip per template, keeping the choice when that template still exists.</summary>
@@ -293,14 +377,14 @@ public class ScheduleViewModel : ViewModelBase
     private string _templateBreak = "";
     public string TemplateBreak { get => _templateBreak; set => Set(ref _templateBreak, value); }
 
-    /// <summary>"SPRINT MINUTES (5-240)": the label over the field, from the same bounds Save checks.
-    /// Upper case like every other field label (#406).</summary>
+    /// <summary>"Sprint minutes (5-240)": the label over the field, from the same bounds Save checks.
+    /// Sentence case like every field label since the redesign (#431, #433).</summary>
     public string SprintMinutesLabel =>
-        $"SPRINT MINUTES ({StudyTemplate.MinSprintMinutes}\u2013{StudyTemplate.MaxSprintMinutes})";
+        $"Sprint minutes ({StudyTemplate.MinSprintMinutes}\u2013{StudyTemplate.MaxSprintMinutes})";
 
-    /// <summary>"BREAK MINUTES (1-60)", likewise.</summary>
+    /// <summary>"Break minutes (1-60)", likewise.</summary>
     public string BreakMinutesLabel =>
-        $"BREAK MINUTES ({CycleState.MinBreakMinutes}\u2013{CycleState.MaxBreakMinutes})";
+        $"Break minutes ({CycleState.MinBreakMinutes}\u2013{CycleState.MaxBreakMinutes})";
 
     /// <summary>"Active profile" first (a null value: whichever is active when it starts), then each blocklist.</summary>
     public ObservableCollection<Choice<BlocklistProfile?>> TemplateProfiles { get; } = new();
@@ -340,6 +424,8 @@ public class ScheduleViewModel : ViewModelBase
 
         TemplateStatusText = "";
         TemplateEditorVisible = true;
+        RaiseEditing();
+        EditorOpened?.Invoke(this, PlansEditor.Template);
     }
 
     private void SaveTemplate()
@@ -447,10 +533,16 @@ public class ScheduleRow : ViewModelBase
     public string Id => Schedule.Id;
     public string TemplateName { get; }
 
-    /// <summary>"Homework evening (middle dot) Mon-Thu (middle dot) 17:00 (middle dot) asks first".</summary>
-    public string Summary =>
-        $"{TemplateName} \u00B7 {ScheduleText.Days(Schedule.Days)} \u00B7 {ScheduleText.Time(Schedule.StartMinuteOfDay)}"
-        + (Schedule.AskFirst ? " \u00B7 asks first" : "");
+    /// <summary>"Homework evening, Mon-Thu, 17:00, asks first": the whole row in one line, for a screen reader.</summary>
+    public string Summary => $"{TemplateName}, {Detail}";
+
+    /// <summary>
+    /// The line under the template's name on Plans (#433): "Mon-Thu, 17:00,
+    /// Basalt asks 5 minutes before". Commas, not middle dots (design README).
+    /// </summary>
+    public string Detail =>
+        $"{ScheduleText.Days(Schedule.Days)}, {ScheduleText.Time(Schedule.StartMinuteOfDay)}"
+        + (Schedule.AskFirst ? ", Basalt asks 5 minutes before" : "");
 
     /// <summary>
     /// The row's switch. Set through the page, which saves it or, during a
@@ -480,6 +572,13 @@ public class TemplateRow : ViewModelBase
     /// <summary>Today's template card (#431): "45 min at Firm", beside the shield's glyph.</summary>
     public string Detail => $"{Template.SprintMinutes} min at {Template.Shield}";
     public ShieldLevel Shield => Template.Shield;
+
+    /// <summary>
+    /// Plans' template row (#433): "45 min at Firm, Default blocklist", or "...,
+    /// the blocklist in use" for a template that follows whichever is active.
+    /// Filled in by the page, which knows the blocklists.
+    /// </summary>
+    public string PlansDetail { get; init; } = "";
 }
 
 /// <summary>One chip in an editor: a day, a template or a blocklist.</summary>

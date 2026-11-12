@@ -44,7 +44,7 @@ public static class ScheduleText
     }
 
     /// <summary>
-    /// "Next: tonight 17:00 (middle dot) Homework evening". "Tonight" from 17:00,
+    /// "Next: tonight 17:00, Homework evening". "Tonight" from 17:00,
     /// "today" before it, then "tomorrow", then the day's short name, and
     /// "next Mon" once a week or more away, when "Mon" alone would read as today.
     /// A start already behind now (a clock set back) reads as today too.
@@ -60,6 +60,7 @@ public static class ScheduleText
             >= 7 => $"next {Short(startLocal.DayOfWeek)}",
             _ => Short(startLocal.DayOfWeek),
         };
-        return $"Next: {when} {time} \u00B7 {templateName}";
+        // A comma, not a middle dot (design/redesign-2026-11/README.md, #433).
+        return $"Next: {when} {time}, {templateName}";
     }
 }

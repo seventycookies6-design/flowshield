@@ -77,6 +77,21 @@ settings = {
         {"Name": "Minecraft Launcher", "ProcessName": "minecraftlauncher",
          "ExtraProcessNames": [], "IconPath": None},
     ],
+    # The three built-in templates and one schedule, so Plans (#433) shows a
+    # schedule row beside sleep blocking. Sample data, like the apps above.
+    "TemplatesSeeded": True,
+    "Templates": [
+        {"Id": "sample-homework", "Name": "Homework evening", "SprintMinutes": 45, "Shield": 2,
+         "CycleSprints": 3, "BreakMinutes": 10, "ProfileId": "", "BuiltInKey": "homework"},
+        {"Id": "sample-exam", "Name": "Exam prep", "SprintMinutes": 90, "Shield": 3,
+         "CycleSprints": 0, "BreakMinutes": 5, "ProfileId": "", "BuiltInKey": "exam"},
+        {"Id": "sample-light", "Name": "Light study", "SprintMinutes": 25, "Shield": 1,
+         "CycleSprints": 0, "BreakMinutes": 5, "ProfileId": "", "BuiltInKey": "light"},
+    ],
+    "Schedules": [
+        {"Id": "sample-schedule", "TemplateId": "sample-homework", "Days": [1, 2, 3, 4, 5],
+         "StartMinuteOfDay": 18 * 60, "AskFirst": True, "Enabled": True, "SkippedDatesLocal": []},
+    ],
     "IsSleepBlockEnabled": True,
     "SleepBlockStartTime": "22:30:00",
     "SleepBlockEndTime": "06:30:00",

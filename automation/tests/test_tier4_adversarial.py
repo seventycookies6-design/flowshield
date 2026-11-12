@@ -374,7 +374,7 @@ class TestUIInputEdges:
         fresh_app.navigate_to_tab("Blocked Apps")
         fresh_app.add_blocked_app("x" * 300)
         time.sleep(1.0)
-        assert fresh_app.current_page_title() == "Blocked Apps", "the app fell over"
+        assert fresh_app.current_page_title() == "Plans", "the app fell over"
 
 
 # ====================================================== declined test cards

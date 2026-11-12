@@ -635,11 +635,11 @@ class TestKeyboardAndFocusF21:
             # The same legend's own list: not hit-testable either, and every
             # cell it explains is focusable in its place (HeatCellItem).
             "HeatmapLegend",
-            # The Schedule page's ScrollViewer: a container. Focusable, it took
-            # a Tab stop of its own and drew a dashed rectangle round the whole
-            # page. Every control inside keeps its tab stop, and Page Up/Down
-            # from any of them still scrolls it.
-            "SchedulePageScroll",
+            # Plans' ScrollViewer (#433; the Schedule page's before it): a
+            # container. Focusable, it took a Tab stop of its own and drew a
+            # dashed rectangle round the whole page. Every control inside keeps
+            # its tab stop, and Page Up/Down from any of them still scrolls it.
+            "PlansPageScroll",
             # First-run's shield step scrolls at the smallest window (#406),
             # and is a container for the same reason: the three option cards
             # keep their tab stops, and arrow keys move between them.

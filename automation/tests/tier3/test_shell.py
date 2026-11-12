@@ -18,10 +18,14 @@ class TestAppShell:
     def test_window_opens_on_the_today_page(self, app):
         assert app.current_page_title() == "Today"
 
-    @pytest.mark.parametrize("tab", ["History", "Blocked Apps", "Schedule",
-                                     "Settings", "Today"])
+    @pytest.mark.parametrize("tab", ["Plans", "History", "Settings", "Today"])
     def test_every_tab_is_reachable(self, app, tab):
         assert app.navigate_to_tab(tab) == tab
+
+    @pytest.mark.parametrize("old_name", ["Blocked Apps", "Schedule"])
+    def test_the_pages_plans_replaced_open_plans(self, app, old_name):
+        """#433: Plans merged Blocked Apps and Schedule; their names land there."""
+        assert app.navigate_to_tab(old_name) == "Plans"
 
     def test_a_clean_install_starts_the_seven_day_trial(self, app):
         app.navigate_to_tab("Settings")
@@ -505,3 +509,64 @@ class TestSettingsRail:
         app.click("SettingsNav_Focus")
         assert app.is_on_screen("ShortBreakMinutesInput")
         assert app.is_selected("SettingsNav_Focus")
+
+
+# ================================================== Plans (#433)
+
+class TestPlans:
+    """
+    #433: one Plans page for blocklists, schedules and templates. Today's
+    links open it at the matching section, and its rows open in place.
+    """
+
+    @pytest.mark.parametrize("link,section_control", [
+        ("UpNextScheduleLink", "AddScheduleButton"),
+        ("EditTemplatesLink", "NewTemplateButton"),
+        ("SetupPanelBlocklistsLink", "NewProfileButton"),
+    ])
+    def test_todays_links_open_plans_at_their_section(self, app, link, section_control):
+        app.navigate_to_tab("Today")
+        if link.startswith("SetupPanel"):
+            app.click("SprintOptionsToggle")         # the link is in the setup panel
+        app.click(link)
+        deadline = time.time() + 3
+        while time.time() < deadline and app.current_page_title() != "Plans":
+            time.sleep(0.2)
+        assert app.current_page_title() == "Plans"
+        assert app.is_on_screen(section_control), f"{link} must bring its section into view"
+
+    def test_new_blocklist_copies_the_one_in_use_and_opens_it(self, fresh_app):
+        fresh_app.navigate_to_tab("Plans")
+        fresh_app.add_blocked_app("plans-probe")
+        fresh_app.click("BlocklistDoneButton")
+        fresh_app.wait_until_gone("ProfileNameInput")
+
+        fresh_app.click("NewProfileButton")          # nothing typed: "New blocklist"
+        settings = verify.wait_for_settings(lambda st: len(st["Profiles"]) == 2,
+                                            what="the new blocklist")
+        new = settings["Profiles"][1]
+        assert new["Name"] == "New blocklist"
+        assert [a["ProcessName"] for a in new["Apps"]] == ["plans-probe"], "it starts as a copy"
+        assert settings["ActiveProfileId"] == new["Id"]
+        assert fresh_app.exists("ProfileNameInput", timeout=3), "it opens, ready to rename"
+
+    def test_edit_on_another_blocklist_makes_it_the_one_in_use(self, fresh_app):
+        fresh_app.navigate_to_tab("Plans")
+        fresh_app.new_profile("School")
+        fresh_app.click("BlocklistDoneButton")
+        fresh_app.wait_until_gone("ProfileNameInput")
+        default_id = next(p["Id"] for p in verify.read_settings()["Profiles"] if p["Name"] == "Default")
+
+        fresh_app.click("EditBlocklist_Default")
+        verify.wait_for_settings(lambda st: st["ActiveProfileId"] == default_id,
+                                 what="Default in use again")
+        assert fresh_app.exists("ProfileNameInput", timeout=3)
+
+    def test_start_on_a_template_row_starts_it_on_today(self, fresh_app):
+        fresh_app.navigate_to_tab("Plans")
+        fresh_app.click("PlansTemplateStart_Light study")
+        try:
+            assert fresh_app.exists("StopSprintButton", timeout=8), "the template's sprint did not start"
+            assert fresh_app.current_page_title() == "Today"
+        finally:
+            fresh_app.stop_sprint()

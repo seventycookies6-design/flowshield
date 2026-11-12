@@ -17,10 +17,15 @@ class TestSchedulePageKeepsTheSleepWindow:
 
 
     def test_the_tab_keeps_its_id_and_shortcut(self):
+        """#433: Plans took Schedule's place in the rail, second, on Ctrl+2.
+        The old page name still opens Plans at its Schedules section."""
         xaml = (Path(DESKTOP_DIR) / "MainWindow.xaml").read_text(encoding="utf-8")
-        assert 'AutomationProperties.AutomationId="Tab_SleepBlocking"' in xaml
-        assert 'Key="D4" Command="{Binding NavigateCommand}" CommandParameter="SleepBlocking"' in xaml
-        assert 'Text="Schedule"' in xaml
+        assert 'AutomationProperties.AutomationId="Tab_Plans"' in xaml
+        assert 'Key="D2" Command="{Binding NavigateCommand}" CommandParameter="Plans"' in xaml
+        assert 'Text="Plans"' in xaml
+        main = (Path(DESKTOP_DIR) / "ViewModels" / "MainViewModel.cs").read_text(encoding="utf-8")
+        assert 'else if (p is "SleepBlocking" or "Schedule") OpenPlans(PlansSection.Schedules);' in main
+        assert 'else if (p is "BlockedApps") OpenPlans(PlansSection.Blocklists);' in main
 
     def test_every_new_id_is_on_a_real_control(self):
         xaml = (Path(DESKTOP_DIR) / "Views" / "ScheduleView.xaml").read_text(encoding="utf-8")
@@ -93,9 +98,9 @@ class TestSchedulePageNamesAndLabels:
         assert 'Text="{Binding BreakMinutesLabel}"' in xaml
         assert "(5–240)" not in xaml and "(1–60)" not in xaml, "a typed limit can drift from the constant"
         vm = self.VM.read_text(encoding="utf-8")
-        assert "SPRINT MINUTES ({StudyTemplate.MinSprintMinutes}" in vm
+        assert "Sprint minutes ({StudyTemplate.MinSprintMinutes}" in vm
         assert "{StudyTemplate.MaxSprintMinutes})" in vm
-        assert "BREAK MINUTES ({CycleState.MinBreakMinutes}" in vm
+        assert "Break minutes ({CycleState.MinBreakMinutes}" in vm
         assert "{CycleState.MaxBreakMinutes})" in vm
 
     def test_the_active_profile_chip_has_an_id_no_profile_name_can_produce(self):
@@ -499,10 +504,11 @@ class TestScheduledSprintsGoThroughStart:
         assert 'AutomationProperties.AutomationId="NotifyScheduledSprintToggle"' in xaml
 
     def test_the_schedule_page_scroller_is_not_a_tab_stop(self):
-        """Controller note (PR A): it drew a dashed focus rectangle round the whole page."""
-        xaml = (Path(DESKTOP_DIR) / "Views" / "ScheduleView.xaml").read_text(encoding="utf-8")
+        """Controller note (PR A): it drew a dashed focus rectangle round the whole page.
+        Since #433 the page that scrolls is Plans."""
+        xaml = (Path(DESKTOP_DIR) / "Views" / "PlansView.xaml").read_text(encoding="utf-8")
         scroller = xaml.split("<ScrollViewer", 1)[1].split(">", 1)[0]
-        assert 'AutomationProperties.AutomationId="SchedulePageScroll"' in scroller
+        assert 'AutomationProperties.AutomationId="PlansPageScroll"' in scroller
         assert 'Focusable="False"' in scroller
 
     def test_the_new_copy_keeps_to_the_house_voice(self):
@@ -1173,3 +1179,82 @@ class TestDeleteEverythingKeepsTheTrialStart:
         guard = (automation / "core" / "settings_guard.py").read_text(encoding="utf-8")
         assert "_back_up_trial_record()" in guard.split("def back_up()", 1)[1].split("\ndef ", 1)[0]
         assert "_restore_trial_record()" in guard.split("def restore()", 1)[1].split("\ndef ", 1)[0]
+
+
+class TestPlansKeepsItsPromises433:
+    """
+    #433 merged Blocked Apps and Schedule into Plans. The links that led to
+    them lead to Plans' sections, Edit on another blocklist's row goes through
+    the same Sealed and trial refusals as switching, and a template's Start on
+    Plans is Today's own start, gates and all.
+    """
+
+    VM = Path(DESKTOP_DIR) / "ViewModels"
+
+    def test_todays_links_open_their_section(self):
+        today = (self.VM / "TodayViewModel.cs").read_text(encoding="utf-8")
+        assert "OpenPlansCommand = new RelayCommand(() => _main.OpenPlans(PlansSection.Schedules));" in today
+        assert "OpenTemplatesCommand = new RelayCommand(() => _main.OpenPlans(PlansSection.Templates));" in today
+        assert "OpenBlocklistsCommand = new RelayCommand(() => _main.OpenPlans(PlansSection.Blocklists));" in today
+        xaml = (Path(DESKTOP_DIR) / "Views" / "TodayView.xaml").read_text(encoding="utf-8")
+        templates_link = xaml.split('AutomationProperties.AutomationId="EditTemplatesLink"')[0].rsplit("<Button", 1)[1]
+        assert 'Command="{Binding OpenTemplatesCommand}"' in templates_link
+
+    def test_edit_on_another_row_switches_through_the_guarded_path(self):
+        vm = (self.VM / "BlockedAppsViewModel.cs").read_text(encoding="utf-8")
+        body = vm.split("private void EditProfile(BlocklistRow? row, EditorFocus focus)")[1].split("\n    }")[0]
+        assert "SelectProfile(row.Profile);" in body, "the switch must be SelectProfile, with its Sealed refusal"
+        assert "if (!ReferenceEquals(ActiveProfile, row.Profile)) return;" in body, \
+            "a refused switch must not open another blocklist for editing"
+        assert body.index("SelectProfile(row.Profile);") < body.index("IsEditing = true;")
+
+    def test_start_on_plans_is_todays_start(self):
+        vm = (self.VM / "ScheduleViewModel.cs").read_text(encoding="utf-8")
+        body = vm.split("private void StartTemplate(TemplateRow? row)")[1].split("\n    }")[0]
+        assert "_main.Today.StartTemplateCommand.Execute(row);" in body
+
+    def test_no_primary_button_on_plans(self):
+        for view in ("PlansView.xaml", "BlockedAppsView.xaml", "ScheduleView.xaml", "SleepBlockingView.xaml"):
+            xaml = (Path(DESKTOP_DIR) / "Views" / view).read_text(encoding="utf-8")
+            assert "BtnPrimary" not in xaml, f"{view}: Plans has no Primary button (design README)"
+
+    def test_no_middle_dots_on_plans(self):
+        for view in ("BlockedAppsView.xaml", "ScheduleView.xaml", "SleepBlockingView.xaml"):
+            xaml = (Path(DESKTOP_DIR) / "Views" / view).read_text(encoding="utf-8")
+            assert "\u00b7" not in xaml and "&#183;" not in xaml, view
+        schedule_vm = (self.VM / "ScheduleViewModel.cs").read_text(encoding="utf-8")
+        assert "\\u00B7" not in schedule_vm
+
+
+class TestPlansFindingsFromARealPc433:
+    """
+    Three things a real Windows 11 laptop showed on Plans (#433 follow-up).
+    Each assertion fails against the code before the fix.
+    """
+
+    SCHEDULE_VM = Path(DESKTOP_DIR) / "ViewModels" / "ScheduleViewModel.cs"
+    SCHEDULE_VIEW = Path(DESKTOP_DIR) / "Views" / "ScheduleView.xaml"
+    BLOCKED_VM = Path(DESKTOP_DIR) / "ViewModels" / "BlockedAppsViewModel.cs"
+
+    def test_the_empty_line_allows_for_the_sleep_row_above_it(self):
+        # Sleep blocking is always a row in Schedules, so a bare "No schedules
+        # yet" under it contradicted the row.
+        vm = self.SCHEDULE_VM.read_text(encoding="utf-8")
+        assert 'return "No other schedules yet";' in vm
+        assert 'return "No schedules yet";' not in vm
+        view = self.SCHEDULE_VIEW.read_text(encoding="utf-8")
+        assert view.index('AutomationId="SleepBlockToggle"') < view.index('AutomationId="ScheduleNextUpText"')
+
+    def test_a_template_detail_wraps_instead_of_being_cut_off(self):
+        view = self.SCHEDULE_VIEW.read_text(encoding="utf-8")
+        row = view.split('AutomationId="{Binding Name, StringFormat=TemplateDetail_{0}}"', 1)[0]
+        detail = row.rsplit("<TextBlock", 1)[1]
+        assert 'TextWrapping="Wrap"' in detail and "TextTrimming" not in detail
+        vm = " ".join(self.SCHEDULE_VM.read_text(encoding="utf-8").split())
+        assert '"the blocklist in use"' not in vm, "the default blocklist goes unsaid"
+
+    def test_a_typed_full_path_keeps_the_apps_icon(self):
+        vm = " ".join(self.BLOCKED_VM.read_text(encoding="utf-8").split())
+        add = vm.split("private void AddApp()", 1)[1].split("private void RemoveApp", 1)[0]
+        assert "System.IO.File.Exists(typedPath)" in add
+        assert "processes, iconPath))" in add, "the typed path is saved as the icon"

@@ -39,13 +39,36 @@ WINDOW_TITLE_RE = rf"^{APP_WINDOW_TITLE}( .*)?$"
 
 TAB_IDS = {
     "today": "Tab_Today",
+    "plans": "Tab_Plans",
     "history": "Tab_History",
-    "blocked apps": "Tab_BlockedApps",
-    "blockedapps": "Tab_BlockedApps",
-    # F6 renamed Sleep Blocking to Schedule; the tab kept its AutomationId.
-    "schedule": "Tab_SleepBlocking",
     "settings": "Tab_Settings",
+    # Plans (#433) replaced Blocked Apps and Schedule. Their names still work:
+    # each opens Plans, and navigate_to_tab opens the matching editor there.
+    "blocked apps": "Tab_Plans",
+    "blockedapps": "Tab_Plans",
+    "schedule": "Tab_Plans",
 }
+
+# The title each name lands on, where it isn't the name itself.
+TAB_TITLES = {"blocked apps": "Plans", "blockedapps": "Plans", "schedule": "Plans"}
+
+# Plans' editors (#433). Their controls are collapsed, so out of the UIA tree,
+# until Edit opens them; element() opens the right one first, as it opens the
+# setup panel for its pickers, so `set_text("NewAppNameInput", ...)` means what
+# it meant on Blocked Apps.
+BLOCKLIST_EDITOR_IDS = {
+    "ProfileNameInput", "RenameProfileButton", "DuplicateProfileButton", "DeleteProfileButton",
+    "ConfirmDeleteProfileButton", "CancelDeleteProfileButton", "DeleteProfileConfirmText",
+    "ProfileHint", "BlockedAppsStatusText", "BlockedAppsEmptyText", "BlockedAppsList",
+    "NewAppNameInput", "AddAppButton", "NewSiteInput", "AddSiteButton", "SitesHint",
+    "RefreshProcessesButton", "AppSearchInput", "AppSearchNotice", "AppPickerList",
+    "BlocklistDoneButton",
+}
+BLOCKLIST_EDITOR_PREFIXES = ("RemoveApp_", "AppEnabledSwitch_", "RemoveSite_", "Pick_")
+SLEEP_EDITOR_IDS = {"SleepStartInput", "SleepEndInput", "SaveSleepWindowButton",
+                    "SleepStatusText", "SleepGetProButton", "SleepEditorDoneButton"}
+# Restore built-in templates sits in the Templates section's ⋯ menu.
+TEMPLATES_MENU_IDS = {"RestoreTemplatesButton"}
 
 
 class DesktopControllerError(RuntimeError):
@@ -362,7 +385,8 @@ class DesktopController:
 
     # ------------------------------------------------------- element access
 
-    def element(self, auto_id: str, control_type: str | None = None, timeout: float | None = None):
+    def element(self, auto_id: str, control_type: str | None = None, timeout: float | None = None,
+                open_editors: bool = True):
         """
         Resolve a control by AutomationId.
 
@@ -383,6 +407,14 @@ class DesktopController:
             self._open_sprint_options(uia)
         elif auto_id not in PANEL_LEAVES_OPEN and not auto_id.startswith("SetupPanel"):
             self._close_sprint_options(uia)
+        if not open_editors:
+            pass
+        elif auto_id in BLOCKLIST_EDITOR_IDS or auto_id.startswith(BLOCKLIST_EDITOR_PREFIXES):
+            self._open_plans_editor(uia, "ProfileNameInput", self._active_blocklist_edit_id())
+        elif auto_id in SLEEP_EDITOR_IDS:
+            self._open_plans_editor(uia, "SleepStartInput", "EditSleepBlockingButton")
+        elif auto_id in TEMPLATES_MENU_IDS:
+            return self._menu_item(uia, auto_id, "TemplatesMoreButton", timeout)
         condition = _automation_id_condition(auto_id)
 
         deadline = time.time() + timeout
@@ -404,6 +436,84 @@ class DesktopController:
                     f"no element with AutomationId '{auto_id}' appeared within {timeout}s"
                 )
             time.sleep(0.15)
+
+    @staticmethod
+    def _active_blocklist_edit_id() -> str:
+        """Edit on the row of the blocklist in use, which is the one an edit lands on."""
+        try:
+            from core import state_verifier
+            settings = state_verifier.read_settings()
+            active = next((p for p in settings.get("Profiles", [])
+                           if p.get("Id") == settings.get("ActiveProfileId")), None)
+            name = (active or (settings.get("Profiles") or [{}])[0]).get("Name") or "Default"
+        except Exception:                           # no settings yet: the first profile
+            name = "Default"
+        return f"EditBlocklist_{name}"
+
+    def _open_plans_editor(self, uia, marker_id: str, edit_id: str) -> None:
+        """
+        Open one of Plans' editors before looking for its controls (#433).
+
+        `marker_id` is a control that exists only while the editor is open, so
+        an open editor is left alone. When Plans isn't showing, or Edit is
+        disabled (a Sealed sprint holds the blocklist), it does nothing and the
+        lookup answers as it would have.
+        """
+        try:
+            root = self.window.element_info.element
+            if root.FindFirst(uia.TreeScope_Descendants, _automation_id_condition(marker_id)):
+                return
+            found = root.FindFirst(uia.TreeScope_Descendants, _automation_id_condition(edit_id))
+            if not found:
+                return
+            edit = UIAWrapper(UIAElementInfo(found))
+            if not edit.is_enabled():
+                return
+            edit.invoke()
+            time.sleep(0.45)
+        except Exception as exc:                    # COM hiccup; the lookup still runs
+            self._say(f"could not open the editor for '{marker_id}' (continuing): {exc}")
+
+    def _menu_item(self, uia, auto_id: str, button_id: str, timeout: float):
+        """
+        An item in a ⋯ menu (#433). A WPF context menu is a popup window of its
+        own, so its items are not under the main window in the UIA tree: open
+        the menu, then look in the app's top-level windows.
+        """
+        import ctypes
+        from ctypes import wintypes
+
+        condition = _automation_id_condition(auto_id)
+        pid = wintypes.DWORD()
+        ctypes.windll.user32.GetWindowThreadProcessId(self.window.handle, ctypes.byref(pid))
+        iuia, _ = _uia()
+        same_process = iuia.CreatePropertyCondition(uia.UIA_ProcessIdPropertyId, pid.value)
+
+        def find():
+            windows = iuia.GetRootElement().FindAll(uia.TreeScope_Children, same_process)
+            for i in range(windows.Length):
+                found = windows.GetElement(i).FindFirst(uia.TreeScope_Descendants, condition)
+                if found:
+                    return UIAWrapper(UIAElementInfo(found))
+            return None
+
+        item = find()
+        if item is None:
+            button = self.window.element_info.element.FindFirst(
+                uia.TreeScope_Descendants, _automation_id_condition(button_id))
+            if button:
+                UIAWrapper(UIAElementInfo(button)).invoke()
+                time.sleep(0.4)
+        deadline = time.time() + timeout
+        while item is None:
+            item = find()
+            if item is not None:
+                break
+            if time.time() >= deadline:
+                raise DesktopControllerError(
+                    f"no menu item with AutomationId '{auto_id}' appeared within {timeout}s")
+            time.sleep(0.15)
+        return item
 
     def _open_sprint_options(self, uia) -> None:
         """
@@ -451,9 +561,9 @@ class DesktopController:
         except Exception as exc:                    # COM hiccup; the lookup still runs
             self._say(f"could not close the setup panel (continuing): {exc}")
 
-    def exists(self, auto_id: str, timeout: float = 1.5) -> bool:
+    def exists(self, auto_id: str, timeout: float = 1.5, open_editors: bool = True) -> bool:
         try:
-            self.element(auto_id, timeout=timeout)
+            self.element(auto_id, timeout=timeout, open_editors=open_editors)
             return True
         except Exception:
             return False
@@ -812,7 +922,7 @@ class DesktopController:
                 f"unknown tab '{tab_name}' (known: {sorted(set(TAB_IDS))})"
             )
 
-        expected = tab_name.strip()
+        expected = TAB_TITLES.get(key, tab_name.strip())
         title = ""
 
         for attempt in range(1, attempts + 1):
@@ -836,6 +946,16 @@ class DesktopController:
             f"could not navigate to '{expected}' after {attempts} attempts "
             f"(page title is '{title}')"
         )
+
+    def open_blocklist_editor(self) -> None:
+        """Edit on the blocklist in use, on Plans (#433). Does nothing if it is open or Edit is disabled."""
+        _, uia = _uia()
+        self._open_plans_editor(uia, "ProfileNameInput", self._active_blocklist_edit_id())
+
+    def open_sleep_editor(self) -> None:
+        """Edit on Plans' sleep-blocking row (#433)."""
+        _, uia = _uia()
+        self._open_plans_editor(uia, "SleepStartInput", "EditSleepBlockingButton")
 
     def current_page_title(self) -> str:
         return self.text_of("PageTitle")
@@ -1054,7 +1174,8 @@ class DesktopController:
         """
         deadline = time.time() + timeout
         while time.time() < deadline:
-            if not self.exists(auto_id, timeout=0.2):
+            # Never reopen one of Plans' editors to check that it closed.
+            if not self.exists(auto_id, timeout=0.2, open_editors=False):
                 return
         raise DesktopControllerError(f"'{auto_id}' was still on the page after {timeout}s")
 

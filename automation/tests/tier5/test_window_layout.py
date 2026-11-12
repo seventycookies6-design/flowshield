@@ -79,102 +79,50 @@ class TestSmallScreenLayout:
 class TestBlockedAppsRowSwitchNotClipped:
     """
     PR #182 review (§4): the per-app enable/disable switch in the Blocked
-    Apps list (Steam/Discord/Minecraft Launcher rows) was clipped by the
-    card's right edge. The row's Grid has one flexible column (app name,
-    MinWidth 120) and four Auto columns -- icon, "blocked N x" stat, Remove
-    button, switch -- inside a ListBox with
-    ScrollViewer.HorizontalScrollBarVisibility="Disabled", which clips
-    overflow instead of scrolling it. This PR's own spacing bumps (icon
-    margin 13->12, "blocked N" margin 14->16, Remove button padding
-    14,0->16,0, switch margin 14,0,0,0->16,0,0,0) pushed the row's required
-    width past the card's available width (roughly 480px once the 1180px
-    window's 240px nav rail, 32px page margins, 300px picker column, 16px
-    gap, 24px Card padding and 16px RowCard padding are all subtracted), so
-    the switch -- the last Auto column -- lost its right edge.
+    Apps list was clipped by the card's right edge, because the row's Auto
+    columns (icon, "blocked N x" stat, Remove, switch) and their spacing
+    asked for more width than the card had.
 
-    The review fix pulled the Remove button's own padding and the switch's
-    own margin back down to 12 (still on the §4 4/8/12/16/24/32/48/64
-    scale), reclaiming 12px. This test sums the four literal spacing values
-    straight from the live XAML rather than reimplementing WPF's
-    text-measurement and layout engine -- those four numbers are the whole
-    cause the review named, and BUDGET is the same arithmetic used to find
-    and fix it.
+    Plans (#433) moved the list into an open blocklist, whose list column is
+    at least AdaptiveColumns' MinColumnWidth wide, and the row lost its stat
+    column (the count joined the process caption). The same promise holds:
+    the row's fixed widths and spacing, plus the name's minimum, fit that
+    column, so the switch and Remove are never cut off. The numbers are read
+    from the live XAML rather than reimplementing WPF's layout.
     """
 
     VIEW = Path(DESKTOP_DIR) / "Views" / "BlockedAppsView.xaml"
+    # Remove is a quiet button: about 50 px of label at 14 px plus BtnQuiet's
+    # 12 px padding either side. Generous on purpose.
+    REMOVE_WIDTH = 80
+    SWITCH_WIDTH = 40
 
-    # 76 (pre-fix: 12+16+32+16) overflowed the card; 64 (post-fix:
-    # 12+16+24+12) fits with margin to spare. Drawn at 70 so a future bump
-    # of any one value by a single further 4px §4 step trips it again.
-    BUDGET = 70
-
-    ICON_MARGIN = re.compile(
-        r'Grid\.Column="0" Width="34" Height="34".*?Margin="0,0,(\d+),0">', re.DOTALL
-    )
-    STAT_MARGIN = re.compile(
-        r'Grid\.Column="2" VerticalAlignment="Center" Margin="0,0,(\d+),0"\s*\n\s*'
-        r'Style="\{StaticResource Caption\}">\s*\n\s*<Run Text="blocked"'
-    )
-    BUTTON_PADDING = re.compile(
-        r'Style="\{StaticResource BtnDanger\}" Content="Remove"\s*\n\s*Padding="(\d+),0"'
-    )
-    SWITCH_MARGIN = re.compile(
-        r'Style="\{StaticResource Switch\}"\s*\n\s*VerticalAlignment="Center" Margin="(\d+),0,0,0"'
-    )
-
-    # Verbatim pre-fix fragment (this PR's own shipped numbers, before the
-    # review caught the clip): proves the checker below actually rejects
-    # the failing set rather than passing by construction.
-    PRE_FIX_FIXTURE = (
-        '<Border Grid.Column="0" Width="34" Height="34" CornerRadius="{StaticResource RadiusControl}"\n'
-        '        Background="{StaticResource PrimarySoft}" BorderBrush="{StaticResource Primary}" BorderThickness="1"\n'
-        '        Margin="0,0,12,0">\n'
-        '<TextBlock Grid.Column="2" VerticalAlignment="Center" Margin="0,0,16,0"\n'
-        '           Style="{StaticResource Caption}">\n'
-        '    <Run Text="blocked"/>\n'
-        '<Button Grid.Column="3" Style="{StaticResource BtnDanger}" Content="Remove"\n'
-        '        Padding="16,0" VerticalAlignment="Center"\n'
-        '<CheckBox Grid.Column="4" Style="{StaticResource Switch}"\n'
-        '          VerticalAlignment="Center" Margin="16,0,0,0"\n'
-    )
-
-    def _total(self, text: str) -> int:
-        icon = self.ICON_MARGIN.search(text)
-        stat = self.STAT_MARGIN.search(text)
-        button = self.BUTTON_PADDING.search(text)
-        switch = self.SWITCH_MARGIN.search(text)
-        assert icon and stat and button and switch, (
-            "one of the Blocked Apps row's spacing patterns wasn't found -- "
-            "has the row's XAML structure changed? update this test's regexes to match."
-        )
-        return (
-            int(icon.group(1))
-            + int(stat.group(1))
-            + int(button.group(1)) * 2
-            + int(switch.group(1))
-        )
-
-    def test_fixture_of_known_pre_fix_values_is_rejected(self):
-        """Proves the checker catches the bug: the pre-fix numbers
-        (12+16+32+16=76) must exceed BUDGET."""
-        total = self._total(self.PRE_FIX_FIXTURE)
-        assert total > self.BUDGET, (
-            f"expected the pre-fix fixture ({total}) to exceed BUDGET ({self.BUDGET})"
-        )
-
-    def test_blocked_apps_row_spacing_fits_the_card(self):
+    def _row(self) -> str:
         text = self.VIEW.read_text(encoding="utf-8")
-        total = self._total(text)
-        assert total <= self.BUDGET, (
-            f"Blocked Apps row spacing (icon margin + stat margin + 2x Remove "
-            f"button padding + switch margin = {total}) exceeds the "
-            f"{self.BUDGET}px budget that keeps the switch from being "
-            "clipped by the card's right edge (PR #182 review) -- pull one "
-            "of these back to the next lower §4 scale step."
-        )
+        return text.split('AutomationProperties.AutomationId="BlockedAppsList"', 1)[1].split("</ListBox>", 1)[0]
 
+    def test_the_row_fits_the_narrowest_list_column(self):
+        text = self.VIEW.read_text(encoding="utf-8")
+        column = int(re.search(r'<inf:AdaptiveColumns MinColumnWidth="(\d+)"', text).group(1))
+        row = self._row()
+        padding = int(re.search(r'Style="\{StaticResource RowCard\}" Padding="(\d+),', row).group(1))
+        icon = re.search(r'Grid Grid\.Column="0" Width="(\d+)" Height="\d+" Margin="0,0,(\d+),0"', row)
+        name_min = int(re.search(r'<ColumnDefinition Width="\*" MinWidth="(\d+)"/>', row).group(1))
+        switch_margin = int(re.search(
+            r'Style="\{StaticResource Switch\}"\s*\n\s*VerticalAlignment="Center" Margin="(\d+),0,0,0"', row).group(1))
+        remove_margin = int(re.search(
+            r'Style="\{StaticResource BtnQuiet\}" Content="Remove"\s*\n\s*Margin="(\d+),', row).group(1))
+        needed = (2 * padding + 2 + int(icon.group(1)) + int(icon.group(2)) + name_min
+                  + switch_margin + self.SWITCH_WIDTH + remove_margin + self.REMOVE_WIDTH)
+        assert needed <= column, (
+            f"an app's row needs {needed}px but the list column can be {column}px: "
+            "the switch or Remove would be clipped (PR #182 review)")
 
-# ======================================== #189: the app adapts to its window
+    def test_remove_is_quiet_not_red_on_every_row(self):
+        """#433: no red Remove on every row; removing happens inside Edit."""
+        row = self._row()
+        assert 'Style="{StaticResource BtnQuiet}" Content="Remove"' in row
+        assert "BtnDanger" not in row
 
 class TestAppAdaptsToItsWindow:
     """
@@ -220,19 +168,24 @@ class TestAppAdaptsToItsWindow:
         assert '<Grid x:Name="RootGrid" SizeChanged="OnSizeChanged">' in window_xaml
         assert 'SizeChanged="OnSizeChanged"\n' not in window_xaml.split("<Grid", 1)[0], (
             "the rail breakpoint belongs on the root grid, not the window")
-        for code in ("TodayView.xaml.cs", "BlockedAppsView.xaml.cs"):
+        # Blocked Apps' own breakpoint went with the page (#433): Plans'
+        # sections stack through AdaptiveColumns, which reads its own width.
+        for code in ("TodayView.xaml.cs",):
             source = (self.VIEWS / code).read_text(encoding="utf-8")
             assert "e.NewSize.Width" in source, f"{code} should read its own new width"
             assert "Window.GetWindow" not in source, f"{code} still reads the window's width"
 
     def test_blocked_apps_stacks_and_scrolls_when_narrow(self):
         """Side by side below ~780px, the list clipped its Remove buttons; split
-        into fixed halves, a short window showed no rows at all."""
+        into fixed halves, a short window showed no rows at all (#189). Since
+        #433 the blocklist is part of Plans: the page is the one thing that
+        scrolls, and an open blocklist stacks its list over the picker when
+        the two don't fit side by side."""
+        plans = self._read(self.VIEWS / "PlansView.xaml")
+        assert '<ScrollViewer x:Name="PageScroll" VerticalScrollBarVisibility="Auto"' in plans
         blocked = self._read(self.VIEWS / "BlockedAppsView.xaml")
-        assert '<ScrollViewer x:Name="PageScroll"' in blocked
-        source = (self.VIEWS / "BlockedAppsView.xaml.cs").read_text(encoding="utf-8")
-        assert "StackPickerBelow" in source
-        assert "ScrollBarVisibility.Auto" in source and "ScrollBarVisibility.Disabled" in source
+        assert "<ScrollViewer" not in blocked, "a section scrolling on its own traps the wheel (#377)"
+        assert '<inf:AdaptiveColumns MinColumnWidth="340" MaxColumns="2"' in blocked
 
     def test_the_adaptive_panel_counts_columns_by_width(self):
         """The panel's column count: as many as keep each at MinColumnWidth,
@@ -442,10 +395,16 @@ class TestTodayPolishFromThe1011VmRun:
         assert "_timeLeftTimer?.Stop();" in closed
 
     def test_the_blocked_apps_counter_is_not_zero_padded(self):
+        """#347's "01 apps". Since #433 each blocklist's row says its count
+        ("1 app", "3 apps"), worded in BlocklistCopy.AppCount."""
         xaml = (self.VIEWS / "BlockedAppsView.xaml").read_text(encoding="utf-8")
-        assert "Apps.Count, StringFormat={}{0:00}" not in xaml, '"01 apps"'
+        assert "StringFormat={}{0:00}" not in xaml, '"01 apps"'
         assert 'Text="apps on the shield"' not in xaml, "the label must agree with the count"
-        assert "Converter={StaticResource AppsOnShieldLabel}" in xaml
+        assert 'Text="{Binding CountText}"' in xaml
+        vm = (Path(DESKTOP_DIR) / "ViewModels" / "BlockedAppsViewModel.cs").read_text(encoding="utf-8")
+        assert "public string CountText => BlocklistCopy.AppCount(Profile.Apps.Count);" in vm
+        copy = (Path(DESKTOP_DIR) / "Models" / "BlocklistCopy.cs").read_text(encoding="utf-8")
+        assert '1 => "1 app",' in copy and '_ => $"{count} apps",' in copy
 
     def test_todays_stats_move_to_the_new_day_while_left_open(self):
         """#290: idle on Today across midnight, nothing re-ran RefreshStats."""

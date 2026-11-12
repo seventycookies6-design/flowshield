@@ -52,9 +52,10 @@ class TestSpaceShortcutSource:
         assert '<KeyBinding Key="Space" Command="{Binding Today.ToggleOrEndCommand}"/>' in xaml
         for n in (1, 2, 3):
             assert f'Modifiers="Shift" Key="D{n}"' in xaml
-        # Ctrl+1..5 is reserved for page navigation (issue #37, one slot per
-        # nav-rail tab since F16 added History); Shift must never collide with it.
-        for n in (1, 2, 3, 4, 5):
+        # Ctrl+1..N is page navigation (issue #37), one slot per nav-rail tab:
+        # four since Plans replaced Blocked Apps and Schedule (#433). Shift
+        # must never collide with it.
+        for n in (1, 2, 3, 4):
             assert f'Modifiers="Ctrl" Key="D{n}"' in xaml
         assert "RegisterWindowsHookEx" not in xaml
         assert "SetWindowsHookEx" not in (Path(SERVER_DIR).parent / "DesktopApp" / "MainWindow.xaml.cs").read_text(

@@ -72,6 +72,10 @@ internal static class Commands
             {
                 ["label"] = BlocklistCopy.AppsOnShield((int)request["n"]!),
             },
+            "app-count" => new JsonObject
+            {
+                ["label"] = BlocklistCopy.AppCount((int)request["n"]!),
+            },
             "turned-back-text" => new JsonObject
             {
                 ["text"] = HistoryStats.TurnedBackText((int)request["n"]!),

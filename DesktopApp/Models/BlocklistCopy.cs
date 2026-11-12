@@ -9,4 +9,12 @@ public static class BlocklistCopy
 {
     public static string AppsOnShield(int count) =>
         count == 1 ? "app on the shield" : "apps on the shield";
+
+    /// <summary>The count under a blocklist's name on Plans (#433): "1 app", "3 apps", "No apps yet".</summary>
+    public static string AppCount(int count) => count switch
+    {
+        0 => "No apps yet",
+        1 => "1 app",
+        _ => $"{count} apps",
+    };
 }

@@ -525,7 +525,7 @@
                             <Button Style="{StaticResource BtnLink}" Content="Edit schedules" HorizontalAlignment="Right"
                                     Margin="0,0,-8,0" Command="{Binding OpenPlansCommand}"
                                     AutomationProperties.AutomationId="UpNextScheduleLink"
-                                    AutomationProperties.Name="Edit schedules, on the Schedule page"/>
+                                    AutomationProperties.Name="Edit schedules, on the Plans page"/>
                         </Grid>
                         <TextBlock x:Name="UpNextWhenText" Text="{Binding UpNextWhen}" Style="{StaticResource Body}" Foreground="{DynamicResource Ink}"
                                    FontFamily="{StaticResource FontStackDisplay}" FontSize="22" LineHeight="30" Margin="0,8,0,0"
@@ -705,9 +705,9 @@
                                        VerticalAlignment="Center" TextWrapping="NoWrap"/>
                         </StackPanel>
                         <Button Style="{StaticResource BtnLink}" Content="Edit templates" HorizontalAlignment="Right"
-                                Margin="0,0,-8,0" Command="{Binding OpenPlansCommand}"
+                                Margin="0,0,-8,0" Command="{Binding OpenTemplatesCommand}"
                                 AutomationProperties.AutomationId="EditTemplatesLink"
-                                AutomationProperties.Name="Edit templates, on the Schedule page"/>
+                                AutomationProperties.Name="Edit templates, on the Plans page"/>
                     </Grid>
                     <ItemsControl x:Name="TemplateList" ItemsSource="{Binding Templates}" Margin="0,14,0,0" IsTabStop="False">
                         <ItemsControl.ItemsPanel>

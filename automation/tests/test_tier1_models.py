@@ -439,15 +439,15 @@ class TestScheduleText:
         assert probe({"cmd": "text-days", "days": days})["text"] == expected
 
     @pytest.mark.parametrize("start,now,expected", [
-        ("2026-09-28T17:00:00", "2026-09-28T09:00:00", "Next: tonight 17:00 · Homework evening"),
-        ("2026-09-28T09:00:00", "2026-09-28T07:00:00", "Next: today 09:00 · Homework evening"),
-        ("2026-09-29T17:00:00", "2026-09-28T20:00:00", "Next: tomorrow 17:00 · Homework evening"),
-        ("2026-10-01T17:00:00", "2026-09-28T20:00:00", "Next: Thu 17:00 · Homework evening"),
+        ("2026-09-28T17:00:00", "2026-09-28T09:00:00", "Next: tonight 17:00, Homework evening"),
+        ("2026-09-28T09:00:00", "2026-09-28T07:00:00", "Next: today 09:00, Homework evening"),
+        ("2026-09-29T17:00:00", "2026-09-28T20:00:00", "Next: tomorrow 17:00, Homework evening"),
+        ("2026-10-01T17:00:00", "2026-09-28T20:00:00", "Next: Thu 17:00, Homework evening"),
         # A Monday-only schedule seen on Monday after it ran: "Mon 17:00" would read as today.
-        ("2026-10-05T17:00:00", "2026-09-28T18:00:00", "Next: next Mon 17:00 · Homework evening"),
-        ("2026-10-08T17:00:00", "2026-09-28T18:00:00", "Next: next Thu 17:00 · Homework evening"),
+        ("2026-10-05T17:00:00", "2026-09-28T18:00:00", "Next: next Mon 17:00, Homework evening"),
+        ("2026-10-08T17:00:00", "2026-09-28T18:00:00", "Next: next Thu 17:00, Homework evening"),
         # A start already behind now (a clock set back) reads like today, not like a weekday.
-        ("2026-09-27T17:00:00", "2026-09-28T09:00:00", "Next: tonight 17:00 · Homework evening"),
+        ("2026-09-27T17:00:00", "2026-09-28T09:00:00", "Next: tonight 17:00, Homework evening"),
     ])
     def test_next_up(self, start, now, expected):
         out = probe({"cmd": "text-next-up", "name": "Homework evening", "start": start, "now": now})
@@ -1749,6 +1749,14 @@ class TestAppsOnShieldLabel:
                                          (2, "apps on the shield"), (12, "apps on the shield")])
     def test_the_label_agrees_with_the_count(self, n, label):
         assert probe({"cmd": "apps-on-shield", "n": n})["label"] == label
+
+
+class TestBlocklistAppCount:
+    """#433: each blocklist's row on Plans says its count in words that agree with it."""
+
+    @pytest.mark.parametrize("n,label", [(0, "No apps yet"), (1, "1 app"), (2, "2 apps"), (12, "12 apps")])
+    def test_the_count_agrees_with_the_number(self, n, label):
+        assert probe({"cmd": "app-count", "n": n})["label"] == label
 # ================================ Store apps in the picker (#348)
 
 STORE_ROOT = r"C:\Program Files\WindowsApps\5319275A.WhatsAppDesktop_2.2540.5.0_x64__cv1g1gvanyjgm"

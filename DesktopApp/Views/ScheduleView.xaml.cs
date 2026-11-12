@@ -1,26 +1,43 @@
+using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Input;
+using FlowShield.ViewModels;
 
 namespace FlowShield.Views;
 
+/// <summary>Plans' Schedules and Templates sections (#433).</summary>
 public partial class ScheduleView : UserControl
 {
-    public ScheduleView() => InitializeComponent();
+    private ScheduleViewModel? _vm;
 
-    /// <summary>
-    /// The embedded sleep view keeps its own ScrollViewer. Inside this page it
-    /// never has anything to scroll, yet WPF's ScrollViewer marks every wheel
-    /// turn it sees as handled, so the page would stop moving whenever the
-    /// pointer is over the sleep window. Hand the turn to the page instead.
-    /// </summary>
-    private void OnSleepWindowPreviewMouseWheel(object sender, MouseWheelEventArgs e)
+    public ScheduleView()
     {
-        if (e.Handled) return;
-        e.Handled = true;
-        PageScroll.RaiseEvent(new MouseWheelEventArgs(e.MouseDevice, e.Timestamp, e.Delta)
+        InitializeComponent();
+        DataContextChanged += (_, e) =>
         {
-            RoutedEvent = MouseWheelEvent,
-            Source = sender,
-        });
+            if (_vm is not null) _vm.EditorOpened -= OnEditorOpened;
+            _vm = e.NewValue as ScheduleViewModel;
+            if (_vm is not null) _vm.EditorOpened += OnEditorOpened;
+        };
+    }
+
+    /// <summary>The Templates section's ⋯: its menu opens under the button, keyboard or mouse alike.</summary>
+    private void OnTemplatesMoreClick(object sender, RoutedEventArgs e)
+    {
+        TemplatesMenu.PlacementTarget = TemplatesMoreButton;
+        TemplatesMenu.DataContext = DataContext;
+        TemplatesMenu.IsOpen = true;
+    }
+
+    /// <summary>An editor opened under the rows: once it is laid out, the page brings it into view.</summary>
+    private void OnEditorOpened(object? sender, ScheduleViewModel.PlansEditor editor)
+    {
+        FrameworkElement target = editor switch
+        {
+            ScheduleViewModel.PlansEditor.Sleep => SleepEditor,
+            ScheduleViewModel.PlansEditor.Schedule => ScheduleEditor,
+            _ => TemplateEditor,
+        };
+        Dispatcher.BeginInvoke(() => target.RaiseEvent(new RoutedEventArgs(PlansView.EditorOpenedEvent, target)),
+            System.Windows.Threading.DispatcherPriority.Loaded);
     }
 }

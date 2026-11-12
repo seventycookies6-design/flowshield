@@ -40,10 +40,10 @@ with preserve_user_settings():
         time.sleep(1.5)
         app.focus(force=True)
 
-        app.navigate_to_tab("Blocked Apps")
-        grab(app, "blocked-apps")
-        app.navigate_to_tab("Schedule")
-        grab(app, "schedule")
+        # Plans (#433) at rest: an open blocklist would show the app picker,
+        # which lists what this machine has installed and running.
+        app.navigate_to_tab("Plans")
+        grab(app, "plans")
 
         app.navigate_to_tab("Today")
         time.sleep(0.8)

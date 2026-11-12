@@ -3,277 +3,397 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:inf="clr-namespace:FlowShield.Infrastructure"
              xmlns:views="clr-namespace:FlowShield.Views"
-             xmlns:models="clr-namespace:FlowShield.Models">
-    <!-- The Schedule page (F6). Schedules and templates first, then the sleep
-         window embedded unchanged: SleepBlockingView keeps every one of its
-         AutomationIds, and Roadmap 3.7 reworks it in place.
-         Not focusable: when an inline editor closed, keyboard focus fell back
-         to this ScrollViewer and it drew a dashed rectangle round the page.
-         Every control inside keeps its tab stop, and Page Up/Down from any of
-         them still scrolls it. -->
-    <ScrollViewer x:Name="PageScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
-                  Focusable="False"
-                  AutomationProperties.AutomationId="SchedulePageScroll">
-        <StackPanel Margin="0,0,8,0">
+             xmlns:models="clr-namespace:FlowShield.Models"
+             x:Name="Root">
+    <!-- Plans' Schedules and Templates sections (#433), which replaced the
+         Schedule page. Side by side when there is room, stacked when there is
+         not. Each row has its Edit; editing opens under the rows, in the same
+         section, with Delete inside the editor rather than on every row. No
+         Primary button anywhere on Plans: saving is a secondary action here.
+         The page scrolls (PlansView); nothing in here scrolls on its own. -->
+    <inf:AdaptiveColumns MinColumnWidth="400" MaxColumns="2" Spacing="24">
 
-            <TextBlock Text="{Binding NextUpText}" Style="{StaticResource H2}" Margin="0,0,0,16"
-                       TextWrapping="Wrap"
-                       AutomationProperties.AutomationId="ScheduleNextUpText"/>
+        <!-- ============================================================ schedules -->
+        <Border x:Name="SchedulesCard" Style="{StaticResource Card}" Padding="20,16,20,16">
+            <StackPanel>
+                <Grid Margin="0,0,0,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <WrapPanel VerticalAlignment="Center">
+                        <TextBlock Text="Schedules" Style="{StaticResource CardTitle}" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                        <TextBlock Text="Start by themselves." Style="{StaticResource Body}" VerticalAlignment="Center"/>
+                    </WrapPanel>
+                    <Button Grid.Column="1" Style="{StaticResource BtnGhost}" Height="36" Padding="14,0" Margin="12,0,0,0"
+                            Command="{Binding AddScheduleCommand}"
+                            AutomationProperties.AutomationId="AddScheduleButton"
+                            AutomationProperties.Name="Add schedule">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Style="{StaticResource IconSmall}" Text="{StaticResource IconAdd}" FontSize="12"
+                                       VerticalAlignment="Center" Margin="0,0,10,0"/>
+                            <TextBlock Text="Add schedule" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                </Grid>
 
-            <inf:AdaptiveColumns MinColumnWidth="400" MaxColumns="2" Spacing="16">
+                <!-- sleep blocking: the nightly window, as a row like the others -->
+                <Grid Margin="0,12,0,12" DataContext="{Binding Sleep}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <CheckBox Grid.Column="0" Style="{StaticResource SwitchStated}" VerticalAlignment="Center" Margin="0,0,16,0"
+                              IsChecked="{Binding IsEnabled}"
+                              IsEnabled="{Binding HasAccess}"
+                              AutomationProperties.AutomationId="SleepBlockToggle"
+                              AutomationProperties.Name="Sleep blocking"/>
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <TextBlock Text="Sleep blocking" Style="{StaticResource Body}" Foreground="{DynamicResource Ink}"/>
+                        <TextBlock Text="{Binding RowDetail}" Style="{StaticResource Caption}" TextWrapping="Wrap"
+                                   AutomationProperties.AutomationId="SleepWindowText"/>
+                    </StackPanel>
+                    <Button Grid.Column="2" Style="{StaticResource BtnGhost}" Height="36" Padding="14,0" Margin="12,0,0,0"
+                            VerticalAlignment="Center"
+                            Command="{Binding DataContext.EditSleepCommand, ElementName=Root}"
+                            AutomationProperties.AutomationId="EditSleepBlockingButton"
+                            AutomationProperties.Name="Edit sleep blocking">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Style="{StaticResource IconSmall}" Text="{StaticResource IconEdit}" FontSize="12"
+                                       VerticalAlignment="Center" Margin="0,0,10,0"/>
+                            <TextBlock Text="Edit" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                </Grid>
 
-                <!-- your schedules -->
-                <Border Style="{StaticResource Card}" Padding="24">
+                <!-- the sleep window's own settings, under its row -->
+                <views:SleepBlockingView x:Name="SleepEditor" DataContext="{Binding Sleep}" Margin="0,0,0,12"
+                                         Visibility="{Binding DataContext.SleepEditorVisible, ElementName=Root,
+                                                      Converter={StaticResource BoolVis}}"/>
+
+                <!-- scheduled sprints -->
+                <ItemsControl ItemsSource="{Binding Schedules}" IsTabStop="False">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Grid>
+                                <Border Height="1" VerticalAlignment="Top" Background="{DynamicResource Edge}"/>
+                                <Grid Margin="0,12,0,12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <CheckBox Grid.Column="0" Style="{StaticResource SwitchStated}" VerticalAlignment="Center" Margin="0,0,16,0"
+                                              IsChecked="{Binding Enabled, Mode=TwoWay}"
+                                              IsEnabled="{Binding DataContext.CanEdit, ElementName=Root}"
+                                              AutomationProperties.AutomationId="{Binding Id, StringFormat=ScheduleEnabled_{0}}"
+                                              AutomationProperties.Name="{Binding TemplateName, StringFormat=The {0} schedule}"/>
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding TemplateName}" Style="{StaticResource Body}" Foreground="{DynamicResource Ink}"
+                                                   TextTrimming="CharacterEllipsis"/>
+                                        <TextBlock Text="{Binding Detail}" Style="{StaticResource Caption}" TextWrapping="Wrap"
+                                                   AutomationProperties.AutomationId="{Binding Id, StringFormat=ScheduleRow_{0}}"
+                                                   AutomationProperties.Name="{Binding Summary}"/>
+                                    </StackPanel>
+                                    <Button Grid.Column="2" Style="{StaticResource BtnGhost}" Height="36" Padding="14,0" Margin="12,0,0,0"
+                                            VerticalAlignment="Center"
+                                            Command="{Binding DataContext.EditScheduleCommand, ElementName=Root}"
+                                            CommandParameter="{Binding}"
+                                            AutomationProperties.AutomationId="{Binding Id, StringFormat=EditSchedule_{0}}"
+                                            AutomationProperties.Name="{Binding TemplateName, StringFormat=Edit the {0} schedule}">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Style="{StaticResource IconSmall}" Text="{StaticResource IconEdit}" FontSize="12"
+                                                       VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                            <TextBlock Text="Edit" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Button>
+                                </Grid>
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <TextBlock Text="{Binding NextUpText}" Style="{StaticResource Caption}" Margin="0,4,0,0"
+                           TextWrapping="Wrap"
+                           AutomationProperties.AutomationId="ScheduleNextUpText"/>
+
+                <!-- schedule editor -->
+                <Border x:Name="ScheduleEditor" Margin="0,16,0,0" BorderBrush="{DynamicResource Edge}" BorderThickness="0,1,0,0" Padding="0,16,0,0"
+                        Visibility="{Binding ScheduleEditorVisible, Converter={StaticResource BoolVis}}">
                     <StackPanel>
-                        <TextBlock Text="YOUR SCHEDULES" Style="{StaticResource Eyebrow}" Margin="0,0,0,12"/>
-                        <TextBlock Text="A template starts by itself at the time you pick. By default Basalt asks five minutes before."
-                                   Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,12"/>
-
-                        <ItemsControl ItemsSource="{Binding Schedules}">
+                        <TextBlock Text="Template" Style="{StaticResource FieldLabel}"/>
+                        <ItemsControl ItemsSource="{Binding EditorTemplates}" IsTabStop="False">
+                            <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <!-- Summary, Edit, Delete, then the switch last, as on
-                                         Blocked Apps' rows. -->
-                                    <Grid Margin="0,0,0,8">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="{Binding Summary}" Style="{StaticResource Body}"
-                                                   TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,12,0"
-                                                   AutomationProperties.AutomationId="{Binding Id, StringFormat=ScheduleRow_{0}}"/>
-                                        <Button Grid.Column="1" Style="{StaticResource BtnQuiet}" Content="Edit"
-                                                Command="{Binding DataContext.EditScheduleCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                CommandParameter="{Binding}"
-                                                AutomationProperties.AutomationId="{Binding Id, StringFormat=EditSchedule_{0}}"
-                                                AutomationProperties.Name="{Binding TemplateName, StringFormat=Edit the {0} schedule}"/>
-                                        <Button Grid.Column="2" Style="{StaticResource BtnQuiet}" Content="Delete" Margin="8,0,0,0"
-                                                Command="{Binding DataContext.DeleteScheduleCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                CommandParameter="{Binding}"
-                                                AutomationProperties.AutomationId="{Binding Id, StringFormat=DeleteSchedule_{0}}"
-                                                AutomationProperties.Name="{Binding TemplateName, StringFormat=Delete the {0} schedule}"/>
-                                        <CheckBox Grid.Column="3" Style="{StaticResource Switch}" VerticalAlignment="Center"
-                                                  IsChecked="{Binding Enabled, Mode=TwoWay}"
-                                                  IsEnabled="{Binding DataContext.CanEdit, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                  AutomationProperties.AutomationId="{Binding Id, StringFormat=ScheduleEnabled_{0}}"
-                                                  AutomationProperties.Name="{Binding TemplateName, StringFormat=Turn the {0} schedule on or off}"/>
-                                    </Grid>
+                                    <RadioButton Style="{StaticResource Segment}" GroupName="ScheduleTemplate" Margin="0,0,8,8"
+                                                 Content="{Binding Label}" IsChecked="{Binding IsChosen}"
+                                                 AutomationProperties.AutomationId="{Binding AutomationId}"
+                                                 AutomationProperties.Name="{Binding AccessibleName}"/>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
 
-                        <Button Style="{StaticResource BtnGhost}" Content="Add schedule" HorizontalAlignment="Left"
-                                Margin="0,8,0,0" Command="{Binding AddScheduleCommand}"
-                                AutomationProperties.AutomationId="AddScheduleButton"/>
+                        <TextBlock Text="Days" Style="{StaticResource FieldLabel}" Margin="0,8,0,8"/>
+                        <ItemsControl ItemsSource="{Binding EditorDays}" IsTabStop="False">
+                            <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <CheckBox Style="{StaticResource SegmentCheck}" Margin="0,0,8,8"
+                                              Content="{Binding Label}" IsChecked="{Binding IsChosen}"
+                                              AutomationProperties.AutomationId="{Binding AutomationId}"
+                                              AutomationProperties.Name="{Binding AccessibleName}"/>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
 
-                        <!-- editor -->
-                        <StackPanel Margin="0,16,0,0"
-                                    Visibility="{Binding ScheduleEditorVisible, Converter={StaticResource BoolVis}}">
-                            <TextBlock Text="TEMPLATE" Style="{StaticResource Eyebrow}" Margin="0,0,0,8"/>
-                            <ItemsControl ItemsSource="{Binding EditorTemplates}">
-                                <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <RadioButton Style="{StaticResource Segment}" GroupName="ScheduleTemplate" Margin="0,0,8,8"
-                                                     Content="{Binding Label}" IsChecked="{Binding IsChosen}"
-                                                     AutomationProperties.AutomationId="{Binding AutomationId}"
-                                                     AutomationProperties.Name="{Binding AccessibleName}"/>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
+                        <TextBlock Text="Starts at" Style="{StaticResource FieldLabel}" Margin="0,8,0,8"/>
+                        <TextBox Style="{StaticResource Field}" Width="112" HorizontalAlignment="Left"
+                                 Text="{Binding EditorTime, UpdateSourceTrigger=PropertyChanged}"
+                                 AutomationProperties.AutomationId="ScheduleTimeInput"
+                                 AutomationProperties.Name="Schedule start time"/>
 
-                            <TextBlock Text="DAYS" Style="{StaticResource Eyebrow}" Margin="0,8,0,8"/>
-                            <ItemsControl ItemsSource="{Binding EditorDays}">
-                                <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <CheckBox Style="{StaticResource SegmentCheck}" Margin="0,0,8,8"
-                                                  Content="{Binding Label}" IsChecked="{Binding IsChosen}"
-                                                  AutomationProperties.AutomationId="{Binding AutomationId}"
-                                                  AutomationProperties.Name="{Binding AccessibleName}"/>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
+                        <CheckBox Style="{StaticResource Switch}" Margin="0,16,0,0" IsChecked="{Binding EditorAskFirst}"
+                                  AutomationProperties.AutomationId="ScheduleAskFirstToggle"
+                                  AutomationProperties.Name="Ask five minutes before">
+                            <TextBlock Text="Ask five minutes before" Style="{StaticResource Body}"/>
+                        </CheckBox>
 
-                            <TextBlock Text="STARTS" Style="{StaticResource Eyebrow}" Margin="0,8,0,8"/>
-                            <TextBox Style="{StaticResource Field}" Width="112" HorizontalAlignment="Left"
-                                     Text="{Binding EditorTime, UpdateSourceTrigger=PropertyChanged}"
-                                     AutomationProperties.AutomationId="ScheduleTimeInput"
-                                     AutomationProperties.Name="Schedule start time"/>
-
-                            <CheckBox Style="{StaticResource Switch}" Margin="0,16,0,0" IsChecked="{Binding EditorAskFirst}"
-                                      AutomationProperties.AutomationId="ScheduleAskFirstToggle"
-                                      AutomationProperties.Name="Ask five minutes before">
-                                <TextBlock Text="Ask five minutes before" Style="{StaticResource Body}"/>
-                            </CheckBox>
-
-                            <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
-                                <Button Style="{StaticResource BtnPrimary}" Content="Save schedule"
+                        <Grid Margin="0,16,0,0">
+                            <StackPanel Orientation="Horizontal">
+                                <Button Style="{StaticResource BtnGhost}" Content="Save schedule"
                                         Command="{Binding SaveScheduleCommand}"
                                         AutomationProperties.AutomationId="SaveScheduleButton"/>
                                 <Button Style="{StaticResource BtnQuiet}" Content="Cancel" Margin="12,0,0,0"
                                         Command="{Binding CancelScheduleCommand}"
                                         AutomationProperties.AutomationId="CancelScheduleButton"/>
                             </StackPanel>
-                        </StackPanel>
-
-                        <TextBlock Text="{Binding StatusText}" Style="{StaticResource Caption}" TextWrapping="Wrap"
-                                   Margin="0,12,0,0" AutomationProperties.AutomationId="ScheduleStatusText"
-                                   Visibility="{Binding StatusText, Converter={StaticResource NonEmptyVis}}"/>
+                            <!-- Delete lives here, not on every row (#433). -->
+                            <Button Style="{StaticResource BtnQuiet}" Content="Delete schedule" HorizontalAlignment="Right"
+                                    Margin="0,0,-12,0"
+                                    Visibility="{Binding CanDeleteEditedSchedule, Converter={StaticResource BoolVis}}"
+                                    Command="{Binding DeleteScheduleCommand}"
+                                    CommandParameter="{Binding EditingScheduleRow}"
+                                    AutomationProperties.AutomationId="{Binding EditingScheduleRow.Id, StringFormat=DeleteSchedule_{0}}"
+                                    AutomationProperties.Name="{Binding EditingScheduleRow.TemplateName, StringFormat=Delete the {0} schedule}"/>
+                        </Grid>
                     </StackPanel>
                 </Border>
 
-                <!-- templates -->
-                <Border Style="{StaticResource Card}" Padding="24">
+                <TextBlock Text="{Binding StatusText}" Style="{StaticResource Caption}" TextWrapping="Wrap"
+                           Margin="0,12,0,0" AutomationProperties.AutomationId="ScheduleStatusText"
+                           Visibility="{Binding StatusText, Converter={StaticResource NonEmptyVis}}"/>
+            </StackPanel>
+        </Border>
+
+        <!-- ============================================================ templates -->
+        <Border x:Name="TemplatesCard" Style="{StaticResource Card}" Padding="20,16,20,16">
+            <StackPanel>
+                <Grid Margin="0,0,0,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="Templates" Style="{StaticResource CardTitle}" VerticalAlignment="Center"/>
+                    <Button Grid.Column="1" Style="{StaticResource BtnGhost}" Height="36" Padding="14,0" Margin="12,0,0,0"
+                            Command="{Binding NewTemplateCommand}"
+                            AutomationProperties.AutomationId="NewTemplateButton"
+                            AutomationProperties.Name="New template">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Style="{StaticResource IconSmall}" Text="{StaticResource IconAdd}" FontSize="12"
+                                       VerticalAlignment="Center" Margin="0,0,10,0"/>
+                            <TextBlock Text="New template" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                    <!-- More: a menu of the section's other actions. Today that
+                         is Restore built-in templates. -->
+                    <Button x:Name="TemplatesMoreButton" Grid.Column="2" Style="{StaticResource BtnIcon}" Margin="8,0,0,0"
+                            Click="OnTemplatesMoreClick"
+                            IsEnabled="{Binding CanEdit}"
+                            AutomationProperties.AutomationId="TemplatesMoreButton"
+                            AutomationProperties.Name="More template actions">
+                        <TextBlock Style="{StaticResource IconSmall}" Text="{StaticResource IconMore}"/>
+                        <Button.ContextMenu>
+                            <ContextMenu x:Name="TemplatesMenu" Placement="Bottom">
+                                <MenuItem Header="Restore built-in templates"
+                                          Command="{Binding RestoreTemplatesCommand}"
+                                          AutomationProperties.AutomationId="RestoreTemplatesButton"/>
+                            </ContextMenu>
+                        </Button.ContextMenu>
+                    </Button>
+                </Grid>
+
+                <ItemsControl ItemsSource="{Binding Templates}" IsTabStop="False" Margin="0,8,0,0" AlternationCount="1000">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Grid>
+                                <Border Height="1" VerticalAlignment="Top" Background="{DynamicResource Edge}" x:Name="Divider"/>
+                                <Grid Margin="0,10,0,10">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,12,0">
+                                        <TextBlock Text="{Binding Name}" Style="{StaticResource Body}" Foreground="{DynamicResource Ink}"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   AutomationProperties.AutomationId="{Binding Name, StringFormat=TemplateRow_{0}}"/>
+                                        <!-- a Grid, not a horizontal StackPanel, so the detail can wrap -->
+                                        <Grid Margin="0,2,0,0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <Image Source="{Binding Shield, Converter={StaticResource ShieldGlyph}}"
+                                                   Width="12" Height="12" Stretch="Uniform" Margin="0,3,6,0" VerticalAlignment="Top"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding PlansDetail}" Style="{StaticResource Caption}"
+                                                       VerticalAlignment="Center" TextWrapping="Wrap"
+                                                       AutomationProperties.AutomationId="{Binding Name, StringFormat=TemplateDetail_{0}}"/>
+                                        </Grid>
+                                    </StackPanel>
+                                    <Button Grid.Column="1" Style="{StaticResource BtnGhost}" Height="36" Padding="14,0"
+                                            VerticalAlignment="Center"
+                                            Command="{Binding DataContext.StartTemplateCommand, ElementName=Root}"
+                                            CommandParameter="{Binding}"
+                                            AutomationProperties.AutomationId="{Binding Name, StringFormat=PlansTemplateStart_{0}}"
+                                            AutomationProperties.Name="{Binding Name, StringFormat=Start {0}}">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Style="{StaticResource IconSmall}" FontSize="11" Text="{StaticResource IconPlay}"
+                                                       VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                            <TextBlock Text="Start" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Button>
+                                    <Button Grid.Column="2" Style="{StaticResource BtnGhost}" Height="36" Padding="14,0" Margin="8,0,0,0"
+                                            VerticalAlignment="Center"
+                                            Command="{Binding DataContext.EditTemplateCommand, ElementName=Root}"
+                                            CommandParameter="{Binding}"
+                                            AutomationProperties.AutomationId="{Binding Name, StringFormat=EditTemplate_{0}}"
+                                            AutomationProperties.Name="{Binding Name, StringFormat=Edit {0}}">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Style="{StaticResource IconSmall}" Text="{StaticResource IconEdit}" FontSize="12"
+                                                       VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                            <TextBlock Text="Edit" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Button>
+                                </Grid>
+                            </Grid>
+                            <DataTemplate.Triggers>
+                                <DataTrigger Binding="{Binding (ItemsControl.AlternationIndex),
+                                                       RelativeSource={RelativeSource AncestorType=ContentPresenter}}" Value="0">
+                                    <Setter TargetName="Divider" Property="Visibility" Value="Collapsed"/>
+                                </DataTrigger>
+                            </DataTemplate.Triggers>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <!-- template editor -->
+                <Border x:Name="TemplateEditor" Margin="0,8,0,0" BorderBrush="{DynamicResource Edge}" BorderThickness="0,1,0,0" Padding="0,16,0,0"
+                        Visibility="{Binding TemplateEditorVisible, Converter={StaticResource BoolVis}}">
                     <StackPanel>
-                        <TextBlock Text="TEMPLATES" Style="{StaticResource Eyebrow}" Margin="0,0,0,12"/>
-                        <ItemsControl ItemsSource="{Binding Templates}">
+                        <TextBlock Text="Name" Style="{StaticResource FieldLabel}"/>
+                        <TextBox Style="{StaticResource Field}" Text="{Binding TemplateName, UpdateSourceTrigger=PropertyChanged}"
+                                 MaxLength="{x:Static models:StudyTemplate.MaxNameLength}"
+                                 AutomationProperties.AutomationId="TemplateNameInput"
+                                 AutomationProperties.Name="Template name"/>
+
+                        <!-- Both range labels come from the view model, built from the
+                             same constants Save checks, so a changed bound can't leave
+                             the label lying. -->
+                        <TextBlock Text="{Binding SprintMinutesLabel}" Style="{StaticResource FieldLabel}" Margin="0,12,0,8"
+                                   AutomationProperties.AutomationId="TemplateMinutesLabel"/>
+                        <TextBox Style="{StaticResource Field}" Width="112" HorizontalAlignment="Left"
+                                 Text="{Binding TemplateMinutes, UpdateSourceTrigger=PropertyChanged}"
+                                 AutomationProperties.AutomationId="TemplateMinutesInput"
+                                 AutomationProperties.Name="Sprint minutes"/>
+
+                        <!-- Same binding as Today's shield and cycle chips: EnumEq
+                             and IntEq against a literal parameter. -->
+                        <TextBlock Text="Shield" Style="{StaticResource FieldLabel}" Margin="0,12,0,8"/>
+                        <WrapPanel>
+                            <RadioButton Style="{StaticResource Segment}" GroupName="TemplateShield" Content="Soft" Margin="0,0,8,8"
+                                         IsChecked="{Binding TemplateShield, Converter={StaticResource EnumEq},
+                                                     ConverterParameter={x:Static models:ShieldLevel.Soft}}"
+                                         AutomationProperties.AutomationId="TemplateShield_Soft"/>
+                            <RadioButton Style="{StaticResource Segment}" GroupName="TemplateShield" Content="Firm" Margin="0,0,8,8"
+                                         IsChecked="{Binding TemplateShield, Converter={StaticResource EnumEq},
+                                                     ConverterParameter={x:Static models:ShieldLevel.Firm}}"
+                                         AutomationProperties.AutomationId="TemplateShield_Firm"/>
+                            <RadioButton Style="{StaticResource Segment}" GroupName="TemplateShield" Content="Sealed" Margin="0,0,8,8"
+                                         IsChecked="{Binding TemplateShield, Converter={StaticResource EnumEq},
+                                                     ConverterParameter={x:Static models:ShieldLevel.Sealed}}"
+                                         AutomationProperties.AutomationId="TemplateShield_Sealed"/>
+                        </WrapPanel>
+
+                        <TextBlock Text="Sprints in a row" Style="{StaticResource FieldLabel}" Margin="0,8,0,8"/>
+                        <WrapPanel>
+                            <RadioButton Style="{StaticResource Segment}" GroupName="TemplateCycle" Content="One sprint" Margin="0,0,8,8"
+                                         IsChecked="{Binding TemplateCycle, Converter={StaticResource IntEq}, ConverterParameter=0}"
+                                         AutomationProperties.AutomationId="TemplateCycle_0"
+                                         AutomationProperties.Name="One sprint, no cycle"/>
+                            <RadioButton Style="{StaticResource Segment}" GroupName="TemplateCycle" Content="2 sprints" Margin="0,0,8,8"
+                                         IsChecked="{Binding TemplateCycle, Converter={StaticResource IntEq}, ConverterParameter=2}"
+                                         AutomationProperties.AutomationId="TemplateCycle_2"
+                                         AutomationProperties.Name="Two sprints with breaks"/>
+                            <RadioButton Style="{StaticResource Segment}" GroupName="TemplateCycle" Content="3 sprints" Margin="0,0,8,8"
+                                         IsChecked="{Binding TemplateCycle, Converter={StaticResource IntEq}, ConverterParameter=3}"
+                                         AutomationProperties.AutomationId="TemplateCycle_3"
+                                         AutomationProperties.Name="Three sprints with breaks"/>
+                            <RadioButton Style="{StaticResource Segment}" GroupName="TemplateCycle" Content="4 sprints" Margin="0,0,8,8"
+                                         IsChecked="{Binding TemplateCycle, Converter={StaticResource IntEq}, ConverterParameter=4}"
+                                         AutomationProperties.AutomationId="TemplateCycle_4"
+                                         AutomationProperties.Name="Four sprints with breaks"/>
+                        </WrapPanel>
+
+                        <TextBlock Text="{Binding BreakMinutesLabel}" Style="{StaticResource FieldLabel}" Margin="0,8,0,8"
+                                   AutomationProperties.AutomationId="TemplateBreakLabel"/>
+                        <TextBox Style="{StaticResource Field}" Width="112" HorizontalAlignment="Left"
+                                 Text="{Binding TemplateBreak, UpdateSourceTrigger=PropertyChanged}"
+                                 AutomationProperties.AutomationId="TemplateBreakInput"
+                                 AutomationProperties.Name="Break minutes"/>
+
+                        <TextBlock Text="Blocklist" Style="{StaticResource FieldLabel}" Margin="0,16,0,8"/>
+                        <ItemsControl ItemsSource="{Binding TemplateProfiles}" IsTabStop="False">
+                            <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Grid Margin="0,0,0,8">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="{Binding Name}" Style="{StaticResource Body}"
-                                                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
-                                                   AutomationProperties.AutomationId="{Binding Name, StringFormat=TemplateRow_{0}}"/>
-                                        <Button Grid.Column="1" Style="{StaticResource BtnQuiet}" Content="Edit"
-                                                Command="{Binding DataContext.EditTemplateCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                CommandParameter="{Binding}"
-                                                AutomationProperties.AutomationId="{Binding Name, StringFormat=EditTemplate_{0}}"
-                                                AutomationProperties.Name="{Binding Name, StringFormat=Edit {0}}"/>
-                                        <Button Grid.Column="2" Style="{StaticResource BtnQuiet}" Content="Delete" Margin="8,0,0,0"
-                                                Command="{Binding DataContext.DeleteTemplateCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                CommandParameter="{Binding}"
-                                                AutomationProperties.AutomationId="{Binding Name, StringFormat=DeleteTemplate_{0}}"
-                                                AutomationProperties.Name="{Binding Name, StringFormat=Delete {0}}"/>
-                                    </Grid>
+                                    <!-- TemplateProfile_{name}, or TemplateProfileActive for the
+                                         first chip: an id a profile name can't produce. -->
+                                    <RadioButton Style="{StaticResource Segment}" GroupName="TemplateProfile" Margin="0,0,8,8"
+                                                 Content="{Binding Label}" IsChecked="{Binding IsChosen}"
+                                                 AutomationProperties.AutomationId="{Binding AutomationId}"
+                                                 AutomationProperties.Name="{Binding AccessibleName}"/>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
 
-                        <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                            <Button Style="{StaticResource BtnGhost}" Content="New template"
-                                    Command="{Binding NewTemplateCommand}"
-                                    AutomationProperties.AutomationId="NewTemplateButton"/>
-                            <Button Style="{StaticResource BtnQuiet}" Content="Restore built-ins" Margin="12,0,0,0"
-                                    Command="{Binding RestoreTemplatesCommand}"
-                                    AutomationProperties.AutomationId="RestoreTemplatesButton"/>
-                        </StackPanel>
-
-                        <!-- template editor -->
-                        <StackPanel Margin="0,16,0,0"
-                                    Visibility="{Binding TemplateEditorVisible, Converter={StaticResource BoolVis}}">
-                            <TextBlock Text="NAME" Style="{StaticResource Eyebrow}" Margin="0,0,0,8"/>
-                            <TextBox Style="{StaticResource Field}" Text="{Binding TemplateName, UpdateSourceTrigger=PropertyChanged}"
-                                     MaxLength="{x:Static models:StudyTemplate.MaxNameLength}"
-                                     AutomationProperties.AutomationId="TemplateNameInput"
-                                     AutomationProperties.Name="Template name"/>
-
-                            <!-- Both range labels come from the view model, built from the
-                                 same constants Save checks, so a changed bound can't leave
-                                 the label lying. -->
-                            <TextBlock Text="{Binding SprintMinutesLabel}" Style="{StaticResource Eyebrow}" Margin="0,12,0,8"
-                                       AutomationProperties.AutomationId="TemplateMinutesLabel"/>
-                            <TextBox Style="{StaticResource Field}" Width="112" HorizontalAlignment="Left"
-                                     Text="{Binding TemplateMinutes, UpdateSourceTrigger=PropertyChanged}"
-                                     AutomationProperties.AutomationId="TemplateMinutesInput"
-                                     AutomationProperties.Name="Sprint minutes"/>
-
-                            <!-- Same binding as Today's shield and cycle chips: EnumEq
-                                 and IntEq against a literal parameter. -->
-                            <TextBlock Text="SHIELD" Style="{StaticResource Eyebrow}" Margin="0,12,0,8"/>
-                            <WrapPanel>
-                                <RadioButton Style="{StaticResource Segment}" GroupName="TemplateShield" Content="Soft" Margin="0,0,8,8"
-                                             IsChecked="{Binding TemplateShield, Converter={StaticResource EnumEq},
-                                                         ConverterParameter={x:Static models:ShieldLevel.Soft}}"
-                                             AutomationProperties.AutomationId="TemplateShield_Soft"/>
-                                <RadioButton Style="{StaticResource Segment}" GroupName="TemplateShield" Content="Firm" Margin="0,0,8,8"
-                                             IsChecked="{Binding TemplateShield, Converter={StaticResource EnumEq},
-                                                         ConverterParameter={x:Static models:ShieldLevel.Firm}}"
-                                             AutomationProperties.AutomationId="TemplateShield_Firm"/>
-                                <RadioButton Style="{StaticResource Segment}" GroupName="TemplateShield" Content="Sealed" Margin="0,0,8,8"
-                                             IsChecked="{Binding TemplateShield, Converter={StaticResource EnumEq},
-                                                         ConverterParameter={x:Static models:ShieldLevel.Sealed}}"
-                                             AutomationProperties.AutomationId="TemplateShield_Sealed"/>
-                            </WrapPanel>
-
-                            <TextBlock Text="SPRINTS IN A ROW" Style="{StaticResource Eyebrow}" Margin="0,8,0,8"/>
-                            <WrapPanel>
-                                <RadioButton Style="{StaticResource Segment}" GroupName="TemplateCycle" Content="One sprint" Margin="0,0,8,8"
-                                             IsChecked="{Binding TemplateCycle, Converter={StaticResource IntEq}, ConverterParameter=0}"
-                                             AutomationProperties.AutomationId="TemplateCycle_0"
-                                             AutomationProperties.Name="One sprint, no cycle"/>
-                                <RadioButton Style="{StaticResource Segment}" GroupName="TemplateCycle" Content="2 sprints" Margin="0,0,8,8"
-                                             IsChecked="{Binding TemplateCycle, Converter={StaticResource IntEq}, ConverterParameter=2}"
-                                             AutomationProperties.AutomationId="TemplateCycle_2"
-                                             AutomationProperties.Name="Two sprints with breaks"/>
-                                <RadioButton Style="{StaticResource Segment}" GroupName="TemplateCycle" Content="3 sprints" Margin="0,0,8,8"
-                                             IsChecked="{Binding TemplateCycle, Converter={StaticResource IntEq}, ConverterParameter=3}"
-                                             AutomationProperties.AutomationId="TemplateCycle_3"
-                                             AutomationProperties.Name="Three sprints with breaks"/>
-                                <RadioButton Style="{StaticResource Segment}" GroupName="TemplateCycle" Content="4 sprints" Margin="0,0,8,8"
-                                             IsChecked="{Binding TemplateCycle, Converter={StaticResource IntEq}, ConverterParameter=4}"
-                                             AutomationProperties.AutomationId="TemplateCycle_4"
-                                             AutomationProperties.Name="Four sprints with breaks"/>
-                            </WrapPanel>
-
-                            <TextBlock Text="{Binding BreakMinutesLabel}" Style="{StaticResource Eyebrow}" Margin="0,8,0,8"
-                                       AutomationProperties.AutomationId="TemplateBreakLabel"/>
-                            <TextBox Style="{StaticResource Field}" Width="112" HorizontalAlignment="Left"
-                                     Text="{Binding TemplateBreak, UpdateSourceTrigger=PropertyChanged}"
-                                     AutomationProperties.AutomationId="TemplateBreakInput"
-                                     AutomationProperties.Name="Break minutes"/>
-
-                            <TextBlock Text="BLOCKLIST" Style="{StaticResource Eyebrow}" Margin="0,16,0,8"/>
-                            <ItemsControl ItemsSource="{Binding TemplateProfiles}">
-                                <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <!-- TemplateProfile_{name}, or TemplateProfileActive for the
-                                             first chip: an id a profile name can't produce. -->
-                                        <RadioButton Style="{StaticResource Segment}" GroupName="TemplateProfile" Margin="0,0,8,8"
-                                                     Content="{Binding Label}" IsChecked="{Binding IsChosen}"
-                                                     AutomationProperties.AutomationId="{Binding AutomationId}"
-                                                     AutomationProperties.Name="{Binding AccessibleName}"/>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-
-                            <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
-                                <Button Style="{StaticResource BtnPrimary}" Content="Save template"
+                        <Grid Margin="0,16,0,0">
+                            <StackPanel Orientation="Horizontal">
+                                <Button Style="{StaticResource BtnGhost}" Content="Save template"
                                         Command="{Binding SaveTemplateCommand}"
                                         AutomationProperties.AutomationId="SaveTemplateButton"/>
                                 <Button Style="{StaticResource BtnQuiet}" Content="Cancel" Margin="12,0,0,0"
                                         Command="{Binding CancelTemplateCommand}"
                                         AutomationProperties.AutomationId="CancelTemplateButton"/>
                             </StackPanel>
-                        </StackPanel>
-
-                        <TextBlock Text="{Binding TemplateStatusText}" Style="{StaticResource Caption}" TextWrapping="Wrap"
-                                   Margin="0,12,0,0" AutomationProperties.AutomationId="TemplateStatusText"
-                                   Visibility="{Binding TemplateStatusText, Converter={StaticResource NonEmptyVis}}"/>
+                            <!-- Delete lives here, not on every row (#433). -->
+                            <Button Style="{StaticResource BtnQuiet}" Content="Delete template" HorizontalAlignment="Right"
+                                    Margin="0,0,-12,0"
+                                    Visibility="{Binding CanDeleteEditedTemplate, Converter={StaticResource BoolVis}}"
+                                    Command="{Binding DeleteTemplateCommand}"
+                                    CommandParameter="{Binding EditingTemplateRow}"
+                                    AutomationProperties.AutomationId="{Binding EditingTemplateRow.Name, StringFormat=DeleteTemplate_{0}}"
+                                    AutomationProperties.Name="{Binding EditingTemplateRow.Name, StringFormat=Delete {0}}"/>
+                        </Grid>
                     </StackPanel>
                 </Border>
-            </inf:AdaptiveColumns>
 
-            <!-- A section heading at the same level as the status line above,
-                 as Settings heads its sections (#406); an eyebrow here read as
-                 a card's label with no card. -->
-            <TextBlock Text="Sleep window" Style="{StaticResource H2}" Margin="0,32,0,16"/>
-            <!-- The sleep view brings its own ScrollViewer, which has nothing to
-                 scroll here but would swallow the mouse wheel; the code-behind
-                 hands each turn to this page instead. The negative right margin
-                 cancels the gutter it leaves for that scrollbar, so its cards
-                 line up with the ones above: -8 offsets the Margin="0,0,8,0" on
-                 SleepBlockingView.xaml's own StackPanel, and must change if
-                 that margin does (Roadmap 3.7 reworks that view). -->
-            <views:SleepBlockingView DataContext="{Binding Sleep}" Margin="0,0,-8,0"
-                                     PreviewMouseWheel="OnSleepWindowPreviewMouseWheel"/>
-        </StackPanel>
-    </ScrollViewer>
+                <TextBlock Text="{Binding TemplateStatusText}" Style="{StaticResource Caption}" TextWrapping="Wrap"
+                           Margin="0,12,0,0" AutomationProperties.AutomationId="TemplateStatusText"
+                           Visibility="{Binding TemplateStatusText, Converter={StaticResource NonEmptyVis}}"/>
+            </StackPanel>
+        </Border>
+    </inf:AdaptiveColumns>
 </UserControl>
