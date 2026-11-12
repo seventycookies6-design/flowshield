@@ -656,7 +656,17 @@ public class BlockedAppsViewModel : ViewModelBase
             : suggestion.Processes.Where(p => !p.Equals(processName, StringComparison.OrdinalIgnoreCase))
                 .Prepend(processName).ToList();
 
-        if (AddProcesses(suggestion?.Name ?? Prettify(processName), processes, null))
+        // A full path typed or pasted in is also where the chip's icon comes
+        // from; without it an app outside the picker's list, such as one under
+        // C:\Windows, showed only its initial (found on a real PC).
+        var typedPath = raw.Trim('"');
+        var iconPath = System.IO.Path.IsPathRooted(typedPath)
+                       && typedPath.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)
+                       && System.IO.File.Exists(typedPath)
+            ? typedPath
+            : null;
+
+        if (AddProcesses(suggestion?.Name ?? Prettify(processName), processes, iconPath))
             NewAppName = "";
         ApplyFilter();
     }

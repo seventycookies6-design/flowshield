@@ -163,8 +163,11 @@ public class ScheduleViewModel : ViewModelBase
             var profile = S.FindProfile(t.ProfileId);
             Templates.Add(new TemplateRow(t)
             {
-                PlansDetail = $"{t.SprintMinutes} min at {t.Shield}, "
-                              + (profile is null ? "the blocklist in use" : $"{profile.Name} blocklist"),
+                // The blocklist in use is the default and goes unsaid; it ran
+                // past the half-width card on a real PC and was cut off.
+                PlansDetail = profile is null
+                    ? $"{t.SprintMinutes} min at {t.Shield}"
+                    : $"{t.SprintMinutes} min at {t.Shield}, {profile.Name} blocklist",
             });
         }
 
@@ -190,7 +193,9 @@ public class ScheduleViewModel : ViewModelBase
 
     private string BuildNextUp(DateTime nowUtc, TimeZoneInfo zone)
     {
-        if (S.Schedules.Count == 0) return "No schedules yet";
+        // "Other": Sleep blocking is always a row above this line, so a bare
+        // "No schedules yet" under it read as a contradiction (found on a real PC).
+        if (S.Schedules.Count == 0) return "No other schedules yet";
 
         var next = S.Schedules
             .Where(s => s.Enabled)
