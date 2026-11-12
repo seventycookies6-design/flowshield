@@ -746,12 +746,14 @@ public class MainViewModel : ViewModelBase
     /// <remarks>
     /// <c>IsWebsite</c> (F10 interim): the name is a site seen in a browser's
     /// title, so the notice offers no Close: closing the browser would close
-    /// every tab. <c>Remaining</c> is read again every second while the
-    /// notice is up, so its "minutes left" counts down (#347).
+    /// every tab. <c>Remaining</c> and <c>RingRemaining</c> are read again
+    /// every second while the notice is up, so its ring counts down (#347).
+    /// <c>Plan</c> is the headline (#432), empty when none was typed, and
+    /// <c>TryNumber</c> decides whether the try count shows.
     /// </remarks>
     public sealed record SoftOverlayRequest(
-        string DisplayName, string Sentence, Func<TimeSpan> Remaining, IntPtr Window,
-        string Intention, string TryLine, TimeSpan AllowWait, bool IsWebsite = false);
+        string DisplayName, string Sentence, Func<TimeSpan> Remaining, Func<double> RingRemaining,
+        IntPtr Window, string Plan, int TryNumber, TimeSpan AllowWait, bool IsWebsite = false);
 
     /// <summary>Show the Soft notice for a blocked app that has just come to the front.</summary>
     public event EventHandler<SoftOverlayRequest>? SoftOverlayRequested;
@@ -824,11 +826,12 @@ public class MainViewModel : ViewModelBase
             // ShouldShow has just counted this notice, so Tries is its own try number.
             SoftOverlayRequested?.Invoke(this, new SoftOverlayRequest(
                 e.DisplayName,
-                SoftOverlayCopy.Sentence(e.DisplayName, Today.EndsAtUtc.ToLocalTime(), _softOverlay.Tries),
+                SoftOverlayCopy.Sentence(e.DisplayName, Today.EndsAtUtc.ToLocalTime()),
                 () => Today.Remaining,
+                () => 1 - Today.Progress,
                 e.Window,
-                SoftOverlayCopy.Intention(Today.IntentionDisplayText),
-                SoftOverlayCopy.TryLine(_softOverlay.Tries),
+                SoftOverlayCopy.Plan(Today.IntentionDisplayText),
+                _softOverlay.Tries,
                 SoftOverlayPolicy.AllowWait(_softOverlay.Tries),
                 e.IsWebsite));
         });

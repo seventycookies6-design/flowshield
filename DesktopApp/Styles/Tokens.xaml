@@ -52,6 +52,8 @@
     <Color x:Key="RingGradStartColor">#FF5CC7B0</Color>
     <Color x:Key="RingGradEndColor">#FF2F947F</Color>
     <Color x:Key="GlowColor">#333AA892</Color>
+    <Color x:Key="NoticeScrimColor">#8F000000</Color>
+    <Color x:Key="NoticeBandColor">#EB141517</Color>
 
     <SolidColorBrush x:Key="Bg" Color="{StaticResource BgColor}"/>
     <SolidColorBrush x:Key="BgSoft" Color="{StaticResource BgSoftColor}"/>
@@ -103,6 +105,8 @@
     <SolidColorBrush x:Key="RingGradStart" Color="{StaticResource RingGradStartColor}"/>
     <SolidColorBrush x:Key="RingGradEnd" Color="{StaticResource RingGradEndColor}"/>
     <SolidColorBrush x:Key="Glow" Color="{StaticResource GlowColor}"/>
+    <SolidColorBrush x:Key="NoticeScrim" Color="{StaticResource NoticeScrimColor}"/>
+    <SolidColorBrush x:Key="NoticeBand" Color="{StaticResource NoticeBandColor}"/>
 
     <LinearGradientBrush x:Key="Elev1Surface" MappingMode="Absolute" StartPoint="0,0" EndPoint="0,2">
         <GradientStop Color="#FF2B2D2F" Offset="0"/>

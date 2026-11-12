@@ -556,8 +556,8 @@ public partial class MainWindow : Window
             CloseSoftOverlay();
 
             var overlay = new Views.SoftOverlayWindow();
-            overlay.Configure(request.DisplayName, request.Sentence, request.Remaining, request.Window,
-                              request.Intention, request.TryLine, request.AllowWait, request.IsWebsite);
+            overlay.Configure(request.DisplayName, request.Sentence, request.Remaining, request.RingRemaining,
+                              request.Window, request.Plan, request.TryNumber, request.AllowWait, request.IsWebsite);
             overlay.CloseIt += (_, _) =>
             {
                 CloseSoftOverlay();

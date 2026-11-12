@@ -303,14 +303,25 @@ internal static class Commands
         var n = (int)request["try"]!;
         var app = (string?)request["app"] ?? "Discord";
         var ends = DateTime.Parse((string?)request["ends"] ?? "2026-09-28T17:45:00", CultureInfo.InvariantCulture);
+        var plan = SoftOverlayCopy.Plan((string?)request["intention"]);
+        var sentence = SoftOverlayCopy.Sentence(app, ends);
         return new JsonObject
         {
-            ["sentence"] = SoftOverlayCopy.Sentence(app, ends, n),
+            ["sentence"] = sentence,
             ["try_line"] = SoftOverlayCopy.TryLine(n),
-            ["intention"] = SoftOverlayCopy.Intention((string?)request["intention"]),
+            ["shows_try_line"] = SoftOverlayCopy.ShowsTryLine(n),
+            ["plan"] = plan,
+            ["headline"] = SoftOverlayCopy.Headline(plan, sentence),
+            ["eyebrow"] = SoftOverlayCopy.Eyebrow(plan.Length > 0, isWebsite: false),
+            ["eyebrow_no_plan"] = SoftOverlayCopy.Eyebrow(false, isWebsite: false),
+            ["website_eyebrow"] = SoftOverlayCopy.Eyebrow(plan.Length > 0, isWebsite: true),
             ["allow_label"] = SoftOverlayCopy.AllowLabel(TimeSpan.FromSeconds((double?)request["allow_left"] ?? 0)),
+            ["lock_wait"] = SoftOverlayCopy.LockWait(TimeSpan.FromSeconds((double?)request["lock_left"] ?? 0.9), reducedMotion: false),
+            ["lock_wait_reduced"] = SoftOverlayCopy.LockWait(TimeSpan.FromSeconds((double?)request["lock_left"] ?? 0.9), reducedMotion: true),
+            ["unlocked"] = SoftOverlayCopy.Unlocked,
+            ["input_lock_ms"] = SoftOverlayPolicy.InputLock.TotalMilliseconds,
+            ["clock"] = SoftOverlayCopy.Clock(TimeSpan.FromSeconds((double?)request["remaining"] ?? 890)),
             ["close_note"] = SoftOverlayCopy.CloseNote,
-            ["website_eyebrow"] = SoftOverlayCopy.WebsiteEyebrow,
             ["website_note"] = SoftOverlayCopy.WebsiteNote,
         };
     }

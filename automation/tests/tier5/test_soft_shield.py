@@ -106,13 +106,19 @@ class TestSoftOverlayNeverCloses:
         for forbidden in ("Kill", "CloseMainWindow"):
             assert forbidden not in block
 
-    def test_escape_is_back_to_work(self):
+    def test_escape_is_back_to_work_only_after_the_lock(self):
+        """
+        #432: no button is the cancel button, and a stray Escape meant for a
+        game's menu must not answer the notice during the lock. After it,
+        Escape is still the safe answer, Back to work.
+        """
         xaml = self.OVERLAY_XAML.read_text(encoding="utf-8")
-        assert 'IsCancel="True"' in xaml
+        assert 'IsCancel="True"' not in xaml
         code = self.OVERLAY_CS.read_text(encoding="utf-8")
-        assert "Key.Escape" in code, (
-            "this window is shown, not dialogued, so Escape is handled here too"
-        )
+        handler = code.split("protected override void OnPreviewKeyDown", 1)[1].split("\n    }", 1)[0]
+        escape = handler.split("if (key != Key.Escape) return;", 1)[1]
+        assert escape.index("if (_locked) return;") < escape.index("Answer(BackToWork);"), (
+            "Escape must do nothing while the buttons are locked")
 
     def test_the_soft_notice_is_visible_over_its_target(self):
         # Topmost is the promise: a notice that can open under the blocked
@@ -165,14 +171,17 @@ class TestSoftOverlayNeverCloses:
         xaml = self.OVERLAY_XAML.read_text(encoding="utf-8")
         for forbidden in ("Rose", "Amber", "Red", "IconWarning", "IconAlert"):
             assert forbidden not in xaml, f"the Soft notice must not use {forbidden}"
-        assert "ShieldGlyphSoft" in xaml, "§7 asks for the shield glyph"
+        # #432: the band names Basalt with its flat mark (Part A, Brand) and
+        # says the shield in words ("Basalt, Soft, ...").
+        assert "BrandMarkTile" in xaml, "the band's eyebrow carries Basalt's flat mark"
 
     def test_its_controls_carry_automation_ids_on_real_controls(self):
         xaml = self.OVERLAY_XAML.read_text(encoding="utf-8")
         for automation_id in ("SoftOverlayText", "SoftOverlayTimeLeft",
                               "SoftOverlayBackToWorkButton", "SoftOverlayAllowButton",
                               "SoftOverlayCloseButton", "SoftOverlayIntention",
-                              "SoftOverlayTryLine"):
+                              "SoftOverlayTryLine", "SoftOverlayEyebrow", "SoftOverlayNote",
+                              "SoftOverlayWait"):
             assert f'AutomationProperties.AutomationId="{automation_id}"' in xaml
 
         # #134: an id on a layout panel is never surfaced, so it can never be found.
@@ -283,10 +292,12 @@ class TestSoftCloseNeverKills:
 
 class TestSoftNoticeFriction:
     """
-    1.0.10's notice (spec 4.1): Close first and primary, Back to work the
-    default and keyboard action, and Allow only after a wait that grows with
-    each try. The wait is enforced where the click lands, not only by how the
-    button looks.
+    The notice's friction: Allow only after a wait that grows with each try
+    (1.0.10), and since #432 the input guard of DESIGN_SYSTEM.md Part A,
+    Interruptions: no default button and no initial focus, Enter swallowed,
+    and every button ignoring input for about 1.5 s while staying enabled.
+    Each wait is enforced where the click lands, not only by how the button
+    looks.
     """
 
     MAIN_VM = Path(DESKTOP_DIR) / "ViewModels" / "MainViewModel.cs"
@@ -300,40 +311,105 @@ class TestSoftNoticeFriction:
         xaml = self.OVERLAY_XAML.read_text(encoding="utf-8")
         return xaml.split(f'AutomationProperties.AutomationId="{automation_id}"')[0].rsplit("<Button", 1)[1]
 
-    def test_close_is_deliberate_and_back_to_work_is_the_keyboard_default(self):
+    def test_no_button_is_the_default_or_the_cancel(self):
         """
-        The notice lands up to one blocker sweep (about 2 s) after the blocked
-        app came to the front, while the user may still be typing in it. An
-        Enter or Space meant for a game or a chat line must never become "the
-        user chose to close it", so Close is reached by mouse or by Tab only.
+        #432 (Part A, Interruptions): the notice lands up to one blocker sweep
+        (about 2 s) after the blocked app came to the front, while the user may
+        still be typing in it. No button takes Enter or Escape by itself.
         """
-        close = self._button("SoftOverlayCloseButton")
-        back = self._button("SoftOverlayBackToWorkButton")
-        assert 'IsDefault="True"' not in close, "Enter must never choose Close"
-        assert 'IsCancel="True"' not in close, "Escape must never choose Close"
-        assert 'IsDefault="True"' in back, "Back to work is the safe Enter default"
-        assert 'IsCancel="True"' in back, "Back to work is the safe Escape action"
+        xaml = self.OVERLAY_XAML.read_text(encoding="utf-8")
+        assert "IsDefault=" not in xaml, "no button on the notice is the default"
+        assert "IsCancel=" not in xaml, "no button on the notice is the cancel button"
+        code = self.OVERLAY_CS.read_text(encoding="utf-8")
+        assert not re.search(r"\.Is(Default|Cancel)\s*=", code), "no button is made the default in code either"
 
-    def test_back_to_work_is_the_default_the_cancel_and_the_focused_button(self):
-        """Enter, Space on the focused button and Escape all mean Back to work."""
+    def test_focus_starts_on_the_band_not_a_button(self):
+        """Back to work is Primary once unlocked, but it never takes the initial focus."""
         back = self._button("SoftOverlayBackToWorkButton")
-        assert "BtnPrimary" not in back
-        assert 'IsDefault="True"' in back, "Enter is Back to work"
-        assert 'IsCancel="True"' in back, "Escape is still Back to work"
+        assert "BtnPrimary" not in back and "NoticePrimary" not in back, (
+            "Back to work opens locked, like every button")
+        xaml = self.OVERLAY_XAML.read_text(encoding="utf-8")
+        band = xaml.split('<Border x:Name="Band"', 1)[1].split(">", 1)[0]
+        assert 'Focusable="True"' in band, "the band must be able to take the focus"
         opened = self.OVERLAY_CS.read_text(encoding="utf-8") \
             .split("protected override void OnSourceInitialized", 1)[1].split("\n    }", 1)[0]
-        assert "BackToWorkButton.Focus();" in opened, "Back to work takes the initial focus"
-        assert "CloseButton.Focus()" not in opened, "a focused Close would make Space close the app"
+        assert "Band.Focus();" in opened, "focus starts on the band"
+        assert "Button.Focus()" not in opened, "no button takes the initial focus"
+
+    def test_enter_is_swallowed(self):
+        """Enter does nothing, ever: a PreviewKeyDown handler swallows it before any button sees it."""
+        code = self.OVERLAY_CS.read_text(encoding="utf-8")
+        handler = code.split("protected override void OnPreviewKeyDown", 1)[1].split("\n    }", 1)[0]
+        enter = handler.split("if (key is Key.Enter)", 1)[1].split("}", 1)[0]
+        assert "e.Handled = true;" in enter and "return;" in enter
+        assert "Answer(" not in enter
+
+    def test_every_button_ignores_input_during_the_lock_and_stays_enabled(self):
+        """
+        For about 1.5 s every button ignores clicks, Space and Enter. They
+        stay enabled, so their labels keep full contrast, but aren't
+        focusable. The gate sits in each Click handler too, where a UI
+        Automation Invoke lands (CLAUDE.md, "covered controls").
+        """
+        code = self.OVERLAY_CS.read_text(encoding="utf-8")
+        assert "IsEnabled = false" not in code, "the buttons stay enabled; the lock is a gate, not a greyed button"
+        ctor = code.split("public SoftOverlayWindow()", 1)[1].split("\n    }", 1)[0]
+        assert "button.Focusable = false;" in ctor, "the buttons open unfocusable"
+        assert "PreviewMouseLeftButtonDown" in ctor and "e.Handled = true" in ctor, (
+            "a press during the lock never reaches the button")
+        for handler, answer in (("private void OnCloseIt", "Answer(CloseIt)"),
+                                ("private void OnBackToWork", "Answer(BackToWork)")):
+            body = code.split(handler, 1)[1].split("\n    }", 1)[0]
+            assert body.index("if (_locked) return;") < body.index(answer), handler
+        unlock = code.split("private void Unlock()", 1)[1].split("\n    }", 1)[0]
+        assert "_locked = false;" in unlock
+        assert "BackToWorkButton.Focusable = true;" in unlock
+        assert "CloseButton.Focusable = true;" in unlock
+        assert "AllowButton.Focusable = true;" not in unlock, "Allow keeps its own longer wait"
+
+    def test_the_lock_is_a_second_and_a_half_on_the_monotonic_clock(self):
+        policy = self.POLICY.read_text(encoding="utf-8")
+        lock = policy.split("public static TimeSpan InputLock =>", 1)[1].split(";", 1)[0]
+        assert "TimeSpan.FromMilliseconds(1500)" in lock, "Part A: about 1.5 seconds"
+        assert "UseShortTimers" not in lock, "--short-timers never shortens the lock"
+        code = self.OVERLAY_CS.read_text(encoding="utf-8")
+        assert "_unlockAtTick = now + (long)SoftOverlayPolicy.InputLock.TotalMilliseconds;" in code
+
+    def test_the_wait_is_shown_and_reduced_motion_keeps_it(self):
+        """
+        The lock bar fills over the wait beside "Buttons unlock in ...". With
+        reduced motion the bar is hidden rather than animated, and the text
+        still says the wait applies; the lock itself is unchanged.
+        """
+        code = self.OVERLAY_CS.read_text(encoding="utf-8")
+        bar = code.split("private void StartLockBar()", 1)[1].split("\n    }", 1)[0]
+        assert bar.index("if (_reducedMotion)") < bar.index("BeginAnimation")
+        assert "LockTrack.Visibility = Visibility.Collapsed;" in bar.split("BeginAnimation", 1)[0]
+        assert "_reducedMotion = !Motion.AnimationsEnabled;" in code
+        assert "SoftOverlayCopy.LockWait(left, _reducedMotion)" in code
+        assert "InputLock" not in bar.split("if (_reducedMotion)", 1)[1].split("}", 1)[0], (
+            "reduced motion must not shorten or skip the lock")
+
+    def test_the_try_count_shows_from_the_second_try(self):
+        xaml = self.OVERLAY_XAML.read_text(encoding="utf-8")
+        line = xaml.split('AutomationProperties.AutomationId="SoftOverlayTryLine"')[0].rsplit("<TextBlock", 1)[1]
+        assert 'Visibility="Collapsed"' in line, "hidden until Configure says otherwise"
+        code = self.OVERLAY_CS.read_text(encoding="utf-8")
+        assert "SoftOverlayCopy.ShowsTryLine(tryNumber) ? Visibility.Visible : Visibility.Collapsed" in code
+        policy = self.POLICY.read_text(encoding="utf-8")
+        assert "public static bool ShowsTryLine(int tryNumber) => tryNumber >= 2;" in policy
 
     def test_allow_waits_before_it_can_be_pressed(self):
         code = self.OVERLAY_CS.read_text(encoding="utf-8")
-        assert "AllowButton.IsEnabled = false" in code
         assert "SoftOverlayCopy.AllowLabel(" in code
         assert "DispatcherTimer" in code
+        assert "private bool AllowReady => !_locked && Environment.TickCount64 >= _allowAtTick;" in code
         # A gate refuses where the click lands, not only by how the button
         # looks (CLAUDE.md, "covered controls"), so the handler checks too.
         handler = code.split("private void OnAllowFiveMinutes", 1)[1].split("\n    }", 1)[0]
-        assert handler.index("if (!AllowButton.IsEnabled) return;") < handler.index("Answer(AllowFiveMinutes)")
+        assert handler.index("if (!AllowReady) return;") < handler.index("Answer(AllowFiveMinutes)")
+        accepts = code.split("private bool Accepts(Button button)", 1)[1].split("\n    }", 1)[0]
+        assert "return AllowReady;" in accepts, "a press on Allow is swallowed until its wait runs out"
 
     def test_the_countdown_runs_on_the_monotonic_clock(self):
         """
@@ -349,15 +425,18 @@ class TestSoftNoticeFriction:
 
     def test_the_countdown_moves_nothing(self):
         """
-        Sharing a WrapPanel with Close and Back to work, Allow jumped up a row
-        (and the sentence re-wrapped) the moment its countdown ended and the
-        label got shorter -- a button moving just as it becomes pressable.
+        Sharing a WrapPanel with Close and Back to work, Allow once jumped up a
+        row the moment its countdown ended and the label got shorter. Since
+        #432 the buttons sit in one row that never wraps, Allow last, so its
+        changing label can't move another button.
         """
         xaml = self.OVERLAY_XAML.read_text(encoding="utf-8")
-        row = xaml.split("<WrapPanel", 1)[1].split("</WrapPanel>", 1)[0]
-        assert 'AutomationId="SoftOverlayCloseButton"' in row
-        assert 'AutomationId="SoftOverlayBackToWorkButton"' in row
-        assert 'AutomationId="SoftOverlayAllowButton"' not in row, "Allow sits on a line of its own"
+        row = xaml.split('<StackPanel x:Name="ButtonRow"', 1)[1].split("</StackPanel>", 1)[0]
+        assert 'Orientation="Horizontal"' in row.split(">", 1)[0]
+        order = [row.index(f'AutomationId="{aid}"') for aid in
+                 ("SoftOverlayBackToWorkButton", "SoftOverlayCloseButton", "SoftOverlayAllowButton")]
+        assert order == sorted(order), "Allow sits last, after Back to work and Close"
+        assert "<WrapPanel" not in row
 
     def test_the_notice_copy_preserves_softs_no_close_promise(self):
         xaml = self.OVERLAY_XAML.read_text(encoding="utf-8")
@@ -400,9 +479,9 @@ class TestSoftNoticeFriction:
 
     def test_the_request_carries_intention_try_and_wait(self):
         handler = self.MAIN_VM.read_text(encoding="utf-8").split("private void OnSoftForeground", 1)[1].split("\n    }", 1)[0]
-        for piece in ("SoftOverlayCopy.Intention(", "SoftOverlayCopy.TryLine(_softOverlay.Tries)",
-                      "SoftOverlayPolicy.AllowWait(_softOverlay.Tries)",
-                      "SoftOverlayCopy.Sentence(e.DisplayName, Today.EndsAtUtc.ToLocalTime(), _softOverlay.Tries)"):
+        for piece in ("SoftOverlayCopy.Plan(Today.IntentionDisplayText)", "_softOverlay.Tries,",
+                      "SoftOverlayPolicy.AllowWait(_softOverlay.Tries)", "() => 1 - Today.Progress",
+                      "SoftOverlayCopy.Sentence(e.DisplayName, Today.EndsAtUtc.ToLocalTime())"):
             assert piece in handler, piece
 
 
@@ -512,3 +591,19 @@ class TestTurnedBackIsRecordedAndShown:
         assert line.startswith("TextBlock"), "the id must sit on the TextBlock itself (#134)"
         assert 'Text="{Binding WeekTurnedBackText}"' in line
         assert 'Visibility="{Binding WeekTurnedBackText, Converter={StaticResource NonEmptyVis}}"' in line
+
+
+class TestTheNoticeTimeStaysOnOneLine432:
+    """
+    Found on a real Windows 11 laptop (#432 follow-up): with no plan, the 52 px
+    headline is the blocklist sentence, and it broke as "until 10:29 / AM",
+    leaving "AM" alone on the second line. The time's spaces are no-break.
+    """
+
+    MODEL = Path(DESKTOP_DIR) / "Models" / "SoftOverlayPolicy.cs"
+
+    def test_the_end_time_uses_no_break_spaces(self):
+        source = self.MODEL.read_text(encoding="utf-8")
+        until = source.split("public static string Until(DateTime endsAtLocal)", 1)[1].split(";", 1)[0]
+        assert ".Replace(' ', '\\u00A0')" in until
+        assert ".Replace('\\u202F', '\\u00A0')" in until, "Windows' own narrow space too"

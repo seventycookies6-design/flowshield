@@ -49,6 +49,8 @@
     <sys:String x:Key="IconPlay">&#xE768;</sys:String>
     <!-- Up: beside a momentum gain at the end of a sprint (#431) -->
     <sys:String x:Key="IconUp">&#xE74A;</sys:String>
+    <!-- Lock: the Soft notice's lock bar while its buttons ignore input (#432) -->
+    <sys:String x:Key="IconLock">&#xE72E;</sys:String>
 
     <!-- ============================================================== style
          Icon is the navigation and button size, 20; IconSmall is 16, for an

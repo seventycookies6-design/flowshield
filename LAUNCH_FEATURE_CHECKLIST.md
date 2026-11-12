@@ -362,6 +362,15 @@ A summary of the research, to explain the choices below.
       Close and Back to work each count as one *turned back* (#307), saved
       with the sprint as a count only (never which app) and shown on its
       summary card and in History's week.
+      #432 (the redesign) made it a band across the screen over a 56% scrim,
+      with a small ring of the time left and the customer's plan as the
+      headline (or "‹App› is on your blocklist until ‹time›" with none), and
+      the input guard of `DESIGN_SYSTEM.md` Part A: no default button and no
+      initial focus, Enter does nothing, and every button ignores input for
+      about 1.5 s, with the wait shown, before a click or Tab then Space
+      works. *Back to work* comes first and is Primary but not the default;
+      Escape is Back to work only after the lock. The try count shows from
+      the second try, and the four rotating wordings gave way to one.
 
 **Assigned:** Miles (milessmart6-pixel), built with Codex and Cursor
 
