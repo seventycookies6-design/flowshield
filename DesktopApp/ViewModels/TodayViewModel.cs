@@ -1123,9 +1123,18 @@ public class TodayViewModel : ViewModelBase
     /// <summary>Idle only: a running sprint keeps the blocklist it started with.</summary>
     public bool CanSwitchProfile => !IsRunning && _main.BlockedApps.CanSwitchProfile;
 
-    /// <summary>Called when the profile is renamed, switched, added or deleted.</summary>
+    /// <summary>
+    /// Goes up whenever a blocklist's apps or name change. A blocklist's Apps is
+    /// a plain list, so the setup panel's dropdown re-reads it on this instead
+    /// (it kept saying "No apps yet" after apps were added; found on a real PC).
+    /// </summary>
+    public int ProfilesRevision { get; private set; }
+
+    /// <summary>Called when the profile is renamed, switched, added or deleted, or its apps change.</summary>
     public void RefreshProfileCaption()
     {
+        ProfilesRevision++;
+        Raise(nameof(ProfilesRevision));
         Raise(nameof(ProfileCaption));
         Raise(nameof(SelectedProfile));
         Raise(nameof(SprintDetailsBlocklistText));
