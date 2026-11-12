@@ -120,23 +120,34 @@
                         <StackPanel>
                             <TextBlock Text="Last 30 days" Style="{StaticResource CardTitle}"/>
 
-                            <!-- Weekday labels over the seven columns. Same width
-                                 as a cell and its gap, so each sits over its column. -->
-                            <ItemsControl ItemsSource="{Binding HeatmapWeekdays}" Margin="0,10,0,4"
-                                          HorizontalAlignment="Left" IsTabStop="False">
-                                <ItemsControl.ItemsPanel>
-                                    <ItemsPanelTemplate>
-                                        <UniformGrid Columns="7" Rows="1"/>
-                                    </ItemsPanelTemplate>
-                                </ItemsControl.ItemsPanel>
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <TextBlock Text="{Binding}" Style="{StaticResource Caption}" FontSize="11"
-                                                   Width="24" Margin="0,0,4,0" TextAlignment="Center"
-                                                   AutomationProperties.AutomationId="HeatmapWeekday"/>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
+                            <!-- Seven TextBlocks rather than an ItemsControl, so each
+                                 is a control UI Automation can read (a string item in an
+                                 ItemsControl is not). Same width as a cell and its gap. -->
+                            <Grid Margin="0,10,0,4" HorizontalAlignment="Left">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="28"/>
+                                    <ColumnDefinition Width="28"/>
+                                    <ColumnDefinition Width="28"/>
+                                    <ColumnDefinition Width="28"/>
+                                    <ColumnDefinition Width="28"/>
+                                    <ColumnDefinition Width="28"/>
+                                    <ColumnDefinition Width="28"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="{Binding HeatmapWeekdays[0]}" Style="{StaticResource Caption}"
+                                           FontSize="11" TextAlignment="Center" Margin="0,0,4,0" AutomationProperties.AutomationId="HeatmapWeekday"/>
+                                <TextBlock Grid.Column="1" Text="{Binding HeatmapWeekdays[1]}" Style="{StaticResource Caption}"
+                                           FontSize="11" TextAlignment="Center" Margin="0,0,4,0"/>
+                                <TextBlock Grid.Column="2" Text="{Binding HeatmapWeekdays[2]}" Style="{StaticResource Caption}"
+                                           FontSize="11" TextAlignment="Center" Margin="0,0,4,0"/>
+                                <TextBlock Grid.Column="3" Text="{Binding HeatmapWeekdays[3]}" Style="{StaticResource Caption}"
+                                           FontSize="11" TextAlignment="Center" Margin="0,0,4,0"/>
+                                <TextBlock Grid.Column="4" Text="{Binding HeatmapWeekdays[4]}" Style="{StaticResource Caption}"
+                                           FontSize="11" TextAlignment="Center" Margin="0,0,4,0"/>
+                                <TextBlock Grid.Column="5" Text="{Binding HeatmapWeekdays[5]}" Style="{StaticResource Caption}"
+                                           FontSize="11" TextAlignment="Center" Margin="0,0,4,0"/>
+                                <TextBlock Grid.Column="6" Text="{Binding HeatmapWeekdays[6]}" Style="{StaticResource Caption}"
+                                           FontSize="11" TextAlignment="Center" Margin="0,0,4,0"/>
+                            </Grid>
 
                             <ListBox ItemsSource="{Binding Heatmap}"
                                      HorizontalAlignment="Left"

@@ -1287,7 +1287,8 @@ class TestRemainingScreens434:
 
     def test_the_heatmap_has_weekday_labels_and_a_legend(self):
         xaml = self.read("Views", "HistoryView.xaml")
-        assert '{Binding HeatmapWeekdays}' in xaml
+        for column in range(7):
+            assert f'{{Binding HeatmapWeekdays[{column}]}}' in xaml, f"column {column} has no label"
         assert xaml.index("HeatmapWeekday") < xaml.index('AutomationId="FocusHeatmap"'), \
             "the labels head the columns"
         for automation_id in ("HeatmapLegend", "HeatmapLegendLow", "HeatmapLegendHigh"):
