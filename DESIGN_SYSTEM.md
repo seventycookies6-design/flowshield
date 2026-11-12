@@ -471,7 +471,7 @@ Plans replaced Blocked Apps and Schedule: one page, three E1 sections, no page s
 
 History is one E1 summary card, then the sprint list, then the milestones. There is no page subtitle, no upper-case label and no middle dot. The round-one audit found seven cards (four statistic cards, the heatmap, momentum and milestones) before the list, which started at the bottom edge of a 1520 × 816 window.
 
-- **The summary** is three parts that sit side by side from 230 px each and stack below that (`inf:AdaptiveColumns`):
+- **The summary** is three parts that sit side by side from 200 px each and stack below that (`inf:AdaptiveColumns`):
   - **Momentum:** the number Today shows, its change this week ("Up 12 this week", "No change this week", "Down 6 this week. It recovers with your next sprint.", replayed from the sprints by `HistoryStats.MomentumChangeThisWeek`) and a **How momentum works** disclosure that opens the rule under the summary. Today's "How momentum works" link opens History with it open.
   - **This week:** its dates, then the hours focused, sprints completed and "times the shield blocked an app" (blocked, never "caught"), "Turned back 4 times" when there were any, and the most-blocked app labelled as all-time ("Most blocked: Discord", "Across all your sprints, not just this week."). "Nothing has needed blocking yet" is said only when nothing has been blocked this week either, so it never sits beside a blocked count.
   - **Last 30 days:** the heatmap, with the weekday of each column above it (`HistoryStats.WeekdayLabels`, from the first seven days shown, since the window does not start on a Monday), the Less / More legend, the date range and the best day.

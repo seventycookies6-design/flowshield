@@ -698,7 +698,7 @@
                         <StackPanel>
                             <TextBlock Text="Advanced" Style="{StaticResource CardTitle}" Margin="0,0,0,16"/>
 
-                            <StackPanel x:Name="DevOnlyFields">
+                            <StackPanel x:Name="DevOnlyFields" Margin="0,0,0,16">
                                 <TextBlock Text="License server" Style="{StaticResource FieldLabel}" Margin="0,0,0,8"/>
                                 <TextBox Style="{StaticResource Field}"
                                          Text="{Binding LicenseServerUrl, UpdateSourceTrigger=LostFocus}"
@@ -713,7 +713,7 @@
 
                             <TextBlock Text="{Binding DataContext.TermsAcceptedText,
                                              RelativeSource={RelativeSource AncestorType=Window}}"
-                                       Style="{StaticResource Caption}" Margin="0,16,0,0" TextWrapping="Wrap"
+                                       Style="{StaticResource Caption}" TextWrapping="Wrap"
                                        Visibility="{Binding DataContext.HasAcceptedTerms,
                                                     RelativeSource={RelativeSource AncestorType=Window},
                                                     Converter={StaticResource BoolVis}}"
