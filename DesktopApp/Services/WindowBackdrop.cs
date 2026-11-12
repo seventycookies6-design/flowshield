@@ -95,7 +95,7 @@ public sealed class WindowBackdrop
         _window.Activated += (_, _) => Update("activated");
         _window.Deactivated += (_, _) => Update("deactivated");
         RenderCapability.TierChanged += (_, _) => Update("rendering tier changed");
-        ThemeService.Changed += (_, _) => Update("theme changed");
+        ThemeService.Changed += (_, _) => OnThemeChanged();
 
         Request();
         Update("window created");
@@ -148,6 +148,45 @@ public sealed class WindowBackdrop
             _applied = false;
             Log.Warn($"backdrop: Mica unavailable: {ex.Message}");
         }
+    }
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool SetWindowPos(IntPtr hwnd, IntPtr after, int x, int y, int cx, int cy, uint flags);
+
+    private const uint SWP_NOSIZE = 0x0001, SWP_NOMOVE = 0x0002, SWP_NOZORDER = 0x0004,
+                       SWP_NOACTIVATE = 0x0010, SWP_FRAMECHANGED = 0x0020;
+
+    /// <summary>
+    /// A light/dark switch while the app runs. MainWindow has already told DWM
+    /// the new title-bar theme, but DWM keeps drawing the material it drew
+    /// under the clear client area until the frame is redrawn, so a window
+    /// switched to light stayed dark underneath (found by tier 3's
+    /// TestLightTheme on the VM). The request is renewed and the frame
+    /// redrawn, so the material follows the theme straight away.
+    /// </summary>
+    private void OnThemeChanged()
+    {
+        if (_applied)
+        {
+            try
+            {
+                var build = Environment.OSVersion.Version.Build;
+                if (BackdropPolicy.ApiFor(build) == MicaApi.SystemBackdrop)
+                {
+                    var none = DWMSBT_NONE;
+                    DwmSetWindowAttribute(_hwnd, DWMWA_SYSTEMBACKDROP_TYPE, ref none, sizeof(int));
+                    var mica = DWMSBT_MAINWINDOW;
+                    LastResult = DwmSetWindowAttribute(_hwnd, DWMWA_SYSTEMBACKDROP_TYPE, ref mica, sizeof(int));
+                }
+                SetWindowPos(_hwnd, IntPtr.Zero, 0, 0, 0, 0,
+                             SWP_NOSIZE | SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+            }
+            catch (Exception ex)
+            {
+                Log.Warn($"backdrop: could not redraw the frame after a theme change: {ex.Message}");
+            }
+        }
+        Update("theme changed");
     }
 
     /// <summary>Re-reads every condition and repaints the window's base if it changed.</summary>
