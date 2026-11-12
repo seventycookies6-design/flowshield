@@ -68,7 +68,9 @@ class TestSelectedSettingsRail:
         settings = theme.split('<Style x:Key="SettingsNavLink"', 1)[1].split('</Style>', 1)[0]
         nav = theme.split('<Style x:Key="NavButton"', 1)[1].split('</Style>', 1)[0]
         checked = settings.split('<Trigger Property="IsChecked" Value="True">', 1)[1].split('</Trigger>', 1)[0]
-        assert 'TargetName="bd" Property="Background" Value="{DynamicResource Surface2}"' in checked
+        # #430: the selected item is raised to E2, as in the main rail.
+        assert 'TargetName="bd" Property="Background" Value="{DynamicResource Elev2Surface}"' in checked
+        assert 'Value="{DynamicResource Elev2Surface}"' in nav
         assert 'TargetName="bar" Property="Opacity" Value="1"' in checked
         assert '{DynamicResource Primary}' in settings and '{DynamicResource Primary}' in nav
 

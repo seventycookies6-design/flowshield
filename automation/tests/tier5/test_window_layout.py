@@ -408,12 +408,15 @@ class TestTodayPolishFromThe1011VmRun:
     def test_the_tinted_card_shadows_an_opaque_surface(self):
         theme = self.THEME.read_text(encoding="utf-8")
         style = theme.split('<Style x:Key="CardTinted"', 1)[1].split("</Style>", 1)[0]
-        outer = style.split("<Border.Effect>", 1)[0]
-        outer_tag = outer[outer.rindex("<Border "):]
-        assert 'Background="{DynamicResource Surface}"' in outer_tag, \
+        # #430: the opaque layer is the E1 surface, and the shadow is the
+        # generated ShadowE1 on that layer, set as an attribute.
+        tags = re.findall(r"<Border\b[^>]*>", style, flags=re.S)
+        outer_tag, inner_tag = tags[0], tags[1]
+        assert 'Background="{DynamicResource Elev1Surface}"' in outer_tag, \
             "the shadow must sit on the opaque surface, not on the tint"
-        inner = style.split("</Border.Effect>", 1)[1]
-        assert 'Background="{DynamicResource PrimarySoft}"' in inner
+        assert "Effect=" in outer_tag and "Effect=" not in inner_tag, \
+            "only the opaque outer layer casts the shadow"
+        assert 'Background="{DynamicResource PrimarySoft}"' in inner_tag
         heads_up = (self.VIEWS / "TodayView.xaml").read_text(encoding="utf-8")
         card = heads_up.split("HeadsUpVisible", 1)[0].rsplit("<", 1)[1]
         assert card.startswith('ContentControl Style="{StaticResource CardTinted}"'), card[:80]

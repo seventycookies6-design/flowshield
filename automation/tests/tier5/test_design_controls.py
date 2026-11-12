@@ -11,7 +11,10 @@ class TestNavigationUsesIconsNotUnicodeGlyphs:
     """
     Design system §5. The navigation used Unicode glyphs (U+25F7, U+2298,
     U+263E, U+2699), which render differently across Windows versions and did
-    not match each other. They are now Lucide geometry in Styles/Icons.xaml.
+    not match each other. They were Lucide geometry from #151, and since #430
+    they are Segoe Fluent Icons glyphs named in Styles/Icons.xaml, drawn in
+    that font (with Segoe MDL2 Assets on Windows 10) rather than whatever
+    font a view happens to use.
 
     A font-dependent glyph reintroduced in a view would look fine on the
     machine that added it and wrong on a customer's, so it is caught here
@@ -37,144 +40,125 @@ class TestNavigationUsesIconsNotUnicodeGlyphs:
                     if ch in line:
                         offenders.append(f"{name}:{n} contains U+{ord(ch):04X}")
         assert not offenders, (
-            "use a Path with the Icon style and a geometry from Icons.xaml:\n  "
+            "use a TextBlock with the Icon style and a glyph from Icons.xaml:\n  "
             + "\n  ".join(offenders))
 
 
-    # The rail's icons, by key. Each is drawn in a 20 x 20 box with
-    # Stretch=Uniform, so a geometry whose bounds aren't square is drawn
-    # narrower than its neighbours, and one covering less of the grid is
-    # drawn heavier.
+    # The rail's icons, by key.
     NAV_ICONS = ("IconToday", "IconHistory", "IconBlocked", "IconSleep", "IconSettings")
+    ICONS = Path(DESKTOP_DIR) / "Styles" / "Icons.xaml"
 
-    @staticmethod
-    def _bounds(path_data: str) -> tuple[float, float, float, float]:
-        """Exact-enough bounds of absolute M/L/A/Z path data: arcs are
-        sampled along their real centre, not taken from their end points,
-        because a gear's or a circle's extremes sit mid-arc."""
-        import math
-        tokens = re.findall(r"[MLAZ]|-?[\d.]+", path_data)
-        xs, ys = [], []
-        x = y = 0.0
-        i = 0
-        while i < len(tokens):
-            cmd = tokens[i]
-            i += 1
-            if cmd in ("M", "L"):
-                x, y = float(tokens[i]), float(tokens[i + 1])
-                i += 2
-                xs.append(x); ys.append(y)
-            elif cmd == "A":
-                rx, _ry, _rot, large, sweep, x2, y2 = (float(t) for t in tokens[i:i + 7])
-                i += 7
-                # SVG endpoint-to-centre conversion, for a circular arc.
-                dx, dy = (x - x2) / 2, (y - y2) / 2
-                d2 = dx * dx + dy * dy
-                rx = max(rx, math.sqrt(d2))
-                k = math.sqrt(max(0.0, (rx * rx - d2) / d2)) if d2 else 0.0
-                if int(large) == int(sweep):
-                    k = -k
-                cx, cy = (x + x2) / 2 + k * dy, (y + y2) / 2 - k * dx
-                a1 = math.atan2(y - cy, x - cx)
-                a2 = math.atan2(y2 - cy, x2 - cx)
-                span = a2 - a1
-                if sweep and span < 0:
-                    span += 2 * math.pi
-                elif not sweep and span > 0:
-                    span -= 2 * math.pi
-                for s in range(65):
-                    a = a1 + span * s / 64
-                    xs.append(cx + rx * math.cos(a)); ys.append(cy + rx * math.sin(a))
-                x, y = x2, y2
-        return min(xs), min(ys), max(xs), max(ys)
-
-    def test_nav_icons_are_evenly_proportioned(self):
-        """#406: the gear covered 15 x 19 of the grid (its top and bottom
-        teeth reached further from the centre than its side ones), so the
-        rail drew it tall and narrow beside four round icons."""
-        icons = (Path(DESKTOP_DIR) / "Styles" / "Icons.xaml").read_text(encoding="utf-8")
-        problems = []
+    def test_nav_icons_are_glyphs_from_the_windows_icon_font(self):
+        """#430 (DESIGN_SYSTEM.md Part A, Type and icons): app icons are Segoe
+        Fluent Icons, with Segoe MDL2 Assets as the Windows 10 fallback. Each
+        is one private-use code point, which only means something in that
+        font, so the Icon style must name both families. (Before #430 these
+        were Lucide geometries, measured for even bounds; a font's glyphs are
+        drawn on one grid by design, so the bounds check went with them.)"""
+        icons = self.ICONS.read_text(encoding="utf-8")
+        family = re.search(r'<FontFamily x:Key="IconFont">([^<]+)</FontFamily>', icons)
+        assert family and family.group(1) == "Segoe Fluent Icons, Segoe MDL2 Assets", (
+            "the icon font must be Segoe Fluent Icons, falling back to Segoe MDL2 Assets")
+        style = icons.split('<Style x:Key="Icon" TargetType="TextBlock">', 1)
+        assert len(style) == 2, "the Icon style must be a TextBlock style"
+        assert '{StaticResource IconFont}' in style[1].split("</Style>", 1)[0]
         for key in self.NAV_ICONS:
-            data = re.search(rf'x:Key="{key}">([^<]+)<', icons).group(1)
-            left, top, right, bottom = self._bounds(data)
-            width, height = right - left, bottom - top
-            if abs(width - height) > 0.25:
-                problems.append(f"{key} covers {width:.2f} x {height:.2f}: not square")
-            if not 17.5 <= max(width, height) <= 18.5:
-                problems.append(f"{key} covers {max(width, height):.2f} of the grid, not 18")
-        assert not problems, "\n  ".join(["nav icons drawn at uneven sizes:"] + problems)
+            glyph = re.search(rf'<sys:String x:Key="{key}">&#x([0-9A-Fa-f]{{4}});</sys:String>', icons)
+            assert glyph, f"{key} must be one Segoe Fluent Icons code point"
+            assert 0xE000 <= int(glyph.group(1), 16) <= 0xF8FF, f"{key} is not a private-use glyph"
 
-    def test_the_lucide_notice_is_kept(self):
-        notice = Path(DESKTOP_DIR) / "Assets" / "Icons" / "LICENSE"
-        assert notice.exists(), "Lucide is ISC-licensed; keep its notice with the icons"
-        text = notice.read_text(encoding="utf-8")
-        assert "ISC License" in text and "Lucide" in text
+    def test_nav_icons_sit_in_a_square_box(self):
+        """Each glyph is centred in a box as wide as it is tall, so the rail's
+        icons line up whatever their shapes."""
+        icons = self.ICONS.read_text(encoding="utf-8")
+        for key in ("Icon", "IconSmall"):
+            style = icons.split(f'<Style x:Key="{key}" ', 1)[1].split("</Style>", 1)[0]
+            width = re.search(r'Property="Width" Value="([\d.]+)"', style).group(1)
+            height = re.search(r'Property="Height" Value="([\d.]+)"', style).group(1)
+            size = re.search(r'Property="FontSize" Value="([\d.]+)"', style).group(1)
+            assert width == height == size, f"{key}: {width} x {height} for a {size} px glyph"
 
-class TestInterTypeScale:
+    def test_no_icon_is_bundled(self):
+        """The icons are part of Windows, so the app ships no icon geometry or
+        icon licence of its own (the Lucide notice went with Lucide)."""
+        icons = self.ICONS.read_text(encoding="utf-8")
+        assert "StreamGeometry" not in icons and "PathGeometry" not in icons, (
+            "an icon drawn as geometry is a bundled icon set again; use a Segoe Fluent Icons glyph")
+        assert not (Path(DESKTOP_DIR) / "Assets" / "Icons").exists()
+
+class TestSegoeUiVariableTypeScale:
     """
-    DESIGN_SYSTEM.md §3: Inter, embedded, is the only face the app actually
-    renders in (today's fallback chain put it third, behind two Segoe UI
-    entries nobody's machine was missing). Embedded as a resource, with its
-    OFL licence kept alongside, and its pack URI assembly-qualified so it
-    also resolves when the render kit hosts the built DLL rather than
-    launching FlowShield.exe.
+    DESIGN_SYSTEM.md Part A, Type and icons (#430): the app's face is Segoe UI
+    Variable, the Windows 11 system face, with the Display cut for the
+    countdown and titles and the Text cut for everything else, falling back
+    to Segoe UI on Windows 10. Nothing is bundled. (Until #430 this class
+    pinned the embedded Inter; Part A changed.)
+
+    Engineering fact, measured on Windows 11 build 26300: WPF resolves
+    "Segoe UI Variable Text" and "Segoe UI Variable Display" to SEGUIVAR.TTF
+    but the bare "Segoe UI Variable" to plain Segoe UI. The theme probe checks
+    the resolved file; this class checks the cut is always named.
     """
 
-    FONTS_DIR = Path(DESKTOP_DIR) / "Assets" / "Fonts"
     CSPROJ = Path(DESKTOP_DIR) / "FlowShield.csproj"
     THEME = Path(DESKTOP_DIR) / "Styles" / "Theme.xaml"
     TODAY_VIEW = Path(DESKTOP_DIR) / "Views" / "TodayView.xaml"
     VIEWS = ("MainWindow.xaml", "Views/BlockedAppsView.xaml", "Views/FriendlyErrorDialog.xaml",
              "Views/SleepBlockingView.xaml", "Views/TodayView.xaml", "Views/SettingsView.xaml")
 
-    EMBEDDED_WEIGHTS = ("Inter-Regular.ttf", "Inter-Medium.ttf", "Inter-SemiBold.ttf")
+    STACKS = {
+        "FontStack": "Segoe UI Variable Text, Segoe UI",
+        "FontStackDisplay": "Segoe UI Variable Display, Segoe UI",
+    }
 
-    # A view is allowed to reference the FontStack resource, or -- for
-    # licence keys and anything the user must copy exactly, §3's own
-    # exception -- the Cascadia Mono fallback. Nothing else.
-    ALLOWED_FONT_FAMILY_VALUES = ("{StaticResource FontStack}", "Cascadia Mono, Consolas, monospace")
+    # A view is allowed to reference a stack resource, or -- for licence keys
+    # and anything the user must copy exactly, §3's own exception -- the
+    # Cascadia Mono fallback. Nothing else.
+    ALLOWED_FONT_FAMILY_VALUES = ("{StaticResource FontStack}", "{StaticResource FontStackDisplay}",
+                                  "Cascadia Mono, Consolas, monospace")
 
-    def test_fonts_are_embedded_on_disk_and_in_the_csproj(self):
+    def _stack(self, key: str) -> str:
+        theme = self.THEME.read_text(encoding="utf-8-sig")
+        match = re.search(rf'<FontFamily x:Key="{key}">([^<]+)</FontFamily>', theme)
+        assert match, f"Theme.xaml should define the {key} FontFamily resource"
+        return match.group(1)
+
+    def test_the_stacks_name_their_optical_cut(self):
+        for key, expected in self.STACKS.items():
+            assert self._stack(key) == expected, f"{key} is {self._stack(key)!r}, not {expected!r}"
+
+    def test_bare_segoe_ui_variable_is_never_named(self):
+        """The bare family silently draws plain Segoe UI in WPF."""
+        offenders = []
+        for path in [self.THEME, Path(DESKTOP_DIR) / "Styles" / "Pickers.xaml"] + [
+                Path(DESKTOP_DIR) / name for name in self.VIEWS]:
+            text = path.read_text(encoding="utf-8-sig")
+            for match in re.finditer(r"Segoe UI Variable(?! (?:Text|Display|Small))", text):
+                if not self._in_comment(text, match.start()):
+                    offenders.append(f"{path.name}:{text.count(chr(10), 0, match.start()) + 1}")
+        assert not offenders, "name the optical cut (Text or Display): " + ", ".join(offenders)
+
+    @staticmethod
+    def _in_comment(text: str, index: int) -> bool:
+        return text.rfind("<!--", 0, index) > text.rfind("-->", 0, index)
+
+    def test_no_font_files_are_bundled(self):
+        """System faces only: no embedded font, so no font licence to ship."""
         csproj = self.CSPROJ.read_text(encoding="utf-8")
-        for weight in self.EMBEDDED_WEIGHTS:
-            font_path = self.FONTS_DIR / weight
-            assert font_path.is_file(), (
-                f"{font_path} is missing -- Inter must actually be embedded, not just "
-                f"referenced")
-            assert f'Assets\\Fonts\\{weight}' in csproj, (
-                f"{weight} exists on disk but has no <Resource Include> entry in "
-                f"FlowShield.csproj, so it won't ship in the build")
+        assert not re.search(r'Include="[^"]+\.(?:ttf|otf|woff2?)"', csproj), (
+            "a font is bundled again; Part A uses Segoe UI Variable from Windows")
+        assert "pack://application:,,,/FlowShield;component/Assets/Fonts" not in \
+            self.THEME.read_text(encoding="utf-8-sig")
+        assert not (Path(DESKTOP_DIR) / "Assets" / "Fonts").exists()
 
-    def test_bold_is_not_embedded_unless_the_scale_uses_it(self):
-        """
-        §3's scale doesn't use weight 700 anywhere in the app (it's reserved
-        for the site hero). UI-SPEC.md §2 is explicit: don't embed Inter-Bold
-        unless a real in-app use is found. A stray Bold file would be dead
-        weight nobody meant to ship.
-        """
-        assert not (self.FONTS_DIR / "Inter-Bold.ttf").exists(), (
-            "Inter-Bold is embedded but nothing in the §3 app scale uses weight 700 -- "
-            "either use it for something real and document why, or drop it")
-
-    def test_the_ofl_licence_is_present(self):
-        licence = self.FONTS_DIR / "OFL.txt"
-        assert licence.is_file(), "Inter is OFL-licensed; its licence text must ship with it"
-        text = licence.read_text(encoding="utf-8")
-        assert "SIL Open Font License" in text
-
-    def test_font_stack_is_an_assembly_qualified_pack_uri(self):
-        """
-        A relative pack URI resolves fine when FlowShield.exe launches itself,
-        but silently falls back to a system font when the render kit hosts
-        the built DLL directly -- the exact split this test guards against.
-        """
-        theme = self.THEME.read_text(encoding="utf-8")
-        match = re.search(r'<FontFamily x:Key="FontStack">([^<]+)</FontFamily>', theme)
-        assert match, "Theme.xaml should define the FontStack FontFamily resource"
-        stack = match.group(1)
-        assert stack.startswith("pack://application:,,,/FlowShield;component/Assets/Fonts/#Inter"), (
-            f"FontStack is {stack!r} -- it must start with the assembly-qualified pack "
-            f"URI form, or the render kit's hosted-DLL rendering falls back to Segoe")
+    def test_display_is_for_the_countdown_numbers_and_titles(self):
+        theme = self.THEME.read_text(encoding="utf-8-sig")
+        for key in ("Timer", "Stat", "H1"):
+            style = theme.split(f'<Style x:Key="{key}" ', 1)[1].split("</Style>", 1)[0]
+            assert '{StaticResource FontStackDisplay}' in style, f"{key} must use the Display cut"
+        for key in ("Body", "H2"):
+            style = theme.split(f'<Style x:Key="{key}" ', 1)[1].split("</Style>", 1)[0]
+            assert '{StaticResource FontStack}' in style, f"{key} must use the Text cut"
 
     def test_no_view_sets_a_font_family_other_than_the_stack(self):
         offenders = []
@@ -187,7 +171,7 @@ class TestInterTypeScale:
                     if value not in self.ALLOWED_FONT_FAMILY_VALUES:
                         offenders.append(f"{name}:{n} sets FontFamily={value!r}")
         assert not offenders, (
-            "a view should reference the FontStack resource (or, for licence keys "
+            "a view should reference a FontStack resource (or, for licence keys "
             "only, the Cascadia Mono fallback), not set its own literal FontFamily:\n  "
             + "\n  ".join(offenders))
 
@@ -411,13 +395,13 @@ class TestTimerRingA4:
             "SprintTimerText stays on the TextBlock itself, inside the Viewbox")
 
 
-    def test_inter_display_semibold_is_embedded(self):
-        font_path = Path(DESKTOP_DIR) / "Assets" / "Fonts" / "InterDisplay-SemiBold.ttf"
-        assert font_path.is_file(), "InterDisplay-SemiBold.ttf must be embedded on disk"
-        csproj = (Path(DESKTOP_DIR) / "FlowShield.csproj").read_text(encoding="utf-8")
-        assert r"Assets\Fonts\InterDisplay-SemiBold.ttf" in csproj, (
-            "InterDisplay-SemiBold.ttf exists on disk but has no <Resource Include> "
-            "entry in FlowShield.csproj, so it won't ship in the build")
+    def test_the_timer_is_in_the_display_cut_with_tabular_figures(self):
+        """Part A: Display for the countdown (#430; this pinned the embedded
+        Inter Display file before Part A moved the app to Segoe UI Variable)."""
+        theme = (Path(DESKTOP_DIR) / "Styles" / "Theme.xaml").read_text(encoding="utf-8-sig")
+        timer = theme.split('<Style x:Key="Timer" ', 1)[1].split("</Style>", 1)[0]
+        assert '{StaticResource FontStackDisplay}' in timer
+        assert 'Property="Typography.NumeralAlignment" Value="Tabular"' in timer
 
 
 class TestTodayAutomationIdsUnchangedA4:
@@ -625,6 +609,10 @@ class TestKeyboardAndFocusF21:
             # its shadow and its tint on separate layers. It is a container,
             # like a Border; the buttons inside keep their tab stops.
             "CardTinted",
+            # The dropdown's drawn face (#430): the ComboBox itself is the tab
+            # stop and opens with Alt+Down or F4, as in WPF's own template; a
+            # focusable toggle inside it would be a second, silent stop.
+            "DropdownToggle",
         }
         allowed_ids = {
             # The same legend's own list: not hit-testable either, and every
@@ -972,3 +960,75 @@ class TestDatePickersFollowTheActiveTheme:
         colours = [(kind, key) for kind, key in references if key in tokens]
         assert colours, "Picker templates must use the shared colour tokens"
         assert all(kind == "DynamicResource" for kind, _ in colours), colours
+
+
+class TestRedesignControls430:
+    """
+    The control vocabulary of the redesign (DESIGN_SYSTEM.md Part A,
+    Information hierarchy and Depth; design/redesign-2026-11/README.md):
+    raised buttons, recessed fields, a segmented selector, a toggle that says
+    its state, a chevron disclosure and a dropdown. These pin what the rules
+    promise -- selection never by tone alone, state written down, a visible
+    focus -- not where anything sits.
+    """
+
+    THEME = Path(DESKTOP_DIR) / "Styles" / "Theme.xaml"
+
+    def style(self, key: str) -> str:
+        theme = self.THEME.read_text(encoding="utf-8-sig")
+        assert f'<Style x:Key="{key}" ' in theme, f"Theme.xaml has no {key} style"
+        return theme.split(f'<Style x:Key="{key}" ', 1)[1].split("\n    </Style>", 1)[0]
+
+    def test_every_selection_style_marks_the_pick_with_teal_not_only_tone(self):
+        """The same teal marker as the sidebar: a picked option shows it, so
+        selection never depends on the thumb's fill alone."""
+        for key in ("Segment", "SegmentCheck", "SegmentShield", "SegmentItem", "OptionCard"):
+            block = self.style(key)
+            assert re.search(r'x:Name="marker"[^>]*Background="\{DynamicResource Primary\}"', block, re.S), key
+            checked = block.split('<Trigger Property="IsChecked" Value="True">', 1)[1].split("</Trigger>", 1)[0]
+            assert 'TargetName="marker" Property="Opacity" Value="1"' in checked, key
+            assert 'Property="FontWeight" Value="SemiBold"' in checked, f"{key}: weight is the second signal"
+
+    def test_the_stated_switch_writes_on_and_off(self):
+        block = self.style("SwitchStated")
+        assert 'x:Name="state"' in block and 'Text="Off"' in block
+        checked = block.split('<Trigger Property="IsChecked" Value="True">', 1)[1].split("</Trigger>", 1)[0]
+        assert 'TargetName="state" Property="Text" Value="On"' in checked
+        assert 'TargetType="CheckBox"' in block, "a CheckBox keeps the Toggle pattern UI Automation reports"
+
+    def test_a_switch_that_is_on_moves_its_knob_too(self):
+        checked = self.style("Switch").split('<Trigger Property="IsChecked" Value="True">', 1)[1].split("</Trigger>", 1)[0]
+        assert 'TargetName="knob" Property="HorizontalAlignment" Value="Right"' in checked
+        assert "PrimaryGradient" in checked
+
+    def test_the_disclosure_reports_open_and_turns_its_chevron(self):
+        block = self.style("Disclosure")
+        assert 'TargetType="ToggleButton"' in block, "a ToggleButton reports open/closed to UI Automation"
+        assert "{StaticResource IconChevronDown}" in block
+        assert '<RotateTransform Angle="180"/>' in block
+        assert "FocusVisual" in block
+
+    def test_the_field_keeps_its_hint_and_shows_focus_on_its_bottom_line(self):
+        block = self.style("Field")
+        assert "{DynamicResource Well}" in block and "{DynamicResource WellLine}" in block
+        focused = block.split('<Trigger Property="IsKeyboardFocused" Value="True">', 1)[1].split("</Trigger>", 1)[0]
+        assert 'TargetName="line" Property="BorderBrush" Value="{DynamicResource Primary}"' in focused
+        assert "AutomationProperties.HelpText" in block, "the placeholder still comes from HelpText (#406)"
+
+    def test_buttons_are_raised_and_keep_a_focus_ring(self):
+        for key in ("BtnBase", "BtnPrimary", "BtnQuiet", "Disclosure"):
+            block = self.style(key)
+            assert 'TargetName="focus" Property="Opacity" Value="1"' in block, f"{key} lost its focus ring"
+        base = self.style("BtnBase")
+        assert 'x:Name="lit"' in base and "{DynamicResource ControlHighlight}" in base
+        assert 'x:Name="under"' in base and "{DynamicResource ControlShadow}" in base
+        primary = self.style("BtnPrimary")
+        assert 'Value="{DynamicResource PrimaryGradient}"' in primary
+        assert "{DynamicResource ShadowPrimary}" in primary
+
+    def test_the_dropdown_opens_an_e3_flyout(self):
+        block = self.style("Dropdown")
+        assert 'TargetType="ComboBox"' in block
+        assert 'Style="{StaticResource Flyout}"' in block
+        assert "IsDropDownOpen" in block
+        assert 'Value="{DynamicResource ShadowE3}"' in self.style("Flyout")

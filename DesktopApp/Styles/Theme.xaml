@@ -1361,7 +1361,7 @@
                                           Content="{TemplateBinding SelectionBoxItem}"
                                           ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
                                           ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}"/>
-                        <Popup x:Name="PART_Popup" Placement="Bottom" AllowsTransparency="True" Focusable="False"
+                        <Popup x:Name="PART_Popup" Placement="Bottom" AllowsTransparency="True"
                                PopupAnimation="None" HorizontalOffset="-16" VerticalOffset="-4"
                                IsOpen="{Binding IsDropDownOpen, RelativeSource={RelativeSource TemplatedParent}}">
                             <!-- Room for the E3 shadow, which falls straight down. -->

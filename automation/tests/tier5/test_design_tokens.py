@@ -350,8 +350,8 @@ class TestNoHardcodedColoursA3:
 class TestCornerRadiusNormalisedA2:
     """
     UI-SPEC.md A2 (#147, DESIGN_SYSTEM.md §4): every CornerRadius in the app
-    must be one of the four legal values -- 6 (small chips/tags), 10
-    (buttons/inputs/toggles/interactive rows), 14 (cards/dialogs/surfaces),
+    must be one of the four legal values -- 6 (small chips/tags), 8
+    (buttons/inputs/toggles/interactive rows), 12 (cards/dialogs/surfaces),
     or "fully round" -- and every one of them must be a StaticResource
     reference to Theme.xaml's four named resources (RadiusChip/RadiusControl/
     RadiusCard), not a bare number repeated at each call site. Fully round
@@ -415,6 +415,13 @@ class TestCornerRadiusNormalisedA2:
 
     def test_the_files_list_actually_covers_something(self):
         assert len(self.FILES) >= 5, "expected Theme.xaml, MainWindow.xaml and several Views/*.xaml"
+
+    def test_the_radius_set_is_the_redesigns(self):
+        """design/redesign-2026-11/README.md (#430): surfaces 12, controls 8;
+        chips keep 6. (A2's set was 6 / 10 / 14.)"""
+        theme = (Path(DESKTOP_DIR) / "Styles" / "Theme.xaml").read_text(encoding="utf-8-sig")
+        radii = dict(re.findall(r'<CornerRadius x:Key="(\w+)">([\d.]+)</CornerRadius>', theme))
+        assert radii == {"RadiusChip": "6", "RadiusControl": "8", "RadiusCard": "12"}, radii
 
 
 class TestPillsAreComputed:
@@ -530,10 +537,11 @@ class TestLightThemeSwitchF21:
                            .read_text(encoding="utf-8"))["app_names"]
         keys = set(names.values()) | {value + "Color" for value in names.values()}
 
-        # The Card style's drop shadow is a Freezable inside a sealed Style
-        # setter, which cannot carry a DynamicResource. It is black in both
-        # themes (design/tokens.json "shadow"), so it never needs to change.
-        allowed = {("Theme.xaml", "ShadowColor")}
+        # No exceptions left: the Card style's drop shadow used to hold
+        # ShadowColor statically (a Freezable in a sealed setter cannot carry a
+        # DynamicResource). Since #430 the shadows are generated into the
+        # Tokens dictionaries per theme and referenced dynamically.
+        allowed: set[tuple[str, str]] = set()
 
         offenders = []
         for path in self._xaml_files():
@@ -678,3 +686,147 @@ class TestStoneLook:
         assert "pointer-events: none" in columns
         assert "background-color: var(--color-text)" in columns, "the motif follows the theme"
         assert "mask:" in columns and "-webkit-mask:" in columns
+
+
+# ================================ the depth system of the redesign (#430)
+
+class TestDepthTokens430:
+    """
+    DESIGN_SYSTEM.md Part A, Depth, and design/redesign-2026-11/README.md: the
+    window's Mica base and its solid fallback, three elevations, highlights,
+    hairlines, raised and recessed control materials, and the gradient stops.
+    They enter through design/tokens.json like every other colour.
+
+    Text now sits on these surfaces, many of them translucent layers over an
+    elevation, so each pair is measured as composited, layer by layer, the
+    way it is drawn. Every pair here is in §2's table.
+    """
+
+    ROOT = Path(DESKTOP_DIR).parent
+    DEPTH = ("mica", "mica-fallback", "elev-1", "elev-2", "elev-3", "acrylic",
+             "highlight-1", "highlight-2", "highlight-3", "hairline", "divider",
+             "control", "control-hover", "control-pressed", "control-highlight",
+             "control-edge", "control-shadow", "well", "well-edge", "well-line",
+             "segment-track", "thumb", "primary-grad-top", "primary-grad-bottom",
+             "primary-highlight", "primary-edge", "primary-shadow",
+             "ring-grad-start", "ring-grad-end", "glow")
+
+    #: (text token, then the layers under it from the top down; the last is opaque)
+    PAIRS = [
+        ("text", "mica"), ("text-muted", "mica"), ("text-faint", "mica"),
+        ("text", "mica-fallback"), ("text-muted", "mica-fallback"), ("text-faint", "mica-fallback"),
+        ("text", "elev-1"), ("text-muted", "elev-1"), ("text-faint", "elev-1"),
+        ("text", "elev-2"), ("text-muted", "elev-2"), ("text-faint", "elev-2"),
+        ("text", "elev-3"), ("text-muted", "elev-3"),
+        ("primary", "mica"), ("primary", "elev-1"), ("primary", "elev-2"),
+        ("primary-ink", "primary-grad-top"), ("primary-ink", "primary-grad-bottom"),
+        ("text", "control", "elev-1"), ("text", "control", "elev-2"),
+        ("text", "control-hover", "elev-2"), ("danger", "control", "elev-1"),
+        ("text", "well", "elev-2"), ("text-faint", "well", "elev-2"), ("text-faint", "well", "elev-1"),
+        ("text-muted", "segment-track", "elev-2"), ("text", "thumb"),
+    ]
+
+    def data(self) -> dict:
+        return json.loads((self.ROOT / "design" / "tokens.json").read_text(encoding="utf-8"))
+
+    @staticmethod
+    def _rgba(theme: dict, name: str) -> tuple[float, float, float, float]:
+        value = theme[name]
+        if isinstance(value, str):
+            v = value.lstrip("#")
+            return int(v[0:2], 16), int(v[2:4], 16), int(v[4:6], 16), 1.0
+        r, g, b, _ = TestDepthTokens430._rgba(theme, value["ref"])
+        return r, g, b, float(value["alpha"])
+
+    @staticmethod
+    def _over(top, base):
+        a = top[3]
+        return tuple(top[i] * a + base[i] * (1 - a) for i in range(3)) + (1.0,)
+
+    def ratio(self, theme: dict, fg: str, *layers: str) -> float:
+        under = self._rgba(theme, layers[-1])
+        assert under[3] == 1.0, f"{layers[-1]} must be opaque to measure on"
+        for layer in reversed(layers[:-1]):
+            under = self._over(self._rgba(theme, layer), under)
+        top = self._over(self._rgba(theme, fg), under)
+        return TestContrastAndTokensA3._contrast(
+            tuple(round(c) for c in top[:3]), tuple(round(c) for c in under[:3]))
+
+    def test_every_depth_token_exists_in_both_themes_with_an_app_name(self):
+        data = self.data()
+        for theme in ("dark", "light"):
+            missing = [t for t in self.DEPTH if t not in data["themes"][theme]]
+            assert not missing, f"{theme} lacks {missing}"
+        assert all(t in data["app_names"] for t in self.DEPTH)
+
+    @pytest.mark.parametrize("theme_name", ["dark", "light"])
+    def test_text_on_every_depth_surface_meets_wcag_normal_text(self, theme_name):
+        theme = self.data()["themes"][theme_name]
+        failures = [f"{' on '.join(pair)}: {self.ratio(theme, *pair):.2f}:1"
+                    for pair in self.PAIRS if self.ratio(theme, *pair) < 4.5]
+        assert not failures, f"{theme_name}: " + "; ".join(failures)
+
+    def test_faint_text_stays_off_the_flyout(self):
+        """text-faint on E3 measures 4.41:1 in dark, under AA, so §2 marks it
+        not for text, and nothing drawn on an E3 flyout uses InkFaint."""
+        assert self.ratio(self.data()["themes"]["dark"], "text-faint", "elev-3") < 4.5, \
+            "if this pair now passes, add it to PAIRS and drop this test"
+        theme = (Path(DESKTOP_DIR) / "Styles" / "Theme.xaml").read_text(encoding="utf-8-sig")
+        for key in ("Flyout", "Dropdown", "DropdownItem", "DropdownToggle"):
+            style = theme.split(f'<Style x:Key="{key}" ', 1)[1].split("</Style>", 1)[0]
+            assert "InkFaint" not in style, f"{key} draws faint text on E3"
+        pickers = (Path(DESKTOP_DIR) / "Styles" / "Pickers.xaml").read_text(encoding="utf-8-sig")
+        calendar = pickers.split('<Style x:Key="PickerCalendar" ', 1)[1].split("</Style>", 1)[0]
+        assert "InkFaint" not in calendar
+
+    def test_the_brushes_and_shadows_are_generated_for_both_themes(self):
+        """Gradients, elevations and shadows swap with the theme, so they live
+        in the Tokens dictionaries, never in Theme.xaml."""
+        brushes = self.data()["app_brushes"]
+        theme = (Path(DESKTOP_DIR) / "Styles" / "Theme.xaml").read_text(encoding="utf-8-sig")
+        for name in ("Tokens.xaml", "Tokens.Light.xaml"):
+            tokens = (Path(DESKTOP_DIR) / "Styles" / name).read_text(encoding="utf-8")
+            for key in brushes:
+                assert f'x:Key="{key}"' in tokens, f"{name} lacks {key}"
+                assert f'x:Key="{key}"' not in theme, f"{key} is defined in Theme.xaml"
+            # Shadows fall straight down and are never coloured (Part A, Depth).
+            for effect in re.findall(r"<DropShadowEffect [^>]+/>", tokens):
+                assert 'Direction="270"' in effect and "{StaticResource ShadowColor}" in effect, effect
+        assert "<DropShadowEffect" not in theme, "a shadow in Theme.xaml would not follow the theme"
+
+    def test_gradients_appear_only_where_part_a_allows(self):
+        """Part A: gradients only on the ring's arc, the Primary button, a toggle
+        that is on, and the sprint glow. Among the shared styles, that is
+        BtnPrimary and the two switches."""
+        theme = (Path(DESKTOP_DIR) / "Styles" / "Theme.xaml").read_text(encoding="utf-8-sig")
+        users = set()
+        for block in re.split(r'(?=<Style x:Key=")', theme)[1:]:
+            key = re.match(r'<Style x:Key="(\w+)"', block).group(1)
+            if re.search(r"\{DynamicResource \w+Gradient\}", block):
+                users.add(key)
+        assert users <= {"BtnPrimary", "Switch", "SwitchStated"}, users
+        assert "LinearGradientBrush" not in theme and "RadialGradientBrush" not in theme
+
+    def test_the_mac_app_does_not_get_the_windows_depth_tokens(self):
+        """On Apple platforms the system materials replace the depth system."""
+        data = self.data()
+        assert set(self.DEPTH) <= set(data["apple_skip"])
+        xcassets = self.ROOT / "AppleApps" / "Basalt" / "Tokens.xcassets"
+        for token in ("mica", "elev-1", "control"):
+            assert not (xcassets / f"{data['app_names'][token]}.colorset").exists()
+        assert (xcassets / "Primary.colorset").exists()
+
+    def test_a_surface_brush_carries_its_highlight_on_top(self):
+        """The top highlight is composited onto the first rows of the surface
+        brush, opaque, with the elevation colour below it."""
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("build_tokens", self.ROOT / "tools" / "build_tokens.py")
+        build = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(build)
+        data = self.data()
+        dark = build.xaml(data, "dark")
+        block = dark.split('<LinearGradientBrush x:Key="Elev1Surface"', 1)[1].split("</LinearGradientBrush>", 1)[0]
+        stops = re.findall(r'Color="#([0-9A-F]{8})" Offset="([\d.]+)"', block)
+        assert [o for _, o in stops] == ["0", "1", "1"]
+        assert stops[0][0] == stops[1][0] and stops[0][0].startswith("FF"), "the highlight band is opaque"
+        assert stops[2][0] == "FF1F2123", "the elevation colour fills the rest"

@@ -116,7 +116,8 @@ class TestBreakCopyTracksScheduledSleepWindow:
 
         Since #304 the caption wraps, centred, inside a MaxWidth. Whether that
         fits is a question about pixels, so the probe lays out the real
-        TodayView with the app's own resources and embedded Inter: every
+        TodayView with the app's own resources and font (Segoe UI Variable
+        Text since #430, or Segoe UI where Windows has no Variable): every
         caption RingCaption lists, with the shield glyph beside it when a
         sprint runs, and with nothing below it (the caption at its lowest,
         where the ring is narrowest) or with "Sprint 4 of 4" below it. Every
@@ -126,11 +127,18 @@ class TestBreakCopyTracksScheduledSleepWindow:
         """
         entries = theme_probe["ringCaptions"]
         assert entries, "the probe measured no ring captions"
+        # The measured fact the font stack relies on: a named optical cut of
+        # Segoe UI Variable resolves to SEGUIVAR.TTF (bare "Segoe UI Variable"
+        # would give plain Segoe UI), and Windows without it falls back to
+        # Segoe UI. CI's Windows Server image may be either.
+        import os
+        fonts = Path(os.environ.get("WINDIR", r"C:\Windows")) / "Fonts"
+        expected = "seguivar.ttf" if (fonts / "SEGUIVAR.TTF").exists() else "segoeui.ttf"
         for entry in entries:
             where = f"\"{entry['text']}\" ({entry['below']} below)"
             assert entry["styled"] and entry["fontSize"] == 12, entry
-            assert (entry["font"] or "").lower() == "inter-regular.ttf", (
-                f"{where} was measured in {entry['font']}, not the embedded Inter")
+            assert (entry["font"] or "").lower() == expected, (
+                f"{where} was measured in {entry['font']}, not {expected}")
             # MM:SS in tabular digits is the widest the timer gets without
             # shrinking further, so it is also the tallest: the worst case.
             assert re.fullmatch(r"\d\d:\d\d", entry["timerText"]), entry["timerText"]

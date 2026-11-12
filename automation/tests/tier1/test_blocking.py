@@ -666,7 +666,9 @@ class TestPickerListsOnlyInstalledApps:
         catalog = (Path(SERVER_DIR).parent / "DesktopApp" / "Services" / "AppCatalog.cs").read_text(encoding="utf-8")
         assert "ExtractAssociatedIcon(exePath)" in catalog
         assets = Path(SERVER_DIR).parent / "DesktopApp" / "Assets" / "Icons"
-        assert not [p for p in assets.iterdir() if p.suffix.lower() in (".png", ".ico", ".svg")], \
+        # The folder held only the Lucide notice, and went with Lucide (#430).
+        shipped = list(assets.iterdir()) if assets.exists() else []
+        assert not [p for p in shipped if p.suffix.lower() in (".png", ".ico", ".svg")], \
             "no third-party app logos are shipped"
 
 
