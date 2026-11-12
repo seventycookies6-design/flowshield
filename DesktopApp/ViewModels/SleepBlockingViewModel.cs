@@ -133,6 +133,9 @@ public class SleepBlockingViewModel : ViewModelBase
 
     public void RefreshStatus()
     {
+        // Today's Up next and status line name the sleep window (#431). Null
+        // while MainViewModel is still building its pages.
+        _main.Today?.RefreshNow(DateTime.UtcNow);
         var enabled = _main.Settings.IsSleepBlockEnabled;
         var inWindow = AppBlockerService.IsWithinSleepWindow(_main.Settings);
 

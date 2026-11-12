@@ -408,7 +408,7 @@ class TestSoftShowsTheNotice:
 
         fresh_app.focus(force=True)
         fresh_app.stop_sprint()                    # Soft past its grace ends at once
-        assert fresh_app.exists("SummaryTitle", timeout=10), "the summary card never appeared"
+        assert fresh_app.exists("SummaryMinutesValue", timeout=10), "the summary card never appeared"
         assert fresh_app.text_of("SummaryTurnedBackText") == "Turned back 1 time"
 
         session = verify.read_settings()["Sessions"][-1]

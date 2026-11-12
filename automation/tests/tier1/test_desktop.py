@@ -342,8 +342,10 @@ class TestTimerRingDrains:
 
     def test_both_rings_draw_the_time_left(self):
         xaml = self.xaml()
-        assert xaml.count("Path=RingRemaining, ElementName=Root, Converter={StaticResource ProgressDash}") == 2
-        assert "Binding Progress, Converter={StaticResource ProgressDash}" not in xaml
+        # #431: each arc is a Path drawn from the time left (ProgressArc), so
+        # the ring's gradient lies across the arc rather than a dash pattern.
+        assert xaml.count("Path=RingRemaining, ElementName=Root, Converter={StaticResource ProgressArc}") == 2
+        assert "Binding Progress, Converter={StaticResource ProgressArc}" not in xaml
 
     def test_the_ring_value_is_the_fraction_left(self):
         assert "1 - progress" in self.code()

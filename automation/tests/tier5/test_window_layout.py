@@ -28,17 +28,18 @@ class TestSmallScreenLayout:
         assert 'MinWidth="900"' not in xaml, "old MinWidth 900 must be replaced"
 
     def test_today_view_has_adaptive_layout_elements(self):
+        # #431 renamed them for the redesign: the Now card, and the side cards
+        # (Up next and Momentum) in their own column.
         xaml = self.read("Views", "TodayView.xaml")
-        assert 'x:Name="StatsRail"' in xaml, "stats rail must be named for adaptive layout"
-        assert 'x:Name="StatsColumn"' in xaml, "stats column must be named for adaptive layout"
-        assert 'x:Name="StatsRow"' in xaml, "stats row must be named for adaptive layout"
-        assert 'x:Name="TimerCard"' in xaml, "timer card must be named for adaptive layout"
+        assert 'x:Name="SideCards"' in xaml, "the side cards must be named for adaptive layout"
+        assert 'x:Name="SideColumn"' in xaml, "their column must be named for adaptive layout"
+        assert 'x:Name="NowCard"' in xaml, "the Now card must be named for adaptive layout"
 
     def test_today_view_code_behind_handles_size_changes(self):
         cs = self.read("Views", "TodayView.xaml.cs")
         assert "OnSizeChanged" in cs, "TodayView must handle SizeChanged for adaptive layout"
-        assert "StatsColumn" in cs and "StatsRail" in cs, \
-            "TodayView must adjust stats column and rail position on size change"
+        assert "SideColumn" in cs and "SideCards" in cs, \
+            "TodayView must adjust the side column and the cards' position on size change"
         assert "Grid.SetRow" in cs or "SetRow" in cs, \
             "TodayView must move the stats rail between rows for narrow/wide layout"
 
@@ -71,7 +72,8 @@ class TestSmallScreenLayout:
         xaml = self.read("MainWindow.xaml").replace("\ufeff", "")
         start = xaml.find('AutomationId="GetProNavButton"')
         element = xaml[xaml.rfind("<", 0, start):xaml.find(">", start)]
-        assert "{Binding IsNotPro" in element
+        # #431: BuyVisible is IsNotPro and no sprint running; still a binding.
+        assert "{Binding BuyVisible" in element
 
 
 class TestBlockedAppsRowSwitchNotClipped:
@@ -240,13 +242,14 @@ class TestAppAdaptsToItsWindow:
         assert "Math.Clamp(fit, 1, Math.Max(1, maxColumns))" in source
         assert "double.IsInfinity(width)" in source, "an infinite width must fall back to one column"
 
-    def test_today_stat_values_share_their_labels_line_height(self):
-        """The numbers used the default style while their labels used Body, so
-        they sat higher than the labels beside them."""
+    def test_today_facts_share_one_line_style(self):
+        """The counters' numbers once sat higher than their labels. #431
+        removed the three counters; today's facts are one line in the
+        Momentum card, in one style beside the streak."""
         today = self._read(self.VIEWS / "TodayView.xaml")
-        for binding in ("SessionsToday", "FocusMinutesToday", "BlocksToday"):
+        for binding in ("TodayFactsText", "StreakText"):
             tag = re.search(r'<TextBlock Text="\{Binding ' + binding + r'\}"[^>]*>', today, re.S).group(0)
-            assert 'Style="{StaticResource Body}"' in tag, f"{binding} should use the Body style"
+            assert 'Style="{StaticResource Caption}"' in tag and 'FontSize="13"' in tag, binding
 
 
 # ============================== the window opens inside the work area (#296)
@@ -297,39 +300,39 @@ class TestTodayDeclutter147:
     TODAY = Path(DESKTOP_DIR) / "Views" / "TodayView.xaml"
     HISTORY = Path(DESKTOP_DIR) / "Views" / "HistoryView.xaml"
     VM = Path(DESKTOP_DIR) / "ViewModels" / "TodayViewModel.cs"
+    # #431 moved the fold into the setup panel (Views/SetupPanel.xaml), opened
+    # by Set up. The shield level and its explanation stay on Today, next to
+    # Start, so they moved from PICKERS to ALWAYS_SHOWN.
+    PANEL = Path(DESKTOP_DIR) / "Views" / "SetupPanel.xaml"
     PICKERS = ('AutomationId="SprintLength_15"', 'AutomationId="SprintLength_Custom"',
-               'AutomationId="CustomMinutesInput"', 'AutomationId="Shield_Soft"',
-               'AutomationId="Shield_Firm"', 'AutomationId="Shield_Sealed"',
-               'AutomationId="ShieldDescriptionText"', 'AutomationId="Cycle_Off"',
+               'AutomationId="CustomMinutesInput"', 'AutomationId="Cycle_Off"',
                'AutomationId="Cycle_4"', 'AutomationId="CycleDescriptionText"',
                "StringFormat=TodayProfile_{0}")
-    # Warnings about the shield in use, the blocklist's name, the intention
-    # and Start itself: never folded.
+    # Warnings about the shield in use, the shield level itself, the
+    # blocklist's name, the intention and Start: never folded away.
     ALWAYS_SHOWN = ("SealedRestartHint", "SoftHardKillHint", "TodayProfileCaption",
-                    "IntentionInput", "StartSprintButton")
+                    "IntentionInput", "StartSprintButton", "Shield_Soft", "Shield_Firm",
+                    "Shield_Sealed", "ShieldDescriptionText")
 
     def _fold(self):
         xaml = self.TODAY.read_text(encoding="utf-8")
-        opener = '<StackPanel Visibility="{Binding SprintOptionsVisible, Converter={StaticResource BoolVis}}">'
-        assert xaml.count(opener) == 1, "one fold, bound to SprintOptionsVisible"
-        start = xaml.index(opener)
-        # The fold's own closing tag: count nested StackPanels, skipping self-closing ones.
-        depth = 0
-        for tag in re.finditer(r"<(/?)StackPanel\b[^>]*?(/?)>", xaml[start:]):
-            if tag.group(2):
-                continue
-            depth += -1 if tag.group(1) else 1
-            if depth == 0:
-                return xaml, xaml[start:start + tag.end()]
-        raise AssertionError("the fold never closes")
+        window = (Path(DESKTOP_DIR) / "MainWindow.xaml").read_text(encoding="utf-8")
+        host = re.search(r"<views:SetupPanel\b[^>]*/>", window, re.S)
+        assert host and 'Visibility="{Binding SprintOptionsVisible, Converter={StaticResource BoolVis}}"' in host.group(0), \
+            "one fold, the setup panel, bound to SprintOptionsVisible"
+        return xaml, self.PANEL.read_text(encoding="utf-8")
 
+    def test_the_pickers_are_in_the_fold(self):
+        xaml, fold = self._fold()
+        for picker in self.PICKERS:
+            assert picker in fold, picker
+            assert picker not in xaml, f"{picker} must be in the setup panel, not on Today"
 
     def test_warnings_start_and_intention_remain_reachable_when_options_are_collapsed(self):
         xaml, fold = self._fold()
         for auto_id in self.ALWAYS_SHOWN:
             assert f'AutomationId="{auto_id}"' in xaml, auto_id
             assert f'AutomationId="{auto_id}"' not in fold, f"{auto_id} must not be folded away"
-
 
     def test_the_fold_starts_closed_and_never_hides_why_start_is_off(self):
         code = " ".join(self.VM.read_text(encoding="utf-8").split())
@@ -340,10 +343,10 @@ class TestTodayDeclutter147:
 
     def test_the_summary_reads_what_start_reads(self):
         code = " ".join(self.VM.read_text(encoding="utf-8").split())
+        # #431: the line no longer names the shield, whose selector sits under it.
         assert ("SprintOptionsCopy.Summary( IsCustomSelected && !IsCustomMinutesValid ? 0 : SelectedMinutes, "
-                "SelectedShield, CycleSprints)") in code
-        for declaration in ("public ShieldLevel SelectedShield", "public int CycleSprints",
-                            "public int SelectedMinutes"):
+                "CycleSprints)") in code
+        for declaration in ("public int CycleSprints", "public int SelectedMinutes"):
             body = code.split(declaration, 1)[1].split(" public ", 1)[0]
             assert "Raise(nameof(SprintOptionsSummary));" in body, f"{declaration} must refresh the line"
 
@@ -366,11 +369,13 @@ class TestTodayDeclutter147:
 
     def test_the_driver_opens_the_fold_only_for_todays_pickers(self):
         from desktop.app_controller import is_sprint_option
-        for auto_id in ("SprintLength_25", "Shield_Firm", "Cycle_2", "CustomMinutesInput",
-                        "ShieldDescriptionText", "TodayProfile_School"):
+        for auto_id in ("SprintLength_25", "Cycle_2", "CustomMinutesInput",
+                        "TodayProfile_School", "TodayBlocklistDropdown"):
             assert is_sprint_option(auto_id), auto_id
+        # #431: the shield level stays on Today, so the driver closes the panel for it.
         for auto_id in ("TemplateShield_Soft", "TemplateCycle_2", "FirstRunShield_Sealed",
-                        "StartSprintButton", "SprintOptionsToggle", "IntentionInput"):
+                        "StartSprintButton", "SprintOptionsToggle", "IntentionInput",
+                        "Shield_Firm", "ShieldDescriptionText", "SetupPanelDone"):
             assert not is_sprint_option(auto_id), auto_id
 
 

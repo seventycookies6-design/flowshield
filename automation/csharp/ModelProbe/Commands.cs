@@ -79,9 +79,19 @@ internal static class Commands
             "stopped-apps" => StoppedAppsList(request),
             "sprint-options-summary" => new JsonObject
             {
-                ["text"] = SprintOptionsCopy.Summary((int)request["minutes"]!,
-                    Enum.Parse<ShieldLevel>((string)request["shield"]!), (int)request["cycle"]!),
+                ["text"] = SprintOptionsCopy.Summary((int)request["minutes"]!, (int)request["cycle"]!),
             },
+            "ring-status" => new JsonObject
+            {
+                ["text"] = RingCaption.Status((string)request["lead"]!, (bool)request["in_sleep_window"]!),
+            },
+            "ring-engaged" => new JsonObject
+            {
+                ["engaged"] = RingCaption.Engaged(Enum.Parse<ShieldLevel>((string)request["shield"]!), (int)request["apps"]!),
+                ["resumed"] = RingCaption.Resumed(Enum.Parse<ShieldLevel>((string)request["shield"]!), (int)request["apps"]!),
+            },
+            "today-copy" => TodayCopyProbe(request),
+            "today-up-next" => TodayUpNext(request),
             "start-arg" => StartArg(request),
             "start-arg-for" => new JsonObject { ["arg"] = StartSprintArg.For((string?)request["id"]) },
             "jump-title" => new JsonObject { ["title"] = JumpListText.Title((string)request["name"]!) },
@@ -727,5 +737,45 @@ internal static class Commands
             stopped.Record((string?)step!["app"], (bool)step["closed"]!);
         if (request["clear"] is { } clear && (bool)clear) stopped.Clear();
         return new JsonObject { ["any"] = stopped.Any, ["title"] = stopped.Title, ["text"] = stopped.Text };
+    }
+
+    private static JsonNode TodayCopyProbe(JsonObject request)
+    {
+        // Times follow the customer's culture; the probe pins one so the wording is checkable.
+        CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("en-US");
+        var at = DateTime.Parse((string?)request["at"] ?? "2026-11-12T22:49:00", CultureInfo.InvariantCulture);
+        var start = DateTime.Parse((string?)request["start"] ?? "2026-11-12T22:04:00", CultureInfo.InvariantCulture);
+        return new JsonObject
+        {
+            ["time"] = TodayCopy.Time(at),
+            ["ends_at"] = TodayCopy.EndsAt(at),
+            ["panel_ends_at"] = TodayCopy.PanelEndsAt(at),
+            ["until"] = TodayCopy.Until(at),
+            ["blocklist"] = TodayCopy.BlocklistLine((string?)request["name"] ?? "Default", (int?)request["apps"] ?? 3),
+            ["today_facts"] = TodayCopy.TodayFacts((int?)request["sprints"] ?? 0, (int?)request["minutes"] ?? 0),
+            ["streak"] = TodayCopy.Streak((int?)request["streak"] ?? 0),
+            ["streak_day"] = TodayCopy.StreakDay((int?)request["streak"] ?? 0),
+            ["momentum_change"] = TodayCopy.MomentumChange((int?)request["delta"] ?? 0, (int?)request["from"] ?? 0),
+            ["minutes_focused"] = TodayCopy.MinutesFocused((int?)request["minutes"] ?? 0),
+            ["result_facts"] = TodayCopy.ResultFacts(Enum.Parse<ShieldLevel>((string?)request["shield"] ?? "Firm"), start, at),
+            ["distractions"] = TodayCopy.Distractions((int?)request["closed"] ?? 0, (int?)request["nudges"] ?? 0,
+                (int?)request["blocks"] ?? 0),
+            ["blocked_so_far"] = TodayCopy.BlockedSoFar((int?)request["blocks"] ?? 0),
+            ["app_names"] = TodayCopy.AppNames((request["names"]?.AsArray() ?? new JsonArray()).Select(n => (string)n!)),
+        };
+    }
+
+    private static JsonNode TodayUpNext(JsonObject request)
+    {
+        CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("en-US");
+        var now = DateTime.Parse((string)request["now"]!, CultureInfo.InvariantCulture);
+        TodayCopy.ScheduledStart? schedule = request["schedule"] is JsonObject s
+            ? new TodayCopy.ScheduledStart(DateTime.Parse((string)s["start"]!, CultureInfo.InvariantCulture),
+                (string)s["name"]!, (int)s["minutes"]!, Enum.Parse<ShieldLevel>((string)s["shield"]!))
+            : null;
+        var line = TodayCopy.UpNext(now, schedule, (bool?)request["sleep"] ?? false,
+            TimeSpan.Parse((string?)request["sleep_start"] ?? "22:30", CultureInfo.InvariantCulture),
+            TimeSpan.Parse((string?)request["sleep_end"] ?? "06:30", CultureInfo.InvariantCulture));
+        return line is { } l ? new JsonObject { ["when"] = l.When, ["what"] = l.What } : new JsonObject { ["none"] = true };
     }
 }

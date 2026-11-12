@@ -94,6 +94,7 @@ public class MainViewModel : ViewModelBase
         Scheduler.Action += (_, action) => OnScheduleAction(action);
         Scheduler.Ticked += (_, now) => Today.DropStaleHeadsUp(now);
         Scheduler.Ticked += (_, now) => Today.RefreshStatsOnNewDay(now);
+        Scheduler.Ticked += (_, now) => Today.RefreshNow(now);
         Scheduler.Start();
         Schedule.TemplatesChanged += (_, _) => Today.RefreshTemplates();
         Schedule.TemplatesChanged += (_, _) => RebuildJumpList();
@@ -138,6 +139,13 @@ public class MainViewModel : ViewModelBase
     /// <summary>Basalt has been bought and activated on this machine.</summary>
     public bool IsPro => Settings.IsPro;
     public bool IsNotPro => !Settings.IsPro;
+
+    /// <summary>
+    /// The rail's Buy button: not bought, and no sprint running (#431). A
+    /// sprint's screen is the time left and the shield (Part A, "One thing
+    /// matters at a time"), so Buy steps out of the way until it ends.
+    /// </summary>
+    public bool BuyVisible => IsNotPro && !Today.IsRunning;
 
     /// <summary>Every feature is usable: bought, or inside the free trial.</summary>
     public bool HasAccess => Settings.HasAccessAt(DateTime.UtcNow);
@@ -376,6 +384,10 @@ public class MainViewModel : ViewModelBase
             Raise(nameof(IsSettingsPage));
             Raise(nameof(CurrentPageTitle));
             Raise(nameof(CurrentPageSubtitle));
+            Raise(nameof(CurrentPageSubtitleVisible));
+
+            // The setup panel belongs to Today; leaving the page closes it.
+            Today.CloseSprintOptions();
 
             // Refresh the page being entered so it never shows stale state.
             switch (value)
@@ -417,12 +429,15 @@ public class MainViewModel : ViewModelBase
 
     public string CurrentPageSubtitle => CurrentPage switch
     {
-        AppPage.Today => "Start a sprint and let the shield hold the line.",
+        AppPage.Today => "",
         AppPage.History => "Your week, and every sprint you have run.",
         AppPage.BlockedApps => "What the shield closes while you're working.",
         AppPage.SleepBlocking => "Templates that start by themselves, and your nightly window.",
         _ => "License, startup and enforcement preferences.",
     };
+
+    /// <summary>Today has no subtitle since #431: the Now card says what the page is for.</summary>
+    public bool CurrentPageSubtitleVisible => CurrentPageSubtitle.Length > 0;
 
     public string TierBadge =>
         IsPro ? "PURCHASED"
@@ -551,6 +566,7 @@ public class MainViewModel : ViewModelBase
 
         Raise(nameof(IsPro));
         Raise(nameof(IsNotPro));
+        Raise(nameof(BuyVisible));
         Raise(nameof(HasAccess));
         Raise(nameof(IsLocked));
         Raise(nameof(ShowLockScreen));
@@ -708,6 +724,7 @@ public class MainViewModel : ViewModelBase
         SettingsPage?.RefreshUpdateState();
         Raise(nameof(IsSprintRunning));
         Raise(nameof(IsFocusInProgress));
+        Raise(nameof(BuyVisible));
         Raise(nameof(ShowLockScreen));
         BlockedApps.RefreshStatus();
 

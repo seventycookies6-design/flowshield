@@ -19,7 +19,7 @@ class TestSprints:
 
         timer = fresh_app.sprint_timer()
         assert timer != "25:00", f"timer did not advance (still {timer})"
-        assert "engaged" in fresh_app.session_state().lower()
+        assert "holding" in fresh_app.session_state().lower()
         fresh_app.stop_sprint()
 
     def test_ending_a_sprint_early_is_recorded_as_such(self, fresh_app):
@@ -76,12 +76,12 @@ class TestSprints:
         assert "ended early" in title.lower()
         assert "it'll recover" in title.lower()
         assert "−0" not in title, "no momentum was lost, so the card must not say 'momentum −0'"
-        assert fresh_app.text_of("SummaryDistractionsValue") == "No distractions caught"
+        assert fresh_app.text_of("SummaryDistractionsValue") == "No blocked app was opened."
         # 1.0.10: nothing was turned back, so there is no "Turned back 0 times".
         assert not fresh_app.exists("SummaryTurnedBackText", timeout=1)
 
-        settings = verify.read_settings()
-        assert fresh_app.text_of("SummaryMomentumText").endswith(f"→ {int(settings['MomentumScore'])}")
+        # #431: the Momentum card says today's change, kindly ("from" where today began).
+        assert " today" in fresh_app.text_of("SummaryMomentumText")
 
     def test_finishing_a_sprint_shows_the_summary_card(self, fresh_app):
         """The shortest sprint is five minutes; the card must show what settings stores."""
@@ -91,14 +91,17 @@ class TestSprints:
         time.sleep(0.5)
         fresh_app.start_sprint()
 
-        assert fresh_app.exists("SummaryTitle", timeout=340), \
+        assert fresh_app.exists("SummaryMinutesValue", timeout=340), \
             "the 5-minute sprint finished but the summary card never appeared"
 
         settings = verify.read_settings()
         session = settings["Sessions"][-1]
         assert session["Completed"] is True
 
-        assert fresh_app.text_of("SummaryTitle") == "Sprint complete"
+        # #431: a finished sprint's status line says it; the kind "Ended early"
+        # title only shows after ending early.
+        assert fresh_app.session_state().startswith("Sprint complete.")
+        assert not fresh_app.exists("SummaryTitle", timeout=1)
         started = datetime.fromisoformat(session["StartedUtc"].replace("Z", "+00:00"))
         ended = datetime.fromisoformat(session["EndedUtc"].replace("Z", "+00:00"))
         # #300: it ends at its planned end, not whenever the tick that noticed
@@ -110,17 +113,14 @@ class TestSprints:
             f"{actual_minutes} minutes focused"
 
         if session["BlocksEnforced"] == 0:
-            expected = "No distractions caught"
+            assert fresh_app.text_of("SummaryDistractionsValue") == "No blocked app was opened."
         else:
-            nudges = session["NudgesSent"]
-            expected = (f"{session['AppsClosed']} closed · "
-                        f"{'1 nudge' if nudges == 1 else f'{nudges} nudges'}")
-        assert fresh_app.text_of("SummaryDistractionsValue") == expected
+            assert fresh_app.text_of("SummaryDistractionsValue").startswith(("Basalt ", f"{session['BlocksEnforced']} "))
 
         momentum = fresh_app.text_of("SummaryMomentumText")
-        assert momentum.endswith(f"→ {int(settings['MomentumScore'])}")
-        assert momentum.startswith("+"), "a finished sprint gained momentum"
-        assert fresh_app.text_of("SummaryStreakText") == "Day 1"
+        assert momentum.startswith("Up "), "a finished sprint gained momentum"
+        assert momentum.endswith(" today, from 0")
+        assert fresh_app.text_of("SummaryStreakText") == "Day 1 of your streak"
 
 
 # ================================================== sprint intention (F13)
@@ -142,9 +142,12 @@ class TestSprintIntention:
 
         settings = verify.read_settings()
         assert settings["Sessions"][-1]["Intention"] == "finish chapter 3"
-        assert fresh_app.text_of("SummaryIntentionText") == "You planned: finish chapter 3"
+        # #431: said once, in the note's prompt (the same fact is not stated twice).
+        assert not fresh_app.exists("SummaryIntentionText", timeout=1)
         assert fresh_app.text_of("JournalPromptTitle") == \
             "You planned: finish chapter 3. What moved?"
+        # #431: the end of the sprint is in the plan field's place; past it, the field is empty.
+        fresh_app.click("DismissJournalButton")
         assert fresh_app.text_of("IntentionInput") == ""
 
     def test_an_empty_intention_leaves_everything_default(self, fresh_app):
@@ -173,9 +176,10 @@ class TestSprintIntention:
         fresh_app.start_sprint()
         time.sleep(1.2)
 
-        # The ring's line must not grow taller than a single caption line.
+        # The plan must not grow taller than one line. Since #431 it is shown
+        # beside the ring at 22 px on a 30 px line, not as a caption inside it.
         line = fresh_app.element("SprintIntentionText").rectangle()
-        assert line.height() < 24, f"the intention wrapped inside the ring ({line.height()}px tall)"
+        assert line.height() < 40, f"the plan wrapped ({line.height()}px tall)"
 
         fresh_app.cancel_sprint()
         time.sleep(0.8)
@@ -475,3 +479,96 @@ class TestSpaceStartsAndEndsASprint:
         lines = [line for line in text.splitlines() if line.strip()]
         assert len(lines) == 1, "an empty range writes the header and nothing else"
         assert "headings only" in fresh_app.text_of("ExportStatusText")
+
+
+# ============================================ the Today redesign (#431)
+
+class TestTodayRedesign431:
+    """
+    #431's new behaviour, driven in the app: Buy steps out of the way while a
+    sprint runs, the setup panel opens and closes (and Today beneath it
+    follows the choices), and a template card's Start starts its sprint. The
+    glow is a drawn shape UI Automation never lists, so tier 5 pins it.
+    """
+
+    def test_buy_is_hidden_while_a_sprint_runs(self, fresh_app):
+        fresh_app.navigate_to_tab("Today")
+        assert fresh_app.exists("GetProNavButton", timeout=3), "a trial shows Buy"
+        fresh_app.start_sprint()
+        try:
+            fresh_app.wait_until_gone("GetProNavButton")
+        finally:
+            fresh_app.cancel_sprint()
+        assert fresh_app.exists("GetProNavButton", timeout=3), "Buy is back once the sprint is over"
+
+    def test_set_up_opens_the_panel_and_done_and_close_shut_it(self, fresh_app):
+        fresh_app.navigate_to_tab("Today")
+        assert not fresh_app.exists("SetupPanelDone", timeout=1), "the panel starts closed"
+        fresh_app.click("SprintOptionsToggle")
+        assert fresh_app.exists("SetupPanelDone", timeout=3), "Set up opens the panel"
+        assert fresh_app.element("SprintOptionsToggle").window_text() == "Close sprint setup"
+        fresh_app.click("SetupPanelDone")
+        fresh_app.wait_until_gone("SetupPanelDone")
+
+        fresh_app.click("SprintOptionsToggle")
+        assert fresh_app.exists("SetupPanelClose", timeout=3)
+        fresh_app.click("SetupPanelClose")
+        fresh_app.wait_until_gone("SetupPanelDone")
+        assert fresh_app.element("SprintOptionsToggle").window_text() == "Set up this sprint"
+
+    def test_the_ring_and_summary_follow_the_panel_as_you_choose(self, fresh_app):
+        fresh_app.navigate_to_tab("Today")
+        fresh_app.click("SprintLength_15")            # opens the panel first
+        assert fresh_app.exists("SetupPanelDone", timeout=2), "the choice is made in the open panel"
+        assert fresh_app.text_of("SprintTimerText") == "15:00"
+        assert fresh_app.text_of("SprintOptionsSummary") == "One 15-minute sprint"
+        fresh_app.click("Cycle_3")
+        assert fresh_app.text_of("SprintOptionsSummary") == "Three 15-minute sprints with breaks"
+        assert fresh_app.text_of("SetupPanelEndsText").startswith("Ends ")
+        assert fresh_app.exists("SetupPanelDone", timeout=1), "choosing does not close the panel"
+
+    def test_an_invalid_custom_length_keeps_the_panel_open(self, fresh_app):
+        """#147's rule, in the panel: the reason Start is greyed out is never folded away."""
+        fresh_app.navigate_to_tab("Today")
+        fresh_app.click("SprintLength_Custom")
+        fresh_app.set_text("CustomMinutesInput", "2")
+        assert fresh_app.exists("CustomMinutesError", timeout=3)
+        fresh_app.click("SetupPanelDone")
+        time.sleep(0.5)
+        assert fresh_app.exists("SetupPanelDone", timeout=1), "Done does not hide the error"
+        fresh_app.set_text("CustomMinutesInput", "30")
+        fresh_app.click("SetupPanelDone")
+        fresh_app.wait_until_gone("SetupPanelDone")
+
+    def test_starting_a_sprint_closes_the_panel_for_good(self, fresh_app):
+        fresh_app.navigate_to_tab("Today")
+        fresh_app.click("SprintLength_15")
+        fresh_app.start_sprint()                      # closes the panel, then Start
+        try:
+            assert not fresh_app.exists("SetupPanelDone", timeout=1)
+            assert not fresh_app.exists("SprintOptionsToggle", timeout=1), "no Set up while a sprint runs"
+        finally:
+            fresh_app.cancel_sprint()
+        assert not fresh_app.exists("SetupPanelDone", timeout=1), "and it isn't back afterwards"
+
+    def test_details_open_in_place_while_a_sprint_runs(self, fresh_app):
+        fresh_app.navigate_to_tab("Today")
+        fresh_app.start_sprint()
+        try:
+            assert not fresh_app.exists("SprintBlocksText", timeout=1), "Details start closed"
+            fresh_app.click("SprintDetailsToggle")
+            assert fresh_app.text_of("SprintBlocksText") == "Nothing blocked so far"
+            assert fresh_app.text_of("SprintDetailsBlocklist").startswith("Default blocklist")
+        finally:
+            fresh_app.cancel_sprint()
+
+    def test_a_template_cards_start_starts_its_sprint(self, fresh_app):
+        fresh_app.navigate_to_tab("Today")
+        fresh_app.click("TemplateStart_Light study")
+        fresh_app.answer_open_apps_question()
+        try:
+            assert fresh_app.exists("StopSprintButton", timeout=5), "Start on the card starts the sprint"
+            assert fresh_app.sprint_timer().startswith(("25:", "24:")), "at the template's 25 minutes"
+            assert "at Soft" in fresh_app.session_state(), "and at its shield"
+        finally:
+            fresh_app.cancel_sprint()

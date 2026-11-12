@@ -190,10 +190,9 @@ class TestSegoeUiVariableTypeScale:
         survives a restyle better than matching on FontSize.
         """
         xml = self.TODAY_VIEW.read_text(encoding="utf-8")
-        tabular_ids = (
-            "SprintTimerText", "MomentumValue", "SessionsTodayValue",
-            "FocusMinutesValue", "BlocksTodayValue", "DailyGoalProgressText",
-        )
+        # #431 removed Today's three counters (sessions, minutes, blocks);
+        # today's facts are one line of words in the Momentum card now.
+        tabular_ids = ("SprintTimerText", "MomentumValue", "DailyGoalProgressText")
         offenders = []
         for automation_id in tabular_ids:
             tag = self._tag_for(xml, automation_id)
@@ -441,6 +440,20 @@ class TestTodayAutomationIdsUnchangedA4:
         "DailyGoalProgressText", "DailyGoalBar", "DailyGoalNote",
     }
 
+    # #431 moved the length, custom and cycle pickers into the setup panel,
+    # ids and all: they must be found there instead.
+    SETUP_PANEL = Path(DESKTOP_DIR) / "Views" / "SetupPanel.xaml"
+    MOVED_TO_SETUP_PANEL = {"SprintLength_15", "SprintLength_25", "SprintLength_45", "SprintLength_60",
+                            "SprintLength_90", "SprintLength_Custom", "CustomMinutesInput", "CustomMinutesError"}
+
+    # #431 removed these on purpose, each listed in its PR: the three zero
+    # counters (the spec removes them; today's facts became one line of words),
+    # the plan repeated under the result (it is in "You planned: ... What
+    # moved?", and the same fact is not stated twice), and EndSprintPanel, a
+    # Border's id UI Automation never surfaced (#134).
+    REMOVED_431 = {"SessionsTodayValue", "FocusMinutesValue", "BlocksTodayValue",
+                   "SummaryIntentionText", "EndSprintPanel"}
+
     # Elements UI Automation never surfaces -- an AutomationId here can never
     # be resolved, so it's not a legitimate handle for anything. Border and
     # ItemsControl are deliberately excluded here: two pre-existing ids
@@ -458,8 +471,12 @@ class TestTodayAutomationIdsUnchangedA4:
     def test_every_expected_automation_id_is_still_present(self):
         xml = self.TODAY_VIEW.read_text(encoding="utf-8")
         found = set(re.findall(r'AutomationId="([^"]+)"', xml))
-        missing = self.EXPECTED_IDS - self.MOVED_TO_HISTORY - found
+        missing = self.EXPECTED_IDS - self.MOVED_TO_HISTORY - self.MOVED_TO_SETUP_PANEL - self.REMOVED_431 - found
         assert not missing, f"AutomationIds removed or renamed by A4: {sorted(missing)}"
+
+    def test_the_ids_moved_into_the_setup_panel_are_there(self):
+        found = set(re.findall(r'AutomationId="([^"]+)"', self.SETUP_PANEL.read_text(encoding="utf-8")))
+        assert self.MOVED_TO_SETUP_PANEL <= found, sorted(self.MOVED_TO_SETUP_PANEL - found)
 
     def test_the_moved_ids_are_on_history(self):
         history = (Path(DESKTOP_DIR) / "Views" / "HistoryView.xaml").read_text(encoding="utf-8")
@@ -627,6 +644,10 @@ class TestKeyboardAndFocusF21:
             # and is a container for the same reason: the three option cards
             # keep their tab stops, and arrow keys move between them.
             "FirstRunShieldScroll",
+            # The setup panel's body scrolls on a short window (#431), and is a
+            # container for the same reason: its pickers keep their tab stops,
+            # and Tab cycles inside the panel.
+            "SetupPanelScroll",
         }
 
         offenders = []
@@ -1032,3 +1053,165 @@ class TestRedesignControls430:
         assert 'Style="{StaticResource Flyout}"' in block
         assert "IsDropDownOpen" in block
         assert 'Value="{DynamicResource ShadowE3}"' in self.style("Flyout")
+
+
+class TestTodayRedesign431:
+    """
+    #431: Today's Now card, the setup panel, the glow and Buy. These pin the
+    new behaviour in the source; tier 3 drives the same things in the app.
+    """
+
+    ROOT = Path(DESKTOP_DIR)
+
+    def read(self, *parts):
+        return self.ROOT.joinpath(*parts).read_text(encoding="utf-8")
+
+    def member(self, code, signature):
+        start = code.index(signature)
+        return code[start:start + 900]
+
+    # ---- Buy steps out of the way while a sprint runs
+
+    def test_buy_is_hidden_while_a_sprint_runs(self):
+        main_vm = self.read("ViewModels", "MainViewModel.cs")
+        assert re.search(r"public bool BuyVisible\s*=>\s*IsNotPro\s*&&\s*!Today\.IsRunning;", main_vm)
+        changed = self.member(main_vm, "public void OnSprintStateChanged()")
+        assert "Raise(nameof(BuyVisible));" in changed, "the button must follow the sprint as it starts and ends"
+        window = self.read("MainWindow.xaml")
+        buy = re.search(r'<Button\b[^>]*AutomationProperties\.AutomationId="GetProNavButton"[^>]*/>', window, re.S)
+        assert buy, "the rail's Buy button"
+        assert 'Visibility="{Binding BuyVisible, Converter={StaticResource BoolVis}}"' in buy.group(0)
+
+    def test_buy_in_the_rail_is_secondary_so_start_stays_the_one_primary(self):
+        window = self.read("MainWindow.xaml")
+        buy = re.search(r'<Button\b[^>]*AutomationProperties\.AutomationId="GetProNavButton"[^>]*/>', window, re.S)
+        assert 'Style="{StaticResource BtnGhost}"' in buy.group(0)
+
+    # ---- the glow: only while a sprint runs, and never pulsing
+
+    def test_the_glow_is_present_only_while_a_sprint_runs(self):
+        vm = self.read("ViewModels", "TodayViewModel.cs")
+        assert re.search(r"public bool GlowVisible\s*=>\s*IsRunning\s*&&\s*!IsOnBreak;", vm)
+        running = self.member(vm, "public bool IsRunning")
+        on_break = self.member(vm, "public bool IsOnBreak")
+        assert "Raise(nameof(GlowVisible));" in running and "Raise(nameof(GlowVisible));" in on_break
+        xaml = self.read("Views", "TodayView.xaml")
+        glow = re.search(r'<Ellipse x:Name="Glow"[^>]*/>', xaml, re.S)
+        assert glow, "the glow behind the ring"
+        assert 'Visibility="{Binding GlowVisible, Converter={StaticResource BoolVis}}"' in glow.group(0)
+        assert 'Fill="{DynamicResource GlowGradient}"' in glow.group(0)
+
+    def test_the_glow_never_pulses(self):
+        xaml = self.read("Views", "TodayView.xaml")
+        code = self.read("Views", "TodayView.xaml.cs")
+        assert "Storyboard" not in xaml, "nothing on Today animates on its own (Part A, Calm)"
+        assert not re.search(r"Glow\.\w*BeginAnimation|GlowOpacity|Glow\.Opacity\s*=", code)
+
+    def test_the_ring_arc_uses_the_ring_gradient_with_round_caps(self):
+        xaml = self.read("Views", "TodayView.xaml")
+        arc = xaml.split('Visibility="{Binding SprintRingVisible', 1)[1].split("</Grid>", 1)[0]
+        assert 'Stroke="{DynamicResource RingGradient}"' in arc
+        assert 'StrokeStartLineCap="Round"' in arc and 'StrokeEndLineCap="Round"' in arc
+        assert "ProgressArc" in arc, "the arc is a Path drawn from the time left"
+
+    # ---- the setup panel
+
+    def test_the_setup_panel_is_the_sprint_options_and_closes_by_every_route(self):
+        window = self.read("MainWindow.xaml")
+        host = re.search(r"<views:SetupPanel\b[^>]*/>", window, re.S)
+        assert host and 'DataContext="{Binding Today}"' in host.group(0)
+        assert 'Visibility="{Binding SprintOptionsVisible, Converter={StaticResource BoolVis}}"' in host.group(0)
+        panel = self.read("Views", "SetupPanel.xaml")
+        assert panel.count('Command="{Binding CloseSprintOptionsCommand}"') == 2, "Close and Done"
+        assert 'MouseDown="OnOutsideMouseDown"' in panel, "a click outside closes it"
+        code = self.read("Views", "SetupPanel.xaml.cs")
+        assert "Key.Escape" in code, "Esc closes it"
+        vm = self.read("ViewModels", "TodayViewModel.cs")
+        assert "_sprintOptionsOpen = false;" in self.member(vm, "private void BeginRunning("), \
+            "a sprint starting closes the panel, so it isn't back when the sprint ends"
+        main_vm = self.read("ViewModels", "MainViewModel.cs")
+        assert "Today.CloseSprintOptions();" in self.member(main_vm, "public AppPage CurrentPage")
+
+    def test_the_setup_panel_holds_the_pickers_and_keeps_their_ids(self):
+        panel = self.read("Views", "SetupPanel.xaml")
+        for auto_id in ("SprintLength_15", "SprintLength_25", "SprintLength_45", "SprintLength_60",
+                        "SprintLength_90", "SprintLength_Custom", "CustomMinutesInput", "CustomMinutesError",
+                        "Cycle_Off", "Cycle_2", "Cycle_3", "Cycle_4", "CycleDescriptionText",
+                        "TodayBlocklistDropdown", "SetupPanelClose", "SetupPanelDone"):
+            assert f'AutomationProperties.AutomationId="{auto_id}"' in panel, auto_id
+        assert 'Value="{Binding Name, StringFormat=TodayProfile_{0}}"' in panel
+        assert 'Style="{StaticResource BtnIcon}"' in panel, "Close is an icon button"
+        assert 'Style="{StaticResource Dropdown}"' in panel, "the blocklist is a dropdown"
+        assert panel.count('Style="{StaticResource SegmentItem}"') == 10, "length and sprints in a row are segmented"
+
+    def test_nothing_on_the_panel_uses_text_faint(self):
+        """text-faint measures 4.41:1 on E3 in dark, below AA (DESIGN_SYSTEM.md section 2)."""
+        panel = self.read("Views", "SetupPanel.xaml")
+        assert "InkFaint" not in panel
+        assert 'Style="{StaticResource Caption}"' not in panel and 'Style="{StaticResource Eyebrow}"' not in panel
+        assert "AutomationProperties.HelpText" not in panel, "a field's hint is a text-faint placeholder"
+
+    def test_acrylic_follows_the_window_backdrop_and_falls_back_to_solid_e3(self):
+        window_code = self.read("MainWindow.xaml.cs")
+        assert window_code.count("Models.Backdrop.Mica") >= 2, "set at start and on every backdrop change"
+        backdrop = self.read("Services", "WindowBackdrop.cs")
+        assert "Changed?.Invoke(this, EventArgs.Empty);" in backdrop
+        panel = self.read("Views", "SetupPanel.xaml")
+        assert '<Border x:Name="PanelBase" Style="{StaticResource Flyout}"' in panel, \
+            "solid E3 is always underneath"
+        code = self.read("Views", "SetupPanel.xaml.cs")
+        snapshot = self.member(code, "private void TakeSnapshot()")
+        assert "!_acrylicAllowed" in snapshot
+        assert "BlurEffect" in code and "Freeze()" in code, "blurred once into a frozen bitmap, never live"
+
+    # ---- Today's states
+
+    def test_running_has_details_behind_a_disclosure_and_no_primary(self):
+        xaml = self.read("Views", "TodayView.xaml")
+        running = xaml.split('Visibility="{Binding RunningVisible', 1)[1].split("<!-- What is already open", 1)[0]
+        assert '<ToggleButton Style="{StaticResource Disclosure}" Content="Details"' in running
+        assert 'AutomationProperties.AutomationId="StopSprintButton"' in running
+        assert "BtnPrimary" not in running.split("<!-- End panel", 1)[0], "no Primary while a sprint runs"
+
+    def test_the_end_of_a_sprint_has_no_skip_break(self):
+        xaml = self.read("Views", "TodayView.xaml")
+        assert "Skip break" not in xaml
+        skip = re.search(r'<Button\b[^>]*AutomationProperties\.AutomationId="SkipBreakButton"[^>]*/>', xaml, re.S)
+        assert skip and 'Content="End break"' in skip.group(0)
+        assert 'Visibility="{Binding EndBreakVisible, Converter={StaticResource BoolVis}}"' in skip.group(0)
+        vm = self.read("ViewModels", "TodayViewModel.cs")
+        assert "SkipBreakCommand = new RelayCommand(SkipBreak, () => IsOnBreak);" in vm
+        assert "if (!IsOnBreak) return;" in self.member(vm, "private void SkipBreak()")
+
+    def test_the_lit_mark_is_the_brand_geometry_made_once(self):
+        brand = self.read("Styles", "BrandMark.xaml")
+        flat = brand.split('<DrawingImage x:Key="BrandMarkLit">', 1)[0]
+        lit = brand.split('<DrawingImage x:Key="BrandMarkLit">', 1)[1]
+        flat_faces = re.findall(r'Geometry="(M[\d.,]+ L[^"]+ Z)"', flat)
+        lit_faces = re.findall(r'Geometry="(M[\d.,]+ L[^"]+ Z)"', lit)
+        assert len(flat_faces) == 13 and len(lit_faces) == 13, "the tile and twelve faces; the box and twelve faces"
+        assert flat_faces[1:] == lit_faces[1:], "the lit mark is the same twelve polygons, copied"
+        svg = (self.ROOT.parent / "design" / "brand" / "basalt-mark-lit.svg").read_text(encoding="utf-8")
+        assert svg.count("<polygon") == 12
+        readme = (self.ROOT.parent / "design" / "brand" / "README.md").read_text(encoding="utf-8")
+        assert "basalt-mark-lit.svg" in readme and "## The lit mark" in readme
+        today = self.read("Views", "TodayView.xaml")
+        assert 'Source="{StaticResource BrandMarkLit}"' in today
+
+    def test_today_has_no_capital_labels_middle_dots_or_exclamations(self):
+        for name in ("TodayView.xaml", "SetupPanel.xaml"):
+            xaml = self.read("Views", name)
+            assert 'Style="{StaticResource Eyebrow}"' not in xaml, name
+            for text in re.findall(r'(?:Text|Content)="([^"{]+)"', xaml):
+                assert "·" not in text and "!" not in text, (name, text)
+                assert not (text.isupper() and len(text) > 2), (name, text)
+        main_vm = self.read("ViewModels", "MainViewModel.cs")
+        assert 'AppPage.Today => "",' in main_vm, "Today has no subtitle"
+
+    def test_template_cards_fill_in_and_start(self):
+        xaml = self.read("Views", "TodayView.xaml")
+        assert re.search(r'<Button\b[^>]*AutomationProperties\.AutomationId="\{Binding Name, '
+                         r'StringFormat=TemplateStart_\{0\}\}"', xaml, re.S)
+        vm = self.read("ViewModels", "TodayViewModel.cs")
+        assert "StartTemplate(row.Template, skipOpenAppsPanel: false)" in vm, \
+            "Start goes through StartTemplate, so every gate Start has applies"

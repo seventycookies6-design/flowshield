@@ -79,4 +79,162 @@
         </DrawingImage.Drawing>
     </DrawingImage>
 
+    <!-- ===================================================== the lit mark
+         DESIGN_SYSTEM.md Part A, Brand: the one dimensional rendering of the
+         Causeway geometry, for the big moments (the end of a sprint since
+         #431; first run and the end of the trial may use it too). Made once,
+         from design/brand/basalt-mark-lit.svg, which this copies face for
+         face: the same polygons as the flat mark, each face lit from one
+         light above (tops brightest, sides darker toward their feet), and a
+         soft contact shadow. Fixed greys like the flat mark, not tokens: it is
+         the same in both themes. Never redraw the flat mark from this. -->
+    <DrawingImage x:Key="BrandMarkLit">
+        <DrawingImage.Drawing>
+            <DrawingGroup>
+                <!-- The drawing's own box, so the shadow and the mark keep their place. -->
+                <GeometryDrawing Brush="Transparent" Geometry="M20,15 L80,15 80,91 20,91 Z"/>
+                <GeometryDrawing Geometry="M20,84.5 A30,5 0 1 1 80,84.5 A30,5 0 1 1 20,84.5 Z">
+                    <GeometryDrawing.Brush>
+                        <RadialGradientBrush>
+                            <GradientStop Color="#57000000" Offset="0"/>
+                            <GradientStop Color="#00000000" Offset="1"/>
+                        </RadialGradientBrush>
+                    </GeometryDrawing.Brush>
+                </GeometryDrawing>
+                <GeometryDrawing Geometry="M46.25,25.5 L53.75,32 53.75,68 46.25,61.5 Z">
+                    <GeometryDrawing.Brush>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                            <GradientStop Color="#B9BCC0" Offset="0"/>
+                            <GradientStop Color="#7C7F84" Offset="1"/>
+                        </LinearGradientBrush>
+                    </GeometryDrawing.Brush>
+                    <GeometryDrawing.Pen>
+                        <Pen Brush="#202124" Thickness="0.8" LineJoin="Round"/>
+                    </GeometryDrawing.Pen>
+                </GeometryDrawing>
+                <GeometryDrawing Geometry="M53.75,32 L68.75,32 68.75,68 53.75,68 Z">
+                    <GeometryDrawing.Brush>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                            <GradientStop Color="#8E9196" Offset="0"/>
+                            <GradientStop Color="#4F5257" Offset="1"/>
+                        </LinearGradientBrush>
+                    </GeometryDrawing.Brush>
+                    <GeometryDrawing.Pen>
+                        <Pen Brush="#202124" Thickness="0.8" LineJoin="Round"/>
+                    </GeometryDrawing.Pen>
+                </GeometryDrawing>
+                <GeometryDrawing Geometry="M68.75,32 L76.25,25.5 76.25,61.5 68.75,68 Z">
+                    <GeometryDrawing.Brush>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                            <GradientStop Color="#62656A" Offset="0"/>
+                            <GradientStop Color="#323438" Offset="1"/>
+                        </LinearGradientBrush>
+                    </GeometryDrawing.Brush>
+                    <GeometryDrawing.Pen>
+                        <Pen Brush="#202124" Thickness="0.8" LineJoin="Round"/>
+                    </GeometryDrawing.Pen>
+                </GeometryDrawing>
+                <GeometryDrawing Geometry="M76.25,25.5 L68.75,32 53.75,32 46.25,25.5 53.75,19 68.75,19 Z">
+                    <GeometryDrawing.Brush>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                            <GradientStop Color="#F6F6F4" Offset="0"/>
+                            <GradientStop Color="#D3D4D1" Offset="1"/>
+                        </LinearGradientBrush>
+                    </GeometryDrawing.Brush>
+                    <GeometryDrawing.Pen>
+                        <Pen Brush="#202124" Thickness="0.8" LineJoin="Round"/>
+                    </GeometryDrawing.Pen>
+                </GeometryDrawing>
+                <GeometryDrawing Geometry="M23.75,41 L31.25,47.5 31.25,74.5 23.75,68 Z">
+                    <GeometryDrawing.Brush>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                            <GradientStop Color="#B9BCC0" Offset="0"/>
+                            <GradientStop Color="#7C7F84" Offset="1"/>
+                        </LinearGradientBrush>
+                    </GeometryDrawing.Brush>
+                    <GeometryDrawing.Pen>
+                        <Pen Brush="#202124" Thickness="0.8" LineJoin="Round"/>
+                    </GeometryDrawing.Pen>
+                </GeometryDrawing>
+                <GeometryDrawing Geometry="M31.25,47.5 L46.25,47.5 46.25,74.5 31.25,74.5 Z">
+                    <GeometryDrawing.Brush>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                            <GradientStop Color="#8E9196" Offset="0"/>
+                            <GradientStop Color="#4F5257" Offset="1"/>
+                        </LinearGradientBrush>
+                    </GeometryDrawing.Brush>
+                    <GeometryDrawing.Pen>
+                        <Pen Brush="#202124" Thickness="0.8" LineJoin="Round"/>
+                    </GeometryDrawing.Pen>
+                </GeometryDrawing>
+                <GeometryDrawing Geometry="M46.25,47.5 L53.75,41 53.75,68 46.25,74.5 Z">
+                    <GeometryDrawing.Brush>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                            <GradientStop Color="#62656A" Offset="0"/>
+                            <GradientStop Color="#323438" Offset="1"/>
+                        </LinearGradientBrush>
+                    </GeometryDrawing.Brush>
+                    <GeometryDrawing.Pen>
+                        <Pen Brush="#202124" Thickness="0.8" LineJoin="Round"/>
+                    </GeometryDrawing.Pen>
+                </GeometryDrawing>
+                <GeometryDrawing Geometry="M53.75,41 L46.25,47.5 31.25,47.5 23.75,41 31.25,34.5 46.25,34.5 Z">
+                    <GeometryDrawing.Brush>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                            <GradientStop Color="#F6F6F4" Offset="0"/>
+                            <GradientStop Color="#D3D4D1" Offset="1"/>
+                        </LinearGradientBrush>
+                    </GeometryDrawing.Brush>
+                    <GeometryDrawing.Pen>
+                        <Pen Brush="#202124" Thickness="0.8" LineJoin="Round"/>
+                    </GeometryDrawing.Pen>
+                </GeometryDrawing>
+                <GeometryDrawing Geometry="M46.25,56.5 L53.75,63 53.75,81 46.25,74.5 Z">
+                    <GeometryDrawing.Brush>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                            <GradientStop Color="#B9BCC0" Offset="0"/>
+                            <GradientStop Color="#7C7F84" Offset="1"/>
+                        </LinearGradientBrush>
+                    </GeometryDrawing.Brush>
+                    <GeometryDrawing.Pen>
+                        <Pen Brush="#202124" Thickness="0.8" LineJoin="Round"/>
+                    </GeometryDrawing.Pen>
+                </GeometryDrawing>
+                <GeometryDrawing Geometry="M53.75,63 L68.75,63 68.75,81 53.75,81 Z">
+                    <GeometryDrawing.Brush>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                            <GradientStop Color="#8E9196" Offset="0"/>
+                            <GradientStop Color="#4F5257" Offset="1"/>
+                        </LinearGradientBrush>
+                    </GeometryDrawing.Brush>
+                    <GeometryDrawing.Pen>
+                        <Pen Brush="#202124" Thickness="0.8" LineJoin="Round"/>
+                    </GeometryDrawing.Pen>
+                </GeometryDrawing>
+                <GeometryDrawing Geometry="M68.75,63 L76.25,56.5 76.25,74.5 68.75,81 Z">
+                    <GeometryDrawing.Brush>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                            <GradientStop Color="#62656A" Offset="0"/>
+                            <GradientStop Color="#323438" Offset="1"/>
+                        </LinearGradientBrush>
+                    </GeometryDrawing.Brush>
+                    <GeometryDrawing.Pen>
+                        <Pen Brush="#202124" Thickness="0.8" LineJoin="Round"/>
+                    </GeometryDrawing.Pen>
+                </GeometryDrawing>
+                <GeometryDrawing Geometry="M76.25,56.5 L68.75,63 53.75,63 46.25,56.5 53.75,50 68.75,50 Z">
+                    <GeometryDrawing.Brush>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                            <GradientStop Color="#F6F6F4" Offset="0"/>
+                            <GradientStop Color="#D3D4D1" Offset="1"/>
+                        </LinearGradientBrush>
+                    </GeometryDrawing.Brush>
+                    <GeometryDrawing.Pen>
+                        <Pen Brush="#202124" Thickness="0.8" LineJoin="Round"/>
+                    </GeometryDrawing.Pen>
+                </GeometryDrawing>
+            </DrawingGroup>
+        </DrawingImage.Drawing>
+    </DrawingImage>
+
 </ResourceDictionary>

@@ -69,16 +69,26 @@ def _uia():
     return _IUIA, _UIA_DLL
 
 
-# Today's pickers that fold behind "Change" (#147). Exact ids and prefixes, so
-# a lookalike such as the Schedule page's TemplateShield_Soft is left alone.
+# Today's pickers in the setup panel that "Set up" opens (#147, moved into
+# the panel in #431). Exact ids and prefixes, so a lookalike such as the
+# Schedule page's TemplateShield_Soft is left alone. The shield level stays on
+# Today next to Start, so Shield_ is not one of them.
 SPRINT_OPTIONS_TOGGLE = "SprintOptionsToggle"
-SPRINT_OPTION_PREFIXES = ("SprintLength_", "Shield_", "Cycle_", "TodayProfile_")
-SPRINT_OPTION_IDS = {"CustomMinutesInput", "CustomMinutesError",
-                     "ShieldDescriptionText", "ShieldBestForText", "CycleDescriptionText"}
+SETUP_PANEL_DONE = "SetupPanelDone"
+SPRINT_OPTION_PREFIXES = ("SprintLength_", "Cycle_", "TodayProfile_")
+SPRINT_OPTION_IDS = {"CustomMinutesInput", "CustomMinutesError", "CycleDescriptionText",
+                     "TodayBlocklistDropdown"}
+
+# What may be read with the panel open without closing it: Set up itself, and
+# what the panel changes on Today beneath it ("the ring and summary update as
+# you choose"). The panel's own SetupPanel* controls neither open nor close
+# it, so a test can ask whether it is open.
+PANEL_LEAVES_OPEN = {SPRINT_OPTIONS_TOGGLE, "SprintOptionsSummary", "SprintTimerText",
+                     "RingEndsText", "TodayProfileCaption", "ToastText", "PageTitle"}
 
 
 def is_sprint_option(auto_id: str) -> bool:
-    """Whether an AutomationId is one of Today's folded sprint pickers."""
+    """Whether an AutomationId is one of the setup panel's controls."""
     return auto_id in SPRINT_OPTION_IDS or auto_id.startswith(SPRINT_OPTION_PREFIXES)
 
 
@@ -371,6 +381,8 @@ class DesktopController:
         _, uia = _uia()
         if is_sprint_option(auto_id):
             self._open_sprint_options(uia)
+        elif auto_id not in PANEL_LEAVES_OPEN and not auto_id.startswith("SetupPanel"):
+            self._close_sprint_options(uia)
         condition = _automation_id_condition(auto_id)
 
         deadline = time.time() + timeout
@@ -395,15 +407,16 @@ class DesktopController:
 
     def _open_sprint_options(self, uia) -> None:
         """
-        Unfold Today's sprint options before looking for one of the pickers.
+        Open the setup panel before looking for one of its controls.
 
-        Since the Today declutter (#147) the length, shield, blocklist and
-        cycle pickers sit behind "Change", and a collapsed control is not in
+        Since #431 the length, cycle and blocklist pickers are in the setup
+        panel that Today's "Set up" opens, and a collapsed control is not in
         the UIA tree at all. Opening it here keeps every existing test's
-        `choose("Shield_Firm")` meaning what it always did. The toggle's name
-        says which way it goes, so this never folds an open panel shut, and
-        when the toggle is absent (a sprint is running, or another page is
-        showing) it does nothing and the lookup answers as before.
+        `click("SprintLength_15")` meaning what it always did. The button's
+        name says which way it goes ("Set up this sprint" while closed), so
+        this never closes an open panel, and when the button is absent (a
+        sprint is running, or another page is showing) it does nothing and the
+        lookup answers as before.
         """
         try:
             found = self.window.element_info.element.FindFirst(
@@ -412,11 +425,31 @@ class DesktopController:
             if not found:
                 return
             toggle = UIAWrapper(UIAElementInfo(found))
-            if toggle.window_text().startswith("Change"):
+            if toggle.window_text().startswith("Set up"):
                 toggle.invoke()
                 time.sleep(0.35)
         except Exception as exc:                    # COM hiccup; the lookup still runs
-            self._say(f"could not open the sprint options (continuing): {exc}")
+            self._say(f"could not open the setup panel (continuing): {exc}")
+
+    def _close_sprint_options(self, uia) -> None:
+        """
+        Close the setup panel before reaching anything else.
+
+        The panel light-dismisses: a transparent layer over the page catches a
+        click outside it, so a real click on Today's Start or shield level
+        would close the panel instead of pressing the control. Done closes it
+        first. When the panel isn't open this costs one lookup.
+        """
+        try:
+            found = self.window.element_info.element.FindFirst(
+                uia.TreeScope_Descendants, _automation_id_condition(SETUP_PANEL_DONE)
+            )
+            if not found:
+                return
+            UIAWrapper(UIAElementInfo(found)).invoke()
+            time.sleep(0.35)
+        except Exception as exc:                    # COM hiccup; the lookup still runs
+            self._say(f"could not close the setup panel (continuing): {exc}")
 
     def exists(self, auto_id: str, timeout: float = 1.5) -> bool:
         try:
@@ -931,8 +964,25 @@ class DesktopController:
         time.sleep(0.4)
 
     def select_profile_on_today(self, name: str) -> None:
-        """The same switch, from Today's chips before a sprint starts."""
-        self.click(f"TodayProfile_{name}")
+        """
+        The same switch, from the setup panel's blocklist dropdown (#431). The
+        dropdown's rows exist in the UIA tree once it has been opened.
+        """
+        dropdown = self.element("TodayBlocklistDropdown")
+        try:
+            dropdown.expand()
+        except Exception:
+            dropdown.click_input()
+        time.sleep(0.4)
+        item = self.element(f"TodayProfile_{name}")
+        try:
+            item.iface_selection_item.Select()
+        except Exception:
+            item.click_input()
+        try:
+            dropdown.collapse()
+        except Exception:
+            pass
         time.sleep(0.4)
 
     def new_profile(self, name: str) -> None:

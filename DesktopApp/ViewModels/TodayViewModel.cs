@@ -68,12 +68,16 @@ public class TodayViewModel : ViewModelBase
         // F5: breaks and cycles. Three buttons on the summary card and the
         // cycle chooser above it; every rule they follow lives in CycleState.
         StartBreakCommand = new RelayCommand(StartBreak, () => BreakOfferVisible && !IsOnBreak);
-        SkipBreakCommand = new RelayCommand(SkipBreak, () => BreakOfferVisible || IsOnBreak);
+        SkipBreakCommand = new RelayCommand(SkipBreak, () => IsOnBreak);
         StartNextSprintCommand = new RelayCommand(StartNextSprint, () => BreakOfferVisible || IsOnBreak);
 
         // F6: the template chips, and the heads-up card a schedule puts up.
         ApplyTemplateCommand = new RelayCommand(p => { if (p is TemplateRow row) ApplyTemplate(row.Template); },
                                                 _ => !IsRunning && !IsOnBreak);
+        StartTemplateCommand = new RelayCommand(p => { if (p is TemplateRow row) StartTemplate(row.Template, skipOpenAppsPanel: false); },
+                                                _ => !IsRunning && !IsOnBreak);
+        OpenPlansCommand = new RelayCommand(() => _main.CurrentPage = AppPage.SleepBlocking);
+        OpenBlocklistsCommand = new RelayCommand(() => _main.CurrentPage = AppPage.BlockedApps);
         StartNowCommand = new RelayCommand(StartNow);
         SkipTodayCommand = new RelayCommand(SkipToday);
 
@@ -83,6 +87,9 @@ public class TodayViewModel : ViewModelBase
 
         RefreshStats();
         RefreshTemplates();
+        RefreshClockLines();
+        RefreshUpNext(DateTime.UtcNow);
+        ShowIdleStatus(RingCaption.Ready);
     }
 
     private AppSettings S => _main.Settings;
@@ -267,7 +274,7 @@ public class TodayViewModel : ViewModelBase
         S.ActiveSprint = null;
         _main.SaveSettings();
 
-        SessionStateText = RingCaption.Cancelled;
+        ShowIdleStatus(RingCaption.Cancelled);
         Raise(nameof(CycleProgressText));
         Raise(nameof(CycleProgressVisible));
         JournalPromptVisible = false;
@@ -301,7 +308,13 @@ public class TodayViewModel : ViewModelBase
             Raise(nameof(EndButtonLabel));
             Raise(nameof(CanSwitchProfile));
             Raise(nameof(TemplatesVisible));
+            Raise(nameof(GlowVisible));
+            Raise(nameof(MomentumTodayVisible));
+            Raise(nameof(RunningVisible));
+            Raise(nameof(ResultVisible));
+            Raise(nameof(RingVisible));
             RaiseSprintOptions();
+            RefreshClockLines();
         }
     }
 
@@ -338,8 +351,22 @@ public class TodayViewModel : ViewModelBase
 
     // Every line comes from RingCaption (the break's from BreakCopy.Caption), whose
     // list tier 5 lays out inside the ring (#304).
-    private string _sessionStateText = RingCaption.Ready;
+    private string _sessionStateText = RingCaption.NothingBlocked;
+    /// <summary>The Now card's status line, beside "Now" (#431).</summary>
     public string SessionStateText { get => _sessionStateText; private set => Set(ref _sessionStateText, value); }
+
+    /// <summary>What the idle status line leads with (RingCaption's constants).</summary>
+    private string _statusLead = RingCaption.Ready;
+
+    /// <summary>
+    /// An idle status line: what just happened, then what is blocked now,
+    /// which depends on the nightly sleep window (RingCaption.Status).
+    /// </summary>
+    private void ShowIdleStatus(string lead)
+    {
+        _statusLead = lead;
+        SessionStateText = RingCaption.Status(lead, AppBlockerService.IsWithinSleepWindow(S));
+    }
 
     private string _intentionDisplayText = "";
     /// <summary>The running sprint's intention, shown under the timer (F13).</summary>
@@ -528,6 +555,10 @@ public class TodayViewModel : ViewModelBase
         private set
         {
             if (!Set(ref _journalPromptVisible, value)) return;
+            Raise(nameof(ResultVisible));
+            Raise(nameof(RingVisible));
+            Raise(nameof(ReadyVisible));
+            Raise(nameof(MomentumTodayVisible));
             _main.RefreshLockScreen();
         }
     }
@@ -665,7 +696,12 @@ public class TodayViewModel : ViewModelBase
             Raise(nameof(SprintRingVisible));
             Raise(nameof(BreakRingVisible));
             Raise(nameof(TemplatesVisible));
+            Raise(nameof(GlowVisible));
+            Raise(nameof(ResultVisible));
+            Raise(nameof(RingVisible));
+            Raise(nameof(EndBreakVisible));
             RaiseSprintOptions();
+            RefreshClockLines();
         }
     }
 
@@ -687,6 +723,9 @@ public class TodayViewModel : ViewModelBase
     public bool BreakPanelVisible => BreakOfferVisible || IsOnBreak;
 
     public bool StartBreakVisible => BreakOfferVisible && !IsOnBreak;
+
+    /// <summary>"End break", while one runs: the old Skip break's mid-break use (#431).</summary>
+    public bool EndBreakVisible => IsOnBreak;
 
     public string BreakPanelTitle => IsOnBreak ? "On a break" : "Take a break";
 
@@ -790,10 +829,15 @@ public class TodayViewModel : ViewModelBase
         CommandManager.InvalidateRequerySuggested();
     }
 
-    /// <summary>Skipping is free: no momentum, no streak, no goal, nothing recorded.</summary>
+    /// <summary>
+    /// Ending a running break early ("End break"). Free: no momentum, no
+    /// streak, no goal, nothing recorded. Since #431 there is no Skip break on
+    /// the offer itself: starting the next sprint is the skip, and an offer
+    /// left alone simply goes when the next sprint starts.
+    /// </summary>
     private void SkipBreak()
     {
-        if (!BreakOfferVisible && !IsOnBreak) return;
+        if (!IsOnBreak) return;
         Log.Info(IsOnBreak ? "break cut short" : "break skipped");
         EndBreak(notify: false);
         ContinueCycleOrIdle();
@@ -832,7 +876,7 @@ public class TodayViewModel : ViewModelBase
         S.ActiveBreak = null;
         _main.SaveSettings();
 
-        SessionStateText = RingCaption.BreakOver;
+        ShowIdleStatus(RingCaption.BreakOver);
         UpdateIdleDisplay();
         _main.OnSprintStateChanged();
         CommandManager.InvalidateRequerySuggested();
@@ -1047,7 +1091,9 @@ public class TodayViewModel : ViewModelBase
     /// </summary>
     private bool CanUseSpaceShortcut() =>
         _main.CurrentPage == AppPage.Today && !_main.FirstRun.IsVisible
-        && Keyboard.FocusedElement is not TextBox;
+        && Keyboard.FocusedElement is not TextBox
+        // Space in the open setup panel picks the focused option (#431).
+        && !SprintOptionsVisible;
 
     // -------------------------------------------- the blocklist in use (F9)
 
@@ -1059,7 +1105,7 @@ public class TodayViewModel : ViewModelBase
     /// that matters is the timer (§1), so the profile says its name and stays out
     /// of the way.
     /// </summary>
-    public string ProfileCaption => _main.BlockedApps.ProfileCaption;
+    public string ProfileCaption => TodayCopy.BlocklistLine(S.ActiveProfile.Name, S.ActiveProfile.Apps.Count);
 
     /// <summary>The switcher's chips, shared with the Blocked Apps page.</summary>
     public System.Collections.ObjectModel.ObservableCollection<BlocklistProfile> Profiles =>
@@ -1081,6 +1127,8 @@ public class TodayViewModel : ViewModelBase
     public void RefreshProfileCaption()
     {
         Raise(nameof(ProfileCaption));
+        Raise(nameof(SelectedProfile));
+        Raise(nameof(SprintDetailsBlocklistText));
         Raise(nameof(ProfileSwitcherVisible));
         Raise(nameof(CanSwitchProfile));
     }
@@ -1109,13 +1157,28 @@ public class TodayViewModel : ViewModelBase
         SprintOptionsRowVisible && (_sprintOptionsOpen || CustomMinutesErrorVisible);
 
     public string SprintOptionsSummary => SprintOptionsCopy.Summary(
-        IsCustomSelected && !IsCustomMinutesValid ? 0 : SelectedMinutes, SelectedShield, CycleSprints);
+        IsCustomSelected && !IsCustomMinutesValid ? 0 : SelectedMinutes, CycleSprints);
 
-    public string SprintOptionsToggleText => SprintOptionsVisible ? "Done" : "Change";
+    public string SprintOptionsToggleText => "Set up";
 
-    /// <summary>Spoken name; the test driver reads it to open the fold without closing it.</summary>
+    /// <summary>Spoken name; the test driver reads it to open the panel without closing it.</summary>
     public string SprintOptionsToggleName =>
-        SprintOptionsVisible ? "Hide sprint options" : "Change sprint options";
+        SprintOptionsVisible ? "Close sprint setup" : "Set up this sprint";
+
+    /// <summary>The panel's Close and Done, and Esc and a click outside it (#431).</summary>
+    private RelayCommand? _closeSprintOptionsCommand;
+    public RelayCommand CloseSprintOptionsCommand => _closeSprintOptionsCommand ??= new RelayCommand(CloseSprintOptions);
+
+    /// <summary>
+    /// Closes the setup panel. An invalid custom length keeps it open, so the
+    /// reason Start is greyed out is never folded away (#147's rule).
+    /// </summary>
+    public void CloseSprintOptions()
+    {
+        if (!_sprintOptionsOpen) return;
+        _sprintOptionsOpen = false;
+        RaiseSprintOptions();
+    }
 
     private RelayCommand? _toggleSprintOptionsCommand;
     public RelayCommand ToggleSprintOptionsCommand => _toggleSprintOptionsCommand ??= new RelayCommand(() =>
@@ -1128,11 +1191,194 @@ public class TodayViewModel : ViewModelBase
 
     private void RaiseSprintOptions()
     {
+        Raise(nameof(ReadyVisible));
         Raise(nameof(SprintOptionsRowVisible));
         Raise(nameof(SprintOptionsVisible));
         Raise(nameof(SprintOptionsSummary));
         Raise(nameof(SprintOptionsToggleText));
         Raise(nameof(SprintOptionsToggleName));
+    }
+
+    // ------------------------------------------- the Now card's states (#431)
+
+    /// <summary>
+    /// The Now card's right-hand side before a sprint: the summary with Set
+    /// up, the shield selector, the plan and Start. Gone while a sprint or
+    /// break runs, while F7's open-apps question is up, and while the end of
+    /// the last sprint is shown in its place.
+    /// </summary>
+    public bool ReadyVisible => !IsRunning && !IsOnBreak && !JournalPromptVisible && !RunningAppsPanelVisible;
+
+    /// <summary>The plan, Details and End sprint early.</summary>
+    public bool RunningVisible => IsRunning;
+
+    /// <summary>
+    /// The end of a sprint in the countdown's place: the result, "What
+    /// moved?" and the lit mark. A break started from it brings the ring
+    /// back for the break's countdown; the note stays until it is saved.
+    /// </summary>
+    public bool ResultVisible => JournalPromptVisible && !IsRunning && !IsOnBreak;
+
+    /// <summary>The ring, whenever the lit mark isn't in its place.</summary>
+    public bool RingVisible => !ResultVisible;
+
+    /// <summary>
+    /// The soft teal glow behind the ring: only while a sprint runs ("Basalt
+    /// is holding"), never during a break or at rest, and it never pulses
+    /// (DESIGN_SYSTEM.md Part A, Depth).
+    /// </summary>
+    public bool GlowVisible => IsRunning && !IsOnBreak;
+
+    private string _ringEndsText = "";
+    /// <summary>Under the countdown: "ends 10:49 PM" before a sprint, "until 10:19 PM" during one.</summary>
+    public string RingEndsText { get => _ringEndsText; private set => Set(ref _ringEndsText, value); }
+
+    /// <summary>"if you start now", under "ends …" before a sprint only.</summary>
+    public bool RingEndsHintVisible => !IsRunning && !IsOnBreak;
+    public string RingEndsHint => TodayCopy.IfYouStartNow;
+
+    private string _setupPanelEndsText = "";
+    /// <summary>The setup panel's line under its title: "Ends 10:49 PM if you start now."</summary>
+    public string SetupPanelEndsText { get => _setupPanelEndsText; private set => Set(ref _setupPanelEndsText, value); }
+
+    /// <summary>
+    /// The times beside the countdown. Before a sprint they move with the
+    /// clock, so the scheduler's tick refreshes them (<see cref="RefreshNow"/>).
+    /// </summary>
+    private void RefreshClockLines()
+    {
+        var nowLocal = DateTime.Now;
+        if (IsOnBreak)
+            RingEndsText = TodayCopy.Until(_breakEndsUtc.ToLocalTime());
+        else if (IsRunning)
+            RingEndsText = TodayCopy.Until(_endsAtUtc.ToLocalTime());
+        else
+            RingEndsText = TodayCopy.EndsAt(nowLocal + CycleState.SprintLength(SelectedMinutes));
+        SetupPanelEndsText = TodayCopy.PanelEndsAt(nowLocal + CycleState.SprintLength(SelectedMinutes));
+        Raise(nameof(RingEndsHintVisible));
+    }
+
+    /// <summary>
+    /// Run on every scheduler tick: the "ends at" times, the idle status (the
+    /// sleep window can open or close while Today sits idle) and Up next.
+    /// </summary>
+    public void RefreshNow(DateTime nowUtc)
+    {
+        RefreshClockLines();
+        if (!IsRunning && !IsOnBreak)
+            SessionStateText = RingCaption.Status(_statusLead, AppBlockerService.IsWithinSleepWindow(S));
+        RefreshUpNext(nowUtc);
+    }
+
+    // ---- the end of a sprint (#431)
+
+    private bool _summaryTitleVisible;
+    /// <summary>
+    /// The kind line under the headline after ending early ("Ended early. It'll
+    /// recover."). A finished sprint needs none: the status line already says
+    /// "Sprint complete".
+    /// </summary>
+    public bool SummaryTitleVisible { get => _summaryTitleVisible; private set => Set(ref _summaryTitleVisible, value); }
+
+    private string _summaryFactsText = "";
+    /// <summary>"Firm, 10:04 to 10:19 PM.", beside what the shield did.</summary>
+    public string SummaryFactsText { get => _summaryFactsText; private set => Set(ref _summaryFactsText, value); }
+
+    private bool _summaryMomentumUp;
+    /// <summary>The up arrow beside "Up 6 today": shown only for a gain.</summary>
+    public bool SummaryMomentumUp { get => _summaryMomentumUp; private set => Set(ref _summaryMomentumUp, value); }
+
+    /// <summary>
+    /// "Not now" beside Save note: closes the end of the sprint without a
+    /// note, so the next sprint can be set up. The sprint is already recorded.
+    /// </summary>
+    private RelayCommand? _dismissJournalCommand;
+    public RelayCommand DismissJournalCommand => _dismissJournalCommand ??= new RelayCommand(() =>
+    {
+        if (!JournalPromptVisible) return;
+        JournalPromptVisible = false;
+        JournalText = "";
+        _main.RefreshAccess();
+    });
+
+    // ---- the Momentum card (#431)
+
+    private string _todayFactsText = "No sprint yet today";
+    /// <summary>"No sprint yet today" or "2 sprints today, 50 minutes focused": no zero counters.</summary>
+    public string TodayFactsText { get => _todayFactsText; private set => Set(ref _todayFactsText, value); }
+
+    public string MomentumWhileRunning => TodayCopy.MomentumWhileRunning;
+
+    /// <summary>Today's facts and the streak: idle, with no sprint's end on screen.</summary>
+    public bool MomentumTodayVisible => !IsRunning && !JournalPromptVisible;
+
+    // ---- a running sprint's Details (#431)
+
+    private bool _sprintDetailsOpen;
+    /// <summary>The Details disclosure. Closed each time a sprint starts.</summary>
+    public bool SprintDetailsOpen { get => _sprintDetailsOpen; set => Set(ref _sprintDetailsOpen, value); }
+
+    /// <summary>"Firm: Closes blocked apps."</summary>
+    public string SprintDetailsShieldText => _current is null ? "" : $"{_current.Shield}: {ShieldCopy.Promise(_current.Shield)}";
+
+    public string SprintDetailsStartedText => _current is null ? "" : TodayCopy.Started(_current.StartedUtc.ToLocalTime());
+
+    public string SprintDetailsBlocklistText => ProfileCaption;
+
+    /// <summary>What the shield has stopped so far this sprint, deduplicated as the summary is.</summary>
+    public string SprintBlocksText => TodayCopy.BlockedSoFar(_blocksThisSprint);
+
+    // ---- the setup panel's blocklist dropdown (#431)
+
+    /// <summary>
+    /// The dropdown's choice. Setting it goes through the same command the
+    /// Blocked Apps switcher uses, so Sealed's lock is one rule in one place.
+    /// </summary>
+    public BlocklistProfile? SelectedProfile
+    {
+        get => S.ActiveProfile;
+        set
+        {
+            if (value is not null && !ReferenceEquals(value, S.ActiveProfile) && SelectProfileCommand.CanExecute(value))
+                SelectProfileCommand.Execute(value);
+            Raise(nameof(SelectedProfile));
+        }
+    }
+
+    // ---- Up next (#431)
+
+    private string _upNextWhen = "";
+    public string UpNextWhen { get => _upNextWhen; private set => Set(ref _upNextWhen, value); }
+
+    private string _upNextWhat = TodayCopy.NothingScheduledHint;
+    public string UpNextWhat { get => _upNextWhat; private set => Set(ref _upNextWhat, value); }
+
+    private bool _upNextScheduled;
+    /// <summary>Whether a time is shown; without one the card says nothing is scheduled.</summary>
+    public bool UpNextScheduled { get => _upNextScheduled; private set => Set(ref _upNextScheduled, value); }
+
+    public string NothingScheduled => TodayCopy.NothingScheduled;
+
+    /// <summary>The next schedule start or the sleep window, whichever comes first.</summary>
+    public void RefreshUpNext(DateTime nowUtc)
+    {
+        var zone = TimeZoneInfo.Local;
+        TodayCopy.ScheduledStart? next = null;
+        var soonest = S.Schedules
+            .Where(s => s.Enabled)
+            .Select(s => (Schedule: s, At: ScheduleMatcher.NextStartUtc(s, nowUtc, zone)))
+            .Where(x => x.At is not null)
+            .OrderBy(x => x.At)
+            .FirstOrDefault();
+        if (soonest.Schedule is not null && S.FindTemplate(soonest.Schedule.TemplateId) is { } template)
+            next = new TodayCopy.ScheduledStart(TimeZoneInfo.ConvertTimeFromUtc(soonest.At!.Value, zone),
+                template.Name, template.SprintMinutes, template.Shield);
+
+        var line = TodayCopy.UpNext(TimeZoneInfo.ConvertTimeFromUtc(nowUtc, zone), next,
+            S.IsSleepBlockEnabled, S.SleepBlockStartTime, S.SleepBlockEndTime);
+        UpNextScheduled = line is not null;
+        UpNextWhen = line?.When ?? "";
+        UpNextWhat = line?.What ?? TodayCopy.NothingScheduledHint;
     }
 
     /// <summary>Shift+1/2/3 only change the shield where the segmented buttons do: idle, on Today.</summary>
@@ -1150,6 +1396,15 @@ public class TodayViewModel : ViewModelBase
 
     public RelayCommand ApplyTemplateCommand { get; }
 
+    /// <summary>A template card's Start (#431): fills it in and starts, through every gate Start has.</summary>
+    public RelayCommand StartTemplateCommand { get; }
+
+    /// <summary>"Edit templates" and "Edit schedules": the page where both live (Plans, from #433).</summary>
+    public RelayCommand OpenPlansCommand { get; }
+
+    /// <summary>The setup panel's "Edit blocklists": the Blocked Apps page.</summary>
+    public RelayCommand OpenBlocklistsCommand { get; }
+
     /// <summary>Hidden while a sprint or break runs (spec 3.5): a preset is for the next start.</summary>
     public bool TemplatesVisible => !IsRunning && !IsOnBreak && Templates.Count > 0;
 
@@ -1159,6 +1414,7 @@ public class TodayViewModel : ViewModelBase
         Templates.Clear();
         foreach (var template in S.Templates) Templates.Add(new TemplateRow(template));
         Raise(nameof(TemplatesVisible));
+        RefreshUpNext(DateTime.UtcNow);
     }
 
     /// <summary>
@@ -1413,7 +1669,11 @@ public class TodayViewModel : ViewModelBase
     public bool RunningAppsPanelVisible
     {
         get => _runningAppsPanelVisible;
-        private set => Set(ref _runningAppsPanelVisible, value);
+        private set
+        {
+            if (!Set(ref _runningAppsPanelVisible, value)) return;
+            Raise(nameof(ReadyVisible));
+        }
     }
 
     /// <summary>
@@ -1579,7 +1839,7 @@ public class TodayViewModel : ViewModelBase
         };
         _main.SaveSettings();
 
-        BeginRunning(RingCaption.Engaged(SelectedShield));
+        BeginRunning(RingCaption.Engaged(SelectedShield, S.ActiveProfile.Apps.Count));
         Log.Info($"sprint started: {SelectedMinutes}m at shield {SelectedShield}, "
                  + $"blocklist \"{S.ActiveProfile.Name}\"");
 
@@ -1604,7 +1864,14 @@ public class TodayViewModel : ViewModelBase
         _stoppedThisSprint.Clear();
         _endingSoonNotified = false;
         IsRunning = true;
+        _sprintOptionsOpen = false;
+        RaiseSprintOptions();
         SessionStateText = stateText;
+        SprintDetailsOpen = false;
+        Raise(nameof(SprintBlocksText));
+        Raise(nameof(SprintDetailsShieldText));
+        Raise(nameof(SprintDetailsStartedText));
+        Raise(nameof(SprintDetailsBlocklistText));
         JournalPromptVisible = false;
         // F14: the last sprint's milestone card goes with its summary card,
         // rather than staying up through the next sprint. It stays on History.
@@ -1736,7 +2003,7 @@ public class TodayViewModel : ViewModelBase
                 _main.SaveSettings();
 
                 var left = (int)Math.Ceiling((saved.EndsUtc - now).TotalMinutes);
-                BeginRunning(RingCaption.Resumed(saved.Shield));
+                BeginRunning(RingCaption.Resumed(saved.Shield, S.ActiveProfile.Apps.Count));
                 _main.Toast($"Sprint resumed — {left} minute{(left == 1 ? "" : "s")} left.");
                 break;
 
@@ -1781,7 +2048,7 @@ public class TodayViewModel : ViewModelBase
                 _main.SaveSettings();
                 RefreshStats();
 
-                SessionStateText = completed ? RingCaption.FinishedWhileClosed : RingCaption.Interrupted;
+                ShowIdleStatus(completed ? RingCaption.FinishedWhileClosed : RingCaption.Interrupted);
                 _main.Toast(completed
                     ? "Your last sprint finished while Basalt was closed."
                     : "Your last sprint was interrupted — Basalt wasn't running for most of it.");
@@ -2010,9 +2277,9 @@ public class TodayViewModel : ViewModelBase
         // earned it.
         RefreshStats();
 
-        SessionStateText = completed ? RingCaption.Complete
+        ShowIdleStatus(completed ? RingCaption.Complete
             : interrupted ? RingCaption.Interrupted
-            : RingCaption.EndedEarly;
+            : RingCaption.EndedEarly);
         // No card or "what moved?" for an interrupted sprint: there is nothing
         // to sum up, and F3's startup path doesn't show one either.
         if (!interrupted)
@@ -2120,13 +2387,22 @@ public class TodayViewModel : ViewModelBase
         SummaryTitle = completed
             ? "Sprint complete"
             : delta < 0
-                ? $"Ended early — momentum −{Math.Abs(delta)}. It'll recover."
+                ? $"Ended early, momentum −{Math.Abs(delta)}. It'll recover."
                 : "Ended early. It'll recover.";
-        SummaryMinutesText = $"{(int)Math.Round(session.ActualMinutes)} minutes focused";
-        SummaryDistractionsText = DistractionSummary(session);
-        SummaryMomentumText = $"{delta:+0;-0;0} → {S.MomentumScore:0}";
+        SummaryTitleVisible = !completed;
+        SummaryMinutesText = TodayCopy.MinutesFocused((int)Math.Round(session.ActualMinutes));
+        SummaryFactsText = TodayCopy.ResultFacts(session.Shield, session.StartedUtc.ToLocalTime(),
+            (session.EndedUtc ?? DateTime.UtcNow).ToLocalTime());
+        SummaryDistractionsText = TodayCopy.Distractions(session.AppsClosed, session.NudgesSent, session.BlocksEnforced);
+        // #431: the Momentum card shows today's change, not this one sprint's:
+        // "Up 6 today, from 186", from where today's first sprint began.
+        var firstToday = S.Sessions.FirstOrDefault(s => s.StartedUtc.ToLocalTime().Date == DateTime.Now.Date) ?? session;
+        var todayFrom = (int)Math.Round(firstToday.MomentumAtStart);
+        var todayDelta = (int)Math.Round(S.MomentumScore) - todayFrom;
+        SummaryMomentumText = TodayCopy.MomentumChange(todayDelta, todayFrom);
+        SummaryMomentumUp = todayDelta > 0;
         SummaryStreakVisible = S.CurrentStreak > 0;
-        SummaryStreakText = S.CurrentStreak == 1 ? "Day 1" : $"Day {S.CurrentStreak}";
+        SummaryStreakText = TodayCopy.StreakDay(S.CurrentStreak);
 
         var intention = session.Intention?.Trim() ?? "";
         SummaryIntentionText = intention.Length == 0 ? "" : $"You planned: {intention}";
@@ -2142,18 +2418,6 @@ public class TodayViewModel : ViewModelBase
         SummaryStoppedText = _stoppedThisSprint.Text;
         SummaryStoppedVisible = _stoppedThisSprint.Any;
     }
-
-    private static string DistractionSummary(FocusSession session)
-    {
-        if (session.AppsClosed > 0 || session.NudgesSent > 0)
-            return $"{session.AppsClosed} closed · {NudgeWord(session.NudgesSent)}";
-        if (session.BlocksEnforced > 0)
-            return CountWord(session.BlocksEnforced, "distraction") + " caught";
-        return "No distractions caught";
-    }
-
-    private static string NudgeWord(int count) => count == 1 ? "1 nudge" : $"{count} nudges";
-    private static string CountWord(int count, string word) => count == 1 ? $"1 {word}" : $"{count} {word}s";
 
     /// <summary>
     /// Momentum compounds on completion and decays — not resets — on an
@@ -2202,6 +2466,7 @@ public class TodayViewModel : ViewModelBase
         if (IsRunning || IsOnBreak) return;
         RemainingText = $"{SelectedMinutes:00}:00";
         Progress = 0;
+        RefreshClockLines();
     }
 
     /// <summary>
@@ -2215,6 +2480,7 @@ public class TodayViewModel : ViewModelBase
         if (terminated) _closedThisSprint++;
         else _nudgesThisSprint++;
         _stoppedThisSprint.Record(name, terminated);
+        Raise(nameof(SprintBlocksText));
     }
 
     /// <summary>The local day the stats on Today were last worked out for.</summary>
@@ -2253,7 +2519,8 @@ public class TodayViewModel : ViewModelBase
         _settledOnce = true;
 
         MomentumText = S.MomentumScore.ToString("0");
-        StreakText = S.CurrentStreak == 1 ? "1 day" : $"{S.CurrentStreak} days";
+        StreakText = TodayCopy.Streak(S.CurrentStreak);
+        TodayFactsText = TodayCopy.TodayFacts(SessionsToday, FocusMinutesToday);
         RefreshTrend(today);
         RefreshGoal(today);
         Raise(nameof(SealedRestartHintVisible));

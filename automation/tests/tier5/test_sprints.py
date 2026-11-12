@@ -189,18 +189,21 @@ class TestNoOneClickEscape:
 class TestCustomSprintLengthsWired:
     """The Custom option must exist in the view and be bound to the viewmodel."""
 
+    # #431: the length pickers live in the setup panel, ids and all.
+    PANEL = Path(DESKTOP_DIR) / "Views" / "SetupPanel.xaml"
+
     def test_the_view_has_a_custom_sprint_option(self):
-        view = (Path(DESKTOP_DIR) / "Views" / "TodayView.xaml").read_text(encoding="utf-8")
+        view = self.PANEL.read_text(encoding="utf-8")
         assert 'AutomationProperties.AutomationId="SprintLength_Custom"' in view
-        assert "Custom…" in view
+        assert 'Content="Custom"' in view
 
     def test_the_custom_input_is_bound(self):
-        view = (Path(DESKTOP_DIR) / "Views" / "TodayView.xaml").read_text(encoding="utf-8")
+        view = self.PANEL.read_text(encoding="utf-8")
         assert 'AutomationProperties.AutomationId="CustomMinutesInput"' in view
         assert "{Binding CustomMinutes" in view
 
     def test_the_existing_presets_are_still_present(self):
-        view = (Path(DESKTOP_DIR) / "Views" / "TodayView.xaml").read_text(encoding="utf-8")
+        view = self.PANEL.read_text(encoding="utf-8")
         for length in (15, 25, 45, 60, 90):
             assert f'SprintLength_{length}' in view, f"preset {length} min was removed"
 
@@ -210,7 +213,7 @@ class TestCustomSprintLengthsWired:
         Bound to SelectedMinutes, typing "15" on the way to "150" lit the
         15-minute preset and WPF's radio group unchecked Custom mid-keystroke.
         """
-        view = (Path(DESKTOP_DIR) / "Views" / "TodayView.xaml").read_text(encoding="utf-8")
+        view = self.PANEL.read_text(encoding="utf-8")
         assert "{Binding SelectedMinutes, Converter={StaticResource IntEq}" not in view
         assert view.count("{Binding PresetMinutes, Converter={StaticResource IntEq}") == 5
 
@@ -267,7 +270,10 @@ class TestSprintSummaryCard:
     def test_the_abandoned_wording_stays_neutral(self):
         viewmodel = (Path(DESKTOP_DIR) / "ViewModels" / "TodayViewModel.cs").read_text(encoding="utf-8")
         assert "It'll recover." in viewmodel
-        assert "No distractions caught" in viewmodel
+        # #431: the distraction line is a sentence from TodayCopy now.
+        copy = (Path(DESKTOP_DIR) / "Models" / "TodayCopy.cs").read_text(encoding="utf-8")
+        assert '"No blocked app was opened."' in copy
+        assert "TodayCopy.Distractions(" in viewmodel
 
 
 # ============================ sprint intention (F13)
@@ -332,10 +338,12 @@ class TestSprintIntentionGuard:
     def test_the_ring_and_the_card_each_show_the_intention(self):
         view = self.XAML.read_text(encoding="utf-8")
         assert 'AutomationProperties.AutomationId="SprintIntentionText"' in view
-        card = view[view.find("sprint summary"):]
-        card = card[:card.find("journal prompt")]
-        assert 'AutomationProperties.AutomationId="SummaryIntentionText"' in card
-        assert "SummaryIntentionVisible" in card
+        # #431: the card says the plan once, in "You planned: …. What moved?"
+        # (the same fact is not stated twice), so SummaryIntentionText went.
+        journal = view[view.find("journal prompt"):]
+        assert 'Text="{Binding JournalPromptTitle}"' in journal
+        vm = self.VM.read_text(encoding="utf-8")
+        assert '$"You planned: {LastSessionIntention}. What moved?"' in vm
 
     def test_a_long_intention_cannot_break_the_timer_ring(self):
         # A long line wrapped to five lines inside the ring and pushed the

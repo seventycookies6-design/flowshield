@@ -54,7 +54,7 @@ class TestTrialEnded:
         except Exception:                      # noqa: BLE001 — covered by the lock screen
             pass
         time.sleep(1.5)
-        assert "engaged" not in expired_app.session_state().lower(), "a locked app started a sprint"
+        assert "holding" not in expired_app.session_state().lower(), "a locked app started a sprint"
         assert verify.read_settings()["Sessions"] == []
 
     def test_sleep_blocking_and_hard_kill_are_disabled(self, expired_app):
@@ -108,9 +108,9 @@ class TestTrialExpiringDuringASprint:
             "the trial ending must never interrupt a running sprint"
 
         # Wait for the sprint to finish on its own and the summary card to appear.
-        assert app.exists("SummaryTitle", timeout=340), \
+        assert app.exists("SummaryMinutesValue", timeout=340), \
             "the 5-minute sprint never finished"
-        assert app.text_of("SummaryTitle") == "Sprint complete"
+        assert app.session_state().startswith("Sprint complete.")
 
         # The summary/journal card is up: the lock must still be held off so
         # "what moved?" is never interrupted by "buy Basalt".

@@ -43,6 +43,12 @@
     <sys:String x:Key="IconClose">&#xE711;</sys:String>
     <!-- More: a menu of further actions -->
     <sys:String x:Key="IconMore">&#xE712;</sys:String>
+    <!-- Equalizer (sliders): Today's Set up, which opens the setup panel (#431) -->
+    <sys:String x:Key="IconSetup">&#xE9E9;</sys:String>
+    <!-- Play: Start on a template card (#431) -->
+    <sys:String x:Key="IconPlay">&#xE768;</sys:String>
+    <!-- Up: beside a momentum gain at the end of a sprint (#431) -->
+    <sys:String x:Key="IconUp">&#xE74A;</sys:String>
 
     <!-- ============================================================== style
          Icon is the navigation and button size, 20; IconSmall is 16, for an

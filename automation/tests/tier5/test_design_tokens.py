@@ -858,3 +858,41 @@ class TestNoKeyShadowsAToken:
         tokens = {"SegmentTrack"}
         pre_fix = '<Style x:Key="SegmentTrack" TargetType="Border">'
         assert [k for k in re.findall(r'x:Key="([^"]+)"', pre_fix) if k in tokens] == ["SegmentTrack"]
+
+
+class TestAcrylicContrast431:
+    """
+    #431's setup panel: the page's snapshot is drawn at 35% over solid E3,
+    then the acrylic tint over that. Part A: the tint must be heavy enough
+    that every text pair passes AA over the brightest thing behind it, so
+    this measures each pair with pure white (dark) or black (light) behind,
+    and with the Primary button behind, as DESIGN_SYSTEM.md section 2 lists.
+    """
+
+    SNAPSHOT_OPACITY = 0.35
+    BEHIND = {"dark": [(255, 255, 255), "primary-grad-top"], "light": [(0, 0, 0), "primary-grad-bottom"]}
+
+    def test_the_view_draws_the_snapshot_at_the_measured_opacity(self):
+        panel = (Path(DESKTOP_DIR) / "Views" / "SetupPanel.xaml").read_text(encoding="utf-8")
+        image = re.search(r'<Image x:Name="AcrylicImage"[^>]*/>', panel).group(0)
+        assert f'Opacity="{self.SNAPSHOT_OPACITY}"' in image
+        assert '<Border Background="{DynamicResource Acrylic}"/>' in panel
+
+    @pytest.mark.parametrize("theme_name", ["dark", "light"])
+    def test_text_on_the_acrylic_panel_meets_wcag_normal_text(self, theme_name):
+        depth = TestDepthTokens430()
+        theme = depth.data()["themes"][theme_name]
+        e3 = depth._rgba(theme, "elev-3")
+        tint = depth._rgba(theme, "acrylic")
+        failures = []
+        for behind in self.BEHIND[theme_name]:
+            colour = behind if isinstance(behind, tuple) else depth._rgba(theme, behind)[:3]
+            under = depth._over(tuple(colour) + (self.SNAPSHOT_OPACITY,), e3)
+            surface = depth._over(tint, under)
+            for fg in ("text", "text-muted", "warn"):
+                top = depth._over(depth._rgba(theme, fg), surface)
+                ratio = TestContrastAndTokensA3._contrast(tuple(round(c) for c in top[:3]),
+                                                          tuple(round(c) for c in surface[:3]))
+                if ratio < 4.5:
+                    failures.append(f"{fg} with {behind} behind: {ratio:.2f}:1")
+        assert not failures, f"{theme_name}: " + "; ".join(failures)

@@ -67,15 +67,17 @@
 
                 <!-- tier + upgrade, pinned to the bottom -->
                 <!-- Collapsed as a whole at narrow widths. The Buy button keeps its own
-                     IsNotPro binding: setting Visibility on it from code would replace
-                     that binding and show the button to paying customers. -->
+                     BuyVisible binding: setting Visibility on it from code would replace
+                     that binding and show the button to paying customers. Secondary
+                     since #431, so it never competes with Start sprint (the view's
+                     one Primary), and hidden while a sprint runs. -->
                 <StackPanel x:Name="NavBottomPanel" DockPanel.Dock="Bottom">
-                    <Button Style="{StaticResource BtnPrimary}"
+                    <Button Style="{StaticResource BtnGhost}"
                             Content="Buy Basalt — $4.99"
                             Command="{Binding GetProCommand}"
                             AutomationProperties.AutomationId="GetProNavButton"
                             AutomationProperties.Name="Buy Basalt"
-                            Visibility="{Binding IsNotPro, Converter={StaticResource BoolVis}}"
+                            Visibility="{Binding BuyVisible, Converter={StaticResource BoolVis}}"
                             Margin="0,0,0,12"/>
 
                     <Border Style="{StaticResource Chip}" HorizontalAlignment="Left" Padding="12,4">
@@ -168,16 +170,25 @@
                 <RowDefinition Height="*"/>
             </Grid.RowDefinitions>
 
-            <StackPanel Grid.Row="0" Margin="32,32,32,16"
+            <!-- The page layer: the title and the page. The setup panel's acrylic
+                 is a snapshot of this, so the panel itself is outside it. -->
+            <Grid x:Name="PageLayer" Grid.Row="0" Grid.RowSpan="2">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            <StackPanel x:Name="PageTitlePanel" Grid.Row="0" Margin="32,32,32,16"
                         MaxWidth="{StaticResource PageMaxWidth}">
                 <TextBlock Text="{Binding CurrentPageTitle}" Style="{StaticResource H1}"
                            AutomationProperties.AutomationId="PageTitle"/>
-                <TextBlock Text="{Binding CurrentPageSubtitle}" Style="{StaticResource Body}" Margin="0,4,0,0"/>
+                <!-- Today has none since #431: its Now card says what it is for. -->
+                <TextBlock Text="{Binding CurrentPageSubtitle}" Style="{StaticResource Body}" Margin="0,4,0,0"
+                           Visibility="{Binding CurrentPageSubtitleVisible, Converter={StaticResource BoolVis}}"/>
             </StackPanel>
 
             <Grid Grid.Row="1" Margin="32,0,32,24" x:Name="PageHost"
                   MaxWidth="{StaticResource PageMaxWidth}">
-                <views:TodayView DataContext="{Binding Today}"
+                <views:TodayView x:Name="TodayPage" DataContext="{Binding Today}"
                                  Visibility="{Binding DataContext.IsTodayPage,
                                               RelativeSource={RelativeSource AncestorType=Window},
                                               Converter={StaticResource BoolVis}}"/>
@@ -202,6 +213,15 @@
                                                  RelativeSource={RelativeSource AncestorType=Window},
                                                  Converter={StaticResource BoolVis}}"/>
             </Grid>
+            </Grid>
+
+            <!-- ===================================================== setup panel -->
+            <!-- Today's full sprint settings (#431), over the page and under every
+                 gate below, so the lock screen, first run and the terms still
+                 cover it. Views/SetupPanel.xaml. -->
+            <views:SetupPanel x:Name="SetupPanelHost" Grid.Row="0" Grid.RowSpan="2"
+                              DataContext="{Binding Today}"
+                              Visibility="{Binding SprintOptionsVisible, Converter={StaticResource BoolVis}}"/>
 
             <!-- ===================================================== lock screen -->
             <!-- Covers every page once the free trial ends without a purchase.

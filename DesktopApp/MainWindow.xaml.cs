@@ -64,8 +64,17 @@ public partial class MainWindow : Window
     /// the layout actually has, which is also what an offscreen render of the
     /// window's content sees (#189).
     /// </summary>
+    /// <summary>Below this client height the page title takes less vertical room (#431).</summary>
+    public const double CompactTitleBelow = 640;
+
     private void OnSizeChanged(object sender, SizeChangedEventArgs e)
     {
+        SetupPanelHost.ScheduleSnapshot();
+        // A short window gives the page title less room, so the page under it
+        // keeps its cards in view (the small-window mockup, #431).
+        var shortWindow = e.NewSize.Height < CompactTitleBelow;
+        PageTitlePanel.Margin = shortWindow ? new Thickness(32, 10, 32, 4) : new Thickness(32, 32, 32, 16);
+        PageHost.Margin = shortWindow ? new Thickness(32, 0, 32, 8) : new Thickness(32, 0, 32, 24);
         bool narrow = e.NewSize.Width < CompactRailBelow;
         // 240 and 16 match the XAML (the §4 rail and 4-based spacing); 72 leaves
         // each tab 56px, room for a 20px icon inside its 16px side padding.
@@ -169,6 +178,15 @@ public partial class MainWindow : Window
         {
             Vm.FirstRun.SkipCommand.Execute(null);
             e.Handled = true;
+            return;
+        }
+
+        // The setup panel closes on Esc wherever focus is (#431); inside it, its
+        // own handler does this after an open dropdown has taken Esc first.
+        if (Vm.Today.SprintOptionsVisible && !SetupPanelHost.IsKeyboardFocusWithin)
+        {
+            Vm.Today.CloseSprintOptions();
+            e.Handled = true;
         }
     }
 
@@ -182,8 +200,14 @@ public partial class MainWindow : Window
         ApplyTitleBarTheme();
         // Mica, or its solid fallback, under everything (#430). After the title
         // bar theme, which tells DWM whether the material is drawn dark or light.
-        _backdrop = new WindowBackdrop(this);
-        _backdrop.Attach();
+        var backdrop = new WindowBackdrop(this);
+        _backdrop = backdrop;
+        backdrop.Changed += (_, _) => SetupPanelHost.AcrylicAllowed = backdrop.Current == Models.Backdrop.Mica;
+        backdrop.Attach();
+        SetupPanelHost.Backdrop = PageLayer;
+        SetupPanelHost.AcrylicAllowed = backdrop.Current == Models.Backdrop.Mica;
+        // Focus goes back to Set up when the panel closes, as from any flyout.
+        SetupPanelHost.Closed += (_, _) => TodayPage.FocusSetUp();
         SetUpGlobalHotkey();
     }
 

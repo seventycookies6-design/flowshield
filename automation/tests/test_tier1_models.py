@@ -1150,26 +1150,138 @@ class TestTurnedBack:
         assert probe({"cmd": "turned-back-text", "n": n})["text"] == text
 
 
-# ======================================= Today's folded sprint options (#147)
+# ======================================= Today's sprint line (#147, #431)
 
 class TestSprintOptionsSummary:
     """
-    The one line Today shows in place of the length, shield and cycle
-    pickers. It has to say what Start will do, so it reads the real values.
+    The one line the Now card shows for what Start will do. It has to say what
+    Start will do, so it reads the real values. #431 rewrote it: the shield
+    selector sits right under it, so it no longer repeats the shield, and it
+    has no middle dots.
     """
 
-    @pytest.mark.parametrize("minutes,shield,cycle,text", [
-        (25, "Firm", 0, "25 min · Firm shield · One sprint"),
-        (45, "Firm", 3, "45 min · Firm shield · 3 sprints with breaks"),
-        (15, "Soft", 2, "15 min · Soft shield · 2 sprints with breaks"),
-        (150, "Sealed", 0, "150 min · Sealed shield · One sprint"),
+    @pytest.mark.parametrize("minutes,cycle,text", [
+        (25, 0, "One 25-minute sprint"),
+        (45, 3, "Three 45-minute sprints with breaks"),
+        (15, 2, "Two 15-minute sprints with breaks"),
+        (150, 0, "One 150-minute sprint"),
         # A custom length Start would refuse is not shown as a length.
-        (0, "Firm", 0, "Custom length · Firm shield · One sprint"),
+        (0, 0, "One sprint of a custom length"),
+        (0, 4, "Four sprints of a custom length"),
     ])
-    def test_the_wording(self, minutes, shield, cycle, text):
-        out = probe({"cmd": "sprint-options-summary", "minutes": minutes,
-                     "shield": shield, "cycle": cycle})
+    def test_the_wording(self, minutes, cycle, text):
+        out = probe({"cmd": "sprint-options-summary", "minutes": minutes, "cycle": cycle})
         assert out["text"] == text
+        assert "\u00b7" not in out["text"]
+
+
+class TestTodayCopy431:
+    """
+    #431: the Now, Up next and Momentum cards' words, from Models/TodayCopy.cs.
+    Plain words with no middle dots or exclamation marks (DESIGN_SYSTEM.md
+    Part A, Voice), no zero counters, and a drop in momentum stated kindly.
+    """
+
+    def copy(self, **request):
+        return probe({"cmd": "today-copy", **request})
+
+    def test_the_ring_and_panel_times(self):
+        out = self.copy(at="2026-11-12T22:49:00")
+        assert out["ends_at"] == "ends 10:49 PM"
+        assert out["until"] == "until 10:49 PM"
+        assert out["panel_ends_at"] == "Ends 10:49 PM if you start now."
+
+    def test_the_blocklist_line_counts_its_apps(self):
+        assert self.copy(name="School", apps=3)["blocklist"] == "School blocklist, 3 apps"
+        assert self.copy(name="School", apps=1)["blocklist"] == "School blocklist, 1 app"
+
+    @pytest.mark.parametrize("sprints,minutes,text", [
+        (0, 0, "No sprint yet today"),
+        (1, 25, "1 sprint today, 25 minutes focused"),
+        (2, 50, "2 sprints today, 50 minutes focused"),
+        # Ended early only: minutes, but no finished sprint, and no "0 sprints".
+        (0, 12, "12 minutes focused today"),
+    ])
+    def test_today_has_no_zero_counters(self, sprints, minutes, text):
+        out = self.copy(sprints=sprints, minutes=minutes)["today_facts"]
+        assert out == text
+        assert not re.search(r"\b0 ", out)
+
+    def test_the_streak_lines(self):
+        assert self.copy(streak=8)["streak"] == "8-day streak"
+        assert self.copy(streak=1)["streak"] == "1-day streak"
+        assert self.copy(streak=0)["streak"] == "No streak yet"
+        assert self.copy(streak=9)["streak_day"] == "Day 9 of your streak"
+
+    def test_momentum_change_is_kind_about_a_drop(self):
+        assert self.copy(delta=6, **{"from": 186})["momentum_change"] == "Up 6 today, from 186"
+        down = self.copy(delta=-6, **{"from": 192})["momentum_change"]
+        assert down.startswith("Down 6 today, from 192") and "recovers" in down
+        assert "lost" not in down.lower() and "fail" not in down.lower()
+
+    def test_the_result_and_its_facts(self):
+        out = self.copy(minutes=15, shield="Firm", start="2026-11-12T22:04:00", at="2026-11-12T22:19:00")
+        assert out["minutes_focused"] == "15 minutes focused"
+        assert out["result_facts"] == "Firm, 10:04 PM to 10:19 PM."
+        assert self.copy(minutes=1)["minutes_focused"] == "1 minute focused"
+
+    @pytest.mark.parametrize("closed,nudges,blocks,text", [
+        (0, 0, 0, "No blocked app was opened."),
+        (2, 1, 3, "Basalt closed 2 apps and sent 1 nudge."),
+        (1, 0, 1, "Basalt closed 1 app."),
+        (0, 3, 3, "Basalt sent 3 nudges."),
+        (0, 0, 2, "2 distractions caught."),
+    ])
+    def test_what_the_shield_did_is_a_sentence(self, closed, nudges, blocks, text):
+        assert self.copy(closed=closed, nudges=nudges, blocks=blocks)["distractions"] == text
+
+    def test_the_running_details_count(self):
+        assert self.copy(blocks=0)["blocked_so_far"] == "Nothing blocked so far"
+        assert self.copy(blocks=1)["blocked_so_far"] == "1 distraction blocked so far"
+
+    def test_no_line_has_a_middle_dot_or_an_exclamation_mark(self):
+        for request in ({}, {"sprints": 2, "minutes": 50, "streak": 3, "delta": -4, "from": 20,
+                             "closed": 1, "nudges": 2, "blocks": 3, "names": ["Steam", "Discord"]}):
+            for key, value in self.copy(**request).items():
+                assert "\u00b7" not in value and "!" not in value, (key, value)
+
+
+class TestUpNext431:
+    """
+    #431's Up next: the next thing that blocks by itself, a schedule or the
+    sleep window, whichever comes first, from Models/TodayCopy.UpNext.
+    """
+
+    def up_next(self, **request):
+        return probe({"cmd": "today-up-next", **request})
+
+    SCHEDULE = {"start": "2026-11-12T18:00:00", "name": "Homework evening", "minutes": 45, "shield": "Firm"}
+
+    def test_nothing_set_up_says_so(self):
+        assert self.up_next(now="2026-11-12T12:00:00") == {"none": True}
+
+    def test_a_schedule_today(self):
+        out = self.up_next(now="2026-11-12T12:00:00", schedule=self.SCHEDULE)
+        assert out == {"when": "6:00 PM", "what": "Homework evening, 45 min at Firm"}
+
+    def test_the_sleep_window_when_it_comes_first(self):
+        out = self.up_next(now="2026-11-12T20:00:00", sleep=True, sleep_start="22:30", sleep_end="06:30",
+                           schedule={**self.SCHEDULE, "start": "2026-11-13T18:00:00"})
+        assert out == {"when": "10:30 PM", "what": "Sleep blocking until 6:30 AM"}
+
+    def test_a_schedule_before_the_sleep_window_wins(self):
+        out = self.up_next(now="2026-11-12T12:00:00", sleep=True, schedule=self.SCHEDULE)
+        assert out["what"].startswith("Homework evening")
+
+    def test_inside_the_sleep_window_it_is_now(self):
+        out = self.up_next(now="2026-11-12T23:30:00", sleep=True, schedule=self.SCHEDULE)
+        assert out == {"when": "Now", "what": "Sleep blocking until 6:30 AM"}
+
+    def test_a_later_day_is_named(self):
+        out = self.up_next(now="2026-11-12T12:00:00", schedule={**self.SCHEDULE, "start": "2026-11-13T18:00:00"})
+        assert out["when"] == "Tomorrow, 6:00 PM"
+        out = self.up_next(now="2026-11-12T12:00:00", schedule={**self.SCHEDULE, "start": "2026-11-16T18:00:00"})
+        assert out["when"] == "Mon, 6:00 PM"
 
 
 # =========================================== the taskbar Jump List (1.0.10, 5)
@@ -1254,39 +1366,52 @@ class TestTheFiveMinutesLeftNotification:
 
 class TestRingCaptions:
     """
-    #304: every line the view model can put under the timer ring comes from
-    RingCaption or BreakCopy.Caption, so tier 5's layout probe can measure
-    each one. This pins the list itself from .NET.
+    #304, moved by #431: every status line the view model can put beside
+    "Now" comes from RingCaption or BreakCopy.Caption. This pins the list from
+    .NET, and #431's honesty rule: an idle line never says "Nothing is
+    blocked" while the nightly sleep window is open.
     """
 
     def captions(self) -> list[dict]:
-        """Line breaks folded to spaces: a long caption may set its own (tier 5 checks the layout)."""
-        captions = probe({"cmd": "ring-captions"})["captions"]
-        return [dict(c, text=" ".join(c["text"].split())) for c in captions]
+        return probe({"cmd": "ring-captions"})["captions"]
 
     def test_every_break_caption_is_listed_in_both_sleep_states(self):
         texts = {c["text"] for c in self.captions()}
-        for expected in ("Break — the shield is down", "Break resumed — the shield is down",
-                         "Break — sleep shield still up", "Break resumed — sleep shield still up"):
-            assert expected in texts, f"{expected!r} is not measured"
+        for expected in ("On a break. The shield is down.", "Break resumed. The shield is down.",
+                         "On a break. The sleep shield is still up.",
+                         "Break resumed. The sleep shield is still up."):
+            assert expected in texts, f"{expected!r} is not listed"
 
-    def test_the_resumed_break_in_the_window_is_parallel_again(self):
-        """#301 cut it to 'Resumed — sleep shield up' to fit one line; it wraps now."""
-        texts = {c["text"] for c in self.captions()}
-        assert "Resumed — sleep shield up" not in texts
-
-    def test_every_shield_is_listed_starting_and_resuming_with_the_glyph(self):
+    def test_every_shield_is_listed_starting_and_resuming(self):
         running = {c["text"] for c in self.captions() if c["running"]}
-        assert running == {"Shield I engaged", "Shield II engaged", "Shield III engaged",
-                           "Sprint resumed — shield I", "Sprint resumed — shield II",
-                           "Sprint resumed — shield III"}
+        assert running == {f"Basalt is holding. 3 apps blocked at {s}." for s in ("Soft", "Firm", "Sealed")} | \
+                          {f"Sprint resumed. 3 apps blocked at {s}." for s in ("Soft", "Firm", "Sealed")}
 
     def test_the_idle_and_ending_lines_are_listed(self):
         idle = {c["text"] for c in self.captions() if not c["running"]}
-        for expected in ("Ready when you are", "Sprint cancelled", "Break over", "Sprint complete",
-                         "Sprint interrupted", "Sprint ended early",
-                         "Sprint finished while Basalt was closed"):
-            assert expected in idle, f"{expected!r} is not measured"
+        for expected in ("Nothing is blocked.", "Sprint cancelled. Nothing is blocked.",
+                         "Break over. Nothing is blocked.", "Sprint complete. Nothing is blocked.",
+                         "Sprint interrupted. Nothing is blocked.", "Sprint ended early. Nothing is blocked.",
+                         "Sprint finished while Basalt was closed. Nothing is blocked."):
+            assert expected in idle, f"{expected!r} is not listed"
+
+    def test_an_idle_line_in_the_sleep_window_names_the_sleep_shield(self):
+        for lead in ("", "Sprint complete.", "Sprint ended early."):
+            text = probe({"cmd": "ring-status", "lead": lead, "in_sleep_window": True})["text"]
+            assert "Nothing is blocked" not in text, text
+            assert "Sleep blocking is on." in text
+
+    def test_the_running_line_counts_the_apps(self):
+        assert probe({"cmd": "ring-engaged", "shield": "Firm", "apps": 3})["engaged"] == \
+            "Basalt is holding. 3 apps blocked at Firm."
+        assert probe({"cmd": "ring-engaged", "shield": "Firm", "apps": 1})["engaged"] == \
+            "Basalt is holding. 1 app blocked at Firm."
+        out = probe({"cmd": "ring-engaged", "shield": "Sealed", "apps": 0})
+        assert out == {"engaged": "Basalt is holding at Sealed.", "resumed": "Sprint resumed at Sealed."}
+
+    def test_no_line_has_a_middle_dot_or_an_exclamation_mark(self):
+        for c in self.captions():
+            assert "\u00b7" not in c["text"] and "!" not in c["text"], c
 
 
 # ============================ website notice: the F10 interim (#325)

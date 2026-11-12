@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="20 15 60 76" role="img" aria-label="Basalt">
+  <!-- The lit Causeway mark (#431): the same geometry as basalt-mark-on-dark.svg,
+       copied polygon for polygon, with each face lit from one light above.
+       For the big moments only (DESIGN_SYSTEM.md Part A, Brand); see README. -->
+  <defs>
+    <linearGradient id="lit-top" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F6F6F4"/><stop offset="1" stop-color="#D3D4D1"/></linearGradient>
+    <linearGradient id="lit-left" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#B9BCC0"/><stop offset="1" stop-color="#7C7F84"/></linearGradient>
+    <linearGradient id="lit-front" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8E9196"/><stop offset="1" stop-color="#4F5257"/></linearGradient>
+    <linearGradient id="lit-right" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#62656A"/><stop offset="1" stop-color="#323438"/></linearGradient>
+    <radialGradient id="lit-ground" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#000" stop-opacity="0.34"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>
+  </defs>
+  <ellipse cx="50" cy="84.5" rx="30" ry="5" fill="url(#lit-ground)"/>
+  <g stroke="#202124" stroke-width="0.8" stroke-linejoin="round">
+    <polygon points="46.25,25.5 53.75,32 53.75,68 46.25,61.5" fill="url(#lit-left)"/>
+    <polygon points="53.75,32 68.75,32 68.75,68 53.75,68" fill="url(#lit-front)"/>
+    <polygon points="68.75,32 76.25,25.5 76.25,61.5 68.75,68" fill="url(#lit-right)"/>
+    <polygon points="76.25,25.5 68.75,32 53.75,32 46.25,25.5 53.75,19 68.75,19" fill="url(#lit-top)"/>
+    <polygon points="23.75,41 31.25,47.5 31.25,74.5 23.75,68" fill="url(#lit-left)"/>
+    <polygon points="31.25,47.5 46.25,47.5 46.25,74.5 31.25,74.5" fill="url(#lit-front)"/>
+    <polygon points="46.25,47.5 53.75,41 53.75,68 46.25,74.5" fill="url(#lit-right)"/>
+    <polygon points="53.75,41 46.25,47.5 31.25,47.5 23.75,41 31.25,34.5 46.25,34.5" fill="url(#lit-top)"/>
+    <polygon points="46.25,56.5 53.75,63 53.75,81 46.25,74.5" fill="url(#lit-left)"/>
+    <polygon points="53.75,63 68.75,63 68.75,81 53.75,81" fill="url(#lit-front)"/>
+    <polygon points="68.75,63 76.25,56.5 76.25,74.5 68.75,81" fill="url(#lit-right)"/>
+    <polygon points="76.25,56.5 68.75,63 53.75,63 46.25,56.5 53.75,50 68.75,50" fill="url(#lit-top)"/>
+  </g>
+</svg>

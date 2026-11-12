@@ -31,19 +31,17 @@ public static class BreakCopy
     }
 
     /// <summary>
-    /// The state line under the ring while a break runs. At its line the ring
-    /// has about 177 px; since #304 the line wraps, centred, inside that. The
-    /// two resumed lines are too long for one line, so they break after the
-    /// dash themselves rather than wherever the width runs out ("the shield /
-    /// is down"). Tier 5 lays out each one in the real view.
+    /// The status line beside "Now" while a break runs (#431; it sat under
+    /// the ring until the redesign). It says which shield is up: inside the
+    /// nightly sleep window only the sprint's shield comes down (#304).
     /// </summary>
     /// <param name="resumed">The break was picked up again after Basalt restarted (F5).</param>
     public static string Caption(bool inSleepWindow, bool resumed) => (resumed, inSleepWindow) switch
     {
-        (false, false) => "Break — the shield is down",
-        (true, false) => "Break resumed —\nthe shield is down",
-        (false, true) => "Break — sleep shield still up",
-        (true, true) => "Break resumed —\nsleep shield still up",
+        (false, false) => "On a break. The shield is down.",
+        (true, false) => "Break resumed. The shield is down.",
+        (false, true) => "On a break. The sleep shield is still up.",
+        (true, true) => "Break resumed. The sleep shield is still up.",
     };
 
     /// <summary>
