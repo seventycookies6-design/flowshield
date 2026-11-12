@@ -1,7 +1,8 @@
 <UserControl x:Class="FlowShield.Views.SettingsView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:inf="clr-namespace:FlowShield.Infrastructure">
+             xmlns:inf="clr-namespace:FlowShield.Infrastructure"
+             xmlns:models="clr-namespace:FlowShield.Models">
     <Grid SizeChanged="OnRootSizeChanged">
         <Grid.ColumnDefinitions>
             <ColumnDefinition x:Name="RailColumn" Width="180"/>
@@ -89,7 +90,7 @@
                                                AutomationProperties.AutomationId="DeviceText"/>
                                 </StackPanel>
 
-                                <Button Style="{StaticResource BtnPrimary}" Content="Buy Basalt — $4.99"
+                                <Button Style="{StaticResource BtnPrimary}" Content="{x:Static models:Pricing.BuyLabel}"
                                         HorizontalAlignment="Right" VerticalAlignment="Top"
                                         Command="{Binding GetProCommand}"
                                         Visibility="{Binding IsNotPro, Converter={StaticResource BoolVis}}"

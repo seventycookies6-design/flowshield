@@ -254,7 +254,7 @@ month. Every sprint ends with a one-line "what moved?" journal entry.
 
 ### Trial and purchase
 
-| | 7-day free trial | Bought — $4.99 once |
+| | 7-day free trial | Bought — $14.99 once |
 | --- | --- | --- |
 | Blocked apps | Unlimited | Unlimited |
 | Shield levels | I, II, III | I, II, III |
@@ -337,7 +337,7 @@ Do this only when you actually intend to charge real cards.
 2. **Recreate the product in live mode.** Price IDs do not cross the test/live
    boundary — run `node tools/setup_stripe_store.js` against live mode (after
    deliberately lifting its test-key guard) to create *Basalt* at a one-time
-   $4.99, and copy the new `price_...`.
+   $14.99, and copy the new `price_...`.
 3. **Swap the credentials** in `.stripe_keys.json` for the `pk_live_` /
    `sk_live_` pair, or set `STRIPE_SECRET_KEY` and friends in the environment
    instead so no secret sits on disk.

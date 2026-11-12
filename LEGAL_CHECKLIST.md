@@ -207,7 +207,7 @@ mundane, high-probability risk — higher than most of the exotic ones.
 | # | Item | Status |
 | --- | --- | --- |
 | 9.1 | PCI handled by Stripe, never by us | **OK** — Stripe Checkout; no card data touches the server |
-| 9.2 | Sales tax and VAT | **GAP / OWNER** — see 3.4. As your own merchant of record with Stripe you owe VAT on EU sales from the first euro (no threshold for non-EU sellers) and US state sales tax once a state's threshold is met. Two honest options: turn on Stripe Tax and register where required, or sell through a merchant of record (Paddle, Lemon Squeezy, FastSpring) that takes that liability. At $4.99 the second is usually the sane one |
+| 9.2 | Sales tax and VAT | **GAP / OWNER** — see 3.4. As your own merchant of record with Stripe you owe VAT on EU sales from the first euro (no threshold for non-EU sellers) and US state sales tax once a state's threshold is met. Two honest options: turn on Stripe Tax and register where required, or sell through a merchant of record (Paddle, Lemon Squeezy, FastSpring) that takes that liability. At $14.99 the second is usually the sane one |
 | 9.3 | No claim that FlowShield is parental-control or enforcement software | **OK today, watch it** — it has no admin rights, no password lock and no website blocking, so any "stop your kid gaming" claim would be false and is also the most likely source of an angry-customer complaint |
 | 9.4 | Data-loss risk disclosed before it can happen | **OK** — the terms gate states it in the first line a new user sees, and Stripe's consent box repeats it at checkout |
 | 9.5 | The blocker stays timid | **OK, automated** — `CriticalProcesses` is never closed, no admin rights, no drivers, no hosts-file edits; tier 5 guards it |

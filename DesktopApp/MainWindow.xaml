@@ -68,7 +68,7 @@
                      that binding and show the button to paying customers. -->
                 <StackPanel x:Name="NavBottomPanel" DockPanel.Dock="Bottom">
                     <Button Style="{StaticResource BtnPrimary}"
-                            Content="Buy Basalt — $4.99"
+                            Content="{x:Static models:Pricing.BuyLabel}"
                             Command="{Binding GetProCommand}"
                             AutomationProperties.AutomationId="GetProNavButton"
                             AutomationProperties.Name="Buy Basalt"
@@ -213,13 +213,13 @@
                         HorizontalAlignment="Center" VerticalAlignment="Center">
                     <StackPanel>
                         <TextBlock Text="FREE TRIAL ENDED" Style="{StaticResource Eyebrow}"/>
-                        <TextBlock Text="Keep Basalt for $4.99" Style="{StaticResource H1}"
+                        <TextBlock Text="{x:Static models:Pricing.KeepTitle}" Style="{StaticResource H1}"
                                    Margin="0,8,0,0"/>
                         <TextBlock Text="{Binding TrialEndedText}" Style="{StaticResource Body}"
                                    TextWrapping="Wrap" Margin="0,12,0,0"
                                    AutomationProperties.AutomationId="TrialEndedText"/>
 
-                        <Button Style="{StaticResource BtnPrimary}" Content="Buy Basalt — $4.99"
+                        <Button Style="{StaticResource BtnPrimary}" Content="{x:Static models:Pricing.BuyLabel}"
                                 Command="{Binding GetProCommand}" Padding="24,12" Margin="0,24,0,0"
                                 HorizontalAlignment="Left"
                                 AutomationProperties.AutomationId="LockBuyButton"

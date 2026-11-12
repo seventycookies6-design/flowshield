@@ -44,7 +44,7 @@ class TestTrialEnded:
 
     def test_the_lock_screen_offers_the_purchase(self, expired_app):
         assert expired_app.exists("LockBuyButton", timeout=5), "no lock screen after the trial"
-        assert "$4.99" in expired_app.text_of("TrialEndedText")
+        assert "$14.99" in expired_app.text_of("TrialEndedText")
         assert expired_app.tier_badge().upper() == "TRIAL ENDED"
 
     def test_a_sprint_cannot_start(self, expired_app):

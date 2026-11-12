@@ -205,7 +205,7 @@ struct LicenseSettings: View {
           LabeledContent("Status") {
             Text(model.settings.isPro ? "Purchased" : model.trialDaysLeft > 0 ? "\(model.trialDaysLeft) days left on free trial" : "Free trial ended").accessibilityIdentifier("LicenseStatusText")
           }
-          if !model.settings.isPro && !model.isRunning { Link("Buy Basalt — $4.99", destination: model.buyURL).accessibilityIdentifier("GetProButton") }
+          if !model.settings.isPro && !model.isRunning { Link(Pricing.buyLabel, destination: model.buyURL).accessibilityIdentifier("GetProButton") }
         }
         Section("Activate") { fields }
         if model.settings.isPro { Section("Your devices · \(model.settings.deviceCount) / \(model.settings.deviceLimit)") { devices } }

@@ -6,7 +6,7 @@
  *
  *   node tools/setup_stripe_store.js --site https://user.github.io/flowshield
  *
- * Creates (or reuses) the product, the one-time $4.99 price, and a Payment Link
+ * Creates (or reuses) the product, the one-time $14.99 price, and a Payment Link
  * whose confirmation page is the published success page. Then writes the price
  * id into .stripe_keys.json and the Payment Link into Website/config.js.
  *
@@ -31,7 +31,8 @@ const CONFIG_PATH = path.join(ROOT, 'Website', 'config.js');
  */
 const PRODUCT_NAME = 'FlowShield';
 const EDITION = 'one_time';
-const UNIT_AMOUNT = 499; // cents
+const UNIT_AMOUNT = 1499; // cents: the early-adopter price (#442)
+const PRICE_TEXT = `$${(UNIT_AMOUNT / 100).toFixed(2)}`;
 const CURRENCY = 'usd';
 const TAG = 'flowshield';
 
@@ -184,7 +185,7 @@ async function ensurePrice(stripe, product) {
     currency: CURRENCY,
     metadata: { app: TAG, edition: EDITION },
   });
-  ok(`price created: $4.99 one-time (${price.id})`);
+  ok(`price created: ${PRICE_TEXT} one-time (${price.id})`);
   return price;
 }
 
@@ -403,7 +404,7 @@ async function main() {
 
   console.log('\n  Store is set up.\n');
   console.log(`    product      ${product.id}`);
-  console.log(`    price        ${price.id}  ($4.99 one-time)`);
+  console.log(`    price        ${price.id}  (${PRICE_TEXT} one-time)`);
   console.log(`    payment link ${link.url}`);
   if (args.site) console.log(`    success page ${args.site}/success.html`);
   console.log('\n  Test card 4242 4242 4242 4242 · 12/34 · 123 · 90210\n');

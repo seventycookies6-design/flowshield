@@ -438,7 +438,7 @@ public class MainViewModel : ViewModelBase
         IsPro ? "Green" : IsTrial ? "Primary" : "Amber";
 
     public string TrialEndedText =>
-        "Your 7-day free trial has ended. Buy Basalt once for $4.99 to keep using it — "
+        $"Your 7-day free trial has ended. Buy Basalt once for {Pricing.Price} to keep using it — "
         + "no subscription. Already bought it? Enter your license key below.";
 
     // ---------------------------------------------------------------- toast
@@ -591,7 +591,7 @@ public class MainViewModel : ViewModelBase
         var today = DateTime.Now.Date;
         if (Settings.TrialEndingNotifiedLocal?.Date == today) return;
         if (!Notify(NotificationKind.TrialEnding, "Your free trial ends tomorrow",
-                    "Buy Basalt once for $4.99 to keep it — no subscription.",
+                    $"Buy Basalt once for {Pricing.Price} to keep it — no subscription.",
                     NotificationAction.OpenSettingsLicense)) return;
 
         Settings.TrialEndingNotifiedLocal = today;

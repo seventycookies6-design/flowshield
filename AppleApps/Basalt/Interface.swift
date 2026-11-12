@@ -126,7 +126,7 @@ struct SidebarView: View {
         Label(model.settings.isPro ? "Purchased" : model.trialDaysLeft > 0 ? "\(model.trialDaysLeft) days left on free trial" : "Trial ended", systemImage: model.settings.isPro ? "checkmark.seal" : "circle")
           .font(.caption).accessibilityIdentifier("TierBadge")
         if !model.settings.isPro && !model.isRunning {
-          Link("Buy Basalt — $4.99", destination: model.buyURL).accessibilityIdentifier("GetProNavButton")
+          Link(Pricing.buyLabel, destination: model.buyURL).accessibilityIdentifier("GetProNavButton")
         }
       }.padding()
     }

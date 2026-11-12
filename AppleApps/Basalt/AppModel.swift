@@ -382,7 +382,7 @@ final class AppModel {
     }
     if DailyGoal.settle(&settings, today: LocalDay(now)) { _ = await persist() }
     if TrialPolicy.shouldWarnTomorrow(settings, now: now, today: LocalDay(now), sprintRunning: isRunning) {
-      if notifications.send(.trialEnding, title: "Your free trial ends tomorrow", body: "Buy Basalt once for $4.99 to keep it — no subscription.", settings: settings, destination: .license) {
+      if notifications.send(.trialEnding, title: "Your free trial ends tomorrow", body: "Buy Basalt once for \(Pricing.price) to keep it — no subscription.", settings: settings, destination: .license) {
         settings.trialEndingNotifiedLocal = LocalDay(now); _ = await persist()
       }
     }
