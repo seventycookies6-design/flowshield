@@ -626,9 +626,13 @@ class TestLightThemeSwitchF21:
 class TestStoneLook:
     """
     DESIGN_SYSTEM.md §2 and §4 "Stone": the neutrals read as cool marble in
-    light and basalt charcoal in dark, the page ground carries a fine grain,
-    and one row of basalt columns stands on the hero's bottom edge. The old
-    neutrals were warm beige and brown-black, which read as paper, not rock.
+    light and basalt charcoal in dark. The old neutrals were warm beige and
+    brown-black, which read as paper, not rock.
+
+    The site's grain and its row of basalt columns (#336) were removed by the
+    November 2026 redesign (#435): Part A's Depth rule gives the site an
+    opaque base and no decorative texture. TestSiteDepth435 in test_website.py replaces
+    the two tests that pinned them.
     """
 
     ROOT = Path(DESKTOP_DIR).parent
@@ -657,24 +661,3 @@ class TestStoneLook:
             red, blue = int(value[0:2], 16), int(value[4:6], 16)
             limit = 6 if theme_name == "light" else 0
             assert red - blue <= limit, f"{theme_name} {token} #{value} leans warm, not stone"
-
-
-    def test_the_grain_is_on_the_page_ground_only(self):
-        """Text sits on solid surfaces above the grain, so contrast is unchanged."""
-        assert "var(--texture-grain)" in self._rule("body")
-        css = self._css()
-        for block in css.split("}"):
-            if "var(--texture-grain)" in block:
-                assert "--color-surface" not in block, (
-                    "the grain belongs on the page ground, never on a card or text box")
-
-    def test_basalt_columns_stand_inside_the_hero_padding(self):
-        hero = self._rule(".hero")
-        assert "position: relative" in hero
-        assert "var(--space-12)" in hero, "the columns rely on the hero's 48px bottom padding"
-        columns = self._rule(".hero::after")
-        assert "height: 40px" in columns, "taller than the 48px padding, they would reach the text"
-        assert "bottom: 0" in columns
-        assert "pointer-events: none" in columns
-        assert "background-color: var(--color-text)" in columns, "the motif follows the theme"
-        assert "mask:" in columns and "-webkit-mask:" in columns

@@ -2,6 +2,7 @@
 """Tier 5: website."""
 
 from __future__ import annotations
+import json
 import re
 import subprocess
 from html.parser import HTMLParser
@@ -365,7 +366,11 @@ class TestDesignReviewFixesB4:
         assert '<div class="mock-bar"><i>' not in site, "the window-dot markup is gone too"
         assert "var(--color-primary)" not in self._rule(".behaviors li svg")
         assert "color: var(--color-primary)" not in css[css.index(".feature-icon svg"):][:120]
-        assert "solid var(--color-primary)" not in self._rule(".hero .example")
+        # The hero's worked example went with the redesign (#435); its
+        # SmartScreen note is the hero's one callout, and it stays uncoloured.
+        note = self._rule(".smartscreen-note")
+        for status in ("--color-warn", "--color-danger", "--color-primary"):
+            assert status not in note, "an expected warning is not a status colour"
 
     def test_pricing_offers_phones_the_same_download_flow_as_the_hero(self):
         """On a phone the hero copied the download link, while pricing still
@@ -880,3 +885,186 @@ class TestSiteServerOverrideIsLocalOnly:
     def test_non_urls_are_ignored(self):
         assert self._server("localhost", "?server=javascript:alert(1)") \
             == "https://licence.example.test"
+
+
+# ============ the redesigned first screen and shield cards (#435)
+
+class TestSiteRedesign435:
+    """
+    design/redesign-2026-11 (#435): one Primary on the first screen, the
+    hero without its eyebrow and statistics row, Segoe UI Variable first,
+    and the Soft / Firm / Sealed cards as equal surfaces with rows that line
+    up and no tinted card, pill or "Shield II" tag. Each fails on the site
+    #336 left.
+    """
+
+    SITE = Path(WEBSITE_DIR) / "index.html"
+    CSS = Path(WEBSITE_DIR) / "styles.css"
+
+    def _site(self) -> str:
+        return self.SITE.read_text(encoding="utf-8")
+
+    def _section(self, opener: str) -> str:
+        site = self._site()
+        start = site.index(opener)
+        return site[start:site.index("</section>", start)]
+
+    def test_the_first_screen_has_one_primary_action(self):
+        """The nav's Buy is secondary; the hero's two Primary buttons are the
+        installer link and its phone stand-in, and CSS shows one of them."""
+        site = self._site()
+        nav = site[site.index('<header class="nav">'):site.index("</header>")]
+        assert "btn-primary" not in nav, "the nav's Buy button would be a second Primary"
+        hero = self._section('<section class="hero"')
+        primaries = re.findall(r'<(?:a|button)\b[^>]*class="[^"]*btn-primary[^"]*"[^>]*>', hero, re.S)
+        assert len(primaries) == 2
+        assert all(("data-download-direct" in tag) != ("data-download-copy" in tag) for tag in primaries)
+
+    def test_the_hero_drops_its_eyebrow_and_statistics(self):
+        hero = self._section('<section class="hero"')
+        for gone in ('class="eyebrow"', 'class="trust"', 'class="dot"', "Telemetry sent"):
+            assert gone not in hero, f"{gone} is back in the hero"
+
+    def test_segoe_ui_variable_comes_first_then_inter(self):
+        css = self.CSS.read_text(encoding="utf-8")
+        for var, cut in (("--font-sans", "Text"), ("--font-display", "Display")):
+            stack = re.search(re.escape(var) + r":\s*([^;]+);", css).group(1)
+            assert stack.startswith(f'"Segoe UI Variable {cut}"'), f"{var} must name the {cut} cut first"
+            assert stack.index('"Segoe UI"') < stack.index('"Inter"'), f"{var}: the Windows face before Inter"
+        assert "font-family: var(--font-display)" in re.search(r"^h1 \{[^}]*\}", css, re.M).group(0)
+
+    def test_the_shield_cards_are_equal_and_their_rows_line_up(self):
+        shields = self._section('<section id="shields"')
+        cards = re.findall(r'<article class="([^"]+)">(.*?)</article>', shields, re.S)
+        assert len({classes for classes, _ in cards}) == 1, "no card is styled apart from the others"
+        for _, body in cards:
+            order = [body.index(marker) for marker in
+                     ('class="level-head"', 'class="does"', 'class="good-for"', "<hr>", 'class="behaviors"')]
+            assert order == sorted(order), "every card has the same rows in the same order"
+        for gone in ("flag-pill", "level-badge", "Shield II", "flagship"):
+            assert gone not in shields, f"{gone} is back"
+        css = self.CSS.read_text(encoding="utf-8")
+        assert "grid-template-rows: subgrid" in re.search(r"^\.level \{[^}]*\}", css, re.M).group(0)
+
+    def test_the_shield_cards_stay_short(self):
+        shields = self._section('<section id="shields"')
+        for _, body in re.findall(r'<article class="([^"]+)">(.*?)</article>', shields, re.S):
+            words = len(re.sub(r"<[^>]+>", " ", body).split())
+            assert words <= 60, f"a shield card has {words} words; the redesign keeps them near 45"
+
+
+# ============ the site's depth: the app's language, in CSS (#435)
+
+class TestSiteDepth435:
+    """
+    DESIGN_SYSTEM.md Part A, Depth, "Site": an opaque base, surfaces at the
+    app's two elevations, the same raised buttons with a gradient only on the
+    Primary, and translucency only on the navigation bar, at AA over the
+    darkest thing that can scroll under it. No decorative gradients, glows,
+    grain or texture. Each test fails on the site as #336 left it (the grain
+    on body, the hero's column silhouette, no nav-glass or depth tokens).
+    """
+
+    ROOT = Path(DESKTOP_DIR).parent
+    CSS = Path(WEBSITE_DIR) / "styles.css"
+    TOKENS = ROOT / "design" / "tokens.json"
+
+    def _css(self) -> str:
+        return re.sub(r"/\*.*?\*/", "", self.CSS.read_text(encoding="utf-8"), flags=re.S)
+
+    def _rules(self) -> list[tuple[str, str]]:
+        css = re.sub(r"@media[^{]*\{", "", self._css())
+        return [(sel.strip(), body) for sel, body in re.findall(r"([^{}]+)\{([^{}]*)\}", css)]
+
+    def _data(self) -> dict:
+        return json.loads(self.TOKENS.read_text(encoding="utf-8"))
+
+    def test_the_base_is_opaque_and_untextured(self):
+        css = self._css()
+        body = next(b for s, b in self._rules() if s == "body")
+        assert re.search(r"background:\s*var\(--color-bg\);", body), "the page base is the opaque bg token"
+        for banned in ("texture-grain", "feTurbulence", ".hero::after", "mask:"):
+            assert banned not in css, f"decorative texture is back: {banned}"
+
+    def test_gradients_only_on_the_primary_button(self):
+        for selectors, body in self._rules():
+            if "gradient(" in body:
+                assert all(".btn-primary" in part for part in selectors.split(",")), (
+                    f"{selectors} has a gradient; on the site only the Primary button may")
+        assert "radial-gradient" not in self._css(), "no glows or radial atmosphere"
+
+    def test_translucency_only_on_the_navigation_bar(self):
+        for selectors, body in self._rules():
+            blur = re.search(r"backdrop-filter:\s*(?!none)", body)
+            glass = "--color-nav-glass)" in body
+            if blur or glass:
+                assert selectors == "header.nav", f"{selectors} is translucent; only the nav may be"
+
+    @pytest.mark.parametrize("theme_name", ("light", "dark"))
+    def test_the_nav_glass_keeps_its_links_at_aa_over_anything(self, theme_name):
+        """Composited over pure black (light theme) or pure white (dark), the
+        worst content that could scroll under the bar, ignoring the blur."""
+        theme = self._data()["themes"][theme_name]
+
+        def resolve(name):
+            value = theme[name]
+            if isinstance(value, str):
+                return tuple(int(value[i:i + 2], 16) for i in (1, 3, 5)) + (1.0,)
+            r, g, b, _ = resolve(value["ref"])
+            return r, g, b, float(value["alpha"])
+
+        def luminance(rgb):
+            lin = [c / 255 / 12.92 if c / 255 <= 0.03928 else ((c / 255 + 0.055) / 1.055) ** 2.4 for c in rgb]
+            return 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2]
+
+        r, g, b, a = resolve("nav-glass")
+        worst = (0, 0, 0) if theme_name == "light" else (255, 255, 255)
+        under = tuple(round(c * a + w * (1 - a)) for c, w in zip((r, g, b), worst))
+        for text in ("text", "text-muted"):
+            lighter, darker = sorted((luminance(resolve(text)[:3]), luminance(under)), reverse=True)
+            ratio = (lighter + 0.05) / (darker + 0.05)
+            assert ratio >= 4.5, f"{text} on nav-glass over the worst content: {ratio:.2f}:1"
+
+    def test_surfaces_and_buttons_use_the_shared_depth_tokens(self):
+        rules = dict(self._rules())
+        assert "var(--color-elev-1)" in rules[".surface"] and "var(--depth-e1)" in rules[".surface"]
+        raised = next(b for s, b in self._rules() if s.startswith(".surface-raised"))
+        assert "var(--color-elev-2)" in raised and "var(--depth-e2)" in raised
+        assert "var(--depth-control)" in rules[".btn"], "buttons are raised"
+        assert "var(--depth-primary)" in rules[".btn-primary"]
+
+    @pytest.mark.parametrize("theme_name", ("light", "dark"))
+    def test_one_light_from_above(self, theme_name):
+        """Highlights on top edges only; drop shadows fall straight down."""
+        for name, value in self._data()["css_only"][theme_name].items():
+            if not name.startswith("depth-"):
+                continue
+            for layer in re.split(r",\s*(?![^()]*\))", value):
+                parts = layer.split()
+                if parts[0] == "inset":
+                    continue
+                assert parts[0] == "0", f"{name}: a shadow must not fall sideways ({layer})"
+                assert not parts[1].startswith("-"), f"{name}: shadows fall down ({layer})"
+
+    def test_the_site_depth_tokens_reach_the_css_whoever_merges_first(self):
+        """
+        The app's depth tokens (#430) sit in css_skip until the site uses them.
+        css_site keeps the site's set in the CSS whether or not those tokens
+        are also app resources skipped from the CSS, so this branch and #430
+        regenerate the same styles.css in either merge order.
+        """
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("build_tokens", self.ROOT / "tools" / "build_tokens.py")
+        build = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(build)
+
+        data = self._data()
+        css = self.CSS.read_bytes().decode("utf-8").replace("\r\n", "\n")
+        for token in data["css_site"]:
+            assert f"--color-{token}:" in css, f"{token} is in css_site but not in styles.css"
+        merged = json.loads(json.dumps(data))
+        for token in data["css_site"]:
+            if token != "nav-glass":
+                merged["app_names"].setdefault(token, token.title().replace("-", ""))
+                merged["css_skip"].append(token)
+        assert build.css(merged, css) == build.css(data, css)

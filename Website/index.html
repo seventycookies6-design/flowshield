@@ -103,42 +103,41 @@
       <a class="page-link" href="support.html">Support</a>
     </nav>
     <div class="nav-actions">
-      <button class="menu-toggle" type="button" data-menu-toggle aria-label="Open menu" aria-expanded="false" aria-controls="primary-nav">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+      <button class="btn btn-icon theme-toggle" type="button" data-theme-toggle aria-label="Toggle color theme">
+        <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+          <path d="M20 13.5A7.5 7.5 0 1 1 10.5 4 6 6 0 0 0 20 13.5Z"/>
+        </svg>
+        <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+          <circle cx="12" cy="12" r="4"/><path d="M12 2v2.2M12 19.8V22M4.2 12H2M22 12h-2.2M5.6 5.6l1.6 1.6M16.8 16.8l1.6 1.6M18.4 5.6l-1.6 1.6M7.2 16.8l-1.6 1.6"/>
+        </svg>
+      </button>
+      <button class="btn btn-ghost" data-checkout>Buy — $4.99</button>
+      <button class="btn btn-icon menu-toggle" type="button" data-menu-toggle aria-label="Open menu" aria-expanded="false" aria-controls="primary-nav">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true" focusable="false">
           <path d="M4 7h16M4 12h16M4 17h16"/>
         </svg>
       </button>
-      <button class="theme-toggle" type="button" data-theme-toggle aria-label="Toggle color theme">
-        <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true" focusable="false">
-          <circle cx="12" cy="12" r="4"/><path d="M12 2v2.2M12 19.8V22M4.2 12H2M22 12h-2.2M5.6 5.6l1.6 1.6M16.8 16.8l1.6 1.6M18.4 5.6l-1.6 1.6M7.2 16.8l-1.6 1.6"/>
-        </svg>
-        <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true" focusable="false">
-          <path d="M20 13.5A7.5 7.5 0 1 1 10.5 4 6 6 0 0 0 20 13.5Z"/>
-        </svg>
-      </button>
-      <button class="btn btn-primary" data-checkout>Buy — $4.99</button>
     </div>
   </div>
 </header>
 
 <main>
 <!-- ------------------------------------------------------------------- hero -->
-<!-- Design #147 §4 / issue #173: the hero leads with the real product —
-     text and the primary CTA render first in source order, then the real
-     Today capture runs full-width below them in a surface/14/soft-shadow
-     frame (DESIGN_SYSTEM.md §10, no fake device frame). This reverses part
-     of #139, which put the day timeline beside the hero copy; the timeline
-     is now its own section directly below (#day). today.png itself will be
-     re-captured for real under #144 — not this item's job. -->
+<!-- The November 2026 redesign (design/redesign-2026-11/site-home-*.png):
+     copy on the left, the real Today capture on the right at a legible size,
+     running off the edge. In the source the copy and the SmartScreen note
+     come before the capture, so the call to action and the caveat render
+     before any media; on a phone the capture moves up under the buttons
+     with CSS, and the note follows it. today.png itself is re-captured from
+     the redesigned app under #144. -->
 <section class="hero">
   <div class="wrap">
     <div class="hero-copy">
-      <span class="eyebrow"><i class="dot" aria-hidden="true"></i> Windows · 7-day free trial</span>
+      <p class="kicker">For Windows 10 and 11.</p>
       <h1>Guard the hours<br>that matter.</h1>
       <p class="lede">
-        Basalt is a Windows focus timer that puts distractions behind a shield
-        you choose — Soft, Firm, or Sealed — and logs every finished sprint into
-        momentum you can see at the end of the day.
+        A focus timer that puts distracting apps behind a shield you choose:
+        <b>Soft</b>, <b>Firm</b> or <b>Sealed</b>.
       </p>
       <!-- CTA labels name the outcome rather than the intention. NN/g,
            "Get Started" Stops Users (Harley & Flaherty, 20 Aug 2017): a
@@ -147,6 +146,7 @@
       <div class="hero-cta">
         <a class="btn btn-primary btn-lg" data-download-guide data-download-direct
            href="https://github.com/seventycookies6-design/flowshield/releases/latest/download/FlowShield-win-Setup.exe">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 17V3"/><path d="m6 11 6 6 6-6"/><path d="M19 21H5"/></svg>
           Download for Windows
         </a>
         <button class="btn btn-primary btn-lg" type="button" data-download-copy>
@@ -160,28 +160,29 @@
              copy button instead. Without a reason beside it, the swap reads as
              a missing download rather than a deliberate one. -->
         <span class="phone-only">Basalt runs on Windows, so there is nothing
-        to install on a phone — copy the link and open it on your PC.<br></span>
-        7 days free, then $4.99 once · Windows 10 &amp; 11 · No account, no card ·
-        <a href="legal.html">Terms &amp; privacy</a>
+        to install on a phone. Copy the link and open it on your PC.<br></span>
+        7 days free, then $4.99 once. No account, no card.
+        <a href="legal.html">Terms and privacy</a>
       </p>
-      <!-- The SmartScreen warning is the biggest install drop-off there is
-           (SELLING.md), and it is now said before the click, not only inside
-           the download dialog. Microsoft's own advice for an unsigned build:
-           "let beta users know they may see a SmartScreen prompt on first
-           download" — learn.microsoft.com/windows/apps/package-and-deploy/
-           smartscreen-reputation, updated 17 Aug 2026. Delete this note the
-           day F25 signs the installer. -->
-      <p class="smartscreen-note" data-smartscreen-note>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
-             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
-          <path d="M12 3 4.5 6v5.5c0 4.7 3.2 8.3 7.5 9.5 4.3-1.2 7.5-4.8 7.5-9.5V6Z"/>
-          <path d="M12 8.5v4"/><path d="M12 16h.01"/>
-        </svg>
-        <span><strong>Windows warns the first time.</strong> The build isn&rsquo;t
-        code-signed yet, so you will see &ldquo;Windows protected your PC&rdquo;:
-        choose <b>More info</b>, then <b>Run anyway</b>.
-        <a href="#faq">Why, and what the installer does</a>.</span>
-      </p>
+    </div>
+
+    <!-- The SmartScreen warning is the biggest install drop-off there is
+         (SELLING.md), and it is now said before the click, not only inside
+         the download dialog. Microsoft's own advice for an unsigned build:
+         "let beta users know they may see a SmartScreen prompt on first
+         download" — learn.microsoft.com/windows/apps/package-and-deploy/
+         smartscreen-reputation, updated 17 Aug 2026. Delete this note the
+         day F25 signs the installer. -->
+    <div class="surface-raised smartscreen-note" data-smartscreen-note>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"
+           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+        <path d="M12 3 4.5 6v5.5c0 4.7 3.2 8.3 7.5 9.5 4.3-1.2 7.5-4.8 7.5-9.5V6Z"/>
+        <path d="M12 8.5v4"/><path d="M12 16h.01"/>
+      </svg>
+      <p><strong>Windows warns the first time.</strong> The build isn&rsquo;t
+      code-signed yet, so you will see &ldquo;Windows protected your PC&rdquo;:
+      choose <b>More info</b>, then <b>Run anyway</b>.</p>
+      <a href="#faq">Why, and what the installer does</a>
     </div>
 
     <!-- The real Today screen — not a mock-up. Same frame recipe (.shot) as
@@ -191,25 +192,71 @@
            alt="The Today screen in the Basalt app: a 45-minute sprint ready to start
                 at the Firm shield, momentum at 192 points with an eight-day streak and a
                 rising 30-day chart, and one sprint already finished today.">
-      <figcaption>Today. The timer, the shield you chose, and momentum that compounds
-      rather than resetting. <span class="tag">Real build · sample data</span></figcaption>
+      <figcaption>Today: the timer, the shield you chose, and momentum that compounds
+      rather than resetting. Real build, sample data.</figcaption>
     </figure>
+  </div>
+</section>
 
-    <!-- Below the capture, not above it: the hero copy stays short so the
-         product rises into the first screen (Linear's pattern, #147 §4). The
-         worked example and the numbers support the product; they don't
-         get to push it below the fold. -->
-    <div class="hero-after">
-      <p class="example">
-        Turn your 5–7&nbsp;PM into a protected homework block: Discord, Steam, and
-        Minecraft stay on the blocklist until the sprint ends, and the session is
-        saved with your one-line “what moved?” note.
-      </p>
-      <div class="trust">
-        <div><b>3</b><span>Shield levels</span></div>
-        <div><b>$4.99</b><span>Once, not monthly</span></div>
-        <div><b>0</b><span>Telemetry sent</span></div>
-      </div>
+<!-- ---------------------------------------------------------- shield levels -->
+<!-- design/redesign-2026-11/site-strengths-desktop-light.png: three equal
+     cards whose rows line up (name, what it does, what it's good for, three
+     checks). Every line is true of the shipped build: the Soft notice and
+     its buttons (Views/SoftOverlayWindow.xaml), Firm's warning
+     then close (Models/GracefulClose.cs), Hard kill (instant, at any
+     shield), and Sealed's locked list. -->
+<section id="shields">
+  <div class="wrap">
+    <div class="section-head">
+      <h2>Three levels of resistance</h2>
+      <p>Pick how hard it should be to quit today, from a quiet notice to a locked blocklist.</p>
+    </div>
+
+    <div class="levels">
+      <article class="surface level">
+        <div class="level-head">
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#shield-soft-glyph"></use></svg>
+          <h3>Soft</h3>
+        </div>
+        <p class="does">Shows a notice and leaves the app open unless you choose Close.</p>
+        <p class="good-for">For lighter stretches, between classes or when a group project needs Discord open.</p>
+        <hr>
+        <ul class="behaviors">
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 6 9 17l-5-5"/></svg><span>A full-screen notice with Close, Back to work and Allow 5 minutes</span></li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 6 9 17l-5-5"/></svg><span>Basalt notes the blocked app when it appears</span></li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 6 9 17l-5-5"/></svg><span>Hard kill mode closes it at once instead</span></li>
+        </ul>
+      </article>
+
+      <article class="surface level">
+        <div class="level-head">
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#shield-firm-glyph"></use></svg>
+          <h3>Firm</h3>
+        </div>
+        <p class="does">Warns, then closes: a blocked app gets a few seconds to save first.</p>
+        <p class="good-for">For homework, when Minecraft and Discord are one click away.</p>
+        <hr>
+        <ul class="behaviors">
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 6 9 17l-5-5"/></svg><span>Blocked apps stay closed for the rest of the sprint</span></li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 6 9 17l-5-5"/></svg><span>You can still edit the blocklist mid-sprint</span></li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 6 9 17l-5-5"/></svg><span>Hard kill mode skips the warning</span></li>
+        </ul>
+      </article>
+
+      <article class="surface level">
+        <div class="level-head">
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#shield-sealed-glyph"></use></svg>
+          <h3>Sealed</h3>
+        </div>
+        <p class="does">Closes blocked apps, and the blocklist locks until the sprint ends.</p>
+        <p class="good-for">For the late-night review, when &ldquo;just checking&rdquo; Steam turns into an hour.</p>
+        <hr>
+        <ul class="behaviors">
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 6 9 17l-5-5"/></svg><span>Warns, then closes, like Firm</span></li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 6 9 17l-5-5"/></svg><span>You can&rsquo;t add or remove blocked apps mid-sprint</span></li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 6 9 17l-5-5"/></svg><span>Ending the sprint early unlocks the list</span></li>
+        </ul>
+      </article>
     </div>
   </div>
 </section>
@@ -221,57 +268,39 @@
 <section id="day">
   <div class="wrap">
     <div class="section-head">
-      <p class="label">A sample day</p>
       <h2>Three shields, one schedule</h2>
-      <p>Pick how hard the shield pushes back for each sprint — the same day can
+      <p>Pick how hard the shield pushes back for each sprint. The same day can
       carry Soft, Firm and Sealed at different hours.</p>
     </div>
 
     <div class="day-layout">
-      <div class="surface day-mock">
-        <div class="mock-bar"><span>Today · sample day</span></div>
-
-        <div class="timeline">
-          <div class="tl-block">
-            <div class="tl-time">8–3</div>
-            <div class="tl-card">
-              <div class="tl-label"><strong>Classes</strong><span>Soft</span></div>
-              <p>Light shield — apps stay open; Basalt notes the distraction.</p>
-            </div>
-          </div>
-          <div class="tl-block">
-            <div class="tl-time">5–7</div>
-            <div class="tl-card flagship">
-              <div class="tl-label"><strong>Homework block</strong><span>Firm</span></div>
-              <p>Blocked launchers get a warning, then close, for the length of the sprint.</p>
-            </div>
-          </div>
-          <div class="tl-block">
-            <div class="tl-time">9–10</div>
-            <div class="tl-card">
-              <div class="tl-label"><strong>Deep work</strong><span>Sealed</span></div>
-              <p>Apps close and the blocklist locks until the sprint ends.</p>
-            </div>
-          </div>
-          <div class="tl-block">
-            <div class="tl-time">10+</div>
-            <div class="tl-card">
-              <div class="tl-label"><strong>Gaming window</strong><span>Off</span></div>
-              <p>Shield down — Steam and Discord open when you choose, until any sleep window you set.</p>
-            </div>
+      <div class="timeline">
+        <div class="tl-block">
+          <div class="tl-time">8–3</div>
+          <div class="surface tl-card">
+            <div class="tl-label"><strong>Classes</strong><span><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#shield-soft-glyph"></use></svg>Soft</span></div>
+            <p>Light shield — apps stay open; Basalt notes the distraction.</p>
           </div>
         </div>
-
-        <div class="mock-foot">
-          <div>
-            <span class="cap">Momentum</span>
-            <b>48 <small>pts</small></b>
-            <em>Streak: 3 days</em>
+        <div class="tl-block">
+          <div class="tl-time">5–7</div>
+          <div class="surface tl-card">
+            <div class="tl-label"><strong>Homework block</strong><span><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#shield-firm-glyph"></use></svg>Firm</span></div>
+            <p>Blocked launchers get a warning, then close, for the length of the sprint.</p>
           </div>
-          <div>
-            <span class="cap">Today</span>
-            <b>50 min</b>
-            <em>2 sprints · 6 blocks</em>
+        </div>
+        <div class="tl-block">
+          <div class="tl-time">9–10</div>
+          <div class="surface tl-card">
+            <div class="tl-label"><strong>Deep work</strong><span><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#shield-sealed-glyph"></use></svg>Sealed</span></div>
+            <p>Apps close and the blocklist locks until the sprint ends.</p>
+          </div>
+        </div>
+        <div class="tl-block">
+          <div class="tl-time">10+</div>
+          <div class="surface tl-card">
+            <div class="tl-label"><strong>Gaming window</strong><span>Off</span></div>
+            <p>Shield down — Steam and Discord open when you choose, until any sleep window you set.</p>
           </div>
         </div>
       </div>
@@ -302,75 +331,10 @@
   </div>
 </section>
 
-<!-- ---------------------------------------------------------- shield levels -->
-<section id="shields" class="band">
-  <div class="wrap">
-    <div class="shields-intro">
-      <div>
-        <p class="label">What does a Shield do?</p>
-        <h2>Three levels of resistance</h2>
-        <p>Pick how hard it should be to quit today — from a quiet notice to a locked blocklist.</p>
-      </div>
-    </div>
-
-    <div class="levels">
-      <article class="surface level l1">
-        <div class="level-head"><span class="level-badge">Shield I</span></div>
-        <div class="shield-glyph"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#shield-soft-glyph"></use></svg></div>
-        <h3>Soft</h3>
-        <p class="scenario">
-          For lighter stretches — between classes, or when you need Discord open for
-          a group project but still want a nudge when a blocked game launches.
-        </p>
-        <ul class="behaviors">
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 6 9 17l-5-5"/></svg><span><strong>Records the hit</strong> — Basalt notes the blocked app when it appears.</span></li>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 6 9 17l-5-5"/></svg><span><strong>Shows a full-screen notice</strong> — on the blocked app’s own screen, with Close, Back to work and Allow 5 minutes; the app itself is never closed unless you choose Close.</span></li>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 6 9 17l-5-5"/></svg><span><strong>Low friction</strong> — use Soft when a full close would be too harsh for the moment.</span></li>
-        </ul>
-      </article>
-
-      <article class="surface level flagship l2">
-        <div class="level-head">
-          <span class="level-badge">Shield II</span>
-          <span class="flag-pill">Homework block</span>
-        </div>
-        <div class="shield-glyph"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#shield-firm-glyph"></use></svg></div>
-        <h3>Firm</h3>
-        <p class="scenario">
-          After school, when Minecraft and Discord are one click away: Firm gives a
-          blocked app a few seconds’ warning to save, then closes it and keeps it
-          closed for the rest of the sprint, while you can still edit the blocklist.
-        </p>
-        <ul class="behaviors">
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 6 9 17l-5-5"/></svg><span><strong>Warns, then closes</strong> — a notice names the app, it is asked to close itself so it can offer to save, and it is closed if it is still open a few seconds later. Hard kill mode skips the warning.</span></li>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 6 9 17l-5-5"/></svg><span><strong>Holds the line</strong> — blocked apps stay closed for the rest of the sprint.</span></li>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 6 9 17l-5-5"/></svg><span><strong>Still editable</strong> — adjust the blocklist mid-sprint if a study tool got caught.</span></li>
-        </ul>
-      </article>
-
-      <article class="surface level l3">
-        <div class="level-head"><span class="level-badge">Shield III</span></div>
-        <div class="shield-glyph"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#shield-sealed-glyph"></use></svg></div>
-        <h3>Sealed</h3>
-        <p class="scenario">
-          For the late-night review, when “just checking” Steam turns into an hour:
-          blocked apps are warned and closed, and the blocklist locks until the sprint ends.
-        </p>
-        <ul class="behaviors">
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 6 9 17l-5-5"/></svg><span><strong>Closes like Firm</strong> — the same warning, then the same close, for everything on the list.</span></li>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 6 9 17l-5-5"/></svg><span><strong>Locks the list</strong> — you cannot add or remove blocked apps mid-sprint.</span></li>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 6 9 17l-5-5"/></svg><span><strong>Ends with the sprint</strong> — ending early unlocks the list again.</span></li>
-        </ul>
-      </article>
-    </div>
-  </div>
-</section>
-
 <!-- ------------------------------------------------------- the real app -->
 <section id="see-it">
   <div class="wrap">
     <div class="section-head">
-      <p class="label">The real thing</p>
       <h2>This is the app, not a mock-up</h2>
       <p>Captures of the build you download, with sample data in it. No stock photos and
       no screens we haven&rsquo;t built.</p>
@@ -417,7 +381,6 @@
   <div class="wrap">
     <div>
       <div class="section-head">
-        <p class="label">Built in</p>
         <h2>Built for people who already know what to do</h2>
       </div>
       <div class="feature-stack">
@@ -477,8 +440,7 @@
         <p class="copy-confirm" data-copy-confirm role="status" aria-live="polite"></p>
       </div>
 
-      <div class="surface plan featured">
-        <span class="plan-badge">One-time purchase</span>
+      <div class="surface-raised plan">
         <h3>Basalt</h3>
         <div class="price"><b>$4.99</b><span>once</span></div>
         <p class="price-note">The price you see is the price you pay. No subscription, no renewals.</p>
@@ -502,8 +464,8 @@
              in legal.html, no account anywhere in the app, no telemetry —
              not a testimonial, a badge or a number we invented. -->
         <p class="buy-reassure" data-buy-reassure>
-          <a href="legal.html#refunds">14-day refund</a>, no reason needed ·
-          No account to create · Nothing about your sprints leaves your PC
+          <a href="legal.html#refunds">14-day refund</a>, no reason needed.
+          No account to create. Nothing about your sprints leaves your PC.
         </p>
       </div>
     </div>
@@ -513,15 +475,28 @@
 <section id="privacy">
   <div class="wrap">
     <div class="section-head">
-      <p class="label">No account. No cloud. No tracking.</p>
       <h2>Your data stays on your PC</h2>
-      <p>Your sessions, journal, blocklist and momentum score are stored locally and encrypted with Windows DPAPI under your Windows account. A license check sends your license key, the email you used at checkout, a salted device identifier, and your device name to confirm your purchase. When automatic update checks are on, Basalt asks GitHub (the release host) once a day whether a newer version exists. GitHub sees the request's IP address like any web request. Nothing about you, your blocklist or your sprints is sent. Automatic update checks can be turned off in Settings. <a href="legal.html#privacy">Read the privacy policy</a>.</p>
     </div>
+    <ul class="surface privacy-rows">
+      <li>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+        <p>Your sessions, journal, blocklist and momentum score are stored locally and encrypted with Windows DPAPI under your Windows account.</p>
+      </li>
+      <li>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m15.5 7.5 2.3 2.3a1 1 0 0 0 1.4 0l2.1-2.1a1 1 0 0 0 0-1.4L19 4"/><path d="m21 2-9.6 9.6"/><circle cx="7.5" cy="15.5" r="5.5"/></svg>
+        <p>A license check sends your license key, the email you used at checkout, a salted device identifier, and your device name to confirm your purchase.</p>
+      </li>
+      <li>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+        <p>When automatic update checks are on, Basalt asks GitHub (the release host) once a day whether a newer version exists. GitHub sees the request's IP address like any web request. Nothing about you, your blocklist or your sprints is sent. Automatic update checks can be turned off in Settings.</p>
+      </li>
+    </ul>
+    <p class="section-link"><a href="legal.html#privacy">Read the privacy policy</a></p>
   </div>
 </section>
 
 <!-- ------------------------------------------------------------------- faq -->
-<section id="faq" class="band">
+<section id="faq">
   <div class="wrap">
     <div class="section-head">
       <h2>Straight answers</h2>
@@ -633,10 +608,10 @@
 <!-- ------------------------------------------------------- download guide -->
 <dialog class="download-panel" id="download-panel" aria-labelledby="download-panel-title">
   <div class="download-panel-card">
-    <button class="download-panel-close" type="button" data-download-close aria-label="Close download guide">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    <button class="btn btn-icon download-panel-close" type="button" data-download-close aria-label="Close download guide">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6L6 18"/></svg>
     </button>
-    <p class="label">What happens next</p>
+    <p class="kicker">What happens next</p>
     <h2 id="download-panel-title">After you click Download</h2>
     <ol class="download-steps">
       <li>

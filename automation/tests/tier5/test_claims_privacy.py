@@ -973,6 +973,22 @@ class TestTheSiteDescribesTheCloseTheAppDoes:
             "the page must not imply every user gets a warning — Hard kill gives none"
         )
 
+    def test_the_soft_card_says_hard_kill_closes_instead(self):
+        """
+        Hard kill mode closes a blocked app at once at every shield, Soft
+        included (`terminate = shield >= ShieldLevel.Firm || hardKill`). The
+        Soft card used to say only that the app is never closed unless you
+        choose Close (#435).
+        """
+        blocker = (Path(DESKTOP_DIR) / "Services" / "AppBlockerService.cs").read_text(encoding="utf-8")
+        if "shield >= ShieldLevel.Firm || hardKill" not in blocker:
+            pytest.skip("Hard kill no longer applies to Soft; reword the Soft card")
+        index = (Path(WEBSITE_DIR) / "index.html").read_text(encoding="utf-8")
+        shields = index.split('<section id="shields">', 1)[1].split("</section>", 1)[0]
+        soft = shields.split("</article>", 1)[0]
+        flat = " ".join(re.sub(r"<[^>]+>", " ", soft).split())
+        assert "Soft" in flat and "Hard kill mode closes it at once" in flat
+
 
 class TestFontAndSiteIconNoticesShip:
     """
