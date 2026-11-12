@@ -612,7 +612,7 @@ class TestLightThemeSwitchF21:
 
     def test_settings_offers_the_three_choices_with_ids(self):
         xaml = self.read("Views", "SettingsView.xaml")
-        assert "APPEARANCE" in xaml
+        assert 'Text="Appearance"' in xaml  # sentence case since #434
         for automation_id, name in (("ThemeSystemRadio", "System theme"),
                                     ("ThemeDarkRadio", "Dark theme"),
                                     ("ThemeLightRadio", "Light theme")):

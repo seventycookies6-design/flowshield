@@ -32,7 +32,8 @@ public class HistoryRow
         var started = session.StartedUtc.ToLocalTime();
         Shield = session.Shield;
 
-        WhenText = $"{started:ddd d MMM} · {started:HH:mm}";
+        // A comma, not a middle dot, between the two facts (#434).
+        WhenText = $"{started:ddd d MMM}, {started:HH:mm}";
 
         // Planned as well as actual, so "25 min planned, 12 min run" is visible
         // rather than looking like a sprint that was always meant to be short.
@@ -50,8 +51,10 @@ public class HistoryRow
             ? "" : $"Planned: {session.Intention.Trim()}";
         JournalText = (session.Journal ?? "").Trim();
 
-        AccessibleName =
-            $"{WhenText}, {LengthText}, {ShieldText}, {OutcomeText}";
+        // The row's second line (#434): "12 of 25 min at Firm, ended early".
+        SummaryText = $"{LengthText} at {ShieldText}, {OutcomeText}";
+
+        AccessibleName = $"{WhenText}, {SummaryText}";
     }
 
     public ShieldLevel Shield { get; }
@@ -59,6 +62,7 @@ public class HistoryRow
     public string LengthText { get; }
     public string ShieldText { get; }
     public string OutcomeText { get; }
+    public string SummaryText { get; }
     public string IntentionText { get; }
     public string JournalText { get; }
     public string AccessibleName { get; }
@@ -121,10 +125,11 @@ public class HistoryViewModel : ViewModelBase
     // here. Still folded by default, so the page leads with the figures.
 
     private bool _explainerVisible;
+    /// <summary>Two-way since #434: the disclosure that shows the rule binds its IsChecked here.</summary>
     public bool ExplainerVisible
     {
         get => _explainerVisible;
-        private set
+        set
         {
             if (!Set(ref _explainerVisible, value)) return;
             Raise(nameof(ExplainerToggleText));
@@ -195,11 +200,33 @@ public class HistoryViewModel : ViewModelBase
     /// page that is not derived from the week's sprints, and a stat card that
     /// quietly mixed scopes would be a small lie.
     /// </summary>
-    public string MostBlockedNoteText => MostBlockedText.Length == 0
-        ? "Nothing has needed blocking yet."
-        : "All the time you have been blocking, not just this week.";
+    /// <remarks>
+    /// #434: the round-one audit found "Distractions caught 2" beside "Nothing
+    /// has needed blocking yet", because the week's count and the per-app
+    /// count are kept separately. "Nothing has needed blocking yet" is now
+    /// said only when both are zero; with blocks this week but no app named
+    /// yet, the line is empty and so hidden.
+    /// </remarks>
+    public string MostBlockedNoteText => MostBlockedText.Length > 0
+        ? "Across all your sprints, not just this week."
+        : _weekBlocks == 0 ? "Nothing has needed blocking yet." : "";
+
+    private int _weekBlocks;
+
+    // ------------------------------------------------------ momentum (#434)
+
+    private string _momentumText = "0";
+    /// <summary>The momentum score, as Today shows it.</summary>
+    public string MomentumText { get => _momentumText; private set => Set(ref _momentumText, value); }
+
+    private string _momentumWeekText = "";
+    /// <summary>"Up 12 this week": momentum's trend over the week (HistoryStats.MomentumWeekText).</summary>
+    public string MomentumWeekText { get => _momentumWeekText; private set => Set(ref _momentumWeekText, value); }
 
     // --------------------------------------------------------------- heatmap
+
+    /// <summary>The heatmap's seven column headings, the weekday under each (#434).</summary>
+    public ObservableCollection<string> HeatmapWeekdays { get; } = new();
 
     public ObservableCollection<HeatCell> Heatmap { get; } = new();
 
@@ -261,6 +288,7 @@ public class HistoryViewModel : ViewModelBase
         WeekFocusText = (week.FocusMinutes / 60).ToString("0.0");
         WeekSprintsText = week.SprintsCompleted.ToString("0");
         WeekDistractionsText = week.Distractions.ToString("0");
+        _weekBlocks = week.Distractions;
         WeekTurnedBackText = HistoryStats.TurnedBackText(week.TurnedBack);
         // Every profile, not only the active one: "all the time you have been
         // blocking" would otherwise change its answer when a profile is
@@ -268,9 +296,14 @@ public class HistoryViewModel : ViewModelBase
         MostBlockedText = HistoryStats.MostBlocked(S.Profiles.SelectMany(p => p.Apps));
         Raise(nameof(MostBlockedNoteText));
 
+        MomentumText = S.MomentumScore.ToString("0");
+        MomentumWeekText = HistoryStats.MomentumWeekText(HistoryStats.MomentumChangeThisWeek(S, now));
+
         var cells = HistoryStats.Heatmap(S.Sessions, now);
         Heatmap.Clear();
         foreach (var cell in cells) Heatmap.Add(new HeatCell(cell));
+        HeatmapWeekdays.Clear();
+        foreach (var label in HistoryStats.WeekdayLabels(cells)) HeatmapWeekdays.Add(label);
 
         var peak = cells.Count == 0 ? 0 : cells.Max(c => c.Minutes);
         HeatmapRangeText = cells.Count == 0

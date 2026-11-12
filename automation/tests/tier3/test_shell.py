@@ -29,7 +29,8 @@ class TestAppShell:
 
     def test_a_clean_install_starts_the_seven_day_trial(self, app):
         app.navigate_to_tab("Settings")
-        assert "free trial — 7 days left" in app.get_license_status_text().lower()
+        # #434: a comma, not a dash, since the license card states the trial once.
+        assert "free trial, 7 days left" in app.get_license_status_text().lower()
         assert app.tier_badge().upper() == "TRIAL · 7 DAYS LEFT"
         # The panel is a Border, which UI Automation can't see; its button can be.
         assert not app.exists("LockBuyButton", timeout=1.5), "a new install is locked"

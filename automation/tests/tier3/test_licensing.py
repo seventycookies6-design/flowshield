@@ -70,6 +70,30 @@ class TestTrialEnded:
         assert expired_app.app_log_contains("opening upgrade page")
 
 
+# ================================================ one Buy per screen (#434)
+
+class TestOneBuyPerScreen:
+    """
+    The round-one audit found two Buy buttons on one screen (the rail's and
+    the license card's). Where a page has its own Buy, the rail's steps aside.
+    """
+
+    def test_settings_has_its_own_buy_and_the_rail_steps_aside(self, fresh_app):
+        fresh_app.navigate_to_tab("Today")
+        assert fresh_app.exists("GetProNavButton", timeout=3), "a trial shows Buy in the rail"
+        fresh_app.navigate_to_tab("Settings")
+        assert fresh_app.exists("GetProButton", timeout=3), "the license card has the Buy"
+        assert not fresh_app.exists("GetProNavButton", timeout=1.5), "and the rail's has stepped aside"
+        fresh_app.navigate_to_tab("History")
+        assert fresh_app.exists("GetProNavButton", timeout=3), "it is back on the other pages"
+
+    def test_the_lock_screen_has_the_only_buy_and_says_records_are_kept(self, expired_app):
+        assert expired_app.exists("LockBuyButton", timeout=5)
+        assert not expired_app.exists("GetProNavButton", timeout=1.5)
+        assert "stay on this PC" in expired_app.text_of("TrialEndedRecordsText")
+        assert "14 days" in expired_app.text_of("TrialEndedText")
+
+
 # ========================= a trial that expires mid-sprint (F20, #9) ========
 
 class TestTrialExpiringDuringASprint:

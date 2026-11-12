@@ -156,8 +156,14 @@ public class MainViewModel : ViewModelBase
     /// The rail's Buy button: not bought, and no sprint running (#431). A
     /// sprint's screen is the time left and the shield (Part A, "One thing
     /// matters at a time"), so Buy steps out of the way until it ends.
+    /// It also steps aside where the page has its own Buy (#434): Settings'
+    /// license card and the lock screen. The round-one audit found two Buy
+    /// buttons on one screen; each screen now has one.
     /// </summary>
-    public bool BuyVisible => IsNotPro && !Today.IsRunning;
+    public bool BuyVisible => IsNotPro && !Today.IsRunning && !PageHasItsOwnBuy;
+
+    /// <summary>Settings' license card or the lock screen is showing, each with its own Buy (#434).</summary>
+    private bool PageHasItsOwnBuy => IsSettingsPage || ShowLockScreen;
 
     /// <summary>Every feature is usable: bought, or inside the free trial.</summary>
     public bool HasAccess => Settings.HasAccessAt(DateTime.UtcNow);
@@ -175,7 +181,11 @@ public class MainViewModel : ViewModelBase
     public bool ShowLockScreen => IsLocked && !IsFocusInProgress && !Today.JournalPromptVisible;
 
     /// <summary>Re-evaluates the lock overlay when focus or its summary prompt starts or ends.</summary>
-    public void RefreshLockScreen() => Raise(nameof(ShowLockScreen));
+    public void RefreshLockScreen()
+    {
+        Raise(nameof(ShowLockScreen));
+        Raise(nameof(BuyVisible));
+    }
 
     public bool IsTrial => !IsPro && HasAccess;
 
@@ -393,6 +403,7 @@ public class MainViewModel : ViewModelBase
             Raise(nameof(IsHistoryPage));
             Raise(nameof(IsPlansPage));
             Raise(nameof(IsSettingsPage));
+            Raise(nameof(BuyVisible));
             Raise(nameof(CurrentPageTitle));
             Raise(nameof(CurrentPageSubtitle));
             Raise(nameof(CurrentPageSubtitleVisible));
@@ -453,14 +464,15 @@ public class MainViewModel : ViewModelBase
     public string CurrentPageSubtitle => CurrentPage switch
     {
         AppPage.Today => "",
-        AppPage.History => "Your week, and every sprint you have run.",
+        AppPage.History => "",
         AppPage.Plans => "",
-        _ => "License, startup and enforcement preferences.",
+        _ => "",
     };
 
     /// <summary>
-    /// Today has no subtitle since #431, and Plans none since #433: each
-    /// section of Plans says what it is for in its own header.
+    /// Today has no subtitle since #431, Plans none since #433, and History
+    /// and Settings none since #434: each page's sections say what they are
+    /// for in their own headers. Kept, empty, so a page can have one again.
     /// </summary>
     public bool CurrentPageSubtitleVisible => CurrentPageSubtitle.Length > 0;
 
@@ -477,9 +489,27 @@ public class MainViewModel : ViewModelBase
     public string TierBadgeDotKey =>
         IsPro ? "Green" : IsTrial ? "Primary" : "Amber";
 
+    /// <summary>
+    /// The lock screen's paragraph (#434). The round-one audit found "Buy
+    /// Basalt once for $4.99 to keep using it" twice and "Already bought it?"
+    /// twice on that screen, and nothing about records or the refund. Each is
+    /// said once now: the price, that it is one purchase, and the 14-day
+    /// refund here (legal.html, Refund Policy: "email us within 14 days of
+    /// your purchase and we will refund it in full"); "Already bought it?"
+    /// only as the key field's label; the headline says the trial ended.
+    /// </summary>
     public string TrialEndedText =>
-        "Your 7-day free trial has ended. Buy Basalt once for $4.99 to keep using it — "
-        + "no subscription. Already bought it? Enter your license key below.";
+        "Buy Basalt once for $4.99 to keep using it. It is a one-time purchase, not a "
+        + "subscription, and if it isn't what you wanted you can ask for a full refund "
+        + "within 14 days.";
+
+    /// <summary>
+    /// True because nothing is deleted when the trial ends: only Settings →
+    /// Delete everything removes them (DataPrivacyService), and legal.html's
+    /// "What stays on your computer" says they are stored locally.
+    /// </summary>
+    public string TrialEndedRecordsText =>
+        "Nothing is deleted. Your sprints, journal and blocklists stay on this PC.";
 
     // ---------------------------------------------------------------- toast
 

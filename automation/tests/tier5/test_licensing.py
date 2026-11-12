@@ -140,7 +140,7 @@ class TestHonestWaitingNeverClaimsInvalidKey:
         )
         # The rejection headline must stay reachable, but only from the
         # non-transport branch.
-        not_activated_index = activate.index('"❌ Not activated"')
+        not_activated_index = activate.index('"Not activated"')  # no emoji in product copy since #434
         transport_index = activate.index("IsTransportFailure")
         assert transport_index < not_activated_index, (
             "the transport-failure branch must be checked before falling "

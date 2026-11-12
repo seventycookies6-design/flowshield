@@ -1703,7 +1703,9 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="ListBoxItem">
-                    <Border x:Name="Cell" Width="28" Height="28" Margin="0,0,4,4"
+                    <!-- 24 px since #434, so History's summary fits three parts
+                         abreast on a laptop-sized window. -->
+                    <Border x:Name="Cell" Width="24" Height="24" Margin="0,0,4,4"
                             CornerRadius="{StaticResource RadiusChip}"
                             BorderThickness="1"
                             BorderBrush="{DynamicResource Edge}"
