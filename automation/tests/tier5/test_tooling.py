@@ -291,10 +291,14 @@ class TestTheUiSuiteCanObserveWhatItAsserts:
         assert "TimeSpan.FromMilliseconds(1500)" in lock, "the customer's lock is 1.5 s"
 
         tier3 = read_test_package(self.TIER3)
-        body = tier3.split("def test_every_button_ignores_input_during_the_lock(", 1)
-        assert len(body) == 2, "the tier 3 test that clicks inside the lock was not found"
-        assert '"--long-notice-lock"' in body[1].split("\n    def ", 1)[0], (
-            "the test that clicks inside the lock must launch with --long-notice-lock")
+        head = re.search(r"def test_every_button_ignores_input_during_the_lock\(self, (\w+)\)", tier3)
+        assert head, "the tier 3 test that clicks inside the lock was not found"
+        assert head.group(1) == "long_lock_app", (
+            "the test that clicks inside the lock must run on the long_lock_app fixture")
+        fixture = tier3.split("def long_lock_app(", 1)
+        assert len(fixture) == 2, "the long_lock_app fixture was not found in tier 3"
+        assert 'extra_args=["--long-notice-lock"]' in fixture[1].split("yield", 1)[0], (
+            "long_lock_app must launch with --long-notice-lock")
         controller = self.CONTROLLER.read_text(encoding="utf-8")
         assert "--long-notice-lock" not in controller.split("def launch_app", 1)[1].split("\n    def ", 1)[0] \
             .split('"""', 2)[2], "the long lock must never be on for the whole suite"

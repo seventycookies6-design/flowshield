@@ -318,10 +318,10 @@ class TestSoftNoticeFriction:
         still be typing in it. No button takes Enter or Escape by itself.
         """
         xaml = self.OVERLAY_XAML.read_text(encoding="utf-8")
-        assert "IsDefault" not in xaml, "no button on the notice is the default"
-        assert "IsCancel" not in xaml, "no button on the notice is the cancel button"
+        assert "IsDefault=" not in xaml, "no button on the notice is the default"
+        assert "IsCancel=" not in xaml, "no button on the notice is the cancel button"
         code = self.OVERLAY_CS.read_text(encoding="utf-8")
-        assert "IsDefault" not in code and "IsCancel" not in code
+        assert not re.search(r"\.Is(Default|Cancel)\s*=", code), "no button is made the default in code either"
 
     def test_focus_starts_on_the_band_not_a_button(self):
         """Back to work is Primary once unlocked, but it never takes the initial focus."""

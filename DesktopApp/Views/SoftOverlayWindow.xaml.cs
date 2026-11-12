@@ -111,9 +111,10 @@ public partial class SoftOverlayWindow : Window
             // While a button ignores input, a press never reaches it: no pressed
             // look and no click. A press that began during the lock and ends
             // after it is not a click either.
-            button.PreviewMouseLeftButtonDown += (_, e) =>
+            var pressed = button;
+            pressed.PreviewMouseLeftButtonDown += (_, e) =>
             {
-                if (!Accepts((Button)e.Source)) e.Handled = true;
+                if (!Accepts(pressed)) e.Handled = true;
             };
             button.Focusable = false;
         }
