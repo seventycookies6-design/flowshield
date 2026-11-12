@@ -166,6 +166,22 @@ public class AppNamesConverter : IValueConverter
 }
 
 /// <summary>
+/// <see cref="AppNamesConverter"/> as a MultiBinding: the first value is the
+/// blocklist's apps, and any later value (Today's ProfilesRevision) only makes
+/// WPF convert again, because a plain list never says it changed.
+/// </summary>
+public class AppNamesRefreshingConverter : IMultiValueConverter
+{
+    private static readonly AppNamesConverter Single = new();
+
+    public object Convert(object[] values, Type t, object p, CultureInfo c) =>
+        Single.Convert(values.Length > 0 ? values[0] : null!, t, p, c);
+
+    public object[] ConvertBack(object value, Type[] t, object p, CultureInfo c) =>
+        t.Select(_ => Binding.DoNothing).ToArray();
+}
+
+/// <summary>
 /// Hides the progress arc at zero. A zero-length dash with a round cap still
 /// paints a dot at the 12 o'clock position, which reads as a bug.
 /// </summary>
