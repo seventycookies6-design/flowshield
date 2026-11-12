@@ -262,7 +262,7 @@ class TestSchedulePage:
         assert template["Name"] == "Homework evening"
         assert "Mon–Thu" in fresh_app.text_of(f"ScheduleRow_{s['Id']}")
         next_up = fresh_app.text_of("ScheduleNextUpText")
-        assert next_up.startswith("Next: ") and next_up.endswith("17:00 · Homework evening"), next_up
+        assert next_up.startswith("Next: ") and next_up.endswith("17:00, Homework evening"), next_up
 
     def test_save_is_refused_without_a_day(self, fresh_app):
         fresh_app.navigate_to_tab("Schedule")
@@ -325,6 +325,11 @@ class TestSchedulePage:
                                           what="the new schedule")["Schedules"]
         schedule_id = before[0]["Id"]
         assert before[0]["Enabled"] is True
+        # Delete is inside the schedule's editor since Plans (#433). Open it
+        # now: Edit is refused once the sprint is Sealed, and the editor stays
+        # open across it, which is the reachable path this test probes.
+        fresh_app.click(f"EditSchedule_{schedule_id}")
+        assert fresh_app.exists(f"DeleteSchedule_{schedule_id}", timeout=3)
 
         fresh_app.navigate_to_tab("Today")
         fresh_app.select_shield("Sealed")
@@ -361,6 +366,7 @@ class TestSchedulePage:
     def test_deleting_a_template_deletes_its_schedules_after_a_confirmation(self, fresh_app):
         fresh_app.navigate_to_tab("Schedule")
         fresh_app.add_schedule("Exam prep", ["Sat"], "09:00")
+        fresh_app.click("EditTemplate_Exam prep")       # Delete is in the editor (#433)
         fresh_app.click("DeleteTemplate_Exam prep")
         assert "1 schedule" in (fresh_app.accept_dialog() or ""), \
             "the confirmation names what goes with it"
@@ -370,6 +376,7 @@ class TestSchedulePage:
 
     def test_restore_brings_back_a_deleted_built_in(self, fresh_app):
         fresh_app.navigate_to_tab("Schedule")
+        fresh_app.click("EditTemplate_Light study")     # Delete is in the editor (#433)
         fresh_app.click("DeleteTemplate_Light study")
         assert fresh_app.accept_dialog() is not None, "deleting a template asks first"
         assert not fresh_app.exists("TemplateRow_Light study", timeout=1.5)
@@ -415,8 +422,8 @@ class TestSchedulePage:
         fresh_app.navigate_to_tab("Schedule")
         fresh_app.click("NewTemplateButton")
         # The labels say the same limits Save checks, built from one set of constants.
-        assert fresh_app.text_of("TemplateMinutesLabel") == "SPRINT MINUTES (5–240)"
-        assert fresh_app.text_of("TemplateBreakLabel") == "BREAK MINUTES (1–60)"
+        assert fresh_app.text_of("TemplateMinutesLabel") == "Sprint minutes (5–240)"
+        assert fresh_app.text_of("TemplateBreakLabel") == "Break minutes (1–60)"
         fresh_app.set_text("TemplateNameInput", "Marathon")
         fresh_app.set_text("TemplateMinutesInput", "300")
         fresh_app.click("SaveTemplateButton")
@@ -452,8 +459,11 @@ class TestSchedulePage:
         fresh_app.wait_out_grace_period()
         try:
             fresh_app.navigate_to_tab("Schedule")
-            for auto_id in ("AddScheduleButton", "NewTemplateButton", "RestoreTemplatesButton",
-                            "EditTemplate_Exam prep", "DeleteTemplate_Exam prep"):
+            # Since Plans (#433) Delete is inside the editor Edit opens, and
+            # Restore is in the ⋯ menu, so Edit and ⋯ are what a Sealed sprint
+            # must lock.
+            for auto_id in ("AddScheduleButton", "NewTemplateButton", "TemplatesMoreButton",
+                            "EditTemplate_Exam prep"):
                 # is_control_enabled says False for a control it can't find,
                 # so prove it is there first.
                 assert fresh_app.exists(auto_id, timeout=3), auto_id
@@ -466,20 +476,33 @@ class TestSchedulePage:
 
     def test_the_mouse_wheel_scrolls_the_page_over_the_sleep_window(self, fresh_app):
         """
-        The embedded sleep view keeps its own ScrollViewer. Inside this page it
-        has nothing to scroll, but WPF still marks every wheel turn over it as
-        handled, so the page would stop moving under the pointer.
+        The sleep window's settings once kept a ScrollViewer of their own,
+        which had nothing to scroll inside the page but still marked every
+        wheel turn over it as handled, so the page stopped moving under the
+        pointer. Since Plans (#433) they open under the sleep-blocking row and
+        have no ScrollViewer; a turn over them must still move the page.
         """
+        import ctypes
         import pywinauto.mouse as mouse
 
+        # A short window, so the page has something to scroll.
+        scale = ctypes.windll.user32.GetDpiForWindow(fresh_app.window.handle) / 96
+        fresh_app.window.wrapper_object().iface_transform.Resize(800 * scale, 540 * scale)
         fresh_app.navigate_to_tab("Schedule")
-        # To the foot of the page through the Scroll pattern, which doesn't
-        # depend on what is under the pointer; the sleep window is last.
-        fresh_app.element("SchedulePageScroll").iface_scroll.SetScrollPercent(-1, 100)
-        time.sleep(0.6)
+        fresh_app.open_sleep_editor()
+        scroll = fresh_app.element("PlansPageScroll").iface_scroll
+        assert scroll.CurrentVerticallyScrollable, "a 540 px window should make Plans scroll"
+        # Bring the sleep window's Save near the bottom of the view, with page
+        # above it to scroll back to.
         window = fresh_app.window.rectangle()
-        before = fresh_app.element("SaveSleepWindowButton").rectangle()
+        for percent in range(100, -1, -5):
+            scroll.SetScrollPercent(-1, percent)
+            time.sleep(0.15)
+            before = fresh_app.element("SaveSleepWindowButton").rectangle()
+            if window.top < before.top and before.bottom < window.bottom:
+                break
         assert window.top < before.top < window.bottom, "the sleep window's Save is on screen"
+        assert scroll.CurrentVerticalScrollPercent > 0, "there is page above to scroll back to"
 
         # One turn up with the pointer on the sleep window's own button.
         mouse.scroll(coords=((before.left + before.right) // 2, (before.top + before.bottom) // 2),
@@ -487,7 +510,6 @@ class TestSchedulePage:
         time.sleep(0.6)
         after = fresh_app.element("SaveSleepWindowButton").rectangle()
         assert after.top > before.top, "a wheel turn over the sleep window must scroll the page"
-
 
 # ============================ scheduled sprints and Today's chips (F6, PR C)
 

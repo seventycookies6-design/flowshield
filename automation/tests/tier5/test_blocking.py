@@ -58,7 +58,7 @@ class TestBlocklistThreadSafety:
             fresh_app.remove_blocked_app(f"churn-{index}")
             time.sleep(0.4)
 
-        assert fresh_app.current_page_title() == "Blocked Apps", "the app fell over"
+        assert fresh_app.current_page_title() == "Plans", "the app fell over"
         assert fresh_app.blocked_app_names() == [], fresh_app.blocked_app_names()
 
         fresh_app.navigate_to_tab("Today")
@@ -383,7 +383,9 @@ class TestBlocklistProfilesKeepTheirPromises:
 
     def test_the_switcher_is_also_disabled_while_sealed(self):
         assert "public bool CanSwitchProfile => !IsSealed && !_main.IsLocked;" in self.BLOCKED_VM
-        assert 'IsEnabled="{Binding CanSwitchProfile}"' in self.BLOCKED_XAML
+        # #433: each blocklist's row on Plans is its own radio, inside the rows'
+        # template, so it reaches the page's view model by name.
+        assert 'IsEnabled="{Binding DataContext.CanSwitchProfile, ElementName=Root}"' in self.BLOCKED_XAML
         # #431: Today's switcher is the setup panel's blocklist dropdown.
         panel = (Path(DESKTOP_DIR) / "Views" / "SetupPanel.xaml").read_text(encoding="utf-8")
         assert 'IsEnabled="{Binding CanSwitchProfile}"' in panel
@@ -605,13 +607,18 @@ class TestBlockedAppsListKeepsItsViewport:
         assert bounds.height() > 0 and bounds.width() > 0, "the blocked-app list has no viewport"
         assert len(fresh_app.blocked_app_names()) == 5
 
-        scroll_id = "BlockedAppsPageScroll" if compact else "BlockedAppsScroll"
-        scroll = fresh_app.element(scroll_id).iface_scroll
+        # Since Plans (#433) the page is the one thing that scrolls; the
+        # blocklist is open in it, and has no scroll of its own.
+        scroll = fresh_app.element("PlansPageScroll").iface_scroll
         last_id = "RemoveApp_limit-probe-4"
 
         def reveal_last_app():
-            # In the stacked layout the picker follows the apps, so the last
-            # app is reached before the bottom of the whole page.
+            button = fresh_app.element(last_id)
+            if not scroll.CurrentVerticallyScrollable:
+                assert fresh_app._is_on_screen(button), "nothing scrolls, yet the fifth row is clipped"
+                return button
+            # The picker can follow the apps when stacked, so the last app is
+            # reached before the bottom of the whole page.
             for percent in range(0, 101, 5):
                 scroll.SetScrollPercent(-1, percent)
                 button = fresh_app.element(last_id)
@@ -622,15 +629,17 @@ class TestBlockedAppsListKeepsItsViewport:
 
         button = reveal_last_app()
 
-        # Wheel input over a row must scroll back to the add controls, too.
-        # An inner ListBox ScrollViewer can swallow it even when it cannot scroll.
+        # Wheel input over a row must scroll back up the page, too. An inner
+        # ListBox ScrollViewer can swallow it even when it cannot scroll. On
+        # Plans (#433) the blocklist's name field is what sits above its apps
+        # (Add by name moved below them).
         from pywinauto import mouse
 
         centre = button.rectangle().mid_point()
         deadline = time.monotonic() + 5
-        while time.monotonic() < deadline and not fresh_app._is_on_screen(fresh_app.element("AddAppButton")):
+        while time.monotonic() < deadline and not fresh_app._is_on_screen(fresh_app.element("ProfileNameInput")):
             mouse.scroll(coords=(centre.x, centre.y), wheel_dist=1)
-        assert fresh_app._is_on_screen(fresh_app.element("AddAppButton")), "wheel input is trapped in the app list"
+        assert fresh_app._is_on_screen(fresh_app.element("ProfileNameInput")), "wheel input is trapped in the app list"
 
         button = reveal_last_app()
         # A real click proves reachability; Invoke can act on a clipped control.

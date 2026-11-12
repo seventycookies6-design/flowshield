@@ -309,3 +309,28 @@ public class HorizontalPaddingConverter : IValueConverter
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) =>
         throw new NotSupportedException();
 }
+
+/// <summary>A name's first letter, upper case: an app with no icon of its own (Plans, #433).</summary>
+public class InitialConverter : IValueConverter
+{
+    public object Convert(object value, Type t, object p, CultureInfo c) =>
+        value is string s && s.Trim().Length > 0 ? char.ToUpperInvariant(s.Trim()[0]).ToString() : "?";
+
+    public object ConvertBack(object value, Type t, object p, CultureInfo c) => Binding.DoNothing;
+}
+
+/// <summary>
+/// A blocked app's icon from its exe, through the page that knows where the
+/// picker found it (Plans, #433). Values: the app, then the view model.
+/// </summary>
+public class BlockedAppIconConverter : IMultiValueConverter
+{
+    public object? Convert(object[] values, Type t, object p, CultureInfo c) =>
+        values.Length == 2 && values[0] is FlowShield.Models.BlockedApp app
+                           && values[1] is FlowShield.ViewModels.BlockedAppsViewModel page
+            ? page.IconFor(app)
+            : null;
+
+    public object[] ConvertBack(object value, Type[] t, object p, CultureInfo c) =>
+        throw new NotSupportedException();
+}

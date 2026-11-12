@@ -25,9 +25,15 @@
     <!-- AreaChart: History. A chart rather than the History clock, which at
          20 px is hard to tell from the Today clock two rows above it. -->
     <sys:String x:Key="IconHistory">&#xE9D2;</sys:String>
-    <!-- Blocked: Blocked Apps -->
+    <!-- Calendar: Plans, the page of blocklists, schedules and templates (#433) -->
+    <sys:String x:Key="IconPlans">&#xE787;</sys:String>
+    <!-- Add: New blocklist, Add an app, Add schedule, New template (#433) -->
+    <sys:String x:Key="IconAdd">&#xE710;</sys:String>
+    <!-- Edit (a pencil): Edit on every row of Plans (#433) -->
+    <sys:String x:Key="IconEdit">&#xE70F;</sys:String>
+    <!-- Blocked: an app on a blocklist with no icon of its own -->
     <sys:String x:Key="IconBlocked">&#xE733;</sys:String>
-    <!-- QuietHours (a moon): Schedule -->
+    <!-- QuietHours (a moon): sleep blocking -->
     <sys:String x:Key="IconSleep">&#xE708;</sys:String>
     <!-- Settings -->
     <sys:String x:Key="IconSettings">&#xE713;</sys:String>

@@ -191,7 +191,8 @@ class TestTrayAndKeyboardNeverBypassTheEndFlow:
         xaml = self.MAIN_XAML.read_text(encoding="utf-8")
         tabs = xaml.split('<StackPanel x:Name="NavTabs"', 1)[1].split("<Grid/>", 1)[0]
         rail_order = re.findall(r'CommandParameter="(\w+)"', tabs)
-        assert rail_order == ["Today", "History", "BlockedApps", "SleepBlocking", "Settings"], \
+        # #433: Plans replaced Blocked Apps and Schedule, second in the rail.
+        assert rail_order == ["Today", "Plans", "History", "Settings"], \
             f"the rail's own tab order is {rail_order}; update the expectation or the rail"
 
         ctrl_bindings = re.findall(

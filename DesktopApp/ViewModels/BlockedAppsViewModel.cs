@@ -43,6 +43,13 @@ public class BlockedAppsViewModel : ViewModelBase
         ConfirmDeleteProfileCommand = new RelayCommand(DeleteActiveProfile, () => CanDeleteProfile);
         CancelDeleteProfileCommand = new RelayCommand(() => DeleteProfileConfirmVisible = false);
 
+        // Plans (#433): each blocklist is a row, and Edit opens it in place.
+        EditProfileCommand = new RelayCommand(p => EditProfile(p as BlocklistRow, EditorFocus.None),
+            p => p is BlocklistRow row && (row.IsActive || CanSwitchProfile));
+        AddAppToProfileCommand = new RelayCommand(p => EditProfile(p as BlocklistRow, EditorFocus.FindAnApp),
+            p => p is BlocklistRow row && (row.IsActive || CanSwitchProfile));
+        DoneEditingCommand = new RelayCommand(() => { IsEditing = false; DeleteProfileConfirmVisible = false; });
+
         RefreshProfiles();
 
         _allEntries = new(); // filled once RefreshPicker has looked at what's installed
@@ -71,6 +78,108 @@ public class BlockedAppsViewModel : ViewModelBase
     public RelayCommand ConfirmDeleteProfileCommand { get; }
     public RelayCommand CancelDeleteProfileCommand { get; }
 
+    // ------------------------------------------------ Plans' Blocklists (#433)
+
+    /// <summary>Edit on a blocklist's row: opens it in place.</summary>
+    public RelayCommand EditProfileCommand { get; }
+
+    /// <summary>Add an app on a blocklist's row: opens it with the cursor in Find an app.</summary>
+    public RelayCommand AddAppToProfileCommand { get; }
+
+    /// <summary>Done, at the foot of the open blocklist.</summary>
+    public RelayCommand DoneEditingCommand { get; }
+
+    /// <summary>One row per blocklist on Plans, in stored order, rebuilt whenever a list changes.</summary>
+    public ObservableCollection<BlocklistRow> ProfileRows { get; } = new();
+
+    /// <summary>With one blocklist there is nothing to choose, so the rows draw no radio.</summary>
+    public bool HasSeveralProfiles => Profiles.Count > 1;
+
+    private bool _isEditing;
+
+    /// <summary>
+    /// Whether the active blocklist is open for editing. Only the active one
+    /// can be: the page edits the list a sprint would enforce, as Blocked Apps
+    /// did, so Edit on another blocklist's row makes it the active one first.
+    /// </summary>
+    public bool IsEditing
+    {
+        get => _isEditing;
+        private set
+        {
+            if (!Set(ref _isEditing, value)) return;
+            RebuildRows();
+        }
+    }
+
+    /// <summary>Which field the view should put the cursor in when a blocklist opens.</summary>
+    public enum EditorFocus { None, Name, FindAnApp }
+
+    /// <summary>Raised after a blocklist opens, so the view can scroll to it and place the cursor.</summary>
+    public event EventHandler<EditorFocus>? EditorOpened;
+
+    private void EditProfile(BlocklistRow? row, EditorFocus focus)
+    {
+        if (row is null) return;
+        if (!row.IsActive)
+        {
+            SelectProfile(row.Profile);
+            // Refused (Sealed, or the trial over): SelectProfile said why.
+            if (!ReferenceEquals(ActiveProfile, row.Profile)) return;
+        }
+        DeleteProfileConfirmVisible = false;
+        IsEditing = true;
+        RebuildRows();
+        EditorOpened?.Invoke(this, focus);
+    }
+
+    private readonly Dictionary<string, System.Windows.Media.ImageSource> _iconsByProcess =
+        new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// An app's icon, taken from its exe as the picker takes it (F8): the path
+    /// saved when it was picked, or else the exe the picker found for one of
+    /// its processes on this PC. Null draws the app's initial instead.
+    /// </summary>
+    public System.Windows.Media.ImageSource? IconFor(BlockedApp app)
+    {
+        if (AppIcons.ForPath(app.IconPath) is { } saved) return saved;
+        foreach (var process in app.AllProcessNames)
+            if (_iconsByProcess.TryGetValue(process, out var found)) return found;
+        return null;
+    }
+
+    private void RebuildRows()
+    {
+        var active = ActiveProfile;
+        var profiles = _main.Settings.Profiles;
+
+        // The same blocklists in the same state: update each row in place.
+        // Replacing them would rebuild the open editor on every keystroke in
+        // Add by name (its setter refreshes the status), taking the cursor
+        // out of the field, and lose the picker's scroll after each pick.
+        if (ProfileRows.Count == profiles.Count
+            && ProfileRows.Select((row, i) => ReferenceEquals(row.Profile, profiles[i])
+                                             && row.IsActive == ReferenceEquals(profiles[i], active)
+                                             && row.IsEditing == (row.IsActive && IsEditing)
+                                             && row.Name == profiles[i].Name).All(same => same))
+        {
+            foreach (var row in ProfileRows)
+                row.Update(row.Profile.Apps.Select(a => new AppChip(a.DisplayName, IconFor(a))).ToList());
+            Raise(nameof(HasSeveralProfiles));
+            return;
+        }
+
+        ProfileRows.Clear();
+        foreach (var profile in _main.Settings.Profiles)
+        {
+            var isActive = ReferenceEquals(profile, active);
+            ProfileRows.Add(new BlocklistRow(profile, isActive, isActive && IsEditing,
+                profile.Apps.Select(a => new AppChip(a.DisplayName, IconFor(a))).ToList()));
+        }
+        Raise(nameof(HasSeveralProfiles));
+    }
+
     /// <summary>The switcher's chips, in stored order.</summary>
     public ObservableCollection<BlocklistProfile> Profiles { get; } = new();
 
@@ -97,6 +206,9 @@ public class BlockedAppsViewModel : ViewModelBase
 
     /// <summary>There is always at least one profile, so the last one has no Delete.</summary>
     public bool CanDeleteProfile => CanEditProfiles && Profiles.Count > 1;
+
+    /// <summary>What New blocklist calls the copy when no name has been typed.</summary>
+    public const string NewBlocklistName = "New blocklist";
 
     /// <summary>Names offered, never created (see <see cref="AppSettings.SuggestedProfileNames"/>).</summary>
     public IReadOnlyList<string> SuggestedProfileNames => AppSettings.SuggestedProfileNames;
@@ -148,7 +260,7 @@ public class BlockedAppsViewModel : ViewModelBase
         // but automation can still reach it.
         if (_main.IsLocked)
         {
-            _main.Toast("Your free trial has ended. Buy Basalt to switch profiles.");
+            _main.Toast("Your free trial has ended. Buy Basalt to switch blocklists.");
             RefreshProfiles();
             return;
         }
@@ -167,14 +279,21 @@ public class BlockedAppsViewModel : ViewModelBase
 
         // A new profile starts from the list already on screen, because "School"
         // is usually today's list minus one app rather than an empty page.
+        // Plans' New blocklist passes no name: the name field's text when there
+        // is some, else "New blocklist" (numbered if taken), to rename in place.
         var wanted = string.IsNullOrWhiteSpace(name) ? ProfileNameText : name;
+        if (string.IsNullOrWhiteSpace(wanted)) wanted = NewBlocklistName;
         var profile = _main.Settings.AddProfile(wanted, ActiveApps, ActiveProfile.Sites);
         _main.Settings.SetActiveProfile(profile.Id);
         ProfileNameText = "";
         _main.SaveSettings();
         ReloadActiveProfile();
-        _main.Toast($"Profile \"{profile.Name}\" added, starting from your current blocklist.");
+        _main.Toast($"\"{profile.Name}\" added, starting from your current blocklist.");
         Log.Info($"blocklist profile added: \"{profile.Name}\"");
+        // New blocklist opens the copy, name first, so it can be renamed and changed.
+        IsEditing = true;
+        RebuildRows();
+        EditorOpened?.Invoke(this, EditorFocus.Name);
     }
 
     private void RenameActiveProfile()
@@ -182,7 +301,7 @@ public class BlockedAppsViewModel : ViewModelBase
         if (!GuardProfileEdit()) return;
         if (string.IsNullOrWhiteSpace(ProfileNameText))
         {
-            _main.Toast("Type a name for this profile first.");
+            _main.Toast("Type a name for this blocklist first.");
             return;
         }
 
@@ -206,7 +325,7 @@ public class BlockedAppsViewModel : ViewModelBase
         _main.Settings.SetActiveProfile(copy.Id);
         _main.SaveSettings();
         ReloadActiveProfile();
-        _main.Toast($"Profile \"{copy.Name}\" added.");
+        _main.Toast($"\"{copy.Name}\" added.");
         Log.Info($"blocklist profile duplicated: \"{copy.Name}\"");
     }
 
@@ -215,7 +334,7 @@ public class BlockedAppsViewModel : ViewModelBase
         if (!GuardProfileEdit()) return;
         if (Profiles.Count <= 1)
         {
-            _main.Toast("This is your only profile, so it stays.");
+            _main.Toast("This is your only blocklist, so it stays.");
             return;
         }
         Raise(nameof(DeleteProfileConfirmText));
@@ -229,15 +348,16 @@ public class BlockedAppsViewModel : ViewModelBase
         var name = ActiveProfile.Name;
         if (!_main.Settings.RemoveProfile(ActiveProfile.Id))
         {
-            _main.Toast("This is your only profile, so it stays.");
+            _main.Toast("This is your only blocklist, so it stays.");
             DeleteProfileConfirmVisible = false;
             return;
         }
 
         DeleteProfileConfirmVisible = false;
+        IsEditing = false;               // what was open is gone (#433)
         _main.SaveSettings();
         ReloadActiveProfile();
-        _main.Toast($"Profile \"{name}\" deleted.");
+        _main.Toast($"\"{name}\" deleted.");
         Log.Info($"blocklist profile deleted: \"{name}\"");
     }
 
@@ -290,6 +410,7 @@ public class BlockedAppsViewModel : ViewModelBase
         Raise(nameof(CanEditProfiles));
         Raise(nameof(CanDeleteProfile));
         Raise(nameof(DeleteProfileConfirmText));
+        RebuildRows();
         _main.Today.RefreshProfileCaption();
     }
 
@@ -332,9 +453,15 @@ public class BlockedAppsViewModel : ViewModelBase
                      + $"{icons.Count(i => i.Icon is not null)} with icons");
             System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
             {
-                foreach (var (entry, icon) in icons) entry.Icon = icon;
+                foreach (var (entry, icon) in icons)
+                {
+                    entry.Icon = icon;
+                    if (icon is null) continue;
+                    foreach (var process in entry.Processes) _iconsByProcess.TryAdd(process, icon);
+                }
                 _allEntries = merged;
                 ApplyFilter();
+                RebuildRows();
             });
         });
     }
@@ -353,7 +480,7 @@ public class BlockedAppsViewModel : ViewModelBase
         PickerNotice = query.Length > 0 && IsProtected(query)
             ? AppPicker.ProtectedMessage
             : results.Count == 0 && query.Length > 0
-                ? $"No app called “{PickerQuery!.Trim()}” found. Type its process name in the box on the left."
+                ? $"No app called “{PickerQuery!.Trim()}” found. Type its process name under Add by name."
                 : "";
     }
 
@@ -582,6 +709,8 @@ public class BlockedAppsViewModel : ViewModelBase
         // Today's summary counts the blocklist's apps (#431).
         _main.Today.RefreshProfileCaption();
         Raise(nameof(CanDeleteProfile));
+        // Plans' rows show each list's apps and count (#433).
+        RebuildRows();
     }
 
     // ------------------------------------------- websites (F10 interim)
@@ -623,7 +752,7 @@ public class BlockedAppsViewModel : ViewModelBase
         }
         if (ActiveProfile.Sites.Count >= WebsiteTitleMatch.MaxSites)
         {
-            _main.Toast($"A profile holds up to {WebsiteTitleMatch.MaxSites} websites.");
+            _main.Toast($"A blocklist holds up to {WebsiteTitleMatch.MaxSites} websites.");
             return;
         }
 
@@ -662,4 +791,92 @@ public class BlockedAppsViewModel : ViewModelBase
         processName.Length == 0
             ? processName
             : char.ToUpperInvariant(processName[0]) + processName[1..];
+}
+
+/// <summary>One blocklist on Plans (#433): its name, its count and its apps as chips.</summary>
+public class BlocklistRow : ViewModelBase
+{
+    public BlocklistRow(BlocklistProfile profile, bool isActive, bool isEditing, IReadOnlyList<AppChip> chips)
+    {
+        Profile = profile;
+        IsActive = isActive;
+        IsEditing = isEditing;
+        Name = profile.Name;
+        _chips = chips;
+        _items = BuildItems(chips);
+    }
+
+    /// <summary>New chips for the same blocklist, after an app was added, removed or found its icon.</summary>
+    public void Update(IReadOnlyList<AppChip> chips)
+    {
+        _chips = chips;
+        _items = BuildItems(chips);
+        Raise(nameof(Chips));
+        Raise(nameof(Items));
+        Raise(nameof(CountText));
+    }
+
+    private List<object> BuildItems(IReadOnlyList<AppChip> chips) =>
+        chips.Cast<object>().Append(new AddAppSlot(this)).ToList();
+
+    public BlocklistProfile Profile { get; }
+
+    /// <summary>The name when the row was built; a rename builds new rows.</summary>
+    public string Name { get; }
+    public bool IsActive { get; }
+
+    /// <summary>The open one shows the editor in its place.</summary>
+    public bool IsEditing { get; }
+    public bool IsShown => !IsEditing;
+
+    private IReadOnlyList<AppChip> _chips;
+    public IReadOnlyList<AppChip> Chips => _chips;
+
+    private IReadOnlyList<object> _items;
+    /// <summary>The chips, then Add an app, so the button flows on after the last app.</summary>
+    public IReadOnlyList<object> Items => _items;
+
+    /// <summary>"3 apps", "1 app", "No apps yet".</summary>
+    public string CountText => BlocklistCopy.AppCount(Profile.Apps.Count);
+
+    /// <summary>Said on the row sprints use, so the choice never rests on the radio alone.</summary>
+    public string UseText => IsActive ? "Used for sprints" : "";
+}
+
+/// <summary>Add an app, at the end of a blocklist's chips.</summary>
+public class AddAppSlot
+{
+    public AddAppSlot(BlocklistRow row) => Row = row;
+    public BlocklistRow Row { get; }
+}
+
+/// <summary>An app on a blocklist's row: its icon from the exe, or its initial.</summary>
+public class AppChip
+{
+    public AppChip(string name, System.Windows.Media.ImageSource? icon)
+    {
+        Name = name;
+        Icon = icon;
+    }
+
+    public string Name { get; }
+    public System.Windows.Media.ImageSource? Icon { get; }
+    public bool HasIcon => Icon is not null;
+    public string Initial => Name.Length > 0 ? char.ToUpperInvariant(Name[0]).ToString() : "?";
+}
+
+/// <summary>Icons read from an exe once and kept, since a row is rebuilt on every change.</summary>
+public static class AppIcons
+{
+    private static readonly Dictionary<string, System.Windows.Media.ImageSource?> Cache =
+        new(StringComparer.OrdinalIgnoreCase);
+
+    public static System.Windows.Media.ImageSource? ForPath(string? exePath)
+    {
+        if (string.IsNullOrWhiteSpace(exePath)) return null;
+        if (Cache.TryGetValue(exePath, out var cached)) return cached;
+        var icon = AppCatalog.IconFor(exePath);
+        Cache[exePath] = icon;
+        return icon;
+    }
 }

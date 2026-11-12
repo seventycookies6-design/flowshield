@@ -68,6 +68,13 @@ public class SleepBlockingViewModel : ViewModelBase
     private string _windowText = "";
     public string WindowText { get => _windowText; private set => Set(ref _windowText, value); }
 
+    private string _rowDetail = "";
+    /// <summary>
+    /// Plans' sleep-blocking row (#433): "22:00 to 06:00, every night", from the
+    /// saved window rather than what is being typed in its editor.
+    /// </summary>
+    public string RowDetail { get => _rowDetail; private set => Set(ref _rowDetail, value); }
+
     // ---- Sleep-window ring (UI-SPEC.md A3): reuses the Today timer-ring's
     // dash-array trick (Theme.xaml's ProgressDash resource) with a rotation
     // offset, so the arc starts at the window's start time instead of always
@@ -140,6 +147,7 @@ public class SleepBlockingViewModel : ViewModelBase
         var inWindow = AppBlockerService.IsWithinSleepWindow(_main.Settings);
 
         WindowText = $"{StartText} → {EndText}";
+        RowDetail = $"{Format(_main.Settings.SleepBlockStartTime)} to {Format(_main.Settings.SleepBlockEndTime)}, every night";
 
         WindowSweepFraction = SweepFraction(_main.Settings.SleepBlockStartTime, _main.Settings.SleepBlockEndTime);
         WindowStartAngle = -90 + _main.Settings.SleepBlockStartTime.TotalMinutes / TimeSpan.FromDays(1).TotalMinutes * 360.0;

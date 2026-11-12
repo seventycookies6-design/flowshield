@@ -1,432 +1,490 @@
 ﻿<UserControl x:Class="FlowShield.Views.BlockedAppsView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             SizeChanged="OnSizeChanged">
-    <!-- Side by side when there is room, each card filling the height and
-         scrolling its content. Below that the picker stacks under the list and
-         the page scrolls instead (code-behind, #189): split into fixed halves, a
-         short window left each card too little room to show a single row. -->
-    <ScrollViewer x:Name="PageScroll" VerticalScrollBarVisibility="Disabled"
-                  HorizontalScrollBarVisibility="Disabled"
-                  AutomationProperties.AutomationId="BlockedAppsPageScroll">
-    <Grid>
-        <Grid.RowDefinitions>
-            <RowDefinition x:Name="ListRow" Height="*"/>
-            <RowDefinition x:Name="PickerRow" Height="0"/>
-        </Grid.RowDefinitions>
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="*"/>
-            <!-- Proportional, not a fixed 300px: at that width the picker cut
-                 app names short at every window size (#189). -->
-            <ColumnDefinition x:Name="PickerColumn" Width="0.65*" MinWidth="260" MaxWidth="460"/>
-        </Grid.ColumnDefinitions>
+             xmlns:inf="clr-namespace:FlowShield.Infrastructure"
+             xmlns:vm="clr-namespace:FlowShield.ViewModels"
+             x:Name="Root">
+    <!-- Plans' Blocklists section (#433), which replaced the Blocked Apps page.
+         Each blocklist is a row: its name and count, its apps as chips with
+         the program's own icon, Add an app, and Edit. Edit opens that blocklist
+         in place of its row, with everything Blocked Apps had: the name and
+         its rename, duplicate and delete, the apps with their switches and
+         Remove, adding by name, websites and the app picker. Nothing here
+         scrolls on its own; the page does (PlansView). -->
+    <UserControl.Resources>
 
-        <!-- ==================================================== blocklist -->
-        <Border x:Name="ListCard" Grid.Column="0" Style="{StaticResource Card}" Margin="0,0,16,0" Padding="24">
-            <!-- Profiles and websites can fill the default-height card. Scroll
-                 the whole card so they cannot leave the app list no height (#377). -->
-            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
-                          PreviewMouseWheel="OnBlocklistPreviewMouseWheel"
-                          AutomationProperties.AutomationId="BlockedAppsScroll">
-            <DockPanel>
+        <!-- The open blocklist. Its data context is the page's view model,
+             handed in by the row's ContentControl. -->
+        <DataTemplate x:Key="BlocklistEditor">
+            <StackPanel Margin="0,4,0,4">
 
-                <!-- big-number header (UI-SPEC.md A3): the same "big
-                     tabular number + one-line description" pattern as
-                     Today's stat cards, applied here. text, not teal;
-                     teal stays reserved for state/selection/progress. -->
-                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,24" VerticalAlignment="Bottom">
-                    <TextBlock Style="{StaticResource Stat}" Text="{Binding Apps.Count}"/>
-                    <TextBlock Text="{Binding Apps.Count, Converter={StaticResource AppsOnShieldLabel}}"
-                               Style="{StaticResource Body}" Foreground="{DynamicResource InkDim}"
-                               VerticalAlignment="Bottom" Margin="12,0,0,4"/>
-                </StackPanel>
+                <!-- name, and the blocklist's own actions (rename, duplicate,
+                     delete moved here from the old switcher, #433) -->
+                <TextBlock Text="Name" Style="{StaticResource FieldLabel}"/>
+                <WrapPanel>
+                    <TextBox Style="{StaticResource Field}" Width="280" Margin="0,0,8,8"
+                             MaxLength="40"
+                             Text="{Binding ProfileNameText, UpdateSourceTrigger=PropertyChanged}"
+                             IsEnabled="{Binding CanEditProfiles}"
+                             AutomationProperties.AutomationId="ProfileNameInput"
+                             AutomationProperties.Name="Blocklist name"
+                             AutomationProperties.HelpText="School, Gaming break, Everything"/>
+                    <Button Style="{StaticResource BtnGhost}" Content="Rename" Margin="0,0,8,8" Padding="16,0"
+                            Command="{Binding RenameProfileCommand}"
+                            AutomationProperties.AutomationId="RenameProfileButton"
+                            AutomationProperties.Name="Rename this blocklist"/>
+                    <Button Style="{StaticResource BtnGhost}" Content="Duplicate" Margin="0,0,8,8" Padding="16,0"
+                            Command="{Binding DuplicateProfileCommand}"
+                            AutomationProperties.AutomationId="DuplicateProfileButton"
+                            AutomationProperties.Name="Duplicate this blocklist"/>
+                    <Button Style="{StaticResource BtnDanger}" Content="Delete" Margin="0,0,8,8" Padding="16,0"
+                            Command="{Binding DeleteProfileCommand}"
+                            AutomationProperties.AutomationId="DeleteProfileButton"
+                            AutomationProperties.Name="Delete this blocklist"/>
+                </WrapPanel>
+                <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap"
+                           AutomationProperties.AutomationId="ProfileHint"
+                           Text="A new blocklist starts as a copy of this one, so “School” or “Gaming break” is this list with a few apps changed."/>
 
-                <!-- ===================================== profile switcher (F9)
-                     Segmented chips (§7 "Segmented choices"), the same control
-                     as sprint length and shield level, because this is the same
-                     kind of choice: one of a few named things. The list below
-                     edits the selected profile only. -->
-                <StackPanel DockPanel.Dock="Top" Margin="0,0,0,16">
-                    <TextBlock Text="BLOCKLIST PROFILE" Style="{StaticResource Eyebrow}" Margin="0,0,0,8"/>
-                    <ItemsControl ItemsSource="{Binding Profiles}"
-                                  IsEnabled="{Binding CanSwitchProfile}">
-                        <ItemsControl.ItemsPanel>
-                            <ItemsPanelTemplate>
-                                <WrapPanel/>
-                            </ItemsPanelTemplate>
-                        </ItemsControl.ItemsPanel>
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <RadioButton Style="{StaticResource Segment}" GroupName="BlocklistProfile"
-                                             Margin="0,0,8,8"
-                                             Content="{Binding Name}"
-                                             IsChecked="{Binding IsActive, Mode=OneWay}"
-                                             Command="{Binding DataContext.SelectProfileCommand,
-                                                       RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                             CommandParameter="{Binding}"
-                                             AutomationProperties.AutomationId="{Binding Name, StringFormat=Profile_{0}}"
-                                             AutomationProperties.Name="{Binding Name, StringFormat=Use the {0} blocklist}"/>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-
-                    <Grid Margin="0,4,0,0">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBox Grid.Column="0" Style="{StaticResource Field}"
-                                 MaxLength="40"
-                                 Text="{Binding ProfileNameText, UpdateSourceTrigger=PropertyChanged}"
-                                 IsEnabled="{Binding CanEditProfiles}"
-                                 AutomationProperties.AutomationId="ProfileNameInput"
-                                 AutomationProperties.Name="Profile name"
-                                 AutomationProperties.HelpText="School, Gaming break, Everything"/>
-                        <Button Grid.Column="1" Style="{StaticResource BtnGhost}" Content="Rename"
-                                Margin="8,0,0,0" Padding="16,0"
-                                Command="{Binding RenameProfileCommand}"
-                                AutomationProperties.AutomationId="RenameProfileButton"
-                                AutomationProperties.Name="Rename this profile"/>
-                        <Button Grid.Column="2" Style="{StaticResource BtnGhost}" Content="New profile"
-                                Margin="8,0,0,0" Padding="16,0"
-                                Command="{Binding NewProfileCommand}"
-                                AutomationProperties.AutomationId="NewProfileButton"
-                                AutomationProperties.Name="Add a profile"/>
-                    </Grid>
-
-                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                        <Button Style="{StaticResource BtnQuiet}" Content="Duplicate" Padding="12,0"
-                                Command="{Binding DuplicateProfileCommand}"
-                                AutomationProperties.AutomationId="DuplicateProfileButton"
-                                AutomationProperties.Name="Duplicate this profile"/>
-                        <Button Style="{StaticResource BtnDanger}" Content="Delete" Padding="12,0" Margin="8,0,0,0"
-                                Command="{Binding DeleteProfileCommand}"
-                                AutomationProperties.AutomationId="DeleteProfileButton"
-                                AutomationProperties.Name="Delete this profile"/>
-                    </StackPanel>
-
-                    <!-- confirm before a profile's list goes with it -->
-                    <Border Style="{StaticResource RowCard}" Padding="16" Margin="0,8,0,0"
-                            Visibility="{Binding DeleteProfileConfirmVisible, Converter={StaticResource BoolVis}}">
-                        <StackPanel>
-                            <TextBlock Text="{Binding DeleteProfileConfirmText}" Style="{StaticResource Body}"
-                                       TextWrapping="Wrap"
-                                       AutomationProperties.AutomationId="DeleteProfileConfirmText"/>
-                            <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
-                                <Button Style="{StaticResource BtnDanger}" Content="Delete profile" Padding="16,0"
-                                        Command="{Binding ConfirmDeleteProfileCommand}"
-                                        AutomationProperties.AutomationId="ConfirmDeleteProfileButton"
-                                        AutomationProperties.Name="Delete this profile for good"/>
-                                <Button Style="{StaticResource BtnGhost}" Content="Keep it" Padding="16,0" Margin="8,0,0,0"
-                                        Command="{Binding CancelDeleteProfileCommand}"
-                                        AutomationProperties.AutomationId="CancelDeleteProfileButton"
-                                        AutomationProperties.Name="Keep this profile"/>
-                            </StackPanel>
+                <!-- confirm before a blocklist's apps go with it -->
+                <Border Style="{StaticResource RowCard}" Padding="16" Margin="0,12,0,0"
+                        Visibility="{Binding DeleteProfileConfirmVisible, Converter={StaticResource BoolVis}}">
+                    <StackPanel>
+                        <TextBlock Text="{Binding DeleteProfileConfirmText}" Style="{StaticResource Body}"
+                                   TextWrapping="Wrap"
+                                   AutomationProperties.AutomationId="DeleteProfileConfirmText"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                            <Button Style="{StaticResource BtnDanger}" Content="Delete blocklist" Padding="16,0"
+                                    Command="{Binding ConfirmDeleteProfileCommand}"
+                                    AutomationProperties.AutomationId="ConfirmDeleteProfileButton"
+                                    AutomationProperties.Name="Delete this blocklist for good"/>
+                            <Button Style="{StaticResource BtnGhost}" Content="Keep it" Padding="16,0" Margin="8,0,0,0"
+                                    Command="{Binding CancelDeleteProfileCommand}"
+                                    AutomationProperties.AutomationId="CancelDeleteProfileButton"
+                                    AutomationProperties.Name="Keep this blocklist"/>
                         </StackPanel>
-                    </Border>
-
-                    <TextBlock Style="{StaticResource Caption}" Margin="0,8,0,0" TextWrapping="Wrap"
-                               AutomationProperties.AutomationId="ProfileHint"
-                               Text="A profile is a named blocklist. A new one starts from the list you are looking at, so “School” or “Gaming break” is a copy with a few apps changed."/>
-                </StackPanel>
-
-                <!-- add row -->
-                <StackPanel DockPanel.Dock="Top" Margin="0,0,0,16">
-                    <TextBlock Text="ADD AN APP TO BLOCK" Style="{StaticResource Eyebrow}" Margin="0,0,0,8"/>
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBox Grid.Column="0" Style="{StaticResource Field}"
-                                 Text="{Binding NewAppName, UpdateSourceTrigger=PropertyChanged}"
-                                 IsEnabled="{Binding IsEditable}"
-                                 AutomationProperties.AutomationId="NewAppNameInput"
-                                 AutomationProperties.Name="App or process name"
-                                 AutomationProperties.HelpText="Process name such as slack, or a full path to an exe"/>
-                        <Button Grid.Column="1" Style="{StaticResource BtnPrimary}" Content="Add"
-                                Command="{Binding AddCommand}" Margin="8,0,0,0" Padding="24,12"
-                                AutomationProperties.AutomationId="AddAppButton"
-                                AutomationProperties.Name="Add blocked app"/>
-                    </Grid>
-                    <TextBlock Text="Find your app on the right, or type a process name here (“steam”) or paste the path to an .exe."
-                               Style="{StaticResource Caption}" Margin="0,8,0,0"/>
-                </StackPanel>
-
-                <!-- status strip -->
-                <Border DockPanel.Dock="Top" Style="{StaticResource Chip}" HorizontalAlignment="Left"
-                        Margin="0,0,0,16">
-                    <TextBlock Text="{Binding StatusText}" Style="{StaticResource Caption}"
-                               Foreground="{DynamicResource InkDim}"
-                               AutomationProperties.AutomationId="BlockedAppsStatusText"/>
+                    </StackPanel>
                 </Border>
 
-                <!-- empty state -->
-                <TextBlock DockPanel.Dock="Top"
-                           Text="Nothing blocked yet. Add the app that pulls you away most."
-                           Margin="4,24,0,0" HorizontalAlignment="Center"
-                           AutomationProperties.AutomationId="BlockedAppsEmptyText">
-                    <TextBlock.Style>
-                        <Style TargetType="TextBlock" BasedOn="{StaticResource Body}">
-                            <Setter Property="Visibility" Value="Collapsed"/>
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding Apps.Count}" Value="0">
-                                    <Setter Property="Visibility" Value="Visible"/>
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </TextBlock.Style>
-                </TextBlock>
+                <!-- status: the count, or the Sealed lock -->
+                <TextBlock Text="{Binding StatusText}" Style="{StaticResource Caption}" Margin="0,16,0,0"
+                           TextWrapping="Wrap"
+                           AutomationProperties.AutomationId="BlockedAppsStatusText"/>
 
-                <!-- ============================== websites (F10 interim)
-                     Docked under the app list so the apps stay the page's main
-                     job. Basalt can't block a site without the browser
-                     extension (after launch), so the caption says what it does
-                     instead: a notice over the tab, at every shield. -->
-                <StackPanel DockPanel.Dock="Bottom" Margin="0,16,0,0">
-                    <TextBlock Text="WEBSITES · NOTICE ONLY" Style="{StaticResource Eyebrow}" Margin="0,0,0,8"/>
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBox Grid.Column="0" Style="{StaticResource Field}" MaxLength="253"
-                                 Text="{Binding NewSiteText, UpdateSourceTrigger=PropertyChanged}"
-                                 IsEnabled="{Binding IsEditable}"
-                                 AutomationProperties.AutomationId="NewSiteInput"
-                                 AutomationProperties.Name="Website"
-                                 AutomationProperties.HelpText="A website such as youtube.com"/>
-                        <Button Grid.Column="1" Style="{StaticResource BtnGhost}" Content="Add website"
-                                Command="{Binding AddSiteCommand}" Margin="8,0,0,0" Padding="16,0"
-                                AutomationProperties.AutomationId="AddSiteButton"
-                                AutomationProperties.Name="Add blocked website"/>
-                    </Grid>
-                    <ItemsControl ItemsSource="{Binding Sites}" Margin="0,8,0,0">
-                        <ItemsControl.ItemsPanel>
-                            <ItemsPanelTemplate>
-                                <WrapPanel/>
-                            </ItemsPanelTemplate>
-                        </ItemsControl.ItemsPanel>
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <Button Style="{StaticResource BtnQuiet}" Padding="12,0" Margin="0,0,8,8"
-                                        Content="{Binding}" ContentStringFormat="{}{0}  ×"
-                                        Command="{Binding DataContext.RemoveSiteCommand,
-                                                  RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                        CommandParameter="{Binding}"
-                                        AutomationProperties.AutomationId="{Binding StringFormat=RemoveSite_{0}}"
-                                        AutomationProperties.Name="{Binding StringFormat=Remove {0}}"/>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                    <TextBlock Style="{StaticResource Caption}" Margin="0,0,0,0" TextWrapping="Wrap"
-                               AutomationProperties.AutomationId="SitesHint"
-                               Text="During a sprint, Basalt shows its notice when the tab in front names one of these. It reads the tab's title only, so it can miss a page or catch a search, and it never closes your browser."/>
-                </StackPanel>
+                <!-- The list and the picker side by side when there is room,
+                     stacked when there is not. -->
+                <inf:AdaptiveColumns MinColumnWidth="340" MaxColumns="2" Spacing="24" Margin="0,12,0,0">
 
-                <!-- the list -->
-                <ListBox ItemsSource="{Binding Apps}"
-                         SelectedItem="{Binding SelectedApp}"
-                         Background="Transparent" BorderThickness="0"
-                         ItemContainerStyle="{StaticResource PlainItem}"
-                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                         AutomationProperties.AutomationId="BlockedAppsList"
-                         AutomationProperties.Name="Blocked apps">
-                    <!-- The card owns scrolling. A nested ScrollViewer would
-                         swallow wheel input over rows even with no scroll range. -->
-                    <ListBox.Template>
-                        <ControlTemplate TargetType="ListBox">
-                            <ItemsPresenter/>
-                        </ControlTemplate>
-                    </ListBox.Template>
-                    <ListBox.ItemTemplate>
-                        <DataTemplate>
-                            <Border Style="{StaticResource RowCard}"
-                                    Opacity="{Binding IsEnabled, Converter={StaticResource BoolOpacity}}">
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="*" MinWidth="120"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
+                    <StackPanel>
+                        <TextBlock Text="Apps on this blocklist" Style="{StaticResource FieldLabel}"/>
 
-                                    <Border Grid.Column="0" Width="34" Height="34" CornerRadius="{StaticResource RadiusControl}"
-                                            Background="{DynamicResource PrimarySoft}" BorderBrush="{DynamicResource Primary}" BorderThickness="1"
-                                            Margin="0,0,12,0">
-                                        <TextBlock Style="{StaticResource Icon}" Text="{StaticResource IconBlocked}"
-                                              Foreground="{DynamicResource PrimaryHover}"
-                                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        <TextBlock Text="Nothing blocked yet. Add the app that pulls you away most."
+                                   Margin="0,4,0,12" TextWrapping="Wrap"
+                                   AutomationProperties.AutomationId="BlockedAppsEmptyText">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock" BasedOn="{StaticResource Body}">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Apps.Count}" Value="0">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+
+                        <!-- The page owns scrolling: no ScrollViewer in the
+                             template, so wheel input over a row reaches it. -->
+                        <ListBox ItemsSource="{Binding Apps}"
+                                 SelectedItem="{Binding SelectedApp}"
+                                 Background="Transparent" BorderThickness="0"
+                                 ItemContainerStyle="{StaticResource PlainItem}"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                 AutomationProperties.AutomationId="BlockedAppsList"
+                                 AutomationProperties.Name="Blocked apps">
+                            <ListBox.Template>
+                                <ControlTemplate TargetType="ListBox">
+                                    <ItemsPresenter/>
+                                </ControlTemplate>
+                            </ListBox.Template>
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Style="{StaticResource RowCard}" Padding="12,8" CornerRadius="{StaticResource RadiusControl}"
+                                            Opacity="{Binding IsEnabled, Converter={StaticResource BoolOpacity}}">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*" MinWidth="100"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+
+                                            <!-- the program's own icon, or its initial -->
+                                            <Grid Grid.Column="0" Width="28" Height="28" Margin="0,0,12,0" VerticalAlignment="Center">
+                                                <Border CornerRadius="{StaticResource RadiusChip}" Background="{DynamicResource PrimarySoft}">
+                                                    <TextBlock Text="{Binding DisplayName, Converter={StaticResource Initial}}" FontWeight="SemiBold"
+                                                               Foreground="{DynamicResource Ink}"
+                                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                </Border>
+                                                <Image Width="24" Height="24" RenderOptions.BitmapScalingMode="HighQuality">
+                                                    <Image.Source>
+                                                        <MultiBinding Converter="{StaticResource BlockedAppIcon}">
+                                                            <Binding/>
+                                                            <Binding Path="DataContext" ElementName="Root"/>
+                                                        </MultiBinding>
+                                                    </Image.Source>
+                                                </Image>
+                                            </Grid>
+
+                                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding DisplayName}" Style="{StaticResource Label}" FontWeight="SemiBold"
+                                                           TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"
+                                                           ToolTip="{Binding DisplayName}"/>
+                                                <TextBlock Style="{StaticResource Caption}" Margin="0,2,0,0"
+                                                           TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"
+                                                           ToolTip="{Binding ProcessSummary}">
+                                                    <Run Text="{Binding ProcessSummary, Mode=OneWay}"/><Run Text=", blocked "/><Run Text="{Binding BlockCount, Mode=OneWay}"/><Run Text="×"/>
+                                                </TextBlock>
+                                            </StackPanel>
+
+                                            <CheckBox Grid.Column="2" Style="{StaticResource Switch}"
+                                                      VerticalAlignment="Center" Margin="12,0,0,0"
+                                                      IsChecked="{Binding IsEnabled, Mode=TwoWay}"
+                                                      IsEnabled="{Binding DataContext.CanEditApps,
+                                                                  RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                      Command="{Binding DataContext.ToggleAppCommand,
+                                                                RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                      CommandParameter="{Binding}"
+                                                      AutomationProperties.AutomationId="{Binding ProcessName,
+                                                                                          StringFormat=AppEnabledSwitch_{0}}"
+                                                      AutomationProperties.Name="{Binding DisplayName,
+                                                                                 StringFormat=Enable {0}}"/>
+
+                                            <!-- Quiet, not red: removing an app happens
+                                                 only here, inside Edit (#433). -->
+                                            <Button Grid.Column="3" Style="{StaticResource BtnQuiet}" Content="Remove"
+                                                    Margin="8,0,-4,0" VerticalAlignment="Center"
+                                                    Command="{Binding DataContext.RemoveCommand,
+                                                              RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                    CommandParameter="{Binding}"
+                                                    AutomationProperties.AutomationId="{Binding ProcessName,
+                                                                                        StringFormat=RemoveApp_{0}}"
+                                                    AutomationProperties.Name="{Binding DisplayName,
+                                                                               StringFormat=Remove {0}}"/>
+                                        </Grid>
                                     </Border>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
 
-                                    <!-- Name, category chip and process summary each get their own
-                                         line instead of sharing one — this column only has ~156px to
-                                         work with once the icon, "blocked N x" stat, Remove button and
-                                         switch take their share (measured against after/A3/blocked-
-                                         apps.png), nowhere near enough for two fields side by side once
-                                         the category is a real multi-word label ("Games & Launchers")
-                                         rather than the picker's short one-word categories. Cramming the
-                                         chip and the process caption onto one line is what truncated
-                                         both to unreadable fragments (review fix, PR #180). -->
-                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding DisplayName}" Style="{StaticResource Label}" FontWeight="SemiBold"
-                                                   TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"
-                                                   ToolTip="{Binding DisplayName}"/>
-                                        <!-- category tag chip (UI-SPEC.md A3, graft from raycast). MaxWidth
-                                             keeps a long category ("Games & Launchers") from overflowing
-                                             its own line into the "blocked N x" column next to it — a
-                                             Border with no size cap renders at its full desired width
-                                             regardless of the column it sits in (WPF doesn't clip by
-                                             default), which is exactly how this row got the review-flagged
-                                             overlap the first time. -->
-                                        <Border Style="{StaticResource TagChip}" Margin="0,4,0,0"
-                                                HorizontalAlignment="Left" MaxWidth="140"
-                                                Visibility="{Binding HasCategory, Converter={StaticResource BoolVis}}">
-                                            <TextBlock Text="{Binding Category}" Style="{StaticResource Caption}"
-                                                       TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
-                                        </Border>
-                                        <TextBlock Style="{StaticResource Caption}" Margin="0,4,0,0"
-                                                   TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"
-                                                   ToolTip="{Binding ProcessSummary}">
-                                            <Run Text="{Binding ProcessSummary, Mode=OneWay}"/>
-                                        </TextBlock>
-                                    </StackPanel>
+                        <!-- add by name -->
+                        <TextBlock Text="Add by name" Style="{StaticResource FieldLabel}" Margin="0,12,0,8"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox Grid.Column="0" Style="{StaticResource Field}"
+                                     Text="{Binding NewAppName, UpdateSourceTrigger=PropertyChanged}"
+                                     IsEnabled="{Binding IsEditable}"
+                                     AutomationProperties.AutomationId="NewAppNameInput"
+                                     AutomationProperties.Name="App or process name"
+                                     AutomationProperties.HelpText="Process name such as slack, or a full path to an exe"/>
+                            <Button Grid.Column="1" Style="{StaticResource BtnGhost}" Content="Add"
+                                    Command="{Binding AddCommand}" Margin="8,0,0,0" Padding="20,0"
+                                    AutomationProperties.AutomationId="AddAppButton"
+                                    AutomationProperties.Name="Add blocked app"/>
+                        </Grid>
+                        <TextBlock Text="A process name (“steam”) or the path to an .exe, for an app Find an app doesn't list."
+                                   Style="{StaticResource Caption}" Margin="0,8,0,0" TextWrapping="Wrap"/>
 
-                                    <TextBlock Grid.Column="2" VerticalAlignment="Center" Margin="0,0,16,0"
-                                               Style="{StaticResource Caption}">
-                                        <Run Text="blocked"/>
-                                        <Run Text="{Binding BlockCount, Mode=OneWay}"
-                                             Foreground="{DynamicResource Rose}"/>
-                                        <Run Text="×"/>
-                                    </TextBlock>
-
-                                    <!-- destructive (UI-SPEC.md A3, §7 BtnDanger): removes the app from the
-                                         blocklist, the closest thing to a "delete" action on this screen. -->
-                                    <Button Grid.Column="3" Style="{StaticResource BtnDanger}" Content="Remove"
-                                            Padding="12,0" VerticalAlignment="Center"
-                                            Command="{Binding DataContext.RemoveCommand,
-                                                      RelativeSource={RelativeSource AncestorType=ListBox}}"
+                        <!-- websites (F10 interim). Basalt can't block a site
+                             without the browser extension (after launch), so
+                             the caption says what it does instead: a notice
+                             over the tab, at every shield. -->
+                        <TextBlock Text="Websites, notice only" Style="{StaticResource FieldLabel}" Margin="0,20,0,8"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox Grid.Column="0" Style="{StaticResource Field}" MaxLength="253"
+                                     Text="{Binding NewSiteText, UpdateSourceTrigger=PropertyChanged}"
+                                     IsEnabled="{Binding IsEditable}"
+                                     AutomationProperties.AutomationId="NewSiteInput"
+                                     AutomationProperties.Name="Website"
+                                     AutomationProperties.HelpText="A website such as youtube.com"/>
+                            <Button Grid.Column="1" Style="{StaticResource BtnGhost}" Content="Add website"
+                                    Command="{Binding AddSiteCommand}" Margin="8,0,0,0" Padding="16,0"
+                                    AutomationProperties.AutomationId="AddSiteButton"
+                                    AutomationProperties.Name="Add blocked website"/>
+                        </Grid>
+                        <ItemsControl ItemsSource="{Binding Sites}" Margin="0,8,0,0" IsTabStop="False">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel/>
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Button Style="{StaticResource BtnGhost}" Height="32" Padding="12,0" Margin="0,0,8,8"
+                                            Content="{Binding}" ContentStringFormat="{}{0}  ×"
+                                            Command="{Binding DataContext.RemoveSiteCommand,
+                                                      RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                             CommandParameter="{Binding}"
-                                            AutomationProperties.AutomationId="{Binding ProcessName,
-                                                                                StringFormat=RemoveApp_{0}}"
-                                            AutomationProperties.Name="{Binding DisplayName,
-                                                                       StringFormat=Remove {0}}"/>
+                                            AutomationProperties.AutomationId="{Binding StringFormat=RemoveSite_{0}}"
+                                            AutomationProperties.Name="{Binding StringFormat=Remove {0}}"/>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap"
+                                   AutomationProperties.AutomationId="SitesHint"
+                                   Text="During a sprint, Basalt shows its notice when the tab in front names one of these. It reads the tab's title only, so it can miss a page or catch a search, and it never closes your browser."/>
+                    </StackPanel>
 
-                                    <CheckBox Grid.Column="4" Style="{StaticResource Switch}"
-                                              VerticalAlignment="Center" Margin="12,0,0,0"
-                                              IsChecked="{Binding IsEnabled, Mode=TwoWay}"
-                                              IsEnabled="{Binding DataContext.CanEditApps,
+                    <!-- the app picker (F8): installed and running apps, each
+                         with its icon from the exe -->
+                    <StackPanel>
+                        <Grid Margin="0,0,0,0">
+                            <TextBlock Text="Find an app" Style="{StaticResource FieldLabel}" VerticalAlignment="Center" Margin="0"/>
+                            <Button Style="{StaticResource BtnQuiet}" HorizontalAlignment="Right" Height="28" Padding="8,0"
+                                    Command="{Binding RefreshRunningCommand}"
+                                    AutomationProperties.AutomationId="RefreshProcessesButton"
+                                    AutomationProperties.Name="Refresh installed and running apps">
+                                <TextBlock Style="{StaticResource IconSmall}" Text="{StaticResource IconRefresh}"/>
+                            </Button>
+                        </Grid>
+                        <TextBox x:Name="FindAnAppInput" Style="{StaticResource Field}" Margin="0,8,0,0"
+                                 Text="{Binding PickerQuery, UpdateSourceTrigger=PropertyChanged}"
+                                 IsEnabled="{Binding IsEditable}"
+                                 AutomationProperties.AutomationId="AppSearchInput"
+                                 AutomationProperties.Name="Search apps"
+                                 AutomationProperties.HelpText="Discord, Steam, Minecraft…"/>
+                        <TextBlock Text="{Binding PickerNotice}" Style="{StaticResource Caption}" TextWrapping="Wrap"
+                                   Foreground="{DynamicResource Amber}" Margin="0,8,0,0"
+                                   Visibility="{Binding HasPickerNotice, Converter={StaticResource BoolVis}}"
+                                   AutomationProperties.AutomationId="AppSearchNotice"/>
+
+                        <!-- Every app on the PC is a long list, so this one list
+                             keeps a height of its own; searching narrows it. -->
+                        <ListBox ItemsSource="{Binding PickerResults}" Margin="0,12,0,0" MaxHeight="420"
+                                 Background="Transparent" BorderThickness="0"
+                                 ItemContainerStyle="{StaticResource PlainItem}"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                 VirtualizingPanel.IsVirtualizing="True"
+                                 AutomationProperties.AutomationId="AppPickerList"
+                                 AutomationProperties.Name="Apps you can block">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="0,0,0,8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <Grid Grid.Column="0" Width="28" Height="28" Margin="0,0,12,0" VerticalAlignment="Top">
+                                            <Border CornerRadius="{StaticResource RadiusChip}" Background="{DynamicResource PrimarySoft}"
+                                                    Visibility="{Binding HasIcon, Converter={StaticResource InvBoolVis}}">
+                                                <TextBlock Text="{Binding Initial}" FontWeight="SemiBold"
+                                                           Foreground="{DynamicResource Ink}"
+                                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                            </Border>
+                                            <Image Source="{Binding Icon}" Width="24" Height="24"
+                                                   RenderOptions.BitmapScalingMode="HighQuality"/>
+                                        </Grid>
+
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                            <!-- The name has the row's full width, and the
+                                                 category chip sits under it beside the source:
+                                                 side by side in a narrow picker both were cut
+                                                 to a few letters (#406). -->
+                                            <TextBlock Text="{Binding Name}" Foreground="{DynamicResource Ink}"
+                                                       FontSize="13" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                                            <WrapPanel Margin="0,2,0,0">
+                                                <Border Style="{StaticResource TagChip}" Margin="0,2,8,0"
+                                                        VerticalAlignment="Center"
+                                                        Visibility="{Binding HasGroup, Converter={StaticResource BoolVis}}">
+                                                    <TextBlock Text="{Binding Group}" Style="{StaticResource Caption}"
+                                                               TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
+                                                </Border>
+                                                <TextBlock Text="{Binding SourceLabel}" Style="{StaticResource Caption}"
+                                                           VerticalAlignment="Center" Margin="0,2,0,0"
+                                                           Visibility="{Binding HasSourceLabel, Converter={StaticResource BoolVis}}"/>
+                                            </WrapPanel>
+                                            <TextBlock Text="{Binding Note}" Style="{StaticResource Caption}" TextWrapping="Wrap"
+                                                       Foreground="{DynamicResource Amber}"
+                                                       Visibility="{Binding HasNote, Converter={StaticResource BoolVis}}"/>
+                                        </StackPanel>
+
+                                        <Button Grid.Column="2" Style="{StaticResource BtnGhost}" Height="32" Padding="12,0"
+                                                VerticalAlignment="Top" Margin="8,0,0,0"
+                                                Content="{Binding ActionLabel}"
+                                                Command="{Binding DataContext.PickCommand,
                                                           RelativeSource={RelativeSource AncestorType=ListBox}}"
-                                              Command="{Binding DataContext.ToggleAppCommand,
-                                                        RelativeSource={RelativeSource AncestorType=ListBox}}"
-                                              CommandParameter="{Binding}"
-                                              AutomationProperties.AutomationId="{Binding ProcessName,
-                                                                                  StringFormat=AppEnabledSwitch_{0}}"
-                                              AutomationProperties.Name="{Binding DisplayName,
-                                                                         StringFormat=Enable {0}}"/>
-                                </Grid>
-                            </Border>
-                        </DataTemplate>
-                    </ListBox.ItemTemplate>
-                </ListBox>
-            </DockPanel>
-            </ScrollViewer>
-        </Border>
+                                                CommandParameter="{Binding}"
+                                                AutomationProperties.AutomationId="{Binding AutomationId}"
+                                                AutomationProperties.Name="{Binding ActionName}"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </StackPanel>
+                </inf:AdaptiveColumns>
 
-        <!-- ====================================================== app picker (F8) -->
-        <Border x:Name="PickerCard" Grid.Column="1" Style="{StaticResource Card}" Padding="24">
-            <DockPanel>
-                <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
-                    <Grid>
-                        <TextBlock Text="FIND AN APP" Style="{StaticResource Eyebrow}" VerticalAlignment="Center"/>
-                        <Button Style="{StaticResource BtnQuiet}" HorizontalAlignment="Right" Padding="8,0"
-                                Command="{Binding RefreshRunningCommand}"
-                                AutomationProperties.AutomationId="RefreshProcessesButton"
-                                AutomationProperties.Name="Refresh installed and running apps">
-                            <TextBlock Style="{StaticResource IconSmall}" Text="{StaticResource IconRefresh}"/>
-                        </Button>
-                    </Grid>
-                    <TextBox Style="{StaticResource Field}" Margin="0,8,0,0"
-                             Text="{Binding PickerQuery, UpdateSourceTrigger=PropertyChanged}"
-                             IsEnabled="{Binding IsEditable}"
-                             AutomationProperties.AutomationId="AppSearchInput"
-                             AutomationProperties.Name="Search apps"
-                             AutomationProperties.HelpText="Discord, Steam, Minecraft…"/>
-                    <TextBlock Text="{Binding PickerNotice}" Style="{StaticResource Caption}" TextWrapping="Wrap"
-                               Foreground="{DynamicResource Amber}" Margin="4,8,0,0"
-                               Visibility="{Binding HasPickerNotice, Converter={StaticResource BoolVis}}"
-                               AutomationProperties.AutomationId="AppSearchNotice"/>
-                </StackPanel>
+                <Button Style="{StaticResource BtnGhost}" Content="Done" HorizontalAlignment="Right" Margin="0,16,0,0" Padding="24,0"
+                        Command="{Binding DoneEditingCommand}"
+                        AutomationProperties.AutomationId="BlocklistDoneButton"
+                        AutomationProperties.Name="Done editing this blocklist"/>
+            </StackPanel>
+        </DataTemplate>
+    </UserControl.Resources>
 
-                <ListBox ItemsSource="{Binding PickerResults}"
-                         Background="Transparent" BorderThickness="0"
-                         ItemContainerStyle="{StaticResource PlainItem}"
-                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                         VirtualizingPanel.IsVirtualizing="True"
-                         AutomationProperties.AutomationId="AppPickerList"
-                         AutomationProperties.Name="Apps you can block">
-                    <ListBox.ItemTemplate>
-                        <DataTemplate>
-                            <Grid Margin="0,0,0,8">
+    <Border x:Name="ListCard" Style="{StaticResource Card}" Padding="20,16,20,16">
+        <StackPanel>
+            <!-- header: the section's name, what it is for, and New blocklist -->
+            <Grid Margin="0,0,0,4">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <WrapPanel VerticalAlignment="Center">
+                    <TextBlock Text="Blocklists" Style="{StaticResource CardTitle}" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                    <TextBlock Text="What Basalt blocks during a sprint." Style="{StaticResource Body}" VerticalAlignment="Center"/>
+                </WrapPanel>
+                <!-- A new blocklist starts as a copy of the one in use, named
+                     from the Name field when it has text (so a script can name
+                     it), else "New blocklist", and opens to be renamed. -->
+                <Button Grid.Column="1" Style="{StaticResource BtnGhost}" Height="36" Padding="14,0" Margin="12,0,0,0"
+                        Command="{Binding NewProfileCommand}"
+                        AutomationProperties.AutomationId="NewProfileButton"
+                        AutomationProperties.Name="New blocklist">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Style="{StaticResource IconSmall}" Text="{StaticResource IconAdd}" FontSize="12"
+                                   VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <TextBlock Text="New blocklist" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+            </Grid>
+
+            <ItemsControl ItemsSource="{Binding ProfileRows}" AlternationCount="1000" IsTabStop="False">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Grid>
+                            <!-- a hairline between blocklists, not above the first -->
+                            <Border x:Name="Divider" Height="1" VerticalAlignment="Top" Background="{DynamicResource Edge}"/>
+
+                            <!-- the row -->
+                            <Grid Margin="0,12,0,8" Visibility="{Binding IsShown, Converter={StaticResource BoolVis}}">
                                 <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto" MinWidth="140"/>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
 
-                                <Grid Grid.Column="0" Width="28" Height="28" Margin="0,0,12,0" VerticalAlignment="Top">
-                                    <Border CornerRadius="{StaticResource RadiusControl}" Background="{DynamicResource PrimarySoft}"
-                                            Visibility="{Binding HasIcon, Converter={StaticResource InvBoolVis}}">
-                                        <TextBlock Text="{Binding Initial}" FontWeight="SemiBold"
-                                                   Foreground="{DynamicResource Ink}"
-                                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                    </Border>
-                                    <Image Source="{Binding Icon}" Width="24" Height="24"
-                                           RenderOptions.BitmapScalingMode="HighQuality"/>
-                                </Grid>
+                                <!-- The blocklist sprints use. A radio when there is
+                                     more than one; with one, just its name. -->
+                                <RadioButton Grid.Column="0" Style="{StaticResource ChoiceRadio}" GroupName="BlocklistProfile"
+                                             VerticalAlignment="Center" Margin="0,0,24,0" MaxWidth="220"
+                                             IsChecked="{Binding IsActive, Mode=OneWay}"
+                                             Tag="{Binding DataContext.HasSeveralProfiles, ElementName=Root}"
+                                             IsEnabled="{Binding DataContext.CanSwitchProfile, ElementName=Root}"
+                                             Command="{Binding DataContext.SelectProfileCommand, ElementName=Root}"
+                                             CommandParameter="{Binding Profile}"
+                                             AutomationProperties.AutomationId="{Binding Name, StringFormat=Profile_{0}}"
+                                             AutomationProperties.Name="{Binding Name, StringFormat=Use the {0} blocklist}">
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding Name}" Style="{StaticResource Body}" Foreground="{DynamicResource Ink}"
+                                                   TextTrimming="CharacterEllipsis"/>
+                                        <TextBlock Text="{Binding CountText}" Style="{StaticResource Body}"/>
+                                        <TextBlock Text="{Binding UseText}" Style="{StaticResource Caption}"
+                                                   Visibility="{Binding DataContext.HasSeveralProfiles, ElementName=Root,
+                                                                Converter={StaticResource BoolVis}}"/>
+                                    </StackPanel>
+                                </RadioButton>
 
-                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                    <!-- The name has the row's full width, and the
-                                         category chip sits under it beside the source,
-                                         as on the blocklist's own rows: side by side in
-                                         a narrow picker both were cut to a few letters
-                                         ("Epic Ga…", "Games…", #406). -->
-                                    <TextBlock Text="{Binding Name}" Foreground="{DynamicResource Ink}"
-                                               FontSize="13" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
-                                    <WrapPanel Margin="0,2,0,0">
-                                        <!-- category tag chip (UI-SPEC.md A3, graft from raycast):
-                                             "Music", "Chat", "Browsers", "Utilities" … -->
-                                        <Border Style="{StaticResource TagChip}" Margin="0,2,8,0"
-                                                VerticalAlignment="Center"
-                                                Visibility="{Binding HasGroup, Converter={StaticResource BoolVis}}">
-                                            <TextBlock Text="{Binding Group}" Style="{StaticResource Caption}"
-                                                       TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
-                                        </Border>
-                                        <TextBlock Text="{Binding SourceLabel}" Style="{StaticResource Caption}"
-                                                   VerticalAlignment="Center" Margin="0,2,0,0"
-                                                   Visibility="{Binding HasSourceLabel, Converter={StaticResource BoolVis}}"/>
-                                    </WrapPanel>
-                                    <TextBlock Text="{Binding Note}" Style="{StaticResource Caption}" TextWrapping="Wrap"
-                                               Foreground="{DynamicResource Amber}"
-                                               Visibility="{Binding HasNote, Converter={StaticResource BoolVis}}"/>
+                                <!-- the apps, then Add an app, flowing together -->
+                                <ItemsControl Grid.Column="1" ItemsSource="{Binding Items}" IsTabStop="False" VerticalAlignment="Center">
+                                    <ItemsControl.Resources>
+                                        <DataTemplate DataType="{x:Type vm:AppChip}">
+                                            <Border Style="{StaticResource AppChip}" Margin="0,4,8,4"
+                                                    ToolTip="{Binding Name}">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <Grid Width="24" Height="24" Margin="0,0,10,0" VerticalAlignment="Center">
+                                                        <Border CornerRadius="{StaticResource RadiusChip}" Background="{DynamicResource PrimarySoft}"
+                                                                Visibility="{Binding HasIcon, Converter={StaticResource InvBoolVis}}">
+                                                            <TextBlock Text="{Binding Initial}" FontSize="12" FontWeight="SemiBold"
+                                                                       Foreground="{DynamicResource Ink}"
+                                                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                        </Border>
+                                                        <Image Source="{Binding Icon}" Width="24" Height="24"
+                                                               RenderOptions.BitmapScalingMode="HighQuality"/>
+                                                    </Grid>
+                                                    <TextBlock Text="{Binding Name}" Foreground="{DynamicResource Ink}" FontSize="14"
+                                                               VerticalAlignment="Center" MaxWidth="200" TextTrimming="CharacterEllipsis"/>
+                                                </StackPanel>
+                                            </Border>
+                                        </DataTemplate>
+                                        <DataTemplate DataType="{x:Type vm:AddAppSlot}">
+                                            <Button Style="{StaticResource BtnGhost}" Margin="0,4,8,4" Padding="16,0"
+                                                    Command="{Binding DataContext.AddAppToProfileCommand, ElementName=Root}"
+                                                    CommandParameter="{Binding Row}"
+                                                    AutomationProperties.AutomationId="{Binding Row.Name, StringFormat=AddAppTo_{0}}"
+                                                    AutomationProperties.Name="{Binding Row.Name, StringFormat=Add an app to {0}}">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <TextBlock Style="{StaticResource IconSmall}" Text="{StaticResource IconAdd}" FontSize="12"
+                                                               VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                                    <TextBlock Text="Add an app" VerticalAlignment="Center"/>
+                                                </StackPanel>
+                                            </Button>
+                                        </DataTemplate>
+                                    </ItemsControl.Resources>
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <WrapPanel/>
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                </ItemsControl>
+
+                                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Top" Margin="0,6,0,0">
+                                    <Button Style="{StaticResource BtnGhost}" Height="36" Padding="14,0" Margin="8,0,0,0"
+                                            Command="{Binding DataContext.EditProfileCommand, ElementName=Root}"
+                                            CommandParameter="{Binding}"
+                                            AutomationProperties.AutomationId="{Binding Name, StringFormat=EditBlocklist_{0}}"
+                                            AutomationProperties.Name="{Binding Name, StringFormat=Edit the {0} blocklist}">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Style="{StaticResource IconSmall}" Text="{StaticResource IconEdit}" FontSize="12"
+                                                       VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                            <TextBlock Text="Edit" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Button>
                                 </StackPanel>
-
-                                <Button Grid.Column="2" Style="{StaticResource BtnGhost}" Padding="12,4"
-                                        VerticalAlignment="Top" Margin="8,0,0,0"
-                                        Content="{Binding ActionLabel}"
-                                        Command="{Binding DataContext.PickCommand,
-                                                  RelativeSource={RelativeSource AncestorType=ListBox}}"
-                                        CommandParameter="{Binding}"
-                                        AutomationProperties.AutomationId="{Binding AutomationId}"
-                                        AutomationProperties.Name="{Binding ActionName}"/>
                             </Grid>
-                        </DataTemplate>
-                    </ListBox.ItemTemplate>
-                </ListBox>
-            </DockPanel>
-        </Border>
-    </Grid>
-    </ScrollViewer>
+
+                            <!-- the open blocklist, in its row's place -->
+                            <ContentControl Margin="0,12,0,4" IsTabStop="False"
+                                            Content="{Binding DataContext, ElementName=Root}"
+                                            Visibility="{Binding IsEditing, Converter={StaticResource BoolVis}}">
+                                <ContentControl.Style>
+                                    <Style TargetType="ContentControl">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsEditing}" Value="True">
+                                                <Setter Property="ContentTemplate" Value="{StaticResource BlocklistEditor}"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </ContentControl.Style>
+                            </ContentControl>
+                        </Grid>
+                        <DataTemplate.Triggers>
+                            <DataTrigger Binding="{Binding (ItemsControl.AlternationIndex),
+                                                   RelativeSource={RelativeSource AncestorType=ContentPresenter}}" Value="0">
+                                <Setter TargetName="Divider" Property="Visibility" Value="Collapsed"/>
+                            </DataTrigger>
+                        </DataTemplate.Triggers>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </StackPanel>
+    </Border>
 </UserControl>

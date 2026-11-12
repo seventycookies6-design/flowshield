@@ -76,8 +76,9 @@ public class TodayViewModel : ViewModelBase
                                                 _ => !IsRunning && !IsOnBreak);
         StartTemplateCommand = new RelayCommand(p => { if (p is TemplateRow row) StartTemplate(row.Template, skipOpenAppsPanel: false); },
                                                 _ => !IsRunning && !IsOnBreak);
-        OpenPlansCommand = new RelayCommand(() => _main.CurrentPage = AppPage.SleepBlocking);
-        OpenBlocklistsCommand = new RelayCommand(() => _main.CurrentPage = AppPage.BlockedApps);
+        OpenPlansCommand = new RelayCommand(() => _main.OpenPlans(PlansSection.Schedules));
+        OpenTemplatesCommand = new RelayCommand(() => _main.OpenPlans(PlansSection.Templates));
+        OpenBlocklistsCommand = new RelayCommand(() => _main.OpenPlans(PlansSection.Blocklists));
         StartNowCommand = new RelayCommand(StartNow);
         SkipTodayCommand = new RelayCommand(SkipToday);
 
@@ -1399,10 +1400,13 @@ public class TodayViewModel : ViewModelBase
     /// <summary>A template card's Start (#431): fills it in and starts, through every gate Start has.</summary>
     public RelayCommand StartTemplateCommand { get; }
 
-    /// <summary>"Edit templates" and "Edit schedules": the page where both live (Plans, from #433).</summary>
+    /// <summary>Up next's "Edit schedules": Plans, at its Schedules section (#433).</summary>
     public RelayCommand OpenPlansCommand { get; }
 
-    /// <summary>The setup panel's "Edit blocklists": the Blocked Apps page.</summary>
+    /// <summary>The Templates card's "Edit templates": Plans, at its Templates section.</summary>
+    public RelayCommand OpenTemplatesCommand { get; }
+
+    /// <summary>The setup panel's "Edit blocklists": Plans, at its Blocklists section.</summary>
     public RelayCommand OpenBlocklistsCommand { get; }
 
     /// <summary>Hidden while a sprint or break runs (spec 3.5): a preset is for the next start.</summary>

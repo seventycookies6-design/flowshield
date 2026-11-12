@@ -20,22 +20,21 @@
     </Window.TaskbarItemInfo>
 
     <!-- F4: Space starts/ends the sprint on Today (guarded against text-box focus in
-         TodayViewModel.CanUseSpaceShortcut); Shift+1/2/3 pick a shield; Ctrl+1..5 move
-         between pages, one per nav-rail tab in the order they appear (Today, History,
-         Blocked Apps, Schedule, Settings) — Ctrl+1..5 is reserved for page
-         navigation (issue #37), and F16 used the fifth slot for History. All of these
-         are WPF KeyBindings to the same commands the buttons use, never a shortcut
-         around them. -->
+         TodayViewModel.CanUseSpaceShortcut); Shift+1/2/3 pick a shield; Ctrl+1..4 move
+         between pages, one per nav-rail tab in the order they appear (Today, Plans,
+         History, Settings). Ctrl+1..5 was reserved for page navigation (issue #37);
+         Plans took the places of Blocked Apps and Schedule (#433), so Ctrl+5 is
+         free again. All of these are WPF KeyBindings to the same commands the
+         buttons use, never a shortcut around them. -->
     <Window.InputBindings>
         <KeyBinding Key="Space" Command="{Binding Today.ToggleOrEndCommand}"/>
         <KeyBinding Modifiers="Shift" Key="D1" Command="{Binding Today.SelectShieldSoftCommand}"/>
         <KeyBinding Modifiers="Shift" Key="D2" Command="{Binding Today.SelectShieldFirmCommand}"/>
         <KeyBinding Modifiers="Shift" Key="D3" Command="{Binding Today.SelectShieldSealedCommand}"/>
         <KeyBinding Modifiers="Ctrl" Key="D1" Command="{Binding NavigateCommand}" CommandParameter="Today"/>
-        <KeyBinding Modifiers="Ctrl" Key="D2" Command="{Binding NavigateCommand}" CommandParameter="History"/>
-        <KeyBinding Modifiers="Ctrl" Key="D3" Command="{Binding NavigateCommand}" CommandParameter="BlockedApps"/>
-        <KeyBinding Modifiers="Ctrl" Key="D4" Command="{Binding NavigateCommand}" CommandParameter="SleepBlocking"/>
-        <KeyBinding Modifiers="Ctrl" Key="D5" Command="{Binding NavigateCommand}" CommandParameter="Settings"/>
+        <KeyBinding Modifiers="Ctrl" Key="D2" Command="{Binding NavigateCommand}" CommandParameter="Plans"/>
+        <KeyBinding Modifiers="Ctrl" Key="D3" Command="{Binding NavigateCommand}" CommandParameter="History"/>
+        <KeyBinding Modifiers="Ctrl" Key="D4" Command="{Binding NavigateCommand}" CommandParameter="Settings"/>
     </Window.InputBindings>
 
 
@@ -106,6 +105,19 @@
                         </StackPanel>
                     </Button>
 
+                    <!-- Plans (#433) replaced Blocked Apps and Schedule: one page for
+                         blocklists, schedules and templates. -->
+                    <Button Style="{StaticResource NavButton}"
+                            Command="{Binding NavigateCommand}" CommandParameter="Plans"
+                            Tag="{Binding IsPlansPage}"
+                            AutomationProperties.AutomationId="Tab_Plans"
+                            AutomationProperties.Name="Plans">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Style="{StaticResource Icon}" Text="{StaticResource IconPlans}"/>
+                            <TextBlock x:Name="NavPlansLabel" Text="Plans" Margin="12,0,0,0" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+
                     <Button Style="{StaticResource NavButton}"
                             Command="{Binding NavigateCommand}" CommandParameter="History"
                             Tag="{Binding IsHistoryPage}"
@@ -114,30 +126,6 @@
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Style="{StaticResource Icon}" Text="{StaticResource IconHistory}"/>
                             <TextBlock x:Name="NavHistoryLabel" Text="History" Margin="12,0,0,0" VerticalAlignment="Center"/>
-                        </StackPanel>
-                    </Button>
-
-                    <Button Style="{StaticResource NavButton}"
-                            Command="{Binding NavigateCommand}" CommandParameter="BlockedApps"
-                            Tag="{Binding IsBlockedAppsPage}"
-                            AutomationProperties.AutomationId="Tab_BlockedApps"
-                            AutomationProperties.Name="Blocked Apps">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Style="{StaticResource Icon}" Text="{StaticResource IconBlocked}"/>
-                            <TextBlock x:Name="NavBlockedAppsLabel" Text="Blocked Apps" Margin="12,0,0,0" VerticalAlignment="Center"/>
-                        </StackPanel>
-                    </Button>
-
-                    <!-- F6: the Sleep Blocking tab became Schedule. The AutomationId,
-                         the AppPage value, the label's x:Name and Ctrl+4 stay. -->
-                    <Button Style="{StaticResource NavButton}"
-                            Command="{Binding NavigateCommand}" CommandParameter="SleepBlocking"
-                            Tag="{Binding IsSleepBlockingPage}"
-                            AutomationProperties.AutomationId="Tab_SleepBlocking"
-                            AutomationProperties.Name="Schedule">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Style="{StaticResource Icon}" Text="{StaticResource IconSleep}"/>
-                            <TextBlock x:Name="NavSleepBlockingLabel" Text="Schedule" Margin="12,0,0,0" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
 
@@ -198,15 +186,10 @@
                                                 RelativeSource={RelativeSource AncestorType=Window},
                                                 Converter={StaticResource BoolVis}}"/>
 
-                <views:BlockedAppsView DataContext="{Binding BlockedApps}"
-                                       Visibility="{Binding DataContext.IsBlockedAppsPage,
-                                                    RelativeSource={RelativeSource AncestorType=Window},
-                                                    Converter={StaticResource BoolVis}}"/>
-
-                <views:ScheduleView DataContext="{Binding Schedule}"
-                                    Visibility="{Binding DataContext.IsSleepBlockingPage,
-                                                 RelativeSource={RelativeSource AncestorType=Window},
-                                                 Converter={StaticResource BoolVis}}"/>
+                <!-- Plans (#433): blocklists, schedules and templates. Its
+                     sections bind to BlockedApps and Schedule themselves. -->
+                <views:PlansView x:Name="PlansPage"
+                                 Visibility="{Binding IsPlansPage, Converter={StaticResource BoolVis}}"/>
 
                 <views:SettingsView DataContext="{Binding SettingsPage}"
                                     Visibility="{Binding DataContext.IsSettingsPage,

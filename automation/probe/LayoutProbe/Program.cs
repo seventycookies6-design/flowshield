@@ -69,7 +69,7 @@ internal static class Program
         var label = "capture";
         var theme = "dark";
         var outputDirectory = Path.Combine(Environment.CurrentDirectory, "layout-probe-output");
-        var pages = new[] { "today-rest", "history", "blocked-apps", "schedule", "settings-top" };
+        var pages = new[] { "today-rest", "plans", "history", "settings-top" };
         var scale = 1d;
 
         for (var i = 0; i < args.Length; i++)
@@ -263,12 +263,17 @@ internal static class Program
                 case "history":
                     viewModel.NavigateCommand.Execute(AppPage.History);
                     break;
+                // Plans (#433) replaced Blocked Apps and Schedule; the old page
+                // names open it at the matching section.
+                case "plans":
+                    viewModel.NavigateCommand.Execute(AppPage.Plans);
+                    break;
                 case "blocked-apps":
-                    viewModel.NavigateCommand.Execute(AppPage.BlockedApps);
+                    viewModel.NavigateCommand.Execute(PlansSection.Blocklists);
                     break;
                 case "schedule":
                 case "sleep-blocking":
-                    viewModel.NavigateCommand.Execute(AppPage.SleepBlocking);
+                    viewModel.NavigateCommand.Execute(PlansSection.Schedules);
                     break;
                 case "settings-top":
                     viewModel.NavigateCommand.Execute(AppPage.Settings);

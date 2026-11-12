@@ -49,17 +49,18 @@ SECTIONS = (
     ("settings-about", "SettingsNav_About"),
 )
 
+# Plans (#433) replaced Blocked Apps and Schedule. Only its resting state is
+# captured: an open blocklist shows the app picker, which lists what is
+# installed and running on the capture machine, so it never goes in a capture.
 PAGES = (
-    "today-rest", "history", "blocked-apps", "schedule", "sleep-blocking",
+    "today-rest", "plans", "history",
     "settings-top", *(page for page, _ in SECTIONS), "today-sprint", "lock-screen",
     "first-run-welcome",
 )
 
 TAB_PAGES = {
+    "plans": "Plans",
     "history": "History",
-    "blocked-apps": "Blocked Apps",
-    "schedule": "Schedule",
-    "sleep-blocking": "Schedule",
     "settings-top": "Settings",
 }
 
@@ -374,9 +375,6 @@ def capture_regular_pages(app, size_label, theme, pages, metrics, output, record
             title = app.navigate_to_tab(tab)
             if page == "settings-top" and title.lower() != "settings":
                 raise RuntimeError(f"expected Settings, got {title}")
-            if page == "sleep-blocking":
-                control = app.element("SleepBlockToggle", timeout=8)
-                app._scroll_into_view(control, "SleepBlockToggle")
 
         attempt_capture(app, output, size_label, theme, page, metrics, records, skipped, navigate)
     for page, rail_id in SECTIONS:

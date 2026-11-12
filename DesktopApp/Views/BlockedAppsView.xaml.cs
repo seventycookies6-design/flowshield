@@ -1,70 +1,79 @@
 using System.Windows;
+using System.Windows.Automation;
 using System.Windows.Controls;
-using System.Windows.Input;
+using System.Windows.Media;
+using FlowShield.ViewModels;
 
 namespace FlowShield.Views;
 
+/// <summary>
+/// Plans' Blocklists section (#433). The page scrolls, not this section: the
+/// old side-by-side cards with their own scrolling are gone, and so is the
+/// width breakpoint that stacked them (#189); the open blocklist's list and
+/// picker stack through AdaptiveColumns instead.
+/// </summary>
 public partial class BlockedAppsView : UserControl
 {
-    /// <summary>
-    /// Below this view width the picker stacks under the list (DESIGN_SYSTEM.md
-    /// §4). Side by side any narrower, the picker cut app names short and the
-    /// list clipped its Remove buttons (#189).
-    /// </summary>
-    public const double StackPickerBelow = 780;
+    private BlockedAppsViewModel? _vm;
 
-    public BlockedAppsView() => InitializeComponent();
-
-    // In the stacked layout the page owns scrolling. The card has no scroll
-    // range there, but its ScrollViewer would still swallow wheel input.
-    private void OnBlocklistPreviewMouseWheel(object sender, MouseWheelEventArgs e)
+    public BlockedAppsView()
     {
-        if (e.Handled || PageScroll.VerticalScrollBarVisibility != ScrollBarVisibility.Auto) return;
-        e.Handled = true;
-        PageScroll.RaiseEvent(new MouseWheelEventArgs(e.MouseDevice, e.Timestamp, e.Delta)
+        InitializeComponent();
+        DataContextChanged += (_, e) =>
         {
-            RoutedEvent = MouseWheelEvent,
-            Source = sender,
-        });
+            if (_vm is not null) _vm.EditorOpened -= OnEditorOpened;
+            _vm = e.NewValue as BlockedAppsViewModel;
+            if (_vm is not null) _vm.EditorOpened += OnEditorOpened;
+        };
     }
 
-    /// <summary>Keyed on the view's own width, like TodayView.</summary>
-    private void OnSizeChanged(object sender, SizeChangedEventArgs e)
+    /// <summary>
+    /// A blocklist opened: once its editor is laid out, bring it into view and
+    /// put the cursor where the button that opened it promised (Add an app:
+    /// Find an app; New blocklist: the name).
+    /// </summary>
+    private void OnEditorOpened(object? sender, BlockedAppsViewModel.EditorFocus focus)
     {
-        bool narrow = e.NewSize.Width < StackPickerBelow;
+        Dispatcher.BeginInvoke(() =>
+        {
+            var name = FindById<TextBox>(this, "ProfileNameInput");
+            if (name is null) return;
+            var editor = FindAncestor<ContentControl>(name) ?? (FrameworkElement)name;
+            editor.RaiseEvent(new RoutedEventArgs(PlansView.EditorOpenedEvent, editor));
 
-        if (narrow)
+            var field = focus switch
+            {
+                BlockedAppsViewModel.EditorFocus.Name => name,
+                BlockedAppsViewModel.EditorFocus.FindAnApp => FindById<TextBox>(this, "AppSearchInput"),
+                _ => null,
+            };
+            if (field is { IsEnabled: true })
+            {
+                field.Focus();
+                field.SelectAll();
+            }
+        }, System.Windows.Threading.DispatcherPriority.Loaded);
+    }
+
+    private static T? FindById<T>(DependencyObject root, string automationId) where T : FrameworkElement
+    {
+        var queue = new Queue<DependencyObject>();
+        queue.Enqueue(root);
+        while (queue.Count > 0)
         {
-            // MinWidth first: a minimum would otherwise hold the column open.
-            PickerColumn.MinWidth = 0;
-            PickerColumn.Width = new GridLength(0);
-            // Natural heights, with the page scrolling; the picker keeps a cap so
-            // its long list still scrolls inside the card instead of the page.
-            PageScroll.VerticalScrollBarVisibility = ScrollBarVisibility.Auto;
-            ListRow.Height = GridLength.Auto;
-            PickerRow.Height = GridLength.Auto;
-            PickerCard.MaxHeight = 440;
-            Grid.SetRow(PickerCard, 1);
-            Grid.SetColumn(PickerCard, 0);
-            Grid.SetColumnSpan(PickerCard, 2);
-            Grid.SetColumnSpan(ListCard, 2);
-            ListCard.Margin = new Thickness(0, 0, 0, 16);
+            var node = queue.Dequeue();
+            if (node is T element && AutomationProperties.GetAutomationId(element) == automationId && element.IsVisible)
+                return element;
+            for (var i = 0; i < VisualTreeHelper.GetChildrenCount(node); i++)
+                queue.Enqueue(VisualTreeHelper.GetChild(node, i));
         }
-        else
-        {
-            PickerColumn.Width = new GridLength(0.65, GridUnitType.Star);
-            PickerColumn.MinWidth = 260;
-            // Disabled, not Auto: each card gets the page's real height and
-            // scrolls its own content.
-            PageScroll.VerticalScrollBarVisibility = ScrollBarVisibility.Disabled;
-            PickerCard.MaxHeight = double.PositiveInfinity;
-            ListRow.Height = new GridLength(1, GridUnitType.Star);
-            PickerRow.Height = new GridLength(0);
-            Grid.SetRow(PickerCard, 0);
-            Grid.SetColumn(PickerCard, 1);
-            Grid.SetColumnSpan(PickerCard, 1);
-            Grid.SetColumnSpan(ListCard, 1);
-            ListCard.Margin = new Thickness(0, 0, 16, 0);
-        }
+        return null;
+    }
+
+    private static T? FindAncestor<T>(DependencyObject node) where T : DependencyObject
+    {
+        for (var current = VisualTreeHelper.GetParent(node); current is not null; current = VisualTreeHelper.GetParent(current))
+            if (current is T match) return match;
+        return null;
     }
 }

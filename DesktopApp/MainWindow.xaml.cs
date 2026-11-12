@@ -92,8 +92,7 @@ public partial class MainWindow : Window
         NavBottomPanel.Visibility = narrow ? Visibility.Collapsed : Visibility.Visible;
         NavTodayLabel.Visibility = narrow ? Visibility.Collapsed : Visibility.Visible;
         NavHistoryLabel.Visibility = narrow ? Visibility.Collapsed : Visibility.Visible;
-        NavBlockedAppsLabel.Visibility = narrow ? Visibility.Collapsed : Visibility.Visible;
-        NavSleepBlockingLabel.Visibility = narrow ? Visibility.Collapsed : Visibility.Visible;
+        NavPlansLabel.Visibility = narrow ? Visibility.Collapsed : Visibility.Visible;
         NavSettingsLabel.Visibility = narrow ? Visibility.Collapsed : Visibility.Visible;
     }
 

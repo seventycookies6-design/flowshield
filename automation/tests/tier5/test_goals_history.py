@@ -316,8 +316,8 @@ class TestHistoryPage:
         xaml = self._read(self.MAIN_XAML)
         tabs = xaml.split('<StackPanel x:Name="NavTabs"', 1)[1].split("<Grid/>", 1)[0]
         ids = re.findall(r'AutomationProperties.AutomationId="(Tab_\w+)"', tabs)
-        assert ids == ["Tab_Today", "Tab_History", "Tab_BlockedApps",
-                       "Tab_SleepBlocking", "Tab_Settings"], \
+        # #433: Plans replaced Blocked Apps and Schedule.
+        assert ids == ["Tab_Today", "Tab_Plans", "Tab_History", "Tab_Settings"], \
             f"the rail's tabs are {ids}"
         for tab in tabs.split("<Button")[1:]:
             assert 'Style="{StaticResource NavButton}"' in tab, \

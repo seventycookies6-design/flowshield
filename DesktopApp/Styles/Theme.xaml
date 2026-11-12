@@ -65,6 +65,8 @@
     <inf:EnumEqualsConverter x:Key="EnumEq"/>
     <inf:IntEqualsConverter x:Key="IntEq"/>
     <inf:BoolToOpacityConverter x:Key="BoolOpacity"/>
+    <inf:InitialConverter x:Key="Initial"/>
+    <inf:BlockedAppIconConverter x:Key="BlockedAppIcon"/>
     <inf:ShieldRomanConverter x:Key="ShieldRoman"/>
     <!-- Radius 105 = (222 - 12) / 2: the A4 ring is 222px in diameter with a
          12px stroke (UI-SPEC.md §1.7.2 doc amendment), and the dash array is
@@ -907,7 +909,7 @@
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
-                        <ContentPresenter Grid.Column="0" VerticalAlignment="Center" Margin="0,0,16,0"/>
+                        <ContentPresenter x:Name="content" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,16,0"/>
                         <Grid Grid.Column="1" Width="40" Height="20" VerticalAlignment="Center">
                             <Border x:Name="track" inf:Pill.IsRound="True" Background="{DynamicResource Well}"
                                     BorderBrush="{DynamicResource WellLine}" BorderThickness="1"/>
@@ -928,6 +930,10 @@
                             <Setter TargetName="knob" Property="Margin" Value="0,0,3,0"/>
                             <Setter TargetName="knob" Property="Fill" Value="{DynamicResource PrimaryInk}"/>
                             <Setter TargetName="state" Property="Text" Value="On"/>
+                        </Trigger>
+                        <!-- No label (Plans' rows put theirs beside it): no gap before the track. -->
+                        <Trigger Property="Content" Value="{x:Null}">
+                            <Setter TargetName="content" Property="Margin" Value="0"/>
                         </Trigger>
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="knob" Property="Opacity" Value="0.85"/>
@@ -1600,6 +1606,62 @@
 
     <!-- A row on a card: the raised control material, like the mockups'
          template and app tiles, so it reads as something to act on. -->
+    <!-- An app on a blocklist's row on Plans (#433): the app's own icon and
+         its name on a raised face, the same fill, edge and 8 px radius as a
+         button so the row reads as a set of things you put there. Not a
+         button itself: Edit and Add an app are the row's actions. -->
+    <Style x:Key="AppChip" TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource Control}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource ControlEdge}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusControl}"/>
+        <Setter Property="Height" Value="40"/>
+        <Setter Property="Padding" Value="7,0,14,0"/>
+        <Setter Property="SnapsToDevicePixels" Value="True"/>
+    </Style>
+
+    <!-- One of several named things, picked with a radio (Plans' blocklists,
+         #433): an 18 px recessed ring, filled with the primary dot when picked,
+         and its label beside it. The label carries the meaning, so the choice
+         never rests on the dot alone. -->
+    <Style x:Key="ChoiceRadio" TargetType="RadioButton">
+        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusVisual}"/>
+        <Setter Property="FontFamily" Value="{StaticResource FontStack}"/>
+        <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="RadioButton">
+                    <Grid Background="Transparent">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid x:Name="mark" Width="18" Height="18" Margin="0,1,10,0" VerticalAlignment="Top">
+                            <Ellipse Fill="{DynamicResource Well}" Stroke="{DynamicResource WellLine}" StrokeThickness="1"/>
+                            <Ellipse x:Name="dot" Width="8" Height="8" Fill="{DynamicResource Primary}" Opacity="0"/>
+                        </Grid>
+                        <ContentPresenter Grid.Column="1" VerticalAlignment="Center"/>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="dot" Property="Opacity" Value="1"/>
+                        </Trigger>
+                        <!-- Tag False: only one choice exists, so no ring is drawn. -->
+                        <Trigger Property="Tag">
+                            <Trigger.Value><sys:Boolean>False</sys:Boolean></Trigger.Value>
+                            <Setter TargetName="mark" Property="Visibility" Value="Collapsed"/>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="mark" Property="Opacity" Value="0.45"/>
+                            <Setter Property="Cursor" Value="Arrow"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <Style x:Key="RowCard" TargetType="Border">
         <Setter Property="Background" Value="{DynamicResource Control}"/>
         <Setter Property="BorderBrush" Value="{DynamicResource ControlEdge}"/>

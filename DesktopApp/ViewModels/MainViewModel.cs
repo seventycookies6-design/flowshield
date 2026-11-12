@@ -7,7 +7,14 @@ using FlowShield.Services;
 
 namespace FlowShield.ViewModels;
 
-public enum AppPage { Today, History, BlockedApps, SleepBlocking, Settings }
+/// <summary>
+/// The pages, in the sidebar's order (#433): Plans replaced Blocked Apps and
+/// Schedule, so Ctrl+1..4 follow Today, Plans, History and Settings.
+/// </summary>
+public enum AppPage { Today, Plans, History, Settings }
+
+/// <summary>The three sections of Plans, which a link can open the page at.</summary>
+public enum PlansSection { Blocklists, Schedules, Templates }
 
 public class MainViewModel : ViewModelBase
 {
@@ -66,6 +73,11 @@ public class MainViewModel : ViewModelBase
         NavigateCommand = new RelayCommand(p =>
         {
             if (p is AppPage page) CurrentPage = page;
+            else if (p is PlansSection section) OpenPlans(section);
+            // The pages Plans replaced (#433) still answer to their old names,
+            // so a link or a script that asks for them lands in the right section.
+            else if (p is "BlockedApps") OpenPlans(PlansSection.Blocklists);
+            else if (p is "SleepBlocking" or "Schedule") OpenPlans(PlansSection.Schedules);
             else if (p is string s && Enum.TryParse<AppPage>(s, out var parsed)) CurrentPage = parsed;
         });
 
@@ -121,7 +133,7 @@ public class MainViewModel : ViewModelBase
     public BlockedAppsViewModel BlockedApps { get; }
     public SleepBlockingViewModel SleepBlocking { get; }
 
-    /// <summary>The Schedule page (F6), which holds the sleep window as well.</summary>
+    /// <summary>Plans' schedules and templates (F6, #433), with the sleep window's row.</summary>
     public ScheduleViewModel Schedule { get; }
 
     /// <summary>Runs the schedules (F6); what it raises arrives in <see cref="OnScheduleAction"/>.</summary>
@@ -379,8 +391,7 @@ public class MainViewModel : ViewModelBase
 
             Raise(nameof(IsTodayPage));
             Raise(nameof(IsHistoryPage));
-            Raise(nameof(IsBlockedAppsPage));
-            Raise(nameof(IsSleepBlockingPage));
+            Raise(nameof(IsPlansPage));
             Raise(nameof(IsSettingsPage));
             Raise(nameof(CurrentPageTitle));
             Raise(nameof(CurrentPageSubtitle));
@@ -396,8 +407,8 @@ public class MainViewModel : ViewModelBase
                 // Sprints happen on another page, so History would otherwise
                 // show whatever was true when the app started (F16).
                 case AppPage.History: History.Refresh(); break;
-                case AppPage.BlockedApps: BlockedApps.RefreshStatus(); break;
-                case AppPage.SleepBlocking:
+                case AppPage.Plans:
+                    BlockedApps.RefreshStatus();
                     SleepBlocking.RefreshStatus();
                     Schedule.Refresh();
                     break;
@@ -412,18 +423,30 @@ public class MainViewModel : ViewModelBase
         }
     }
 
+    /// <summary>
+    /// Raised when something asks for a section of Plans: Today's "Edit
+    /// schedules", "Edit templates" and the setup panel's "Edit blocklists".
+    /// PlansView scrolls that section into view.
+    /// </summary>
+    public event EventHandler<PlansSection>? PlansSectionRequested;
+
+    /// <summary>Opens Plans at one of its sections.</summary>
+    public void OpenPlans(PlansSection section)
+    {
+        CurrentPage = AppPage.Plans;
+        PlansSectionRequested?.Invoke(this, section);
+    }
+
     public bool IsTodayPage => CurrentPage == AppPage.Today;
     public bool IsHistoryPage => CurrentPage == AppPage.History;
-    public bool IsBlockedAppsPage => CurrentPage == AppPage.BlockedApps;
-    public bool IsSleepBlockingPage => CurrentPage == AppPage.SleepBlocking;
+    public bool IsPlansPage => CurrentPage == AppPage.Plans;
     public bool IsSettingsPage => CurrentPage == AppPage.Settings;
 
     public string CurrentPageTitle => CurrentPage switch
     {
         AppPage.Today => "Today",
         AppPage.History => "History",
-        AppPage.BlockedApps => "Blocked Apps",
-        AppPage.SleepBlocking => "Schedule",
+        AppPage.Plans => "Plans",
         _ => "Settings",
     };
 
@@ -431,12 +454,14 @@ public class MainViewModel : ViewModelBase
     {
         AppPage.Today => "",
         AppPage.History => "Your week, and every sprint you have run.",
-        AppPage.BlockedApps => "What the shield closes while you're working.",
-        AppPage.SleepBlocking => "Templates that start by themselves, and your nightly window.",
+        AppPage.Plans => "",
         _ => "License, startup and enforcement preferences.",
     };
 
-    /// <summary>Today has no subtitle since #431: the Now card says what the page is for.</summary>
+    /// <summary>
+    /// Today has no subtitle since #431, and Plans none since #433: each
+    /// section of Plans says what it is for in its own header.
+    /// </summary>
     public bool CurrentPageSubtitleVisible => CurrentPageSubtitle.Length > 0;
 
     public string TierBadge =>
