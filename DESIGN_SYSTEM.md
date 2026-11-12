@@ -13,7 +13,7 @@ depth from Windows 11's own materials, Segoe UI Variable in the app, real
 controls, and the notice's input guard. Part B describes what has shipped;
 each implementation PR updates its own Part B section. The foundations (depth
 tokens, Segoe UI Variable, Segoe Fluent Icons, the control styles and Mica)
-shipped in #430, and Today with its setup panel in #431; the other screens are re-laid out in the PRs after it. The target screens and
+shipped in #430, Today with its setup panel in #431, Plans in #433, and History, Settings, first run and the trial-ended screen in #434; the other screens are re-laid out in the PRs after it. The target screens and
 the depth values are in [`design/redesign-2026-11/`](design/redesign-2026-11/README.md).
 
 The features these rules will be applied to are listed in
@@ -358,7 +358,7 @@ at weight 600 and the other buttons at 400.
   - **App:** a 240 px navigation rail and a content area aligned with its page title. The content grows with the window up to 1280 px (`PageMaxWidth` in `Theme.xaml`); past that, the title and page stay together in a 1280 px column centred beside the rail, so an ultrawide screen doesn't spread a page's cards apart (#406). The mouse wheel over the margins either side still scrolls the page.
   - **The app adapts to its window.** Each breakpoint reads the width the element actually has, not the window's, so a view responds to its own space:
     - **Rail:** below a 1000 px window client width it compacts to 72 px of icons, with the names as tooltips (`MainWindow.CompactRailBelow`).
-    - **Card grids** (`inf:AdaptiveColumns`: History, Plans' Schedules and Templates, an open blocklist's list and picker) lay cards out in rows, left to right in reading order, as many columns as fit at the panel's minimum width, up to its maximum. Cards in a row share the row's height, so neighbours' edges line up (#406; this was a masonry layout that left them uneven). The column count is balanced over the rows, so five cards that would fit four abreast sit three and two. `FillLastRow` lets a short last row share the full width, for rows of unlike cards. Gaps are in the panel's `Spacing`, rather than the cards' margins.
+    - **Card grids** (`inf:AdaptiveColumns`: the three parts of History's summary card, Plans' Schedules and Templates, an open blocklist's list and picker) lay cards out in rows, left to right in reading order, as many columns as fit at the panel's minimum width, up to its maximum. Cards in a row share the row's height, so neighbours' edges line up (#406; this was a masonry layout that left them uneven). The column count is balanced over the rows, so five cards that would fit four abreast sit three and two. `FillLastRow` lets a short last row share the full width, for rows of unlike cards. Gaps are in the panel's `Spacing`, rather than the cards' margins.
     - **Settings** is one column of full-width cards, like Windows' own Settings: its groups hold one to three cards each, and no row of them could line up at every width.
     - **Two-pane pages** give the side pane a proportional width with a minimum and maximum: Today's side cards (`0.46*`, 300–400 px, #431). Below a view width of 900 px, Today's Up next and Momentum leave the Now card's side and sit in a row under it, and below 600 px one above the other (the small-window mockup).
     - **Plans (#433)** is one scrolling page: Blocklists full width, then Schedules and Templates side by side (two columns from 400 px each, 24 apart), stacking on a narrow window. No section scrolls on its own, so the wheel always moves the page; the one exception is the app picker in an open blocklist, which keeps a 420 px height of its own because every app on the PC is a long list. An open blocklist puts its apps and the picker side by side from 340 px each.
@@ -379,7 +379,7 @@ at weight 600 and the other buttons at 400.
 - **Site icons:** [Lucide](https://lucide.dev), at 1.75 px stroke on a 24 px grid, as inline SVG. Its ISC notice ships with the site (`icons-LICENSE.txt`).
 - **Sizes:** 16 px inline with text, 20 px in navigation and buttons, 24 px for feature headings.
 - **Icons inherit** the text colour of their context; only an active item's icon is `primary`.
-- **The lit mark** (#431): `design/brand/basalt-mark-lit.svg`, the one dimensional rendering of the Causeway geometry that Part A allows at the big moments, copied into `BrandMarkLit` in `Styles/BrandMark.xaml`. Today shows it at the end of a sprint. See `design/brand/README.md`.
+- **The lit mark** (#431): `design/brand/basalt-mark-lit.svg`, the one dimensional rendering of the Causeway geometry that Part A allows at the big moments, copied into `BrandMarkLit` in `Styles/BrandMark.xaml`. Today shows it at the end of a sprint, and since #434 first run shows it beside "What pulls you away?" (64 px) and the trial-ended screen above its headline (72 px). See `design/brand/README.md`.
 - **The Causeway mark** (three basalt columns; source SVGs and spec in `design/brand/`) is the only filled brand icon. Keep it identical everywhere: the site favicon and header, the app's navigation, title bar and taskbar icon (Roadmap 1.6), the tray icon and the installer. Copy it from `design/brand/`, never redraw it; `tools/build_icons.py` builds the app's `.ico` files from those SVGs. The tile (`basalt-icon.svg`) is the same in both themes; the bare mark beside the wordmark swaps between its on-light and on-dark copies. Lit column tops (teal) mean a sprint is running: `FlowShield.Running.ico` is the Firm tile, the tray's fallback when its minute countdown can't be drawn. The shield-level glyphs in §6 stay shields.
 
 ---
@@ -417,7 +417,7 @@ site it's a class in `styles.css`. Names match across the two.
 | Quiet | `BtnQuiet` | `.btn-quiet` | No fill, `text-muted` label, `control` fill on hover | Low-emphasis: Deactivate, Open log |
 | Destructive | `BtnDanger` | `.btn-danger` | The raised control with a `danger` label and outline | Remove, End sprint anyway |
 | Icon | `BtnIcon` | — | The raised control, 36 square, a glyph inside and an `AutomationProperties.Name` | Close on the setup panel (#431), the ⋯ menu on Plans' Templates (#433) |
-| Link | `BtnLink` | — | `primary` label at 13 px with a drawn chevron, no fill, `control` on hover (#431) | Going to another place or to help only: "Edit schedules", "How momentum works" |
+| Link | `BtnLink` | — | `primary` label at 13 px with a drawn chevron, no fill, `control` on hover (#431) | Going to another place or to help only: "Edit schedules", "How momentum works" on Today, and Settings' "Terms of service" and "Privacy policy" (#434) |
 
 - **App (#430):** height 40, radius 8, horizontal padding 20, 14 px. Only the horizontal padding is applied inside the fixed height (§4).
 - **Site:** height 44, radius 10, `label` type.
@@ -436,12 +436,12 @@ site it's a class in `styles.css`. Names match across the two.
 - **Text inputs (`Field`, #430):** recessed: the `well` fill, a `well-edge` outline and the Windows bottom line (`well-line`), which turns `primary` and 2 px thick on keyboard focus, with the 2 px focus ring as well; radius 8. An empty field shows its `AutomationProperties.HelpText` as a `text-faint` placeholder (5.41:1 dark, 6.11:1 light on the well over E2).
 - **Date pickers** (`Styles/Pickers.xaml`) are recessed like a text input, with a calendar glyph; the calendar drops down as an E3 flyout, its selected day drawn like a selected segment.
 - **Dropdown (`Dropdown`, `DropdownItem`, #430):** a `ComboBox` drawn as the recessed well with a chevron, opening an E3 flyout; the picked item has the teal marker. The setup panel's blocklist is the first screen to use it (#431).
-- **Disclosure (`Disclosure`, #430):** a raised `ToggleButton` whose chevron turns to point up while open, for showing more in place (a running sprint's Details, #431). UI Automation reports it as a toggle.
-- **Labels and hints:** field labels sit above, hints below in `caption`, both starting at the field's left edge. Since #431 Today and the setup panel label fields in sentence case (`FieldLabel`, 13 px, `text-muted`: "Shield level", "Your plan (optional)"), and Plans does since #433 ("Sprint minutes (5–240)", "Starts at"); History and Settings still use upper-case eyebrows until their own PRs. On the setup panel (E3) hints use `text-muted`, never `text-faint`.
+- **Disclosure (`Disclosure`, #430):** a raised `ToggleButton` whose chevron turns to point up while open, for showing more in place (a running sprint's Details, #431; History's "How momentum works" and Settings' "Your devices", #434). UI Automation reports it as a toggle.
+- **Labels and hints:** field labels sit above, hints below in `caption`, both starting at the field's left edge. Since #431 Today and the setup panel label fields in sentence case (`FieldLabel`, 13 px, `text-muted`: "Shield level", "Your plan (optional)"), Plans does since #433 ("Sprint minutes (5–240)", "Starts at"), and History, Settings, first run and the lock screen since #434 ("License key", "Email used at checkout (optional)", "Break length"; card titles in `CardTitle`: "Daily goal", "Momentum", "This week"). No screen uses the upper-case `Eyebrow` any more except the terms gate, the activation prompt and the rail's tier badge. On the setup panel (E3) hints use `text-muted`, never `text-faint`.
 - **Toggles (`Switch`, #430):** a 40 × 20 recessed track with a `well-line` outline and a 12 px `text-muted` knob at the left when off; when on, the `PrimaryGradient` track with a 14 px `primary-ink` knob at the right. The label sits to the left, with an optional one-line caption. `SwitchStated` adds the state written beside the track ("On" / "Off"), for Plans' schedules; with no label it has no gap before the track, since Plans' rows put the name beside it.
 - **Choice radio (`ChoiceRadio`, #433):** for picking one of a few named things, each with more than a word to say (Plans' blocklists): an 18 px recessed ring that fills with a `primary` dot, and the label beside it carries the meaning. With only one choice the ring isn't drawn (`Tag` false).
 - **App chips (`AppChip`, #433):** an app on a blocklist row: the raised control's fill, edge and 8 px radius, 40 high, a 24 px icon and the name. Not a button.
-- **Segmented choices** (sprint length, shield level, daily goal, export format, theme), since #430: an option you could pick is recessed (the `segment-track` tone with a `well-edge` outline); the picked one is raised (the `thumb` fill, a lit top edge, `control-edge`), set at 600, with the same teal marker as the rail under its label, so selection never rests on tone alone. Radius 8. Today's shield level and the setup panel's length and sprints in a row use the grouped `SegmentGroup` and `SegmentItem` (one recessed track, one raised thumb) since #431; the other screens' choices still sit loose in rows until their own PRs. Every pick-one choice in the app uses them; there are no stock radio buttons.
+- **Segmented choices** (sprint length, shield level, daily goal, export format, theme), since #430: an option you could pick is recessed (the `segment-track` tone with a `well-edge` outline); the picked one is raised (the `thumb` fill, a lit top edge, `control-edge`), set at 600, with the same teal marker as the rail under its label, so selection never rests on tone alone. Radius 8. Today's shield level and the setup panel's length and sprints in a row use the grouped `SegmentGroup` and `SegmentItem` (one recessed track, one raised thumb) since #431, and Settings' daily goal, theme and export format and first run's sprint length since #434. The loose `Segment` style remains only in Plans' editors. Every pick-one choice in the app uses them; there are no stock radio buttons.
 - **Option cards** (`OptionCard`, first-run's shield levels): the segmented look as a full-width row, for a choice that needs a title and a line or two of explanation, with the teal marker at its left edge.
 - **Quiet buttons** pad 12 either side; one that starts a line takes a -12 margin, so its label lines up with the text above it.
 
@@ -467,6 +467,24 @@ Plans replaced Blocked Apps and Schedule: one page, three E1 sections, no page s
 - **Schedules** ("Start by themselves."): sleep blocking first, then each scheduled sprint. Each row is a `SwitchStated` toggle with "On"/"Off" written beside it, the name, a caption with the times ("22:30 to 06:30, every night"; "Weekdays, 18:00, Basalt asks 5 minutes before") and **Edit**. Under the rows, "Next: tonight 18:00, Homework evening". Edit opens the editor under the rows: the sleep window's start, end and Save, or a schedule's template, days, start and ask-first, with Save, Cancel and Delete schedule. **Add schedule** opens the same editor empty.
 - **Templates:** each row has the name, the shield's glyph and "45 min at Firm, Default blocklist" (or "the blocklist in use"), **Start** (which starts it on Today through every gate) and **Edit**. The editor below has the name, length, shield, sprints in a row, break, blocklist, Save, Cancel and Delete template. **New template**, and a ⋯ (`BtnIcon`, `IconMore`) whose menu holds **Restore built-in templates**.
 
+#### History (#434)
+
+History is one E1 summary card, then the sprint list, then the milestones. There is no page subtitle, no upper-case label and no middle dot. The round-one audit found seven cards (four statistic cards, the heatmap, momentum and milestones) before the list, which started at the bottom edge of a 1520 × 816 window.
+
+- **The summary** is three parts that sit side by side from 230 px each and stack below that (`inf:AdaptiveColumns`):
+  - **Momentum:** the number Today shows, its change this week ("Up 12 this week", "No change this week", "Down 6 this week. It recovers with your next sprint.", replayed from the sprints by `HistoryStats.MomentumChangeThisWeek`) and a **How momentum works** disclosure that opens the rule under the summary. Today's "How momentum works" link opens History with it open.
+  - **This week:** its dates, then the hours focused, sprints completed and "times the shield blocked an app" (blocked, never "caught"), "Turned back 4 times" when there were any, and the most-blocked app labelled as all-time ("Most blocked: Discord", "Across all your sprints, not just this week."). "Nothing has needed blocking yet" is said only when nothing has been blocked this week either, so it never sits beside a blocked count.
+  - **Last 30 days:** the heatmap, with the weekday of each column above it (`HistoryStats.WeekdayLabels`, from the first seven days shown, since the window does not start on a Monday), the Less / More legend, the date range and the best day.
+- **Sprints** ("Newest first. Stored on this PC only.", with Export your journal): rows divided by a hairline, never above the first, as on Plans. Each row has the shield's glyph, the start ("Tue 22 Sep, 12:00"), then "12 of 25 min at Firm, ended early", the plan and the journal line.
+- **Milestones** follow, each with its name, sentence and date.
+
+#### Settings (#434)
+
+Six groups with the section rail, as before; each card is E1 with a sentence-case `CardTitle` (none where the group's header already names the one card: License, Notifications). Choices are `SegmentGroup`s, fields are recessed with sentence-case labels, and on/off settings are switches. Every setting and its `AutomationId` is unchanged.
+
+- **License:** the status said once ("Free trial, 7 days left", "License active", "Not activated"; no emoji) with one line under it, and the one **Buy Basalt — $4.99** at its right, the page's only Primary. The big "07 days left" number is gone, and the rail's Buy steps aside on Settings (`BuyVisible`). Then the license key and checkout email, **Activate license** (secondary), Deactivate when bought, and **Your devices** as a disclosure. The round-one audit found the trial stated three times here and two Buy buttons on one screen.
+- **Buttons:** Export…, Restart to update, Skip today, Show the welcome again and Open diagnostic log are secondary buttons; Terms of service and Privacy policy are links, because each opens a page.
+
 #### Timer ring (Today)
 
 - **Ring:** a 12 px `track` circle and the progress arc, a `Path` with an `ArcSegment` stroked in `RingGradient` with round caps (#431; WPF has no conic brush, so the gradient is diagonal). Drawn at 222 px and scaled as a whole between 160 and 228 px (§4).
@@ -481,9 +499,13 @@ Plans replaced Blocked Apps and Schedule: one page, three E1 sections, no page s
 
 #### Lock screen (trial ended)
 
-- **Backdrop:** the `scrim` token over the page content, with the navigation rail left visible.
-- **Card:** centred, max width 520, `lift` shadow.
-- **Content:** a `display` headline, one paragraph, one Primary button (Buy), a divider, then the licence key field with a Secondary Activate button.
+- **Backdrop:** the `scrim` token over the page content, with the navigation rail left visible. The rail's Buy steps aside while it shows, so the screen has one Buy (#434).
+- **Card (#434):** raised (E2), centred, max width 520, scrolling inside itself on a very short window.
+- **Content (#434):** the lit mark; "Your free trial has ended"; one paragraph with the price, that it is a one-time purchase and the 14-day refund ("Buy Basalt once for $4.99 to keep using it. It is a one-time purchase, not a subscription, and if it isn't what you wanted you can ask for a full refund within 14 days.", matching `legal.html`'s Refund Policy); "Nothing is deleted. Your sprints, journal and blocklists stay on this PC."; the Primary **Buy Basalt**; a divider; "Already bought it? Enter your license key." as the field's label, the key field and a secondary **Activate license** beside it, and the activation's answer under them. The round-one audit found the buy sentence and "Already bought it?" twice each, and nothing about records or a refund.
+
+#### First run (#434)
+
+The welcome is a raised (E2) card. Step 1 has the lit mark beside "What pulls you away?"; each app's caption says where it came from without a stray leading dot ("On this PC", "Installed, on this PC"; `FirstRunPolicy.SourceCaption`), and Edge keeps its warning. The step line is a sentence-case caption, and step 3's length is a `SegmentGroup`.
 
 #### Intervention moments (Soft overlay, Firm warning, blocked page)
 
@@ -512,7 +534,7 @@ label and a small status dot.
 #### Charts (momentum trend, weekly view, heatmap)
 
 - **Line charts:** a single series in `primary`, 2 px, with no area fill. Gridlines are `border` and horizontal only. Axis labels use `caption` in `text-faint`.
-- **Heatmap:** five steps from `surface-2` to `primary`, with a visible legend. Never rely on colour alone; hovering or focusing a cell shows the value.
+- **Heatmap:** five steps from `surface-2` to `primary`, with a visible legend and, since #434, the weekday over each column. Never rely on colour alone; hovering or focusing a cell shows the value.
 - **Current chart choices:** no 3D or pie charts; no more than two series. These are implementation choices, not limits on future charts. Part A keeps legends and signals beyond colour binding.
 
 ---
@@ -540,8 +562,8 @@ current tone:
 - **Specific:** "Sealed until 5:45 PM", not "Locked for now".
 - **No exclamation marks and no emoji** in product copy.
 
-The UI currently spells "License key" in Settings; the app and email mostly
-use "licence". The copy pass in §15 remains open.
+Customer-facing text spells it "license" since #370, and a tier 5 test keeps
+it that way. The rest of the copy pass in §15 remains open.
 
 ---
 
@@ -569,7 +591,8 @@ use "licence". The copy pass in §15 remains open.
   - **Engineering fact — Freezables and drawing:** two things cannot follow a swapped dictionary and are handled in code instead: a `DynamicResource` inside a Freezable (the shield glyphs' `DrawingImage` brushes), which is why `ShieldGlyphs.xaml` is reloaded on a change; and anything drawn rather than bound (the tray countdown icon, the DWM title bar), which re-reads its tokens on `ThemeService.Changed`.
 - **The rail** lists Today, Plans, History and Settings since #433, and Ctrl+1 to Ctrl+4 follow that order. Plans' icon is the calendar (`IconPlans`).
 - **Engineering fact — the old page names:** `NavigateCommand` still takes "BlockedApps" and "SleepBlocking" (or a `PlansSection`) and opens Plans at that section; `PlansView` scrolls the section to the top of the page. Every `AutomationId` from Blocked Apps and Schedule is on the equivalent control on Plans; the controls inside an editor are in the UI Automation tree only while it is open, and the test driver opens it first (`automation/desktop/app_controller.py`).
-- **The rail's Buy button** is Secondary since #431, so it never competes with Start sprint, and it is hidden while a sprint runs (`MainViewModel.BuyVisible`).
+- **The rail's Buy button** is Secondary since #431, so it never competes with Start sprint, and it is hidden while a sprint runs (`MainViewModel.BuyVisible`). Since #434 it also steps aside on Settings and while the lock screen shows, which have their own Buy, so no screen has two.
+- **Page titles** have no subtitle under them since #434 (Today since #431, Plans since #433): each page's sections say what they are for.
 - **Window:**
   - The app uses the standard Windows title bar, which Mica covers too (#430). While a sprint runs it reads "Basalt — 11:26", the same text as the ring. Part A allows a custom or extended title bar when it preserves Windows behaviour and accessibility.
   - The window's base is Mica or its solid fallback (§4, "Mica and its fallback").
@@ -635,6 +658,7 @@ before/after screenshots in both themes.
 - [x] Destructive and quiet button variants added (section 7). Done in #180 (A3: `BtnQuiet`/`BtnDanger` styles in `Theme.xaml`) and #178 (B3: `.btn-quiet`/`.btn-danger` classes in `styles.css`).
 - [ ] Copy pass against the word list and tone rules, including one consistent spelling of licence/license (section 9). Partial: B4/B6 (#184, #188) fixed tone on the site, but the two spellings are still mixed rather than one chosen consistently — `DesktopApp/Views/SettingsView.xaml` shows the user-facing label `Text="LICENSE KEY"` and `AutomationProperties.Name="License key"` (American), while other app and email copy uses "licence" (British); the site mixes both across `index.html`/`legal.html`/`success.html`/`checkout.js`. Left unticked.
 - [x] Today redesigned (#431): the Now card in its three states, Up next, Momentum and template cards, the setup panel with acrylic over Mica, the ring's gradient arc and the glow, the lit mark, and Buy made Secondary and hidden during a sprint ("Today" in section 7).
+- [x] History, Settings, first run and the trial-ended screen redesigned (#434): History's one summary card above the sprint list, weekday labels on the heatmap, sentence-case labels and segmented choices on Settings, the license and the lock screen saying each thing once, and the lit mark on first run and the lock screen (section 7).
 - [x] Redesign foundations in the app (#430): the depth tokens and generated surfaces, gradients and shadows (sections 2, 14); Segoe UI Variable with named optical cuts, replacing the embedded Inter (section 3); Segoe Fluent Icons, replacing Lucide in the app (section 5); radii 6 / 8 / 12 and Mica with its fallback (section 4); raised buttons, recessed fields, the segmented selector, the stated switch, the disclosure and the dropdown (section 7). The screens' new layouts follow in their own PRs.
 - [x] Reduced-motion support in the app and on the site (section 8). Done in #176 (A4: `DesktopApp/Infrastructure/Motion.cs` reads `SystemParameters.ClientAreaAnimation` and zeroes every duration when it's off) and pre-existing site support (`prefers-reduced-motion` in `Website/index.html`/`styles.css`).
 - [x] Light theme in the app (section 12, checklist F21). Done in #237: `App.xaml` merges `Styles/Tokens.xaml` as its own entry and `DesktopApp/Services/ThemeService.cs` swaps it for the generated `Tokens.Light.xaml`; Settings → Appearance offers System (the default, following Windows) / Dark / Light, and every colour reference in the app's XAML is a `DynamicResource`.
