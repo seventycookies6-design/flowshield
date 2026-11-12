@@ -436,8 +436,10 @@ class TestTodayPolishFromThe1011VmRun:
         overlay = self.OVERLAY.read_text(encoding="utf-8")
         configure = overlay.split("public void Configure(", 1)[1].split("\n    }", 1)[0]
         assert "Func<TimeSpan> remaining" in configure
-        ticks = re.search(r"_timeLeftTimer\.Tick \+= .*SoftOverlayCopy\.TimeLeft\(remaining\(\)\)", configure)
+        ticks = re.search(r"_timeLeftTimer\.Tick \+= .*ShowTimeLeft\(remaining\(\)", configure)
         assert ticks, "a timer must re-read the time left while the notice is up"
+        shown = overlay.split("private void ShowTimeLeft(", 1)[1].split("\n    }", 1)[0]
+        assert "SoftOverlayCopy.Clock(remaining)" in shown and "SoftOverlayCopy.TimeLeft(remaining)" in shown
         closed = overlay.split("protected override void OnClosed", 1)[1].split("\n    }", 1)[0]
         assert "_timeLeftTimer?.Stop();" in closed
 

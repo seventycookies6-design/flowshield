@@ -6,26 +6,80 @@
         Title="Basalt"
         WindowStyle="None" ResizeMode="NoResize" ShowInTaskbar="False"
         AllowsTransparency="True" Topmost="True"
-        Background="{DynamicResource Scrim}"
+        Background="{DynamicResource NoticeScrim}"
         FontFamily="{StaticResource FontStack}"
         TextOptions.TextFormattingMode="Ideal"
         UseLayoutRounding="True"
+        KeyboardNavigation.TabNavigation="Cycle"
         AutomationProperties.AutomationId="SoftOverlayWindow"
         AutomationProperties.Name="Blocked app notice">
 
-    <!-- ================================================ the Soft notice (F7, 1.7)
-         DESIGN_SYSTEM.md §7 "Intervention moments": a scrim over a compact
-         surface panel with the shield glyph, one sentence naming the app, and
-         the time left. No red, no alarm icon, nothing that shakes — a polite
-         colleague tapping your shoulder, on the monitor the distraction is on.
+    <!-- ================================================ the Soft notice (F7, 1.7; #432)
+         design/redesign-2026-11/mockups/app-notice-dark.png: a band across the
+         screen the distraction is on, over a 56% black scrim (NoticeScrim). The
+         band is tinted to 92% (NoticeBand) with no blur, so its text passes
+         over the brightest game. The small ring with the time left and the
+         sprint glow, then "Basalt, Soft, your plan for this sprint", the plan
+         as the headline, the blocklist fact, Soft's promise, three buttons and
+         the lock bar. No red, no alarm icon, nothing that shakes.
 
-         §8 motion: it fades in over Motion.Selection (200 ms, panels), which
-         collapses to zero when Windows' animation effects are off, so under
-         reduced motion it simply appears.
+         The input guard (DESIGN_SYSTEM.md Part A, Interruptions) lives in the
+         code-behind: no default or cancel button, focus on the band, Enter
+         swallowed, and every button ignoring input for about 1.5 s while
+         staying enabled, so its label keeps full contrast.
+
+         It fades in over Motion.Selection, which collapses to zero when
+         Windows' animation effects are off.
 
          No AutomationId sits on a Border, Grid, StackPanel or WrapPanel here:
          UI Automation never surfaces those, so an id on one could never be
          found (#134). The text and all three buttons are real controls. -->
+
+    <Window.Resources>
+        <!-- The band's buttons: 48 high, 16 px labels, at least 168 wide
+             (reference-css/notice.css, .band-actions .btn). -->
+        <Style x:Key="NoticeButton" TargetType="Button" BasedOn="{StaticResource BtnGhost}">
+            <Setter Property="Height" Value="48"/>
+            <Setter Property="Padding" Value="26,0"/>
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="MinWidth" Value="168"/>
+            <Setter Property="Margin" Value="0,0,12,0"/>
+        </Style>
+        <Style x:Key="NoticePrimary" TargetType="Button" BasedOn="{StaticResource BtnPrimary}">
+            <Setter Property="Height" Value="48"/>
+            <Setter Property="Padding" Value="26,0"/>
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="MinWidth" Value="168"/>
+            <Setter Property="Margin" Value="0,0,12,0"/>
+        </Style>
+        <!-- Locked, and Allow while its own wait runs: the button lies flat,
+             with a fine outline and no lit edge, shadow, hover or press. It is
+             still enabled, so the label keeps full contrast (Ink on the band);
+             the code-behind makes it unfocusable and ignores its input. -->
+        <Style x:Key="NoticeLocked" TargetType="Button">
+            <Setter Property="FontFamily" Value="{StaticResource FontStack}"/>
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="FontWeight" Value="Normal"/>
+            <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
+            <Setter Property="Height" Value="48"/>
+            <Setter Property="Padding" Value="26,0"/>
+            <Setter Property="MinWidth" Value="168"/>
+            <Setter Property="Margin" Value="0,0,12,0"/>
+            <Setter Property="Cursor" Value="No"/>
+            <Setter Property="SnapsToDevicePixels" Value="True"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="Transparent" BorderBrush="{DynamicResource EdgeBright}"
+                                BorderThickness="1" CornerRadius="{StaticResource RadiusControl}">
+                            <ContentPresenter Margin="{Binding Padding, RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource HorizontalPadding}}"
+                                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
 
     <Window.Triggers>
         <EventTrigger RoutedEvent="Window.Loaded">
@@ -44,73 +98,138 @@
     </Window.Triggers>
 
     <Grid x:Name="Root">
-        <Border Style="{StaticResource Card}" Padding="32" MaxWidth="520" Margin="24"
-                HorizontalAlignment="Center" VerticalAlignment="Center">
-            <StackPanel>
-                <StackPanel Orientation="Horizontal">
-                    <Image Source="{DynamicResource ShieldGlyphSoft}" Width="20" Height="20"
-                           Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,12,0"/>
-                    <!-- Configure says "WEBSITE · NOTICE ONLY" for a website (F10
-                         interim), which gets this notice at every shield. -->
-                    <TextBlock x:Name="EyebrowText" Text="SHIELD I · SOFT" Style="{StaticResource Eyebrow}"
-                               VerticalAlignment="Center"
-                               AutomationProperties.AutomationId="SoftOverlayEyebrow"/>
-                </StackPanel>
+        <!-- The band. It takes the initial focus, not a button: Focusable, with
+             no focus ring of its own, and the first stop before the buttons. -->
+        <Border x:Name="Band" VerticalAlignment="Center"
+                Background="{DynamicResource NoticeBand}"
+                BorderBrush="{DynamicResource Hairline}" BorderThickness="0,0,0,1"
+                Focusable="True" FocusVisualStyle="{x:Null}">
+            <Grid>
+                <!-- One light from above: a lit top edge, never a coloured shadow. -->
+                <Border VerticalAlignment="Top" Height="1" Background="{DynamicResource Highlight3}"
+                        IsHitTestVisible="False"/>
 
-                <TextBlock x:Name="SentenceText" Style="{StaticResource H1}" TextWrapping="Wrap"
-                           Margin="0,16,0,0"
-                           AutomationProperties.AutomationId="SoftOverlayText"/>
+                <Grid x:Name="BandContent" HorizontalAlignment="Center" Margin="40,44,40,40">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="148"/>
+                        <ColumnDefinition Width="48"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
 
-                <TextBlock x:Name="TimeLeftText" Style="{StaticResource Body}" TextWrapping="Wrap"
-                           Margin="0,12,0,0"
-                           AutomationProperties.AutomationId="SoftOverlayTimeLeft"/>
+                    <!-- ============================== the small ring and its glow -->
+                    <Grid Grid.Column="0" Width="148" Height="148" VerticalAlignment="Center">
+                        <!-- The sprint glow: the notice only shows while a sprint
+                             runs, and it never pulses (Part A, Depth). -->
+                        <Ellipse Width="244" Height="244" Margin="-48" IsHitTestVisible="False"
+                                 Fill="{DynamicResource GlowGradient}"/>
+                        <!-- Today's ring (#431) drawn at 222 and scaled to 148:
+                             the track, then the time left in RingGradient with
+                             round caps through the shared ProgressArc. -->
+                        <Viewbox Stretch="Uniform">
+                            <Grid Width="222" Height="222">
+                                <Ellipse Width="222" Height="222" Stroke="{DynamicResource Track}" StrokeThickness="12"/>
+                                <Path x:Name="RingArc" Stroke="{DynamicResource RingGradient}" StrokeThickness="12"
+                                      StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                      Data="{Binding RingRemaining, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource ProgressArc}}"
+                                      Visibility="{Binding RingRemaining, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource PositiveVis}}"/>
+                            </Grid>
+                        </Viewbox>
+                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                            <!-- "14:50", with "14 minutes left in this sprint" as its
+                                 spoken name (set in the code-behind). -->
+                            <TextBlock x:Name="TimeLeftText" FontFamily="{StaticResource FontStackDisplay}"
+                                       FontSize="30" FontWeight="SemiBold" LineHeight="34"
+                                       LineStackingStrategy="BlockLineHeight"
+                                       Typography.NumeralAlignment="Tabular"
+                                       Foreground="{DynamicResource Ink}" HorizontalAlignment="Center"
+                                       AutomationProperties.AutomationId="SoftOverlayTimeLeft"/>
+                            <TextBlock Text="left" Style="{StaticResource Body}" FontSize="13" LineHeight="18"
+                                       HorizontalAlignment="Center"/>
+                        </StackPanel>
+                    </Grid>
 
-                <TextBlock x:Name="IntentionText" Style="{StaticResource Body}" TextWrapping="Wrap"
-                           Margin="0,12,0,0" Visibility="Collapsed"
-                           AutomationProperties.AutomationId="SoftOverlayIntention"/>
+                    <!-- =================================== the words and the buttons -->
+                    <StackPanel x:Name="TextColumn" Grid.Column="2" VerticalAlignment="Center" MaxWidth="1000">
+                        <StackPanel Orientation="Horizontal">
+                            <Image Source="{StaticResource BrandMarkTile}" Width="18" Height="18"
+                                   Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                            <!-- "Basalt, Soft, your plan for this sprint"; Basalt at full
+                                 contrast, the rest muted (code-behind). -->
+                            <TextBlock x:Name="EyebrowText" Style="{StaticResource Body}" FontSize="15" LineHeight="20"
+                                       VerticalAlignment="Center" TextWrapping="NoWrap"
+                                       AutomationProperties.AutomationId="SoftOverlayEyebrow"/>
+                        </StackPanel>
 
-                <TextBlock x:Name="TryLineText" Style="{StaticResource Caption}" Margin="0,12,0,0"
-                           AutomationProperties.AutomationId="SoftOverlayTryLine"/>
+                        <!-- The plan as the headline. Collapsed with no plan, when the
+                             sentence below takes the headline's place. -->
+                        <TextBlock x:Name="IntentionText" Style="{StaticResource H1}" FontSize="52" LineHeight="60"
+                                   TextWrapping="Wrap" Margin="0,6,0,10" Visibility="Collapsed"
+                                   AutomationProperties.AutomationId="SoftOverlayIntention"/>
 
-                <!-- Soft's promise, in the one place it is worded (SoftOverlayCopy). -->
-                <TextBlock x:Name="NoteText" Text="{x:Static models:SoftOverlayCopy.CloseNote}"
-                           Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,4,0,0"
-                           AutomationProperties.AutomationId="SoftOverlayNote"/>
+                        <!-- "Charmap is on your blocklist until 10:19 PM." as the line
+                             under a plan, or the headline itself with no plan. -->
+                        <TextBlock x:Name="SentenceText" Style="{StaticResource Body}" FontSize="20" LineHeight="28"
+                                   Foreground="{DynamicResource Ink}" TextWrapping="Wrap"
+                                   AutomationProperties.AutomationId="SoftOverlayText"/>
 
-                <!-- 1.0.10 (spec 4.1): Close first and primary in colour, but never
-                     the keyboard's default. The notice lands up to one blocker
-                     sweep after the blocked app came to the front, while the user
-                     may still be typing in it, so an Enter or Space meant for that
-                     app must never become "the user chose to close it". Back to
-                     work takes focus and is both the default (Enter) and the
-                     cancel (Escape) action; Close is reached by mouse or by Tab.
-                     Allow is last, disabled until its wait runs out.
-                     A website (F10 interim) has no Close: closing the browser
-                     would close every tab, so Configure collapses it and Back
-                     to work becomes the primary button. -->
-                <WrapPanel Orientation="Horizontal" Margin="0,24,0,0">
-                    <!-- Configure names the app: "Close Discord". -->
-                    <Button x:Name="CloseButton" Style="{StaticResource BtnPrimary}" Content="Close"
-                            Padding="24,12" Margin="0,0,12,8"
-                            Click="OnCloseIt"
-                            AutomationProperties.AutomationId="SoftOverlayCloseButton"/>
-                    <!-- Enter and Escape are both Back to work: the app is left running. -->
-                    <Button x:Name="BackToWorkButton" Style="{StaticResource BtnGhost}"
-                            Content="Back to work" Padding="24,12" IsDefault="True" IsCancel="True"
-                            Margin="0,0,12,8"
-                            Click="OnBackToWork"
-                            AutomationProperties.AutomationId="SoftOverlayBackToWorkButton"
-                            AutomationProperties.Name="Back to work"/>
-                </WrapPanel>
+                        <!-- Soft's promise, in the one place it is worded
+                             (SoftOverlayCopy), and the try count from the second try. -->
+                        <WrapPanel Orientation="Horizontal" Margin="0,4,0,0">
+                            <TextBlock x:Name="NoteText" Text="{x:Static models:SoftOverlayCopy.CloseNote}"
+                                       Style="{StaticResource Body}" FontSize="15" LineHeight="22"
+                                       TextWrapping="Wrap" Margin="0,0,6,0"
+                                       AutomationProperties.AutomationId="SoftOverlayNote"/>
+                            <TextBlock x:Name="TryLineText" Style="{StaticResource Body}" FontSize="15" LineHeight="22"
+                                       Foreground="{DynamicResource Ink}" Visibility="Collapsed"
+                                       AutomationProperties.AutomationId="SoftOverlayTryLine"/>
+                        </WrapPanel>
 
-                <!-- On a line of its own, so the label counting down (and then
-                     getting shorter) never moves a button or re-wraps the card. -->
-                <Button x:Name="AllowButton" Style="{StaticResource BtnQuiet}" Content="Allow 5 minutes"
-                        Padding="24,12" HorizontalAlignment="Left"
-                        Click="OnAllowFiveMinutes"
-                        AutomationProperties.AutomationId="SoftOverlayAllowButton"
-                        AutomationProperties.Name="Allow 5 minutes"/>
-            </StackPanel>
+                        <!-- Back to work first and Primary once unlocked, but never the
+                             default: no IsDefault or IsCancel anywhere on this window.
+                             Close is the user's choice; a website's notice collapses it,
+                             because closing the browser would close every tab. Allow
+                             keeps its own longer wait. Each label is fixed-width enough
+                             that the countdown never moves a button. -->
+                        <StackPanel x:Name="ButtonRow" Orientation="Horizontal" Margin="0,26,0,0">
+                            <Button x:Name="BackToWorkButton" Style="{StaticResource NoticeLocked}"
+                                    Content="Back to work" Click="OnBackToWork"
+                                    AutomationProperties.AutomationId="SoftOverlayBackToWorkButton"
+                                    AutomationProperties.Name="Back to work"/>
+                            <!-- Configure names the app: "Close Discord". -->
+                            <Button x:Name="CloseButton" Style="{StaticResource NoticeLocked}" Content="Close"
+                                    Click="OnCloseIt"
+                                    AutomationProperties.AutomationId="SoftOverlayCloseButton"/>
+                            <Button x:Name="AllowButton" Style="{StaticResource NoticeLocked}" Content="Allow 5 minutes"
+                                    MinWidth="236" Click="OnAllowFiveMinutes"
+                                    AutomationProperties.AutomationId="SoftOverlayAllowButton"
+                                    AutomationProperties.Name="Allow 5 minutes"/>
+                        </StackPanel>
+
+                        <!-- The lock bar: a lock, a bar filling over the lock, and
+                             "Buttons unlock in 0.9 s"; then how to answer. Under
+                             reduced motion the bar is hidden and the text still says
+                             the wait applies. -->
+                        <StackPanel Orientation="Horizontal" Margin="0,14,0,0" Height="20">
+                            <TextBlock x:Name="LockIcon" Text="{StaticResource IconLock}" Style="{StaticResource IconSmall}"
+                                       Foreground="{DynamicResource InkDim}" Margin="0,0,14,0"/>
+                            <Border x:Name="LockTrack" Width="168" Height="4" CornerRadius="2"
+                                    Background="{DynamicResource Track}" Margin="0,0,14,0"
+                                    VerticalAlignment="Center" ClipToBounds="True">
+                                <Border x:Name="LockFill" HorizontalAlignment="Left" Width="168" CornerRadius="2"
+                                        Background="{DynamicResource Ink}" RenderTransformOrigin="0,0.5">
+                                    <Border.RenderTransform>
+                                        <ScaleTransform x:Name="LockFillScale" ScaleX="0"/>
+                                    </Border.RenderTransform>
+                                </Border>
+                            </Border>
+                            <TextBlock x:Name="WaitText" Style="{StaticResource Body}" FontSize="14" LineHeight="20"
+                                       VerticalAlignment="Center" TextWrapping="NoWrap"
+                                       Typography.NumeralAlignment="Tabular"
+                                       AutomationProperties.AutomationId="SoftOverlayWait"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Grid>
+            </Grid>
         </Border>
     </Grid>
 </Window>

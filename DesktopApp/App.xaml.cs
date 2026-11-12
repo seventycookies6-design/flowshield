@@ -61,6 +61,15 @@ public partial class App : Application
             Log.Info("short schedule windows enabled by --short-schedules flag");
         }
 
+        // --long-notice-lock: the Soft notice's buttons ignore input for six
+        // seconds instead of 1.5, so tier 3 can see a click being ignored (#432).
+        // Test only; it changes no rule, only a clock.
+        if (args.Any(a => a.Equals("--long-notice-lock", StringComparison.OrdinalIgnoreCase)))
+        {
+            Models.SoftOverlayPolicy.UseLongInputLock = true;
+            Log.Info("six-second notice lock enabled by --long-notice-lock flag");
+        }
+
         if (args.Any(a => a.Equals("--dev", StringComparison.OrdinalIgnoreCase)))
         {
             DevMode = true;

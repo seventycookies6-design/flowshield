@@ -65,6 +65,20 @@ public class SoftOverlayPolicy
         });
     }
 
+    /// <summary>Set by --long-notice-lock, so the UI suite can act inside the lock.</summary>
+    public static bool UseLongInputLock { get; set; }
+
+    /// <summary>
+    /// How long every button on the notice ignores input when it opens (#432,
+    /// DESIGN_SYSTEM.md Part A, Interruptions): about 1.5 seconds, so someone
+    /// still typing in the blocked app can't answer it by accident. Not
+    /// shortened by --short-timers. --long-notice-lock stretches it to six
+    /// seconds, longer than a UIA round trip, only so tier 3 can watch a click
+    /// being ignored; it changes no rule, only the clock.
+    /// </summary>
+    public static TimeSpan InputLock =>
+        UseLongInputLock ? TimeSpan.FromSeconds(6) : TimeSpan.FromMilliseconds(1500);
+
     /// <summary>Notices shown this sprint, across every app. The try number of the one on screen.</summary>
     public int Tries { get; private set; }
 
@@ -164,32 +178,45 @@ public class SoftOverlayPolicy
 }
 
 /// <summary>
-/// What the Soft notice says. DESIGN_SYSTEM.md §7 "Intervention moments" asks
-/// for one sentence naming the app and the time left, and §9 for a calm voice:
-/// state the fact, no telling-off, no exclamation marks.
+/// What the Soft notice says. DESIGN_SYSTEM.md Part A asks for plain,
+/// specific words with no exclamation marks, and the redesign (#432) for the
+/// customer's own plan as the headline, the blocklist fact under it, and
+/// commas rather than middle dots between facts.
 /// </summary>
 public static class SoftOverlayCopy
 {
+    /// <summary>The name at the start of the line above the headline.</summary>
+    public const string Brand = "Basalt";
+
     /// <summary>
-    /// Four calm ways to say the same thing, chosen by the try number so the
-    /// notice doesn't go stale (habituation fades fixed friction). Try 1 is
-    /// DESIGN_SYSTEM.md section 7's own example.
+    /// The line above the headline: "Basalt, Soft, your plan for this sprint",
+    /// or "Basalt, Soft" when no plan was typed, so it never points at a plan
+    /// that isn't there. A website's notice (F10 interim) shows at every
+    /// shield, so it says what it is instead of naming one.
     /// </summary>
-    public static string Sentence(string displayName, DateTime endsAtLocal, int tryNumber)
+    public static string Eyebrow(bool hasPlan, bool isWebsite)
     {
-        var until = Until(endsAtLocal);
-        return ((Math.Max(tryNumber, 1) - 1) % 4) switch
-        {
-            0 => $"{displayName} is on your blocklist until {until}",
-            1 => $"You set this time aside until {until}",
-            2 => $"{displayName} can wait until {until}",
-            _ => $"{displayName} will still be there after {until}",
-        };
+        var what = isWebsite ? "website, notice only" : "Soft";
+        return hasPlan ? $"{Brand}, {what}, your plan for this sprint" : $"{Brand}, {what}";
     }
 
-    /// <summary>"Discord is on your blocklist until 5:45 PM" — §7's own example, the first try's wording.</summary>
+    /// <summary>"Discord is on your blocklist until 5:45 PM", DESIGN_SYSTEM.md's own example.</summary>
+    /// <remarks>
+    /// One wording on every try (#432): the four rotating wordings of 1.0.10
+    /// gave way to the try count, which says the same thing plainly.
+    /// </remarks>
     public static string Sentence(string displayName, DateTime endsAtLocal) =>
-        Sentence(displayName, endsAtLocal, 1);
+        $"{displayName} is on your blocklist until {Until(endsAtLocal)}";
+
+    /// <summary>The customer's plan for the sprint, trimmed, or nothing when none was typed.</summary>
+    public static string Plan(string? plan) => (plan ?? "").Trim();
+
+    /// <summary>
+    /// The headline: the plan, or the blocklist sentence when there is no
+    /// plan (#432). The sentence then isn't repeated under it.
+    /// </summary>
+    public static string Headline(string plan, string sentence) =>
+        plan.Length > 0 ? plan : sentence;
 
     /// <summary>"3rd try this sprint".</summary>
     public static string TryLine(int tryNumber)
@@ -205,34 +232,47 @@ public static class SoftOverlayCopy
         return $"{n}{suffix} try this sprint";
     }
 
-    /// <summary>"You planned: finish chapter 3", or nothing when no intention was set.</summary>
-    public static string Intention(string? intention)
-    {
-        var text = (intention ?? "").Trim();
-        return text.Length == 0 ? "" : $"You planned: {text}";
-    }
+    /// <summary>
+    /// The try count shows from the second try only (#432): on the first, "1st
+    /// try" is noise.
+    /// </summary>
+    public static bool ShowsTryLine(int tryNumber) => tryNumber >= 2;
 
     /// <summary>
-    /// The Allow button's label: the countdown after a middle dot while the
-    /// wait runs ("0:08"), the plain label once it can be pressed. Text, so
-    /// reduced motion changes nothing.
+    /// The Allow button's label: "Allow 5 minutes in 0:08" while its own wait
+    /// runs, the plain label once it can be pressed. Text, so reduced motion
+    /// changes nothing.
     /// </summary>
     public static string AllowLabel(TimeSpan left)
     {
         if (left <= TimeSpan.Zero) return "Allow 5 minutes";
         var seconds = (int)Math.Ceiling(left.TotalSeconds);
-        return $"Allow 5 minutes \u00B7 {seconds / 60}:{seconds % 60:00}";
+        return $"Allow 5 minutes in {seconds / 60}:{seconds % 60:00}";
     }
 
-    /// <summary>The note under the buttons: Soft's promise, in words.</summary>
+    /// <summary>
+    /// The lock bar while the buttons ignore input (#432): "Buttons unlock in
+    /// 0.9 s", counting down beside the bar. With reduced motion the bar is
+    /// hidden and the text, which then doesn't tick either, still states the
+    /// wait.
+    /// </summary>
+    public static string LockWait(TimeSpan left, bool reducedMotion)
+    {
+        if (reducedMotion)
+            return $"Buttons unlock after {SoftOverlayPolicy.InputLock.TotalSeconds.ToString("0.#", CultureInfo.CurrentCulture)} seconds";
+        var seconds = Math.Max(left.TotalSeconds, 0);
+        return $"Buttons unlock in {seconds.ToString("0.0", CultureInfo.CurrentCulture)} s";
+    }
+
+    /// <summary>The lock bar's line once the buttons work: how to answer from the keyboard too.</summary>
+    public const string Unlocked = "Click a button, or press Tab then Space.";
+
+    /// <summary>The note under the headline: Soft's promise, in words.</summary>
     public const string CloseNote = "Nothing is closed unless you choose to.";
 
-    /// <summary>The eyebrow on a website's notice (F10 interim), which shows at every shield.</summary>
-    public const string WebsiteEyebrow = "WEBSITE \u00B7 NOTICE ONLY";
-
     /// <summary>
-    /// The note under a website's buttons: what Basalt does and does not
-    /// do with the browser, in words.
+    /// The note on a website's notice (F10 interim): what Basalt does and does
+    /// not do with the browser, in words.
     /// </summary>
     public const string WebsiteNote = "Your browser stays open. Basalt only reads the title of the tab in front.";
 
@@ -240,7 +280,20 @@ public static class SoftOverlayCopy
     public static string Until(DateTime endsAtLocal) =>
         endsAtLocal.ToString("t", CultureInfo.CurrentCulture);
 
-    /// <summary>"25 minutes left in this sprint" — specific, per §9.</summary>
+    /// <summary>The countdown in the notice's ring: "14:50", or "1:02:03" past an hour.</summary>
+    public static string Clock(TimeSpan remaining)
+    {
+        if (remaining <= TimeSpan.Zero) return "0:00";
+        var seconds = (int)Math.Ceiling(remaining.TotalSeconds);
+        return seconds >= 3600
+            ? $"{seconds / 3600}:{seconds / 60 % 60:00}:{seconds % 60:00}"
+            : $"{seconds / 60}:{seconds % 60:00}";
+    }
+
+    /// <summary>
+    /// "25 minutes left in this sprint", specific, as Part A's voice asks. The
+    /// ring's spoken name, so a screen reader hears more than "14:50".
+    /// </summary>
     public static string TimeLeft(TimeSpan remaining)
     {
         if (remaining <= TimeSpan.Zero) return "This sprint is ending";

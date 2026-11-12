@@ -253,7 +253,8 @@ class TestTheUiSuiteCanObserveWhatItAsserts:
         is under OBSERVABLE_SECONDS: a tier 3 test asserting "Allow is still
         disabled" against it would be asserting on its own speed, #242's trap
         again. So the tier 3 test that observes the wait launches the app
-        without --short-timers and watches the real five-second first try.
+        without --short-timers and watches the real waits (five seconds on the
+        first try, ten on the second).
         """
         policy = (Path(DESKTOP_DIR) / "Models" / "SoftOverlayPolicy.cs").read_text(encoding="utf-8")
         match = re.search(r"if \(UseShortTimers\) return TimeSpan\.FromSeconds\((\d+(?:\.\d+)?)\);", policy)
@@ -261,7 +262,7 @@ class TestTheUiSuiteCanObserveWhatItAsserts:
         shortened = float(match.group(1))
 
         tier3 = read_test_package(self.TIER3)
-        head = re.search(r"def test_allow_is_disabled_until_the_wait_runs_out\(self, (\w+)\)", tier3)
+        head = re.search(r"def test_allow_ignores_input_until_its_own_wait_runs_out\(self, (\w+)\)", tier3)
         assert head, "the tier 3 test that observes Allow's wait was not found"
         if shortened < self.OBSERVABLE_SECONDS:
             assert head.group(1) == "real_wait_app", (
@@ -273,6 +274,30 @@ class TestTheUiSuiteCanObserveWhatItAsserts:
         assert "short_timers=False" in fixture[1].split("yield", 1)[0], (
             "real_wait_app must launch without --short-timers"
         )
+
+    def test_the_notice_lock_is_observed_with_the_long_lock(self):
+        """
+        The Soft notice's buttons ignore input for 1.5 s (#432), under
+        OBSERVABLE_SECONDS, and --short-timers never shortens it. A tier 3
+        test that clicks inside the lock and expects nothing would be racing
+        its own UIA lookups, so it runs with --long-notice-lock, which
+        stretches only that clock, passed per test rather than for the suite.
+        """
+        policy = (Path(DESKTOP_DIR) / "Models" / "SoftOverlayPolicy.cs").read_text(encoding="utf-8")
+        lock = policy.split("public static TimeSpan InputLock =>", 1)[1].split(";", 1)[0]
+        long_lock = re.search(r"UseLongInputLock \? TimeSpan\.FromSeconds\((\d+(?:\.\d+)?)\)", lock)
+        assert long_lock, "the --long-notice-lock value was not found"
+        assert float(long_lock.group(1)) > self.OBSERVABLE_SECONDS
+        assert "TimeSpan.FromMilliseconds(1500)" in lock, "the customer's lock is 1.5 s"
+
+        tier3 = read_test_package(self.TIER3)
+        body = tier3.split("def test_every_button_ignores_input_during_the_lock(", 1)
+        assert len(body) == 2, "the tier 3 test that clicks inside the lock was not found"
+        assert '"--long-notice-lock"' in body[1].split("\n    def ", 1)[0], (
+            "the test that clicks inside the lock must launch with --long-notice-lock")
+        controller = self.CONTROLLER.read_text(encoding="utf-8")
+        assert "--long-notice-lock" not in controller.split("def launch_app", 1)[1].split("\n    def ", 1)[0] \
+            .split('"""', 2)[2], "the long lock must never be on for the whole suite"
 
     def test_the_driver_agrees_with_the_shortened_grace_period(self):
         """

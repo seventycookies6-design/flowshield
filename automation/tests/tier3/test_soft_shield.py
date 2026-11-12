@@ -38,6 +38,12 @@ class TestSoftShowsTheNotice:
 
     The notice is its own top-level window, so it is found through Desktop
     rather than through the controller, which only searches the main window.
+
+    Since #432 every button ignores input for about 1.5 s when the notice
+    opens (DESIGN_SYSTEM.md Part A, Interruptions), so a test that means to
+    press one waits for the lock to end first (_wait_until_unlocked). The
+    buttons stay enabled throughout; what changes is that they become
+    keyboard-focusable, which UI Automation reports.
     """
 
     TARGET = "charmap"
@@ -62,6 +68,27 @@ class TestSoftShowsTheNotice:
             pytest.skip(f"{APP_EXE} not built")
         ctrl = DesktopController(logger)
         ctrl.launch_app(clean_state=True, short_timers=False)
+        ctrl.connect_window()
+        time.sleep(1.0)
+        ctrl.focus(force=True)
+        yield ctrl
+        ctrl.close_app()
+
+    @pytest.fixture
+    def long_lock_app(self, logger):
+        """
+        A fresh Basalt whose notice keeps its buttons locked for six seconds
+        (--long-notice-lock) instead of 1.5, so a test can click inside the
+        lock and see nothing happen: 1.5 s is shorter than a UIA round trip
+        or two (#242). Only the clock changes; the gate is the same.
+        """
+        from config import APP_EXE
+        from desktop.app_controller import DesktopController
+
+        if not Path(APP_EXE).exists():
+            pytest.skip(f"{APP_EXE} not built")
+        ctrl = DesktopController(logger)
+        ctrl.launch_app(clean_state=True, extra_args=["--long-notice-lock"])
         ctrl.connect_window()
         time.sleep(1.0)
         ctrl.focus(force=True)
@@ -188,17 +215,34 @@ class TestSoftShowsTheNotice:
         return None
 
     @staticmethod
-    def _wait_until_enabled(control, timeout):
-        """Raced against a deadline rather than slept on (#146)."""
+    def _wait_until_focusable(control, timeout):
+        """
+        A button on the notice takes input once it can take keyboard focus:
+        the lock, and Allow's own wait, keep it enabled but unfocusable (#432).
+        Raced against a deadline rather than slept on (#146).
+        """
         deadline = time.time() + timeout
         while time.time() < deadline:
             try:
-                if control.is_enabled():
+                if control.is_keyboard_focusable():
                     return True
             except Exception:
                 pass
             time.sleep(0.1)
         return False
+
+    def _wait_until_unlocked(self, overlay, timeout=10):
+        """The lock is over once Back to work can take focus."""
+        back = overlay.child_window(auto_id="SoftOverlayBackToWorkButton").wrapper_object()
+        assert self._wait_until_focusable(back, timeout), "the notice's buttons never unlocked"
+
+    @staticmethod
+    def _shows(overlay, auto_id, timeout=1.0) -> bool:
+        """A collapsed element leaves the UIA tree, so a hidden one doesn't exist."""
+        try:
+            return overlay.child_window(auto_id=auto_id).exists(timeout=timeout)
+        except Exception:
+            return False
 
     def _arm_and_start(self, app, process):
         app.navigate_to_tab("Blocked Apps")
@@ -233,6 +277,7 @@ class TestSoftShowsTheNotice:
             # Soft's promise: the distraction is noted, not closed.
             assert process.poll() is None, "Soft must never close the blocked app"
 
+            self._wait_until_unlocked(overlay)
             overlay.child_window(auto_id="SoftOverlayBackToWorkButton").click_input()
             time.sleep(1.5)
             assert self._overlay(timeout=2) is None, "Back to work must take it down"
@@ -241,14 +286,13 @@ class TestSoftShowsTheNotice:
             if process.poll() is None:
                 process.kill()
 
-    def test_enter_is_back_to_work_and_never_closes_the_app(self, fresh_app):
+    def test_enter_does_nothing_and_no_button_is_default_or_focused(self, fresh_app):
         """
-        The notice lands up to one blocker sweep after the blocked app came to
-        the front, while the user may still be typing in it. A keystroke meant
-        for that app -- Enter to send a chat line, say -- must never become
-        "the user chose to close it". Enter on the fresh notice is Back to
-        work: nothing was asked to close, the app is still running, and the
-        notice is down.
+        #432 (Part A, Interruptions): the notice lands up to one blocker sweep
+        after the blocked app came to the front, while the user may still be
+        typing in it. No button is the default and none has focus when it
+        opens, and Enter does nothing, during the lock and after it: the
+        notice stays up, nothing is answered, the app keeps running.
         """
         process = self._decoy()
         try:
@@ -258,18 +302,88 @@ class TestSoftShowsTheNotice:
             assert overlay is not None, (
                 "a blocked app was the foreground window at Soft and nothing said so"
             )
-            overlay.type_keys("{ENTER}", set_foreground=True)
+            buttons = [overlay.child_window(auto_id=aid).wrapper_object() for aid in
+                       ("SoftOverlayBackToWorkButton", "SoftOverlayCloseButton",
+                        "SoftOverlayAllowButton")]
+            for button in buttons:
+                assert not button.has_keyboard_focus(), (
+                    f"{button.window_text()!r} has focus at open; focus starts on the band")
 
-            # Wait for what happens (#146): Back to work is logged by name.
-            went_back = f"back to work from {self.TARGET}"
-            deadline = time.time() + 10
-            while time.time() < deadline and not fresh_app.app_log_contains(went_back):
-                time.sleep(0.25)
-            assert fresh_app.app_log_contains(went_back), "Enter on the notice must be Back to work"
+            overlay.type_keys("{ENTER}", set_foreground=True)
+            self._wait_until_unlocked(overlay)
+            for button in buttons:
+                assert not button.has_keyboard_focus(), (
+                    f"{button.window_text()!r} took focus by itself after the lock")
+            overlay.type_keys("{ENTER}", set_foreground=True)
+            time.sleep(1.5)
+
+            assert self._overlay(timeout=2) is not None, "Enter must not answer the notice"
+            assert not fresh_app.app_log_contains(f"back to work from {self.TARGET}"), (
+                "Enter must not be Back to work: no button is the default")
             assert not fresh_app.app_log_contains(f"(pid {process.pid}) to close, as the user chose"), (
                 "Enter must never ask the blocked app to close"
             )
             assert process.poll() is None, "Enter must never close the blocked app"
+        finally:
+            if process.poll() is None:
+                process.kill()
+
+    def test_every_button_ignores_input_during_the_lock(self, long_lock_app):
+        """
+        #432: for the lock (six seconds here, 1.5 s for a customer; see
+        long_lock_app) every button ignores clicks, Space and Enter. They
+        stay enabled, so their labels keep full contrast, but can't take
+        focus, and the wait is shown. After it, a deliberate Tab then Space
+        works: Tab from the band lands on Back to work.
+        """
+        app = long_lock_app
+        process = self._decoy()
+        try:
+            self._arm_and_start(app, process)
+
+            overlay = self._overlay()
+            assert overlay is not None, (
+                "a blocked app was the foreground window at Soft and nothing said so"
+            )
+            close = overlay.child_window(auto_id="SoftOverlayCloseButton").wrapper_object()
+            back = overlay.child_window(auto_id="SoftOverlayBackToWorkButton").wrapper_object()
+
+            # A click, Space and Enter inside the lock, first, while the lock
+            # has the most time left: nothing happens.
+            close.click_input()
+            overlay.type_keys("{SPACE}{ENTER}", set_foreground=True)
+            assert not back.is_keyboard_focusable(), (
+                "the lock ended before the test could act inside it; the click proved nothing")
+            for button in (close, back):
+                assert button.is_enabled(), "a locked button stays enabled, at full contrast"
+                assert not button.is_keyboard_focusable(), "a locked button can't take focus"
+            wait = overlay.child_window(auto_id="SoftOverlayWait").window_text()
+            assert wait.startswith("Buttons unlock"), wait
+            time.sleep(1.0)
+            assert self._overlay(timeout=2) is not None, "a click inside the lock must be ignored"
+            assert not app.app_log_contains(f"soft notice: close {self.TARGET} chosen"), (
+                "Close was answered inside the lock")
+            assert not app.app_log_contains(f"back to work from {self.TARGET}")
+            assert process.poll() is None, "nothing may close the app inside the lock"
+
+            self._wait_until_unlocked(overlay)
+            wait = overlay.child_window(auto_id="SoftOverlayWait").window_text()
+            assert "Tab then Space" in wait, wait
+
+            # Deliberate: Tab from the band to Back to work, then Space.
+            overlay.type_keys("{TAB}", set_foreground=True)
+            deadline = time.time() + 5
+            while time.time() < deadline and not back.has_keyboard_focus():
+                time.sleep(0.1)
+            assert back.has_keyboard_focus(), "Tab from the band must land on Back to work"
+            overlay.type_keys("{SPACE}", set_foreground=False)
+
+            went_back = f"back to work from {self.TARGET}"
+            deadline = time.time() + 10
+            while time.time() < deadline and not app.app_log_contains(went_back):
+                time.sleep(0.25)
+            assert app.app_log_contains(went_back), "Tab then Space after the lock is Back to work"
+            assert process.poll() is None, "Back to work leaves the app running"
             assert self._overlay(timeout=2) is None, "Back to work takes the notice down"
         finally:
             if process.poll() is None:
@@ -284,8 +398,8 @@ class TestSoftShowsTheNotice:
             assert overlay is not None
             # 1.0.10: Allow waits before it can be pressed (three seconds under
             # --short-timers), so a click before then would do nothing.
-            allow = overlay.child_window(auto_id="SoftOverlayAllowButton")
-            assert self._wait_until_enabled(allow, timeout=8), "Allow never became pressable"
+            allow = overlay.child_window(auto_id="SoftOverlayAllowButton").wrapper_object()
+            assert self._wait_until_focusable(allow, timeout=8), "Allow never became pressable"
             allow.click_input()
             time.sleep(1.0)
 
@@ -300,33 +414,73 @@ class TestSoftShowsTheNotice:
             if process.poll() is None:
                 process.kill()
 
-    def test_allow_is_disabled_until_the_wait_runs_out(self, real_wait_app):
+    def test_allow_ignores_input_until_its_own_wait_runs_out(self, real_wait_app):
         """
         1.0.10: Allow 5 minutes waits (5, 10, 20, then 30 s) before it can be
-        pressed; Close works at once; the try count shows. Run with the real
-        five-second first-try wait: the three-second --short-timers wait is
-        shorter than the suite can observe (see real_wait_app).
+        pressed, beyond the 1.5 s lock every button has (#432). It stays
+        enabled, its countdown in its label, but can't take focus and ignores
+        a click. The try count is hidden on the first try and shows on the
+        second (#432).
+
+        Run with the real waits: the three-second --short-timers wait is
+        shorter than the suite can observe (see real_wait_app). The click is
+        made on the second try, whose ten-second wait leaves room for UIA.
         """
+        app = real_wait_app
         process = self._decoy()
         try:
-            self._arm_and_start(real_wait_app, process)
+            self._arm_and_start(app, process)
 
             allow = self._first_sight_of("SoftOverlayAllowButton")
             assert allow is not None, (
                 "a blocked app was the foreground window at Soft and nothing said so"
             )
-            assert not allow.is_enabled(), "Allow must wait before it can be pressed"
-
-            # While Allow still waits, Close already works and the try count shows.
             overlay = self._overlay(timeout=2)
             assert overlay is not None
             close = overlay.child_window(auto_id="SoftOverlayCloseButton")
-            assert close.is_enabled(), "Close works at once, with no wait"
             assert self.TARGET.lower() in close.window_text().lower(), close.window_text()
-            try_line = overlay.child_window(auto_id="SoftOverlayTryLine").window_text()
-            assert "1st try this sprint" in try_line, try_line
+            assert not self._shows(overlay, "SoftOverlayTryLine"), (
+                "the try count is hidden on the first try")
 
-            assert self._wait_until_enabled(allow, timeout=10), "Allow's wait never ran out"
+            # First try: once the lock is over, Close and Back to work take
+            # focus, while Allow still waits, enabled and unfocusable.
+            self._wait_until_unlocked(overlay)
+            assert allow.is_enabled(), "Allow stays enabled while it waits"
+            assert not allow.is_keyboard_focusable(), "Allow must wait before it can be pressed"
+            assert "Allow 5 minutes in 0:0" in allow.window_text() or \
+                allow.window_text() == "Allow 5 minutes", allow.window_text()
+
+            overlay.child_window(auto_id="SoftOverlayBackToWorkButton").click_input()
+            went_back = f"back to work from {self.TARGET}"
+            deadline = time.time() + 10
+            while time.time() < deadline and not app.app_log_contains(went_back):
+                time.sleep(0.25)
+            assert app.app_log_contains(went_back), "Back to work was never answered"
+
+            # Second try, after Back to work's few quiet seconds.
+            time.sleep(6.0)
+            self._bring_forward(process)
+            overlay = self._overlay()
+            assert overlay is not None, "the decoy came back and no second notice appeared"
+            try_line = overlay.child_window(auto_id="SoftOverlayTryLine").window_text()
+            assert "2nd try this sprint" in try_line, try_line
+
+            self._wait_until_unlocked(overlay)
+            allow = overlay.child_window(auto_id="SoftOverlayAllowButton").wrapper_object()
+            assert not allow.is_keyboard_focusable(), "the second try's Allow waits ten seconds"
+            allow.click_input()
+            time.sleep(1.0)
+            assert self._overlay(timeout=2) is not None, "a click on a waiting Allow must be ignored"
+            assert not app.app_log_contains(f"{self.TARGET} allowed for"), (
+                "Allow was answered before its wait ran out")
+
+            assert self._wait_until_focusable(allow, timeout=15), "Allow's wait never ran out"
+            allow.click_input()
+            deadline = time.time() + 10
+            while time.time() < deadline and not app.app_log_contains(f"{self.TARGET} allowed for"):
+                time.sleep(0.25)
+            assert app.app_log_contains(f"{self.TARGET} allowed for"), "Allow works once its wait is over"
+            assert process.poll() is None
         finally:
             if process.poll() is None:
                 process.kill()
@@ -347,6 +501,7 @@ class TestSoftShowsTheNotice:
             assert overlay is not None, (
                 "a blocked app was the foreground window at Soft and nothing said so"
             )
+            self._wait_until_unlocked(overlay)
             overlay.child_window(auto_id="SoftOverlayCloseButton").click_input()
 
             asked = f"(pid {process.pid}) to close, as the user chose"
@@ -392,6 +547,7 @@ class TestSoftShowsTheNotice:
             assert overlay is not None, (
                 "a blocked app was the foreground window at Soft and nothing said so"
             )
+            self._wait_until_unlocked(overlay)
             overlay.child_window(auto_id="SoftOverlayBackToWorkButton").click_input()
 
             # Wait for what happens (#146): Back to work is logged by name.

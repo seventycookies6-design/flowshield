@@ -1069,25 +1069,81 @@ class TestSoftFriction:
         out = probe({"cmd": "soft-copy", "try": 1, "app": "Discord", "ends": "2026-09-28T17:45:00"})
         assert out["sentence"].startswith("Discord is on your blocklist until")
 
-    def test_the_wording_varies_across_four_tries_and_then_repeats(self):
+    def test_the_sentence_is_one_wording_on_every_try(self):
+        """
+        #432: the try count says "again" plainly, so the four rotating
+        wordings of 1.0.10 gave way to DESIGN_SYSTEM.md's own example on every
+        try (app-notice-second-try-dark.png). Still one sentence with no full
+        stop, so the notice can add its own.
+        """
         sentences = [probe({"cmd": "soft-copy", "try": n, "app": "Discord",
                             "ends": "2026-09-28T17:45:00"})["sentence"] for n in range(1, 6)]
-        assert len(set(sentences[:4])) == 4 and sentences[4] == sentences[0]
-        assert all("Discord" in s or "this time" in s for s in sentences)
-        # DESIGN_SYSTEM.md section 7: one sentence, and none of them ends in a
-        # full stop, so a full stop in the middle is a second sentence.
-        assert all(". " not in s and not s.endswith(".") for s in sentences), sentences
+        assert len(set(sentences)) == 1, sentences
+        assert sentences[0].startswith("Discord is on your blocklist until "), sentences[0]
+        assert ". " not in sentences[0] and not sentences[0].endswith("."), sentences[0]
 
-    @pytest.mark.parametrize("seconds,label", [(8, "Allow 5 minutes · 0:08"),
-                                               (30, "Allow 5 minutes · 0:30"),
+    @pytest.mark.parametrize("seconds,label", [(8, "Allow 5 minutes in 0:08"),
+                                               (30, "Allow 5 minutes in 0:30"),
                                                (0, "Allow 5 minutes")])
     def test_the_allow_button_counts_down_in_text(self, seconds, label):
+        """Its own longer wait, as text in the label, with no middle dot (#432)."""
         assert probe({"cmd": "soft-copy", "try": 1, "allow_left": seconds})["allow_label"] == label
 
-    def test_an_empty_intention_shows_nothing(self):
-        assert probe({"cmd": "soft-copy", "try": 1, "intention": "  "})["intention"] == ""
-        assert probe({"cmd": "soft-copy", "try": 1, "intention": "finish chapter 3"})["intention"] \
-            == "You planned: finish chapter 3"
+    def test_the_plan_is_the_headline_and_the_sentence_stands_in_for_none(self):
+        """
+        #432: the customer's plan is the headline. With no plan typed, the
+        headline falls back to "<App> is on your blocklist until <time>".
+        """
+        out = probe({"cmd": "soft-copy", "try": 1, "app": "Discord", "ends": "2026-09-28T17:45:00",
+                     "intention": "  Finish the essay conclusion "})
+        assert out["plan"] == "Finish the essay conclusion"
+        assert out["headline"] == "Finish the essay conclusion"
+        none = probe({"cmd": "soft-copy", "try": 1, "app": "Discord", "ends": "2026-09-28T17:45:00",
+                      "intention": "  "})
+        assert none["plan"] == ""
+        assert none["headline"] == none["sentence"]
+        assert none["headline"].startswith("Discord is on your blocklist until ")
+
+    def test_the_line_above_the_headline_never_points_at_a_missing_plan(self):
+        """
+        "Basalt, Soft, your plan for this sprint", in commas, never middle
+        dots (#432); without a plan it stops at the shield.
+        """
+        with_plan = probe({"cmd": "soft-copy", "try": 1, "intention": "Finish the essay"})
+        assert with_plan["eyebrow"] == "Basalt, Soft, your plan for this sprint"
+        assert with_plan["eyebrow_no_plan"] == "Basalt, Soft"
+        assert probe({"cmd": "soft-copy", "try": 1})["eyebrow"] == "Basalt, Soft"
+
+    @pytest.mark.parametrize("n,shows", [(1, False), (2, True), (3, True), (12, True)])
+    def test_the_try_count_shows_from_the_second_try(self, n, shows):
+        """#432: "1st try this sprint" is noise; the count appears on the second."""
+        assert probe({"cmd": "soft-copy", "try": n})["shows_try_line"] is shows
+
+    def test_the_lock_is_about_a_second_and_a_half_and_says_so(self):
+        """
+        DESIGN_SYSTEM.md Part A, Interruptions: every button ignores input for
+        about 1.5 seconds, with the wait shown. Under reduced motion the bar
+        is hidden but the text still states the wait.
+        """
+        out = probe({"cmd": "soft-copy", "try": 1, "lock_left": 0.9})
+        assert out["input_lock_ms"] == 1500
+        assert re.fullmatch(r"Buttons unlock in 0[.,]9 s", out["lock_wait"]), out["lock_wait"]
+        assert re.fullmatch(r"Buttons unlock after 1[.,]5 seconds", out["lock_wait_reduced"]), \
+            out["lock_wait_reduced"]
+        assert out["unlocked"] == "Click a button, or press Tab then Space."
+
+    def test_the_ring_counts_down_in_minutes_and_seconds(self):
+        assert probe({"cmd": "soft-copy", "try": 1, "remaining": 890})["clock"] == "14:50"
+        assert probe({"cmd": "soft-copy", "try": 1, "remaining": 3723})["clock"] == "1:02:03"
+        assert probe({"cmd": "soft-copy", "try": 1, "remaining": 0})["clock"] == "0:00"
+
+    def test_no_notice_copy_uses_a_middle_dot_or_an_exclamation_mark(self):
+        """#432: commas or separate lines between facts, and Part A's voice."""
+        out = probe({"cmd": "soft-copy", "try": 2, "app": "Discord", "ends": "2026-09-28T17:45:00",
+                     "intention": "Finish the essay", "allow_left": 8})
+        for key, value in out.items():
+            if isinstance(value, str):
+                assert "\u00b7" not in value and "!" not in value, f"{key}: {value!r}"
 
     def test_the_note_under_the_buttons_is_softs_promise(self):
         """One wording, read by the notice and the Settings caption alike."""
@@ -1505,7 +1561,7 @@ class TestWebsitesLiveInProfiles:
     def test_the_notice_copy_for_a_website(self):
         out = probe({"cmd": "soft-copy", "try": 1, "app": "youtube.com", "ends": "2026-09-28T17:45:00"})
         assert out["sentence"].startswith("youtube.com is on your blocklist until ")
-        assert out["website_eyebrow"] == "WEBSITE \u00b7 NOTICE ONLY"
+        assert out["website_eyebrow"] == "Basalt, website, notice only"
         assert "browser stays open" in out["website_note"]
         assert "!" not in out["website_note"]
 
