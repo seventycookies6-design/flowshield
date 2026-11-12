@@ -1397,3 +1397,40 @@ class TestRemainingScreens434:
         vm = self.read("ViewModels", "FirstRunViewModel.cs")
         assert "· on this PC" not in vm
         assert "FirstRunPolicy.SourceCaption(Entry.SourceLabel, Entry.ExePath is not null)" in vm
+
+
+class TestSetupPanelBlocklistStaysCurrent:
+    """
+    Found on a real Windows 11 laptop (#431 follow-up): after two apps were
+    added, the setup panel's Blocklist dropdown still said "Default, No apps
+    yet" while Today's summary said "2 apps". The row bound a blocklist's
+    Apps, a plain List that never reports a change, so WPF never converted it
+    again. It now also binds Today's ProfilesRevision, which goes up whenever
+    BlockedAppsViewModel reports a change through RefreshProfileCaption.
+    """
+
+    PANEL = Path(DESKTOP_DIR) / "Views" / "SetupPanel.xaml"
+    TODAY_VM = Path(DESKTOP_DIR) / "ViewModels" / "TodayViewModel.cs"
+    BLOCKED_VM = Path(DESKTOP_DIR) / "ViewModels" / "BlockedAppsViewModel.cs"
+
+    def test_the_dropdown_row_rereads_the_apps_on_each_revision(self):
+        panel = self.PANEL.read_text(encoding="utf-8")
+        dropdown = panel.split('AutomationProperties.AutomationId="TodayBlocklistDropdown"', 1)[1]
+        dropdown = dropdown.split("</ComboBox>", 1)[0]
+        assert "Converter={StaticResource AppNames}}" not in dropdown, \
+            "a single binding to Apps never refreshes"
+        assert '<MultiBinding Converter="{StaticResource AppNamesRefreshing}">' in dropdown
+        assert '<Binding Path="Apps"/>' in dropdown
+        assert '<Binding Path="DataContext.ProfilesRevision"' in dropdown
+
+    def test_every_profile_refresh_raises_the_revision(self):
+        vm = " ".join(self.TODAY_VM.read_text(encoding="utf-8").split())
+        refresh = vm.split("public void RefreshProfileCaption()", 1)[1].split("}", 1)[0]
+        assert "ProfilesRevision++;" in refresh
+        assert "Raise(nameof(ProfilesRevision));" in refresh
+
+    def test_changing_the_apps_reaches_today(self):
+        # The status refresh that runs after an app is added or removed is the
+        # one that tells Today; without it the revision never moves.
+        blocked = self.BLOCKED_VM.read_text(encoding="utf-8")
+        assert blocked.count("_main.Today.RefreshProfileCaption();") >= 2

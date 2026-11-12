@@ -252,7 +252,7 @@ class TestSchedulePage:
 
     def test_adding_a_schedule_saves_it(self, fresh_app):
         fresh_app.navigate_to_tab("Schedule")
-        assert fresh_app.text_of("ScheduleNextUpText") == "No schedules yet"
+        assert fresh_app.text_of("ScheduleNextUpText") == "No other schedules yet"
         fresh_app.add_schedule("Homework evening", ["Mon", "Tue", "Wed", "Thu"], "17:00")
         schedules = verify.wait_for_settings(lambda st: len(st["Schedules"]) == 1,
                                              what="the new schedule")["Schedules"]

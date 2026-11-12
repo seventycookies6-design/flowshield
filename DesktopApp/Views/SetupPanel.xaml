@@ -178,9 +178,17 @@
                                     <StackPanel Orientation="Horizontal">
                                         <TextBlock Text="{Binding Name}" FontWeight="SemiBold" Foreground="{DynamicResource Ink}"
                                                    VerticalAlignment="Center"/>
-                                        <TextBlock Text="{Binding Apps, Converter={StaticResource AppNames}}"
-                                                   Foreground="{DynamicResource InkDim}" Margin="12,0,0,0" VerticalAlignment="Center"
-                                                   TextTrimming="CharacterEllipsis" MaxWidth="300"/>
+                                        <TextBlock Foreground="{DynamicResource InkDim}" Margin="12,0,0,0" VerticalAlignment="Center"
+                                                   TextTrimming="CharacterEllipsis" MaxWidth="300">
+                                            <TextBlock.Text>
+                                                <!-- the revision makes it re-read Apps, a plain list -->
+                                                <MultiBinding Converter="{StaticResource AppNamesRefreshing}">
+                                                    <Binding Path="Apps"/>
+                                                    <Binding Path="DataContext.ProfilesRevision"
+                                                             RelativeSource="{RelativeSource AncestorType=ComboBox}"/>
+                                                </MultiBinding>
+                                            </TextBlock.Text>
+                                        </TextBlock>
                                     </StackPanel>
                                 </DataTemplate>
                             </ComboBox.ItemTemplate>

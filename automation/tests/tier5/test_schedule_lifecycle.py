@@ -1224,3 +1224,37 @@ class TestPlansKeepsItsPromises433:
             assert "\u00b7" not in xaml and "&#183;" not in xaml, view
         schedule_vm = (self.VM / "ScheduleViewModel.cs").read_text(encoding="utf-8")
         assert "\\u00B7" not in schedule_vm
+
+
+class TestPlansFindingsFromARealPc433:
+    """
+    Three things a real Windows 11 laptop showed on Plans (#433 follow-up).
+    Each assertion fails against the code before the fix.
+    """
+
+    SCHEDULE_VM = Path(DESKTOP_DIR) / "ViewModels" / "ScheduleViewModel.cs"
+    SCHEDULE_VIEW = Path(DESKTOP_DIR) / "Views" / "ScheduleView.xaml"
+    BLOCKED_VM = Path(DESKTOP_DIR) / "ViewModels" / "BlockedAppsViewModel.cs"
+
+    def test_the_empty_line_allows_for_the_sleep_row_above_it(self):
+        # Sleep blocking is always a row in Schedules, so a bare "No schedules
+        # yet" under it contradicted the row.
+        vm = self.SCHEDULE_VM.read_text(encoding="utf-8")
+        assert 'return "No other schedules yet";' in vm
+        assert 'return "No schedules yet";' not in vm
+        view = self.SCHEDULE_VIEW.read_text(encoding="utf-8")
+        assert view.index('AutomationId="SleepBlockToggle"') < view.index('AutomationId="ScheduleNextUpText"')
+
+    def test_a_template_detail_wraps_instead_of_being_cut_off(self):
+        view = self.SCHEDULE_VIEW.read_text(encoding="utf-8")
+        row = view.split('AutomationId="{Binding Name, StringFormat=TemplateDetail_{0}}"', 1)[0]
+        detail = row.rsplit("<TextBlock", 1)[1]
+        assert 'TextWrapping="Wrap"' in detail and "TextTrimming" not in detail
+        vm = " ".join(self.SCHEDULE_VM.read_text(encoding="utf-8").split())
+        assert '"the blocklist in use"' not in vm, "the default blocklist goes unsaid"
+
+    def test_a_typed_full_path_keeps_the_apps_icon(self):
+        vm = " ".join(self.BLOCKED_VM.read_text(encoding="utf-8").split())
+        add = vm.split("private void AddApp()", 1)[1].split("private void RemoveApp", 1)[0]
+        assert "System.IO.File.Exists(typedPath)" in add
+        assert "processes, iconPath))" in add, "the typed path is saved as the icon"

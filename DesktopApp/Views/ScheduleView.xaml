@@ -240,12 +240,18 @@
                                         <TextBlock Text="{Binding Name}" Style="{StaticResource Body}" Foreground="{DynamicResource Ink}"
                                                    TextTrimming="CharacterEllipsis"
                                                    AutomationProperties.AutomationId="{Binding Name, StringFormat=TemplateRow_{0}}"/>
-                                        <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                        <!-- a Grid, not a horizontal StackPanel, so the detail can wrap -->
+                                        <Grid Margin="0,2,0,0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
                                             <Image Source="{Binding Shield, Converter={StaticResource ShieldGlyph}}"
-                                                   Width="12" Height="12" Stretch="Uniform" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                                            <TextBlock Text="{Binding PlansDetail}" Style="{StaticResource Caption}"
-                                                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-                                        </StackPanel>
+                                                   Width="12" Height="12" Stretch="Uniform" Margin="0,3,6,0" VerticalAlignment="Top"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding PlansDetail}" Style="{StaticResource Caption}"
+                                                       VerticalAlignment="Center" TextWrapping="Wrap"
+                                                       AutomationProperties.AutomationId="{Binding Name, StringFormat=TemplateDetail_{0}}"/>
+                                        </Grid>
                                     </StackPanel>
                                     <Button Grid.Column="1" Style="{StaticResource BtnGhost}" Height="36" Padding="14,0"
                                             VerticalAlignment="Center"

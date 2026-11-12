@@ -76,6 +76,7 @@
     <inf:ProgressToArcConverter x:Key="ProgressArc" Radius="105" Centre="111"/>
     <inf:TrendGeometryConverter x:Key="TrendGeometry" Width="250" Height="64"/>
     <inf:AppNamesConverter x:Key="AppNames"/>
+    <inf:AppNamesRefreshingConverter x:Key="AppNamesRefreshing"/>
     <inf:NonEmptyToVisibilityConverter x:Key="NonEmptyVis"/>
     <inf:ShieldLevelToGlyphConverter x:Key="ShieldGlyph"/>
     <inf:ResourceKeyToBrushConverter x:Key="ResourceKeyToBrush"/>
