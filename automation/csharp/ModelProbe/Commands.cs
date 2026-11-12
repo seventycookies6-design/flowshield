@@ -113,8 +113,34 @@ internal static class Commands
             {
                 ["process"] = PackagedApp.ProcessName((string?)request["exe"]),
             },
+            "backdrop-decide" => BackdropDecide(request),
+            "backdrop-api" => new JsonObject
+            {
+                ["api"] = BackdropPolicy.ApiFor((int)request["build"]!).ToString(),
+                ["requests"] = BackdropPolicy.RequestsMica((int)request["build"]!, (bool?)request["highContrast"] ?? false),
+            },
             _ => throw new ArgumentException($"unknown command '{cmd}'"),
         };
+    }
+
+    /// <summary>BackdropPolicy over a list of condition sets (#430).</summary>
+    private static JsonNode BackdropDecide(JsonObject request)
+    {
+        var answers = request["cases"]!.AsArray().Select(node =>
+        {
+            var c = node!.AsObject();
+            var conditions = new BackdropConditions(
+                OsBuild: (int?)c["build"] ?? 26100,
+                TransparencyEnabled: (bool?)c["transparency"] ?? true,
+                BatterySaver: (bool?)c["batterySaver"] ?? false,
+                WindowActive: (bool?)c["active"] ?? true,
+                HighContrast: (bool?)c["highContrast"] ?? false,
+                HardwareRendering: (bool?)c["hardware"] ?? true,
+                BackdropApplied: (bool?)c["applied"] ?? true);
+            var (backdrop, reason) = BackdropPolicy.Explain(conditions);
+            return (JsonNode)new JsonObject { ["backdrop"] = backdrop.ToString(), ["reason"] = reason };
+        }).ToArray();
+        return new JsonObject { ["answers"] = new JsonArray(answers) };
     }
 
 

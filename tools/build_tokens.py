@@ -11,7 +11,12 @@ Writes:
                                         tokens:dark markers; the rest is hand-written
   AppleApps/Basalt/Tokens.xcassets      one colour set per app token (light, with a dark
                                         appearance), plus AccentColor = primary, for the
-                                        Mac app (#426)
+                                        Mac app (#426); the Windows depth tokens in
+                                        apple_skip are left out
+
+The XAML also carries app_brushes: the elevation surfaces, the gradients and
+the drop shadows, which are more than one colour but must still swap with the
+theme (DESIGN_SYSTEM.md Part A, Depth).
 
 Colours used to be typed twice, once in Theme.xaml and once in styles.css, and
 the two drifted. This makes the JSON the only place a colour is defined.
@@ -79,8 +84,74 @@ def xaml(data: dict, theme_name: str) -> str:
     lines.append("")
     for token, key in data["app_names"].items():
         lines.append(f'    <SolidColorBrush x:Key="{key}" Color="{{StaticResource {key}Color}}"/>')
+    brushes = data.get("app_brushes", {})
+    if brushes:
+        lines.append("")
+        for key, spec in brushes.items():
+            lines += _brush(data, theme_name, key, spec)
     lines += ["</ResourceDictionary>", ""]
     return "\n".join(lines)
+
+
+def _argb(rgba: tuple[int, int, int, float]) -> str:
+    r, g, b, a = rgba
+    return f"#{_alpha_byte(a):02X}{r:02X}{g:02X}{b:02X}"
+
+
+def _stop_colour(theme: dict, stop) -> tuple[int, int, int, float]:
+    """A gradient stop: a token name, or {"ref": token, "alpha": a} to override its alpha."""
+    if isinstance(stop, str):
+        return resolve(theme, stop)
+    r, g, b, _ = resolve(theme, stop["ref"])
+    return r, g, b, float(stop["alpha"])
+
+
+def composite(top: tuple[int, int, int, float], base: tuple[int, int, int, float]) -> tuple[int, int, int, float]:
+    """top painted over an opaque base, as the one opaque colour the eye sees."""
+    r1, g1, b1, a = top
+    r2, g2, b2, _ = base
+    mix = lambda f, t: round(f * a + t * (1 - a))
+    return mix(r1, r2), mix(g1, g2), mix(b1, b2), 1.0
+
+
+def _brush(data: dict, theme_name: str, key: str, spec: dict) -> list[str]:
+    """One multi-colour resource from app_brushes, for this theme.
+
+    surface: an elevation (DESIGN_SYSTEM.md Part A, Depth). WPF has no inset
+      box-shadow, so the top highlight is painted as the background's first
+      rows: an absolute-mapped gradient whose band covers y 0 to 2, of which
+      the row below a Border's 1 px hairline is what shows. The highlight is
+      composited onto the base here, so the band is opaque like the base.
+    linear / radial: a gradient between two tokens.
+    shadow: a DropShadowEffect falling straight down (Direction 270), black
+      at the theme's opacity. Shadows are never coloured.
+    """
+    theme = data["themes"][theme_name]
+    kind = spec["kind"]
+    if kind == "surface":
+        base = resolve(theme, spec["base"])
+        top = composite(resolve(theme, spec["top"]), base)
+        return [
+            f'    <LinearGradientBrush x:Key="{key}" MappingMode="Absolute" StartPoint="0,0" EndPoint="0,2">',
+            f'        <GradientStop Color="{_argb(top)}" Offset="0"/>',
+            f'        <GradientStop Color="{_argb(top)}" Offset="1"/>',
+            f'        <GradientStop Color="{_argb(base)}" Offset="1"/>',
+            "    </LinearGradientBrush>",
+        ]
+    if kind in ("linear", "radial"):
+        first, last = _argb(_stop_colour(theme, spec["from"])), _argb(_stop_colour(theme, spec["to"]))
+        head = (f'    <LinearGradientBrush x:Key="{key}" StartPoint="{spec["start"]}" EndPoint="{spec["end"]}">'
+                if kind == "linear" else f'    <RadialGradientBrush x:Key="{key}">')
+        tail = "    </LinearGradientBrush>" if kind == "linear" else "    </RadialGradientBrush>"
+        return [head,
+                f'        <GradientStop Color="{first}" Offset="0"/>',
+                f'        <GradientStop Color="{last}" Offset="1"/>',
+                tail]
+    if kind == "shadow":
+        opacity = _fmt_alpha(float(spec["opacity"][theme_name]))
+        return [f'    <DropShadowEffect x:Key="{key}" BlurRadius="{spec["blur"]}" ShadowDepth="{spec["depth"]}" '
+                f'Direction="270" Opacity="{opacity}" Color="{{StaticResource ShadowColor}}"/>']
+    raise ValueError(f"app_brushes.{key}: unknown kind {kind!r}")
 
 
 def css_block(data: dict, theme_name: str, indent: str = "  ") -> str:
@@ -148,7 +219,10 @@ def colorset(data: dict, token: str) -> str:
 def xcassets(data: dict) -> dict[Path, str]:
     """The Mac app's colours, named like the WPF resource keys so both apps read alike."""
     files = {XCASSETS / "Contents.json": json.dumps({"info": {"author": "xcode", "version": 1}}, indent=2) + "\n"}
+    skip = set(data.get("apple_skip", []))
     for token, key in data["app_names"].items():
+        if token in skip:
+            continue
         files[XCASSETS / f"{key}.colorset" / "Contents.json"] = colorset(data, token)
     files[XCASSETS / "AccentColor.colorset" / "Contents.json"] = colorset(data, "primary")
     return files

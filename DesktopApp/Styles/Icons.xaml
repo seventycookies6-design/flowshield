@@ -1,82 +1,75 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=mscorlib">
 
     <!-- ============================================================== icons
-         Outline icons from Lucide (https://lucide.dev), ISC-licensed; the
-         notice is in DesktopApp/Assets/Icons/LICENSE. Design system §5: one
-         outline set, 24 px grid, 1.75 px stroke, no Unicode glyphs.
+         Segoe Fluent Icons, the Windows 11 icon font, with Segoe MDL2 Assets
+         as the Windows 10 fallback (DESIGN_SYSTEM.md Part A, Type and icons).
+         Both are part of Windows, so nothing is bundled and no notice ships.
+         WPF falls back per character, so a glyph missing from the first family
+         is drawn from the second. Every code point below exists in both.
 
-         Each geometry is Lucide's own path data, unchanged. They are stroked,
-         never filled, and inherit their colour from the icon style. To add
-         one: copy the <path d="..."> values from the Lucide SVG, in order,
-         into a single StreamGeometry here. -->
+         Basalt's own shield glyphs stay drawn geometry (ShieldGlyphs.xaml);
+         the Causeway mark is BrandMark.xaml.
 
-    <!-- clock -->
-    <StreamGeometry x:Key="IconToday">M 12 6 L 12 12 L 16 14 M 21 12 A 9 9 0 1 1 3 12 A 9 9 0 1 1 21 12 Z</StreamGeometry>
+         Each icon is a one-character string, shown with the Icon or IconSmall
+         TextBlock style:
+             <TextBlock Style="{StaticResource Icon}" Text="{StaticResource IconToday}"/>
+         To add one, find its code point in Microsoft's "Segoe Fluent Icons
+         font" list and check it also exists in Segoe MDL2 Assets. -->
 
-    <!-- ban -->
-    <StreamGeometry x:Key="IconBlocked">M 21 12 A 9 9 0 1 1 3 12 A 9 9 0 1 1 21 12 Z M 5.636 5.636 L 18.364 18.364</StreamGeometry>
+    <FontFamily x:Key="IconFont">Segoe Fluent Icons, Segoe MDL2 Assets</FontFamily>
 
-    <!-- moon -->
-    <StreamGeometry x:Key="IconSleep">M 20.985 12.486 A 9 9 0 1 1 11.515 3.015 A 7 7 0 1 0 20.985 12.486 Z</StreamGeometry>
-
-    <!-- chart-column (History, F16). A bar chart rather than Lucide's own
-         "history" clock-with-an-arrow, which at 20 px is hard to tell from the
-         Today clock two rows above it. Bounds are 3–21 on both axes, the same
-         18 of the 24 grid as the icons around it. -->
-    <StreamGeometry x:Key="IconHistory">M 3 3 L 3 19 A 2 2 0 0 0 5 21 L 21 21 M 18 17 L 18 9 M 13 17 L 13 5 M 8 17 L 8 14</StreamGeometry>
-
-    <!-- settings: a gear of eight even teeth (tips on a radius of 9, roots
-         on 6.3) around a hub of 3. Not Lucide's own: the earlier gear's top
-         and bottom teeth reached 9.5 from the centre and its side teeth 8.4,
-         so it covered 15 x 19 of the grid and Stretch=Uniform drew it tall
-         beside the round icons (#406). Eight teeth keep the bounds exactly
-         3–21 on both axes, the same 18 of the 24 grid as the icons around it. -->
-    <StreamGeometry x:Key="IconSettings">M 18.085 10.369 L 20.889 10.592 A 9 9 0 0 1 20.889 13.408 L 18.085 13.631 A 6.3 6.3 0 0 1 17.456 15.15 L 19.281 17.29 A 9 9 0 0 1 17.29 19.281 L 15.15 17.456 A 6.3 6.3 0 0 1 13.631 18.085 L 13.408 20.889 A 9 9 0 0 1 10.592 20.889 L 10.369 18.085 A 6.3 6.3 0 0 1 8.85 17.456 L 6.71 19.281 A 9 9 0 0 1 4.719 17.29 L 6.544 15.15 A 6.3 6.3 0 0 1 5.915 13.631 L 3.111 13.408 A 9 9 0 0 1 3.111 10.592 L 5.915 10.369 A 6.3 6.3 0 0 1 6.544 8.85 L 4.719 6.71 A 9 9 0 0 1 6.71 4.719 L 8.85 6.544 A 6.3 6.3 0 0 1 10.369 5.915 L 10.592 3.111 A 9 9 0 0 1 13.408 3.111 L 13.631 5.915 A 6.3 6.3 0 0 1 15.15 6.544 L 17.29 4.719 A 9 9 0 0 1 19.281 6.71 L 17.456 8.85 A 6.3 6.3 0 0 1 18.085 10.369 Z M 15 12 A 3 3 0 1 1 9 12 A 3 3 0 1 1 15 12 Z</StreamGeometry>
-
-    <!-- refresh-cw -->
-    <StreamGeometry x:Key="IconRefresh">M 21 12 A 9 9 0 1 1 18.4 5.64 L 21 8 M 21 3 L 21 8 L 16 8</StreamGeometry>
-
-    <!-- calendar, chevron-left, chevron-right (Lucide). The calendar's rect
-         is expressed as the equivalent rounded path for StreamGeometry. -->
-    <StreamGeometry x:Key="IconCalendar">M 8 2 v 3 M 16 2 v 3 M 5 3 H 19 A 2 2 0 0 1 21 5 V 19 A 2 2 0 0 1 19 21 H 5 A 2 2 0 0 1 3 19 V 5 A 2 2 0 0 1 5 3 Z M 3 9 h 18</StreamGeometry>
-    <StreamGeometry x:Key="IconChevronLeft">M 15 18 l -6 -6 l 6 -6</StreamGeometry>
-    <StreamGeometry x:Key="IconChevronRight">M 9 18 l 6 -6 l -6 -6</StreamGeometry>
+    <!-- Clock: Today -->
+    <sys:String x:Key="IconToday">&#xE917;</sys:String>
+    <!-- AreaChart: History. A chart rather than the History clock, which at
+         20 px is hard to tell from the Today clock two rows above it. -->
+    <sys:String x:Key="IconHistory">&#xE9D2;</sys:String>
+    <!-- Blocked: Blocked Apps -->
+    <sys:String x:Key="IconBlocked">&#xE733;</sys:String>
+    <!-- QuietHours (a moon): Schedule -->
+    <sys:String x:Key="IconSleep">&#xE708;</sys:String>
+    <!-- Settings -->
+    <sys:String x:Key="IconSettings">&#xE713;</sys:String>
+    <!-- Refresh -->
+    <sys:String x:Key="IconRefresh">&#xE72C;</sys:String>
+    <!-- Calendar, and the calendar's month arrows -->
+    <sys:String x:Key="IconCalendar">&#xE787;</sys:String>
+    <sys:String x:Key="IconChevronLeft">&#xE76B;</sys:String>
+    <sys:String x:Key="IconChevronRight">&#xE76C;</sys:String>
+    <!-- ChevronDown: the disclosure and the dropdown -->
+    <sys:String x:Key="IconChevronDown">&#xE70D;</sys:String>
+    <!-- Cancel: a close (icon) button -->
+    <sys:String x:Key="IconClose">&#xE711;</sys:String>
+    <!-- More: a menu of further actions -->
+    <sys:String x:Key="IconMore">&#xE712;</sys:String>
 
     <!-- ============================================================== style
-         Icon is §5's navigation and button size, 20; IconSmall is 16, for an
-         icon sitting inline with text.
+         Icon is the navigation and button size, 20; IconSmall is 16, for an
+         icon sitting inline with text. The box is square and the glyph is
+         centred in it, so a row of icons lines up whatever their shapes.
 
-         Stretch is Uniform, which scales each icon to fill its box. That is
-         only safe while every geometry above covers the same 18 of the 24
-         grid, as Lucide's clock, ban, moon, gear and refresh-cw all do — so
-         they end up at one apparent size and one stroke weight. Before
-         adding an icon, check its bounds: anything that covers materially
-         less of the grid (Lucide's arrows fill 14) will render oversized,
-         and needs its own box size rather than this style. There is a check
-         for this in the tier 5 tests.
-
-         Icons inherit the text colour of their context: leave Stroke unset
-         and the parent's Foreground is used. Only an active item's icon is
+         Icons inherit the text colour of their context: leave Foreground
+         unset and the parent's is used. Only an active item's icon is
          Primary. -->
 
-    <Style x:Key="Icon" TargetType="Path">
-        <Setter Property="Stretch" Value="Uniform"/>
+    <Style x:Key="Icon" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource IconFont}"/>
+        <Setter Property="FontSize" Value="20"/>
+        <Setter Property="FontWeight" Value="Normal"/>
         <Setter Property="Width" Value="20"/>
         <Setter Property="Height" Value="20"/>
-        <Setter Property="StrokeThickness" Value="1.75"/>
-        <Setter Property="StrokeStartLineCap" Value="Round"/>
-        <Setter Property="StrokeEndLineCap" Value="Round"/>
-        <Setter Property="StrokeLineJoin" Value="Round"/>
-        <Setter Property="Fill" Value="{x:Null}"/>
+        <Setter Property="LineHeight" Value="20"/>
+        <Setter Property="LineStackingStrategy" Value="BlockLineHeight"/>
+        <Setter Property="TextAlignment" Value="Center"/>
         <Setter Property="VerticalAlignment" Value="Center"/>
-        <Setter Property="Stroke"
-                Value="{Binding Path=(TextElement.Foreground), RelativeSource={RelativeSource Self}}"/>
     </Style>
 
-    <Style x:Key="IconSmall" TargetType="Path" BasedOn="{StaticResource Icon}">
+    <Style x:Key="IconSmall" TargetType="TextBlock" BasedOn="{StaticResource Icon}">
+        <Setter Property="FontSize" Value="16"/>
         <Setter Property="Width" Value="16"/>
         <Setter Property="Height" Value="16"/>
+        <Setter Property="LineHeight" Value="16"/>
     </Style>
 
 </ResourceDictionary>

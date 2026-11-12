@@ -53,8 +53,8 @@
                                 </Ellipse>
 
                                 <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-                                    <Path Style="{StaticResource Icon}" Data="{StaticResource IconSleep}"
-                                          Stroke="{DynamicResource PrimaryHover}" HorizontalAlignment="Center" Margin="0,0,0,8"/>
+                                    <TextBlock Style="{StaticResource Icon}" Text="{StaticResource IconSleep}"
+                                          Foreground="{DynamicResource PrimaryHover}" HorizontalAlignment="Center" Margin="0,0,0,8"/>
                                     <TextBlock HorizontalAlignment="Center" Style="{StaticResource H2}"
                                                Typography.NumeralAlignment="Tabular">
                                         <Run Text="{Binding StartText, Mode=OneWay}"/>
@@ -68,8 +68,8 @@
                             <Border Style="{StaticResource Chip}" HorizontalAlignment="Center" Margin="0,0,0,0"
                                     Padding="16,8">
                                 <StackPanel Orientation="Horizontal">
-                                    <Path Style="{StaticResource IconSmall}" Data="{StaticResource IconSleep}"
-                                               Margin="0,0,8,0" Stroke="{DynamicResource PrimaryHover}"/>
+                                    <TextBlock Style="{StaticResource IconSmall}" Text="{StaticResource IconSleep}"
+                                               Margin="0,0,8,0" Foreground="{DynamicResource PrimaryHover}"/>
                                     <TextBlock Text="{Binding StatusText}" Style="{StaticResource Caption}"
                                                Foreground="{DynamicResource InkDim}"
                                                AutomationProperties.AutomationId="SleepStatusText"/>

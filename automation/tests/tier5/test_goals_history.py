@@ -310,7 +310,7 @@ class TestHistoryPage:
         assert 'AutomationProperties.Name="History"' in xaml, \
             "the compact rail shows the name as a tooltip, so it has to exist"
         assert "{StaticResource IconHistory}" in xaml, \
-            "the tab needs a Lucide geometry, like the other four"
+            "the tab needs an icon glyph, like the other four"
 
     def test_the_tab_follows_the_same_pattern_as_the_other_four(self):
         xaml = self._read(self.MAIN_XAML)

@@ -256,8 +256,8 @@
                                     <Border Grid.Column="0" Width="34" Height="34" CornerRadius="{StaticResource RadiusControl}"
                                             Background="{DynamicResource PrimarySoft}" BorderBrush="{DynamicResource Primary}" BorderThickness="1"
                                             Margin="0,0,12,0">
-                                        <Path Style="{StaticResource Icon}" Data="{StaticResource IconBlocked}"
-                                              Stroke="{DynamicResource PrimaryHover}"
+                                        <TextBlock Style="{StaticResource Icon}" Text="{StaticResource IconBlocked}"
+                                              Foreground="{DynamicResource PrimaryHover}"
                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                     </Border>
 
@@ -345,7 +345,7 @@
                                 Command="{Binding RefreshRunningCommand}"
                                 AutomationProperties.AutomationId="RefreshProcessesButton"
                                 AutomationProperties.Name="Refresh installed and running apps">
-                            <Path Style="{StaticResource IconSmall}" Data="{StaticResource IconRefresh}"/>
+                            <TextBlock Style="{StaticResource IconSmall}" Text="{StaticResource IconRefresh}"/>
                         </Button>
                     </Grid>
                     <TextBox Style="{StaticResource Field}" Margin="0,8,0,0"

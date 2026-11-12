@@ -912,10 +912,12 @@ class TestHonestLimitsAndPriceComparison:
 
 class TestThirdPartyNoticesShip:
     """
-    The Lucide icons are ISC and the runtime, ProtectedData and Velopack are
-    MIT; all of them require their notice to travel with the binary
-    (LEGAL_CHECKLIST 8.2). A notice file that exists in the repo but is not
-    copied to the output ships nothing.
+    The runtime, ProtectedData and Velopack are MIT, and each requires its
+    notice to travel with the binary (LEGAL_CHECKLIST 8.2). A notice file that
+    exists in the repo but is not copied to the output ships nothing. Since
+    #430 the app bundles no icons or fonts (Lucide and Inter went; the app
+    uses Windows' own Segoe faces), and the notices must say so rather than
+    list components that no longer ship.
     """
 
     NOTICES = Path(DESKTOP_DIR) / "THIRD-PARTY-NOTICES.txt"
@@ -934,16 +936,19 @@ class TestThirdPartyNoticesShip:
         csproj = self.CSPROJ.read_text(encoding="utf-8")
         for package in re.findall(r'PackageReference Include="([^"]+)"', csproj):
             assert package in notices, f"{package} ships with the app but is not in the notices"
-        assert "Lucide" in notices and "ISC" in notices, (
-            "the icon geometries are Lucide's and their ISC notice must ship"
-        )
 
-    def test_the_icons_licence_and_the_notices_agree(self):
-        icons = (Path(DESKTOP_DIR) / "Assets" / "Icons" / "LICENSE").read_text(encoding="utf-8")
+    def test_the_notices_match_the_icons_and_fonts_that_ship(self):
         notices = self.NOTICES.read_text(encoding="utf-8")
-        for line in ("Copyright (c) for portions of Lucide are held by Cole Bemis",
-                     "Permission to use, copy, modify, and/or distribute this software"):
-            assert line in icons and line in notices
+        icons = (Path(DESKTOP_DIR) / "Styles" / "Icons.xaml").read_text(encoding="utf-8")
+        bundles_icons = "StreamGeometry" in icons or (Path(DESKTOP_DIR) / "Assets" / "Icons").exists()
+        bundles_fonts = (Path(DESKTOP_DIR) / "Assets" / "Fonts").exists()
+        assert ("Lucide" in notices) == bundles_icons, (
+            "the notices must name Lucide exactly when the app ships Lucide geometry")
+        assert bool(re.search(r"\bInter\b", notices)) == bundles_fonts, (
+            "the notices must name Inter exactly when the app embeds it")
+        if not (bundles_icons or bundles_fonts):
+            assert "Segoe UI Variable" in notices and "Segoe Fluent Icons" in notices, (
+                "say which system faces the app uses, and that none is included")
 
 class TestTheSiteDescribesTheCloseTheAppDoes:
     """
@@ -976,21 +981,26 @@ class TestTheSiteDescribesTheCloseTheAppDoes:
 
 class TestFontAndSiteIconNoticesShip:
     """
-    Inter (OFL) is embedded in the app and Lucide (ISC) is drawn inline on the
-    site. Both licences ask for their notice to travel with the copy. A file in
-    the repo that never reaches the output, or a page with the icons and no
-    notice beside it, distributes the work without the licence.
+    Lucide (ISC) is drawn inline on the site, and Inter (OFL) is self-hosted
+    there. Both licences ask for their notice to travel with the copy. A file
+    in the repo that never reaches the output, or a page with the icons and no
+    notice beside it, distributes the work without the licence. (The app
+    embedded Inter until #430; it now uses Windows' Segoe UI Variable.)
     """
 
-    def test_the_font_licence_is_copied_next_to_the_app(self):
+    def test_a_font_embedded_in_the_app_ships_its_licence(self):
         csproj = (Path(DESKTOP_DIR) / "FlowShield.csproj").read_text(encoding="utf-8")
+        fonts = re.findall(r'Include="Assets\\Fonts\\([^"]+\.(?:ttf|otf))"', csproj)
+        if not fonts:
+            assert "Open Font License" not in \
+                (Path(DESKTOP_DIR) / "THIRD-PARTY-NOTICES.txt").read_text(encoding="utf-8"), \
+                "the notices still describe an embedded font the app no longer ships"
+            return
         entry = csproj.split('Include="Assets\\Fonts\\OFL.txt"', 1)
-        assert len(entry) == 2, "Inter's OFL.txt is no longer in the project"
+        assert len(entry) == 2, "an embedded font's OFL.txt is not in the project"
         assert "CopyToOutputDirectory" in entry[1].split("/>", 1)[0], (
             "OFL.txt is in the project but never reaches the output folder"
         )
-        notices = (Path(DESKTOP_DIR) / "THIRD-PARTY-NOTICES.txt").read_text(encoding="utf-8")
-        assert "Inter" in notices and "Open Font License" in notices
 
     def test_every_page_with_lucide_icons_links_the_notice(self):
         site = Path(WEBSITE_DIR)

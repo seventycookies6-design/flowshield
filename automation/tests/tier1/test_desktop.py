@@ -418,3 +418,108 @@ class TestWindowFitsTheWorkArea:
         assert "Math.Max(minHeight, Math.Min(window.Height, workArea.Height))" in source
         assert "Math.Max(workArea.Left, Math.Min(window.Left, workArea.Right - width))" in source
         assert "Math.Max(workArea.Top, Math.Min(window.Top, workArea.Bottom - height))" in source
+
+
+# ============================== Mica on the main window, with its fallback (#430)
+
+class TestBackdropPolicy:
+    """
+    DESIGN_SYSTEM.md Part A, Depth: Mica is the window's base, and "with
+    transparency effects off, on Windows 10, in battery saver or when the
+    window is inactive, Mica and acrylic become solid token surfaces and
+    nothing else changes. High contrast uses system colours only."
+
+    The decision is Models/BackdropPolicy.cs, run here through ModelProbe so
+    the C# itself answers. Each case changes one condition from the all-clear
+    one, so a rule that stopped falling back would fail its own line.
+    """
+
+    @staticmethod
+    def decide(*cases: dict) -> list[dict]:
+        from core.model_probe import probe
+        return probe({"cmd": "backdrop-decide", "cases": list(cases)})["answers"]
+
+    def test_mica_only_when_every_condition_allows_it(self):
+        assert [a["backdrop"] for a in self.decide({})] == ["Mica"]
+
+    @pytest.mark.parametrize("change, reason", [
+        ({"transparency": False}, "transparency effects are off"),
+        ({"build": 19045}, "no Mica"),
+        ({"batterySaver": True}, "battery saver is on"),
+        ({"active": False}, "the window is inactive"),
+        ({"hardware": False}, "software"),
+        ({"applied": False}, "DWM did not accept"),
+    ])
+    def test_each_fallback_condition_gives_the_solid_colour(self, change, reason):
+        answer = self.decide(change)[0]
+        assert answer["backdrop"] == "Solid", f"{change} must fall back to solid, got {answer}"
+        assert reason in answer["reason"], answer
+
+    def test_high_contrast_wins_over_everything(self):
+        """High contrast uses system colours whatever else is true."""
+        answers = self.decide({"highContrast": True},
+                              {"highContrast": True, "transparency": False, "active": False},
+                              {"highContrast": True, "build": 19045})
+        assert {a["backdrop"] for a in answers} == {"HighContrast"}
+
+    def test_the_first_windows_11_build_is_the_line(self):
+        answers = self.decide({"build": 21999}, {"build": 22000})
+        assert [a["backdrop"] for a in answers] == ["Solid", "Mica"]
+
+    def test_the_dwm_switch_follows_the_build(self):
+        """38 (DWMWA_SYSTEMBACKDROP_TYPE) from 22621; 1029 on 21H2; none on Windows 10."""
+        from core.model_probe import probe
+        apis = {build: probe({"cmd": "backdrop-api", "build": build})
+                for build in (19045, 22000, 22620, 22621, 26300)}
+        assert apis[19045] == {"api": "None", "requests": False}
+        assert apis[22000]["api"] == apis[22620]["api"] == "MicaEffect"
+        assert apis[22621]["api"] == apis[26300]["api"] == "SystemBackdrop"
+        assert probe({"cmd": "backdrop-api", "build": 26300, "highContrast": True})["requests"] is False, \
+            "high contrast withdraws the Mica request"
+
+
+class TestBackdropIsLiveAndReadOnly:
+    """
+    The policy only decides; Services/WindowBackdrop.cs gathers the conditions
+    and must re-decide when any of them changes while the app runs, and must
+    only ever read Windows' settings.
+    """
+
+    DESKTOP = Path(SERVER_DIR).parent / "DesktopApp"
+
+    def source(self) -> str:
+        return (self.DESKTOP / "Services" / "WindowBackdrop.cs").read_text(encoding="utf-8")
+
+    def test_the_main_window_attaches_it(self):
+        window = (self.DESKTOP / "MainWindow.xaml.cs").read_text(encoding="utf-8")
+        hook = window.split("protected override void OnSourceInitialized(")[1].split("\n    }")[0]
+        assert "new WindowBackdrop(this)" in hook and ".Attach()" in hook
+
+    def test_it_uses_the_documented_attribute(self):
+        source = self.source()
+        assert "DWMWA_SYSTEMBACKDROP_TYPE = 38" in source
+        assert "DWMSBT_MAINWINDOW = 2" in source
+        assert "DwmExtendFrameIntoClientArea" in source, \
+            "Mica only shows behind the client area when the frame is extended into it"
+
+    def test_every_condition_is_watched(self):
+        source = self.source()
+        for hook in ("Activated", "Deactivated", "WM_SETTINGCHANGE", "WM_POWERBROADCAST",
+                     "WM_DWMCOMPOSITIONCHANGED", "RenderCapability.TierChanged"):
+            assert hook in source, f"the backdrop is not re-decided on {hook}"
+
+    def test_it_reads_the_settings_and_never_writes_them(self):
+        source = self.source()
+        assert "EnableTransparency" in source and "SystemParameters.HighContrast" in source
+        assert "SystemStatusFlag" in source, "battery saver is read from GetSystemPowerStatus"
+        for write in ("SetValue", "CreateSubKey", "DeleteValue", "LocalMachine"):
+            assert write not in source, f"WindowBackdrop must not call {write}"
+
+    def test_each_backdrop_paints_from_a_resource(self):
+        """Solid is the token, high contrast the system colour, Mica the clear brush."""
+        source = self.source()
+        assert '"MicaFallback"' in source
+        assert "SystemColors.WindowBrushKey" in source
+        assert '"BackdropClear"' in source
+        theme = (self.DESKTOP / "Styles" / "Theme.xaml").read_text(encoding="utf-8-sig")
+        assert '<SolidColorBrush x:Key="BackdropClear" Color="Transparent"/>' in theme
