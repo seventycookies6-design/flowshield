@@ -830,3 +830,31 @@ class TestDepthTokens430:
         assert [o for _, o in stops] == ["0", "1", "1"]
         assert stops[0][0] == stops[1][0] and stops[0][0].startswith("FF"), "the highlight band is opaque"
         assert stops[2][0] == "FF1F2123", "the elevation colour fills the rest"
+
+
+class TestNoKeyShadowsAToken:
+    """
+    Regression (#430, caught on the VM before review): Theme.xaml defined a
+    Style called SegmentTrack, the same key as the segment-track colour
+    token. App.xaml merges Theme.xaml after the tokens, so every
+    {DynamicResource SegmentTrack} brush resolved to the Style instead, and
+    the app threw "'System.Windows.Style' is not a valid value for property
+    'Background'" on its first screen. No other dictionary may reuse a key the
+    generated Tokens dictionaries define.
+    """
+
+    STYLES = Path(DESKTOP_DIR) / "Styles"
+
+    def test_no_shared_dictionary_reuses_a_token_key(self):
+        tokens = set(re.findall(r'x:Key="([^"]+)"', (self.STYLES / "Tokens.xaml").read_text(encoding="utf-8")))
+        assert {"SegmentTrack", "Elev1Surface", "ShadowE1", "PrimaryColor"} <= tokens
+        offenders = []
+        for name in ("Theme.xaml", "Icons.xaml", "Pickers.xaml", "ShieldGlyphs.xaml", "BrandMark.xaml"):
+            keys = re.findall(r'x:Key="([^"]+)"', (self.STYLES / name).read_text(encoding="utf-8-sig"))
+            offenders += [f"{name}: {key}" for key in keys if key in tokens]
+        assert not offenders, "these keys shadow a colour token: " + ", ".join(offenders)
+
+    def test_the_check_catches_the_collision_that_shipped_to_the_vm(self):
+        tokens = {"SegmentTrack"}
+        pre_fix = '<Style x:Key="SegmentTrack" TargetType="Border">'
+        assert [k for k in re.findall(r'x:Key="([^"]+)"', pre_fix) if k in tokens] == ["SegmentTrack"]

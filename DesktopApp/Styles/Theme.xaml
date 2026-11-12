@@ -822,7 +822,7 @@
          Redesign (#430): an option you could pick is recessed (the well), and
          the picked one is raised: the Thumb fill, a lit top edge, and the same
          teal marker as the sidebar, so selection never rests on tone alone.
-         These sit loose in a row on today's screens; SegmentTrack and
+         These sit loose in a row on today's screens; SegmentGroup and
          SegmentItem below are the grouped selector of the mockups, for the
          screens that adopt it. Motion, §8: checking settles in over
          Motion.Selection (200ms, ease-out); a disabled group fades to 45% the
@@ -1144,8 +1144,10 @@
     <!-- The grouped segmented selector of the mockups (#430): a recessed track
          holding SegmentItem options, of which the picked one is the raised
          thumb with the teal marker. Put the items in a horizontal StackPanel
-         or UniformGrid inside a Border with this style. -->
-    <Style x:Key="SegmentTrack" TargetType="Border">
+         or UniformGrid inside a Border with this style. (Not "SegmentTrack":
+         that key is the track's colour token, and a style of the same name
+         here would shadow it.) -->
+    <Style x:Key="SegmentGroup" TargetType="Border">
         <Setter Property="Background" Value="{DynamicResource SegmentTrack}"/>
         <Setter Property="BorderBrush" Value="{DynamicResource WellEdge}"/>
         <Setter Property="BorderThickness" Value="1"/>

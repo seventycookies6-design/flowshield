@@ -10,8 +10,10 @@ the current implementation.** It is a starting point, not a ceiling (#366).
 
 **A redesign is in progress (2026-11).** Part A below already describes it:
 depth from Windows 11's own materials, Segoe UI Variable in the app, real
-controls, and the notice's input guard. Part B still describes what shipped.
-Each implementation PR updates its own Part B section. The target screens and
+controls, and the notice's input guard. Part B describes what has shipped;
+each implementation PR updates its own Part B section. The foundations (depth
+tokens, Segoe UI Variable, Segoe Fluent Icons, the control styles and Mica)
+shipped in #430; the screens are re-laid out in the PRs after it. The target screens and
 the depth values are in [`design/redesign-2026-11/`](design/redesign-2026-11/README.md).
 
 The features these rules will be applied to are listed in
@@ -170,6 +172,42 @@ contrast failures measured on 14 September 2026 (see "Contrast" below).
 | `scrim` | `bg` at 95% | `bg` at 92% | Behind the lock screen and dialogs |
 | `shadow` *(doc amendment, A3, #147)* | `#000000` | `#000000` | Opaque black for the `DropShadowEffect.Color` behind cards; the effect's own `Opacity` does the fading, so this stays a fixed black in both themes rather than a themed pair. App-only — the site expresses card elevation as `shadow-soft`/`shadow-lift` rgba strings in CSS, which encode the same black directly. |
 
+**Depth tokens (#430).** The redesign's depth system
+([`design/redesign-2026-11/README.md`](design/redesign-2026-11/README.md))
+entered `design/tokens.json` in #430. They are app-only for now: the site
+adopts them in its own PR (they are in `css_skip`), and the Mac app, which
+uses Apple's materials, doesn't get them (`apple_skip`). `white` is a base
+for the translucent highlights and is not emitted on its own.
+
+| Token (WPF key) | Dark | Light | Use |
+| --- | --- | --- | --- |
+| `mica` (`Mica`) | `#18191B` | `#EDEDEB` | E0, the window base, as drawn in the mockups (Windows supplies the real material) |
+| `mica-fallback` (`MicaFallback`) | `#1B1C1E` | `#EFEFED` | E0 when Mica is off (§4 "Mica and its fallback") |
+| `elev-1` (`Elev1`) | `#1F2123` | `#F6F6F4` | E1, resting surfaces: cards, the rail, lists |
+| `elev-2` (`Elev2`) | `#27292C` | `#FDFDFC` | E2, raised: the thing you act on now, the selected rail item |
+| `elev-3` (`Elev3`) | `#2C2E32` | `#FBFAF8` | E3, flyouts, dropdowns, calendars; solid E3 is acrylic's fallback |
+| `acrylic` (`Acrylic`) | `elev-3` at 74% | `elev-3` at 78% | The acrylic tint, for when acrylic is built |
+| `highlight-1/2/3` | white at 5.5 / 8.5 / 12% | white at 85 / 100 / 100% | The 1 px top highlight of E1 / E2 / E3 |
+| `hairline` (`Hairline`) | black at 34% | `text` at 10% | The 1 px outline of every surface |
+| `divider` (`Divider`) | white at 7% | `text` at 9% | Rules between rows |
+| `control` / `control-hover` / `control-pressed` | white at 7 / 11 / 4% | white at 72 / 95%, `text` at 4% | Raised control fill and its states |
+| `control-highlight` / `control-edge` / `control-shadow` | white 20%, white 12%, black 30% | white, `text` 17%, `text` 24% | A raised control's lit top edge, outline and 1 px shadow |
+| `well` / `well-edge` / `well-line` | black 26%, white 10%, white 56% | white 78%, `text` 12%, `text` 56% | Recessed fields: fill, outline, the Windows bottom line |
+| `segment-track` (`SegmentTrack`) | black at 26% | `text` at 6% | A segmented selector's recessed track, and an unpicked loose segment |
+| `thumb` (`Thumb`) | `#3A3D41` | `#FFFFFF` | The picked segment (raised) |
+| `primary-grad-top` / `-bottom` | `#4FBBA4` → `#37A08B` | `#0F7A69` → `#0A5F52` | The Primary button's gradient, and a switch that is on |
+| `primary-highlight` / `primary-edge` / `primary-shadow` | white 34%, black 10%, black 34% | white 22%, black 12%, `text` 26% | The Primary button's lit edge, outline and shadow line |
+| `ring-grad-start` / `-end` | `#5CC7B0` → `#2F947F` | `#14917C` → `#0A5A4E` | The ring's progress arc (used from the Today PR) |
+| `glow` (`Glow`) | `primary` at 20% | `primary` at 13% | The teal glow while a sprint runs (used from the Today PR) |
+
+The generator also writes multi-colour resources from `app_brushes` into both
+Tokens dictionaries, so they swap with the theme: `Elev1Surface`,
+`Elev2Surface` and `Elev3Surface` (each elevation with its highlight
+composited onto its top rows, since WPF has no inset shadow),
+`PrimaryGradient`, `RingGradient`, `GlowGradient`, and the shadows `ShadowE1`,
+`ShadowE2`, `ShadowE3` and `ShadowPrimary`: black, falling straight down
+(`Direction="270"`), with per-theme opacity.
+
 #### Colour use in the current design
 
 - **Legacy names removed.** `Violet`, `VioletBright`, `Cyan`, `Glass*`, `Accent` and `WindowBg` are gone from `Theme.xaml`, and `--violet`, `--violet-bright`, `--cyan`, `--grad` and `--glass*` are gone from `styles.css`. Colour references use the token names above. (The site keeps a short alias block — `--bg`, `--ink`, `--edge` and friends — for the legal and success pages; those are token names under a shorter spelling, not dead colours.)
@@ -181,7 +219,7 @@ contrast failures measured on 14 September 2026 (see "Contrast" below).
 
   The primary action is teal because it is the thing that changes state. Nothing is teal just to look branded: no teal headings, dividers, borders, illustrations or background washes. If everything is teal, nothing is. What earns the colour is that it always means the same thing, not that it is rare. (Replaces the earlier "teal is scarce" rule, #147.)
 - **Status colours are for status only.** Amber and rose never decorate. `ok` green is for "done", not for "go".
-- **Depth:** surface steps and soft shadows replaced the purple glows in #32. Part A sets the conditions for system backdrops and material texture.
+- **Depth:** since #430 the app has the redesign's depth system: Mica (or its solid fallback) as the base, E1 cards and rail, E2 for the selected rail item, E3 flyouts, raised controls and recessed fields (§4, §7). Gradients appear only on the Primary button and a switch that is on so far; the ring arc and the glow arrive with the Today PR.
 
 #### Contrast reference
 
@@ -200,41 +238,67 @@ again on 5 October 2026 for the stone neutrals (#336):
 | `ok` on `bg` | 8.9 | 5.5 | Pass (light failed at 3.98 before 14 September) |
 | `danger` on `bg` | 6.8 | 5.6 | Pass (light was borderline at 4.56) |
 
-Any new token or pairing gets measured the same way before it ships.
+The depth tokens' text pairs, measured on 11 November 2026 (#430). A
+translucent layer is composited onto what it sits on first, so "`text` on
+`control` on `elev-1`" is a button label on a card.
+
+| Pair | Dark | Light | Result |
+| --- | --- | --- | --- |
+| `text` on `mica` / `mica-fallback` | 15.0 / 14.6 | 14.4 / 14.7 | Pass |
+| `text-muted` on `mica` / `mica-fallback` | 8.1 / 7.9 | 6.3 / 6.4 | Pass |
+| `text-faint` on `mica` / `mica-fallback` | 5.7 / 5.5 | 5.2 / 5.3 | Pass |
+| `text` on `elev-1` / `elev-2` / `elev-3` | 13.8 / 12.4 / 11.6 | 15.6 / 16.6 / 16.2 | Pass |
+| `text-muted` on `elev-1` / `elev-2` / `elev-3` | 7.4 / 6.7 / 6.3 | 6.8 / 7.2 / 7.1 | Pass |
+| `text-faint` on `elev-1` / `elev-2` | 5.2 / 4.7 | 5.7 / 6.0 | Pass |
+| `text-faint` on `elev-3` | 4.41 | 5.9 | **Fails in dark: not for text.** Nothing on an E3 flyout uses `text-faint`; a tier 5 test keeps it that way |
+| `primary` on `mica` / `elev-1` / `elev-2` | 6.0 / 5.5 / 5.0 | 5.5 / 5.9 / 6.3 | Pass |
+| `primary-ink` on `primary-grad-top` / `-bottom` | 7.3 / 5.4 | 4.85 / 7.0 | Pass |
+| `text` on `control` on `elev-1` / `elev-2` | 11.2 / 10.0 | 16.4 / 16.7 | Pass |
+| `text` on `control-hover` on `elev-2` | 8.7 | 16.9 | Pass |
+| `danger` on `control` on `elev-1` | 4.86 | 6.5 | Pass |
+| `text` on `well` on `elev-2` | 14.2 | 16.9 | Pass |
+| `text-faint` (placeholder) on `well` on `elev-2` / `elev-1` | 5.4 / 5.8 | 6.1 / 6.0 | Pass |
+| `text-muted` on `segment-track` on `elev-2` | 7.7 | 6.5 | Pass |
+| `text` on `thumb` | 9.3 | 16.9 | Pass |
+
+A tier 5 test (`TestDepthTokens430`) computes every passing row above from
+`design/tokens.json`. Any new token or pairing gets measured the same way
+before it ships.
 
 ---
 
 ### 3. Typography
 
-#### One family, everywhere
+#### The faces
 
-The site formerly used **Syne** for headings and **Source Sans 3** for text,
-and the app used **Segoe UI Variable**. Both now use a single family,
-**[Inter](https://rsms.me/inter/)** (decided in #147; shipped in #171 and #172).
+The site formerly used **Syne** and **Source Sans 3**, then both app and site
+used **[Inter](https://rsms.me/inter/)** (#147; #171, #172). The redesign
+(#430) moved the app to **Segoe UI Variable**, the Windows 11 system face, so
+the window's own title bar and the app's content are one typeface. The site
+keeps Inter until its own redesign PR (Part A: Segoe UI Variable first, then
+Inter).
 
-There is no separate display face. Hierarchy comes from size, weight and
-tracking: headings are heavier and tighter, body text is regular and open.
-This is how Linear and Raycast work, and it matches the "instrument" idea in
-section 1: one precise voice, not two competing ones.
+| Role | App (#430) | Site | Where |
+| --- | --- | --- | --- |
+| Display | **Segoe UI Variable Display** 600 (`FontStackDisplay`) | Inter 600–700 | The countdown, the big numbers (`Timer`, `Stat`) and page titles (`H1`) |
+| Text and UI | **Segoe UI Variable Text** 400/600 (`FontStack`) | Inter 400/500/600 | Everything else, including card titles (`H2`) |
+| Numbers | Tabular figures (`Typography.NumeralAlignment="Tabular"`) | `font-variant-numeric: tabular-nums` | The timer, stats, prices, momentum, so digits don't jiggle |
+| Licence keys | Cascadia Mono, then Consolas | the same | Keys and anything the user must copy exactly |
 
-| Role | Font | Where |
-| --- | --- | --- |
-| Headings | **Inter** 600–700, negative tracking (see scale) | Site hero and section headings; the app's page titles and the lock screen headline. |
-| Text and UI | **Inter** 400/500/600 | Everything else, in both. |
-| Numbers | **Inter** with tabular figures (`font-variant-numeric: tabular-nums`; `Typography.NumeralAlignment="Tabular"` in WPF) | The timer, stats, prices, momentum, so digits don't jiggle as they change. |
-| Licence keys | Cascadia Mono, then Consolas | Keys and anything the user must copy exactly. |
-
-- **Fallback** in both: `Segoe UI Variable`, `Segoe UI`, then `system-ui`.
-- **In the app:** Inter is embedded as a resource in `DesktopApp`, with the SIL Open Font License (`OFL.txt`) alongside the font files. Only the weights the scale uses are embedded. Part A keeps licensing and offline delivery binding.
-- **On the site:** Inter is served with `font-display: swap` and a fallback tuned so text doesn't shift when the web font loads. The Syne and Source Sans 3 links were removed in #172.
-- **Tracking** follows the roles in the scale below. **Engineering fact:** WPF has no letter-spacing property on `TextBlock`, so heading tracking is approximated with weight or the static Inter Display cut for `display` and `timer` sizes. The app and site match visually rather than numerically.
+- **Fallback:** each app stack falls back to **Segoe UI**, which is what Windows 10 has.
+- **Engineering fact, measured on Windows 11 build 26300:** WPF resolves `Segoe UI Variable Text` and `Segoe UI Variable Display` to `SEGUIVAR.TTF`, but the bare `Segoe UI Variable` to `SEGOEUI.TTF`, plain Segoe UI. So every stack names its optical cut. The theme probe checks the resolved file (tier 5), and a tier 5 test rejects the bare family name in the app's XAML.
+- **Nothing is bundled** in the app since #430: the Inter files and their OFL notice were removed from `DesktopApp`. The site still self-hosts Inter with its notice.
+- **Tracking:** WPF has no letter-spacing property on `TextBlock`. The Display cut is drawn for large sizes, which does what negative tracking did for Inter.
 
 #### Scale
 
 A shared scale. Sizes are in px for the app; the site uses the matching `rem`
 values in `styles.css` (`--text-*`).
 
-All roles are Inter.
+In the app, `display`, `timer` and `stat` are Segoe UI Variable Display and
+the rest are Segoe UI Variable Text (#430); on the site every role is Inter.
+Buttons and fields moved to 14 px with #430 (the mockups' size), with Primary
+at weight 600 and the other buttons at 400.
 
 | Token | Size / line height | Weight | Tracking | Use |
 | --- | --- | --- | --- | --- |
@@ -257,18 +321,25 @@ All roles are Inter.
 ### 4. Space, shape and depth
 
 - **Spacing scale (4-based):** 4, 8, 12, 16, 24, 32, 48, 64 for padding and gaps. Card padding is 24, space between cards 16, page margins 32 in the app.
-- **Corner radius:** 6 for small chips and tags, 10 for buttons, inputs and toggles, 14 for cards and dialogs, and fully round for pills and the tier badge. The app previously used 8, 10, 11, 12, 13 and 14 interchangeably; normalised to this set (A2, issue #147).
+- **Corner radius:** in the app, 6 for small chips and tags, 8 for buttons, inputs and toggles, 12 for cards, dialogs and flyouts, and fully round for pills and the tier badge (the redesign's "surfaces 12, controls 8", #430; A2's set in #147 was 6 / 10 / 14, which the site still uses until its redesign PR).
 - **Where these values live:** corner radii are three resources — `RadiusChip`/`RadiusControl`/`RadiusCard` — in `DesktopApp/Styles/Theme.xaml`, and values in `Website/styles.css`. The eight spacing numbers are literals per element. Neither is in `design/tokens.json`, which is colour only (§14); a future issue may unify them the way colour is unified.
 - **Engineering fact — round shapes:** fully round elements set `inf:Pill.IsRound="True"`, because WPF draws an oversized radius such as 9999 as an ellipse rather than clamping it like CSS.
 - **Stone (currently on the site, #336).** The product is named after basalt, so the site shows the material in two restrained ways:
   - **Grain** on the page ground (`body`, and the `bg-soft` bands) through `--texture-grain`: an inline SVG noise, under 1 KB, dark specks in light mode and pale ones in dark, each at most about 8% opaque. It never goes on a surface: cards, buttons and text boxes stay solid, so every contrast figure in §2 still holds.
   - **Basalt columns**: one faint row of columns seen side-on, standing on the hero's bottom edge inside its padding (`.hero::after`). It is drawn in `text` at 13% through a mask, so it follows the theme, and it is never placed behind text or a control.
   - Depth comes from surface steps and shadows. Part A allows restrained material texture in the app too, with the same protections for content and contrast.
-- **Borders:** 1 px `border` on cards and controls; `border-strong` on hover and focus.
-- **Shadows**, currently two levels:
+- **Depth in the app (#430):** the redesign's depth table, built from the tokens in §2:
+  - **E0, the base:** the main window is Mica, or the solid `mica-fallback` (see "Mica and its fallback" below).
+  - **E1 (`Card`, the rail):** `Elev1Surface`, a 1 px `hairline`, `ShadowE1` (blur 6, 2 down).
+  - **E2 (`CardRaised`, the selected rail item):** `Elev2Surface`, `hairline`, `ShadowE2` (blur 28, 10 down). Nothing uses `CardRaised` yet; Today's Now card will.
+  - **E3 (`Flyout`, the dropdown and the date picker's calendar):** `Elev3Surface`, `hairline`, `ShadowE3` (blur 56, 24 down). Solid E3 is acrylic's fallback; acrylic itself isn't built yet.
+  - **Engineering fact — highlights:** WPF has no inset box-shadow, so each surface's 1 px top highlight is the first rows of its background brush (an absolute-mapped gradient the generator composites), drawn just inside the hairline. Each shadow is one `DropShadowEffect`, where the CSS uses two layers.
+- **Mica and its fallback (#430):** `Services/WindowBackdrop.cs` asks DWM for Mica (`DWMWA_SYSTEMBACKDROP_TYPE` = `DWMSBT_MAINWINDOW` from build 22621, `DWMWA_MICA_EFFECT` on 21H2), extends the frame into the client area and clears WPF's composition background. `Models/BackdropPolicy.cs` then decides what the window's base shows: Mica (a clear background) only with transparency effects on, Windows 11, battery saver off, WPF rendering on the GPU, DWM's acceptance and the window active; otherwise the solid `MicaFallback`; and the system window colour in high contrast. It is re-decided on activation, `WM_SETTINGCHANGE`, `WM_POWERBROADCAST`, `WM_DWMCOMPOSITIONCHANGED` and rendering-tier changes. The standard title bar stays, so Snap Layouts and the system menu are Windows' own. High contrast so far changes only the base; the rest of the app's high-contrast pass (system colours on every control) is still to do. **Not yet seen on real hardware:** the test VM has no 3D, so Windows draws its own solid fallback there even though DWM accepts the request.
+- **Borders:** 1 px `hairline` on surfaces since #430; controls use `control-edge` (raised) or `well-edge` (recessed). `border` and `border-strong` remain for chips, rows and hover.
+- **Shadows on the site**, currently two levels:
   - `soft` for cards on the site and for toasts;
   - `lift` for dialogs and the lock screen card.
-  - The dark design favours a surface step over a shadow.
+  - The dark design favours a surface step over a shadow. (The app's shadows are the E1–E3 ones above.)
 - **Layout:**
   - **App:** a 240 px navigation rail and a content area aligned with its page title. The content grows with the window up to 1280 px (`PageMaxWidth` in `Theme.xaml`); past that, the title and page stay together in a 1280 px column centred beside the rail, so an ultrawide screen doesn't spread a page's cards apart (#406). The mouse wheel over the margins either side still scrolls the page.
   - **The app adapts to its window.** Each breakpoint reads the width the element actually has, not the window's, so a view responds to its own space:
@@ -279,7 +350,7 @@ All roles are Inter.
     - **Fully round shapes** use `inf:Pill.IsRound`; see the engineering fact above.
     - Settings is six labelled groups with a section rail; below 900px the rail becomes a chip row. The rail marks the current group like the main rail does: a `surface-2` fill and a `primary` bar (an underline in the chip row).
     - **Today's timer ring** is drawn at 222 px and scaled as a whole to about a third of the page's height, up to 320 px, so a tall window isn't left half empty.
-  - **Engineering fact — fixed-height controls:** vertical padding consumes the space available for content. `BtnBase` fixes the height at 40, and navigation rows are 44 with no vertical padding, leaving room for their 20 px icons.
+  - **Engineering fact — fixed-height controls:** vertical padding consumes the space available for content. `BtnBase` fixes the height at 40, and navigation rows are 44 with no vertical padding, leaving room for their 20 px icons. Since #430 the button templates apply only a button's horizontal padding (`HorizontalPaddingConverter`), because a view's `Padding="48,12"` clipped the 14 px label inside the 40 px height.
   - **Site:** a 1120 px maximum width (`--maxw`).
   - **Minimum app size:** 800 × 540 (Roadmap 1.13).
 
@@ -287,8 +358,9 @@ All roles are Inter.
 
 ### 5. Icons
 
-- **Navigation glyphs:** Lucide replaced the Unicode glyphs (`◷`, `⊘`, `☾`, `⚙`) in #151. Those rendered differently across Windows versions and did not match each other. Every rail icon covers the same square 18 of the 24 grid, so `Stretch=Uniform` draws them at one size; the Settings gear is an eight-tooth gear drawn for that square (#406), since the earlier one covered 15 × 19 and drew tall. A tier 5 test measures each rail icon's bounds.
-- **Outline icons:** the design uses [Lucide](https://lucide.dev), at 1.75 px stroke on a 24 px grid, as XAML `Path` geometry and inline SVG on the site. Its ISC notice ships with the icons; Part A keeps that requirement binding.
+- **App icons (#430):** Segoe Fluent Icons, with Segoe MDL2 Assets as the Windows 10 fallback (`IconFont` in `Styles/Icons.xaml`). Each icon is one code point (`IconToday` Clock, `IconHistory` AreaChart, `IconBlocked` Blocked, `IconSleep` QuietHours, `IconSettings`, `IconRefresh`, `IconCalendar`, the chevrons, `IconClose`, `IconMore`), shown in a `TextBlock` with the `Icon` (20) or `IconSmall` (16) style, centred in a square box. Every code point used exists in both fonts. Both fonts are part of Windows, so nothing is bundled and no notice ships.
+- **History:** Unicode glyphs (`◷`, `⊘`, `☾`, `⚙`) rendered differently across Windows versions; Lucide outlines replaced them in #151 and were the app's icons until #430. A tier 5 test still bans those symbol glyphs in views.
+- **Site icons:** [Lucide](https://lucide.dev), at 1.75 px stroke on a 24 px grid, as inline SVG. Its ISC notice ships with the site (`icons-LICENSE.txt`).
 - **Sizes:** 16 px inline with text, 20 px in navigation and buttons, 24 px for feature headings.
 - **Icons inherit** the text colour of their context; only an active item's icon is `primary`.
 - **The Causeway mark** (three basalt columns; source SVGs and spec in `design/brand/`) is the only filled brand icon. Keep it identical everywhere: the site favicon and header, the app's navigation, title bar and taskbar icon (Roadmap 1.6), the tray icon and the installer. Copy it from `design/brand/`, never redraw it; `tools/build_icons.py` builds the app's `.ico` files from those SVGs. The tile (`basalt-icon.svg`) is the same in both themes; the bare mark beside the wordmark swaps between its on-light and on-dark copies. Lit column tops (teal) mean a sprint is running: `FlowShield.Running.ico` is the Firm tile, the tray's fallback when its minute countdown can't be drawn. The shield-level glyphs in §6 stay shields.
@@ -308,7 +380,7 @@ notifications, the tray and the summary card.
 | III · Sealed | Solid `primary` shield with **three** bars and a small lock notch | Solid `primary`, glyph in `primary-ink` | "Sealed — closes apps and locks the list until the sprint ends" |
 
 - **Strength escalates through fill and bars, never through colour changes** such as green to amber to red. That would read as danger and clash with principle 3.
-- **Selected state:** the chip gets `primary-soft` fill and a `primary` outline; others stay `surface-2`.
+- **Selected state:** since #430 the picked chip is raised (`thumb`, a lit top edge) with the teal marker under it and its label at 600; the others are recessed (§7, segmented choices).
 - **During a sprint** the active shield's glyph sits beside the timer and in the tray icon.
 - **Shared glyphs:** a XAML `DrawingImage` resource and an SVG symbol on the site, built once per platform.
 
@@ -323,29 +395,34 @@ site it's a class in `styles.css`. Names match across the two.
 
 | Variant | App style | Site class | Look | Use |
 | --- | --- | --- | --- | --- |
-| Primary | `BtnPrimary` | `.btn-primary` | `primary` fill, `primary-ink` label | One per view: Start sprint, Buy Basalt, Activate |
-| Secondary | `BtnGhost` | `.btn-ghost` | `surface-2` fill, `border`, `text` label | Alternatives: Skip break, Copy key |
-| Quiet | `BtnQuiet` | `.btn-quiet` | No fill, `text-muted` label, fill on hover | Low-emphasis: Deactivate, Open log |
-| Destructive | `BtnDanger` | `.btn-danger` | `surface-2` fill, `danger` label and border | Delete everything, End sprint anyway |
+| Primary | `BtnPrimary` | `.btn-primary` | App (#430): `PrimaryGradient` fill, lit top edge (`primary-highlight`), `primary-edge` outline, a `primary-shadow` line and `ShadowPrimary` below, `primary-ink` label at 600. Site: `primary` fill | One per view: Start sprint, Buy Basalt, Activate |
+| Secondary | `BtnGhost` (= `BtnBase`) | `.btn-ghost` | App (#430): raised: `control` fill, `control-highlight` top edge, `control-edge` outline, a 1 px `control-shadow` line under it, `text` label at 400. Site: `surface-2` fill, `border` | Alternatives: Copy key, Rename |
+| Quiet | `BtnQuiet` | `.btn-quiet` | No fill, `text-muted` label, `control` fill on hover | Low-emphasis: Deactivate, Open log |
+| Destructive | `BtnDanger` | `.btn-danger` | The raised control with a `danger` label and outline | Remove, End sprint anyway |
+| Icon | `BtnIcon` | — | The raised control, 36 square, a glyph inside and an `AutomationProperties.Name` | Close on a panel (from the Today PR) |
 
-- **Height** 40 (app) or 44 (site), radius 10, horizontal padding 20, `label` type.
-- **States:** hover uses `primary-hover` or `border-strong`; pressed darkens by one step; disabled is 45% opacity with no hover; focus shows a 2 px `focus-ring` offset by 2 px.
+- **App (#430):** height 40, radius 8, horizontal padding 20, 14 px. Only the horizontal padding is applied inside the fixed height (§4).
+- **Site:** height 44, radius 10, `label` type.
+- **States (app):** hover lifts the fill (`control-hover`; on Primary a thin `primary-highlight` wash); pressed drops it (`control-pressed`; on Primary `primary-edge`) and hides the lit edge; disabled is 45% opacity; keyboard focus shows a 2 px `focus-ring` offset by 2 px.
 - **Button text is a verb:** "Start sprint", not "OK".
 
 #### Cards
 
-- **Look:** `surface` fill, 1 px `border`, radius 14, padding 24.
+- **Look (app, #430):** `Card` is the E1 surface (`Elev1Surface`, `hairline`, `ShadowE1`), radius 12, padding 24. `CardRaised` is E2 and `Flyout` E3 (§4). `CardTinted` keeps its #347 structure: the shadow on the opaque E1 layer, the `primary-soft` tint inside it. `RowCard` (a row on a card) uses the raised `control` fill and `control-edge`.
+- **Look (site):** `surface` fill, 1 px `border`, radius 14, padding 24.
 - **Heading:** an optional `eyebrow`, then a `title`.
 - **Stat cards:** one `stat` number, one `caption` label, and optionally a delta in `ok` or `text-muted` (never `danger` for a momentum drop; see Voice).
 
 #### Form controls
 
-- **Text inputs:** 40 high, `surface-2` fill, `border`, radius 10; `border-strong` on hover; `focus-ring` on focus. An empty field shows its `AutomationProperties.HelpText` as a `text-faint` placeholder (4.74:1 dark, 5.91:1 light on `surface-2`).
-- **Date pickers** (`Styles/Pickers.xaml`) look like a text input with a calendar icon; the calendar drops down on a card surface, its selected day drawn like a selected segment.
+- **Text inputs (`Field`, #430):** recessed: the `well` fill, a `well-edge` outline and the Windows bottom line (`well-line`), which turns `primary` and 2 px thick on keyboard focus, with the 2 px focus ring as well; radius 8. An empty field shows its `AutomationProperties.HelpText` as a `text-faint` placeholder (5.41:1 dark, 6.11:1 light on the well over E2).
+- **Date pickers** (`Styles/Pickers.xaml`) are recessed like a text input, with a calendar glyph; the calendar drops down as an E3 flyout, its selected day drawn like a selected segment.
+- **Dropdown (`Dropdown`, `DropdownItem`, #430):** a `ComboBox` drawn as the recessed well with a chevron, opening an E3 flyout; the picked item has the teal marker. Not used by a screen yet (the setup panel's blocklist will be the first).
+- **Disclosure (`Disclosure`, #430):** a raised `ToggleButton` whose chevron turns to point up while open, for showing more in place (a running sprint's Details, from the Today PR). UI Automation reports it as a toggle.
 - **Labels and hints:** field labels sit above as eyebrows (upper case), hints below in `caption`, both starting at the field's left edge.
-- **Toggles:** a 46 × 26 track. Off is `surface-2` with a `text-faint` knob; on is `primary` with a `primary-ink` knob. The label sits to the left, with an optional one-line caption.
-- **Segmented choices** (sprint length, shield level, daily goal, export format, theme): chips in a row, radius 10, `surface-2`; the selected chip gets `primary-soft` fill and a `primary` outline. Every pick-one choice in the app uses them; there are no stock radio buttons.
-- **Option cards** (`OptionCard`, first-run's shield levels): the segmented look as a full-width row, for a choice that needs a title and a line or two of explanation.
+- **Toggles (`Switch`, #430):** a 40 × 20 recessed track with a `well-line` outline and a 12 px `text-muted` knob at the left when off; when on, the `PrimaryGradient` track with a 14 px `primary-ink` knob at the right. The label sits to the left, with an optional one-line caption. `SwitchStated` adds the state written beside the track ("On" / "Off"), for Plans' schedules.
+- **Segmented choices** (sprint length, shield level, daily goal, export format, theme), since #430: an option you could pick is recessed (the `segment-track` tone with a `well-edge` outline); the picked one is raised (the `thumb` fill, a lit top edge, `control-edge`), set at 600, with the same teal marker as the rail under its label, so selection never rests on tone alone. Radius 8. They still sit loose in rows on today's screens; `SegmentGroup` and `SegmentItem` are the grouped selector of the mockups (one recessed track, one raised thumb) for the screens that adopt it. Every pick-one choice in the app uses them; there are no stock radio buttons.
+- **Option cards** (`OptionCard`, first-run's shield levels): the segmented look as a full-width row, for a choice that needs a title and a line or two of explanation, with the teal marker at its left edge.
 - **Quiet buttons** pad 12 either side; one that starts a line takes a -12 margin, so its label lines up with the text above it.
 
 #### Timer ring (Today)
@@ -449,8 +526,8 @@ use "licence". The copy pass in §15 remains open.
   - **Engineering fact — Tokens merge:** the light theme is the same tokens in a second `ResourceDictionary`, rather than per-view overrides. `App.xaml` merges `Styles/Tokens.xaml` as its own entry and `ThemeService` swaps that entry for `Styles/Tokens.Light.xaml`. Nothing else may merge a Tokens file: a later merge shadows the swapped one. Every colour reference in XAML is a `DynamicResource` so it re-resolves; Part A keeps this binding.
   - **Engineering fact — Freezables and drawing:** two things cannot follow a swapped dictionary and are handled in code instead: a `DynamicResource` inside a Freezable (the shield glyphs' `DrawingImage` brushes), which is why `ShieldGlyphs.xaml` is reloaded on a change; and anything drawn rather than bound (the tray countdown icon, the DWM title bar), which re-reads its tokens on `ThemeService.Changed`.
 - **Window:**
-  - The current app uses the standard Windows title bar.
-  - Part A allows a custom or extended title bar when it preserves Windows behaviour and accessibility.
+  - The app uses the standard Windows title bar, which Mica covers too (#430). Part A allows a custom or extended title bar when it preserves Windows behaviour and accessibility.
+  - The window's base is Mica or its solid fallback (§4, "Mica and its fallback").
 - **Tray icon:**
   - The app's Causeway tile (`FlowShield.ico`, built from `design/brand/basalt-icon.svg`).
   - During a sprint it counts down the minutes left, drawn in `primary` on `primary-ink` so it follows the app theme; the running tile (`FlowShield.Running.ico`, the Firm variant) is its fallback.
@@ -490,7 +567,7 @@ values in `DesktopApp/Styles/Theme.xaml` and `Website/styles.css` (§4); adding
 them to the JSON was the original plan, not a prerequisite for a design PR.
 
 1. `design/tokens.json` holds the colour tokens for both themes.
-2. `tools/build_tokens.py` generates `DesktopApp/Styles/Tokens.xaml` (dark), `DesktopApp/Styles/Tokens.Light.xaml` and the colour blocks between the `tokens:` markers in `Website/styles.css`. `App.xaml` merges the Tokens dictionary; see the engineering facts in §12. It also writes the Mac app's colour sets in `AppleApps/Basalt/Tokens.xcassets` (§12a).
+2. `tools/build_tokens.py` generates `DesktopApp/Styles/Tokens.xaml` (dark), `DesktopApp/Styles/Tokens.Light.xaml` and the colour blocks between the `tokens:` markers in `Website/styles.css`. `App.xaml` merges the Tokens dictionary; see the engineering facts in §12. It also writes the Mac app's colour sets in `AppleApps/Basalt/Tokens.xcassets` (§12a), leaving out the tokens in `apple_skip`. Since #430 it also writes `app_brushes` into both Tokens dictionaries: the elevation surfaces, the gradients and the shadows (§2), so they swap with the theme like the colours.
 3. A tier 5 test runs the generator's `--check` mode and fails if committed files are stale. This catches drift and gives the doc steward concrete evidence.
 4. `DESIGN_SYSTEM.md` is in the doc steward's editable list in `tools/doc_steward/config.json`, so these notes can stay in step with the implementation.
 
@@ -506,11 +583,12 @@ before/after screenshots in both themes.
 - [x] Contrast fixes applied in the app and on the site (section 2). Done in #180 (A3, app tokens) and #178 (B3, site inherits the regenerated CSS block): `Tokens.xaml`/`Tokens.Light.xaml` carry `InkFaintColor` `#948F86`/`#625E57` (the proposed passing values), and B4 (#184) confirmed the site's own block was already current off the same generator run.
 - [x] Legacy colour aliases removed from `Theme.xaml` and `styles.css`. Done in #130.
 - [x] No hard-coded colours left in app views. Verified: `grep -rE "#[0-9A-Fa-f]{6}" DesktopApp --include=*.xaml` matches only `Styles/Tokens.xaml` and `Styles/Tokens.Light.xaml` (the generated token files); every view and `Theme.xaml` itself is clean. Done in #180 (A3).
-- [x] Inter embedded in the app and served on the site, replacing Syne, Source Sans 3 and Segoe UI, with tabular figures for numbers (section 3). Done in #171 (A1: `DesktopApp/Assets/Fonts/Inter-{Regular,Medium,SemiBold}.ttf` + `InterDisplay-SemiBold.ttf`, `OFL.txt`, `Typography.NumeralAlignment="Tabular"` on Today/Sleep Blocking numbers) and #172 (B1: `Website/fonts/InterVariable.woff2` + `OFL.txt`, no `fonts.googleapis.com` links remain, `font-variant-numeric: tabular-nums` used 5× in `styles.css`).
+- [x] Inter embedded in the app and served on the site, replacing Syne, Source Sans 3 and Segoe UI, with tabular figures for numbers (section 3). Done in #171 (A1: `DesktopApp/Assets/Fonts/Inter-{Regular,Medium,SemiBold}.ttf` + `InterDisplay-SemiBold.ttf`, `OFL.txt`, `Typography.NumeralAlignment="Tabular"` on Today/Sleep Blocking numbers) and #172 (B1: `Website/fonts/InterVariable.woff2` + `OFL.txt`, no `fonts.googleapis.com` links remain, `font-variant-numeric: tabular-nums` used 5× in `styles.css`). The app part was superseded by #430 (Segoe UI Variable); the site still serves Inter.
 - [x] Spacing and radii normalised to the scales (section 4). Done in #182 (A2): `RadiusChip`/`RadiusControl`/`RadiusCard` resources referenced 15× in `Theme.xaml`; `--radius-chip: 6px` added and used in `styles.css` (#178, B3). #191 (merged) extended the same scale to the new adaptive layout.
 - [x] Icon set adopted, and the Unicode glyphs in navigation replaced (section 5). Done in #151: Lucide outlines in `Styles/Icons.xaml`, navigation and the two list views. Shield glyphs followed separately (section 6).
 - [x] Shield glyphs built and used on Today, the site, notifications and the tray (section 6). Done in #176 (A4: `DesktopApp/Styles/ShieldGlyphs.xaml`, shared by the shield chips and the beside-timer glyph) and #178 (B3: inline SVG `<symbol>` set in `Website/index.html` reusing the same crest geometry, used by the shields section).
 - [x] Destructive and quiet button variants added (section 7). Done in #180 (A3: `BtnQuiet`/`BtnDanger` styles in `Theme.xaml`) and #178 (B3: `.btn-quiet`/`.btn-danger` classes in `styles.css`).
 - [ ] Copy pass against the word list and tone rules, including one consistent spelling of licence/license (section 9). Partial: B4/B6 (#184, #188) fixed tone on the site, but the two spellings are still mixed rather than one chosen consistently — `DesktopApp/Views/SettingsView.xaml` shows the user-facing label `Text="LICENSE KEY"` and `AutomationProperties.Name="License key"` (American), while other app and email copy uses "licence" (British); the site mixes both across `index.html`/`legal.html`/`success.html`/`checkout.js`. Left unticked.
+- [x] Redesign foundations in the app (#430): the depth tokens and generated surfaces, gradients and shadows (sections 2, 14); Segoe UI Variable with named optical cuts, replacing the embedded Inter (section 3); Segoe Fluent Icons, replacing Lucide in the app (section 5); radii 6 / 8 / 12 and Mica with its fallback (section 4); raised buttons, recessed fields, the segmented selector, the stated switch, the disclosure and the dropdown (section 7). The screens' new layouts follow in their own PRs.
 - [x] Reduced-motion support in the app and on the site (section 8). Done in #176 (A4: `DesktopApp/Infrastructure/Motion.cs` reads `SystemParameters.ClientAreaAnimation` and zeroes every duration when it's off) and pre-existing site support (`prefers-reduced-motion` in `Website/index.html`/`styles.css`).
 - [x] Light theme in the app (section 12, checklist F21). Done in #237: `App.xaml` merges `Styles/Tokens.xaml` as its own entry and `DesktopApp/Services/ThemeService.cs` swaps it for the generated `Tokens.Light.xaml`; Settings → Appearance offers System (the default, following Windows) / Dark / Light, and every colour reference in the app's XAML is a `DynamicResource`.
