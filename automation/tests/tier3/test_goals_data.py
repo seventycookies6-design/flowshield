@@ -327,6 +327,9 @@ class TestHistoryPage:
         assert "best day" in fresh_app.text_of("HeatmapPeak")
         assert fresh_app.text_of("HeatmapLegendLow") == "Less"
         assert fresh_app.text_of("HeatmapLegendHigh") == "More"
+        # #434: the columns have weekday labels; the first is the first day shown.
+        first_day = (datetime.now() - timedelta(days=29)).strftime("%a")
+        assert fresh_app.text_of("HeatmapWeekday") == first_day
 
     def test_the_export_is_reachable_from_history(self, fresh_app):
         """F17's card stays on Settings; History is the way to it (F16)."""
