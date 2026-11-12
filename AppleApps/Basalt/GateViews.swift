@@ -119,9 +119,9 @@ struct TrialEndedView: View {
   var body: some View {
     VStack(alignment: .leading, spacing: 20) {
       Text("FREE TRIAL ENDED").font(.caption).foregroundStyle(.secondary)
-      Text("Keep Basalt for $4.99").font(.title)
-      Text("Your 7-day free trial has ended. Buy Basalt once for $4.99 to keep using it — no subscription. Already bought it? Enter your license key below.").accessibilityIdentifier("TrialEndedText")
-      Link("Buy Basalt — $4.99", destination: model.buyURL).accessibilityIdentifier("LockBuyButton")
+      Text("Keep Basalt for \(Pricing.price)").font(.title)
+      Text("Your 7-day free trial has ended. Buy Basalt once for \(Pricing.price) to keep using it — no subscription. Already bought it? Enter your license key below.").accessibilityIdentifier("TrialEndedText")
+      Link(Pricing.buyLabel, destination: model.buyURL).accessibilityIdentifier("LockBuyButton")
       Divider()
       Text("ALREADY BOUGHT IT?").font(.caption).foregroundStyle(.secondary)
       LicenseSettings(model: model, trialGate: true)

@@ -116,7 +116,7 @@
           <path d="M20 13.5A7.5 7.5 0 1 1 10.5 4 6 6 0 0 0 20 13.5Z"/>
         </svg>
       </button>
-      <button class="btn btn-primary" data-checkout>Buy — $4.99</button>
+      <button class="btn btn-primary" data-checkout>Buy — $14.99</button>
     </div>
   </div>
 </header>
@@ -152,7 +152,7 @@
         <button class="btn btn-primary btn-lg" type="button" data-download-copy>
           Get the download link
         </button>
-        <button class="btn btn-ghost btn-lg" data-checkout>Buy once — $4.99</button>
+        <button class="btn btn-ghost btn-lg" data-checkout>Buy once — $14.99</button>
       </div>
       <p class="copy-confirm" data-copy-confirm role="status" aria-live="polite"></p>
       <p class="hero-note">
@@ -161,7 +161,7 @@
              a missing download rather than a deliberate one. -->
         <span class="phone-only">Basalt runs on Windows, so there is nothing
         to install on a phone — copy the link and open it on your PC.<br></span>
-        7 days free, then $4.99 once · Windows 10 &amp; 11 · No account, no card ·
+        7 days free, then $14.99 once · Windows 10 &amp; 11 · No account, no card ·
         <a href="legal.html">Terms &amp; privacy</a>
       </p>
       <!-- The SmartScreen warning is the biggest install drop-off there is
@@ -207,7 +207,7 @@
       </p>
       <div class="trust">
         <div><b>3</b><span>Shield levels</span></div>
-        <div><b>$4.99</b><span>Once, not monthly</span></div>
+        <div><b>$14.99</b><span>Once, not monthly</span></div>
         <div><b>0</b><span>Telemetry sent</span></div>
       </div>
     </div>
@@ -447,12 +447,12 @@
   <div class="wrap">
     <div class="section-head">
       <h2>Try it free. Buy it once.</h2>
-      <p>Seven days with everything unlocked, then $4.99 to keep Basalt for good. No subscription.</p>
+      <p>Seven days with everything unlocked, then $14.99 to keep Basalt for good. No subscription.</p>
       <!-- Deliberately an unnamed range. Competitor prices were checked on
            14 September 2026 and recorded in LAUNCH_FEATURE_CHECKLIST.md; naming
            a rival or quoting an exact price needs a fresh check on the day it
            is written, and carries accuracy and legal risk this line does not. -->
-      <p class="price-compare">Most blockers charge $30&ndash;$60 every year. Basalt is $4.99, once, for up to 3 devices.</p>
+      <p class="price-compare">Most blockers charge $30&ndash;$60 every year. Basalt is $14.99, once, for up to 3 devices.</p>
     </div>
 
     <div id="checkout-alert" class="alert" role="alert"></div>
@@ -478,10 +478,16 @@
       </div>
 
       <div class="surface plan featured">
-        <span class="plan-badge">One-time purchase</span>
+        <span class="plan-badge">Early-adopter price</span>
         <h3>Basalt</h3>
-        <div class="price"><b>$4.99</b><span>once</span></div>
+        <div class="price"><b>$14.99</b><span>once</span></div>
         <p class="price-note">The price you see is the price you pay. No subscription, no renewals.</p>
+        <!-- The early-adopter promise (#442): the price rises as features are
+             added, and nobody who bought earlier is ever charged for them.
+             Every feature sits behind the one unlock (AppSettings.IsPro), so
+             the shipped build keeps this promise; a feature gated behind a
+             second purchase would break it. -->
+        <p class="price-note" data-early-adopter>This is the early-adopter price. It will go up as Basalt gains features, and every feature we add to the app is yours at no extra cost.</p>
         <p class="sub">Everything, for good.</p>
         <ul data-plan="full">
           <li class="on" data-feature="one-time-purchase"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M20 6 9 17l-5-5"/></svg> <b>Pay once</b> — yours to keep</li>
@@ -493,7 +499,7 @@
           <li class="on" data-feature="hard-kill-mode"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M20 6 9 17l-5-5"/></svg> Hard kill mode for instant closing on Soft</li>
           <li class="on" data-feature="three-devices"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M20 6 9 17l-5-5"/></svg> Use it on up to 3 devices</li>
         </ul>
-        <button class="btn btn-primary btn-block btn-lg" data-checkout>Buy Basalt — $4.99</button>
+        <button class="btn btn-primary btn-block btn-lg" data-checkout>Buy Basalt — $14.99</button>
         <!-- The reassurance sits with the decision, not three clicks away in
              the footer. Baymard's checkout research finds 15% of shoppers
              abandoned a cart in the past quarter solely over the return
@@ -578,11 +584,12 @@
       </details>
 
       <details class="surface faq-item">
-        <summary>Is $4.99 really once?
+        <summary>Is $14.99 really once?
           <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m6 9 6 6 6-6"/></svg>
         </summary>
         <p>Yes. One payment, no subscription and no renewal, on up to 3 devices. Most blockers charge
-        $30&ndash;$60 every year instead.</p>
+        $30&ndash;$60 every year instead. It is the early-adopter price: it will go up as Basalt
+        gains features, and if you buy now, every feature we add to the app is yours at no extra cost.</p>
       </details>
 
       <!-- The refund already exists in legal.html#refunds; it was reachable

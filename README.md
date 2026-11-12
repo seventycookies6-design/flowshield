@@ -9,7 +9,8 @@ the settings folder and `flowshield://` links keep the old name for now.*
 · **[Licence server](https://flowshield-license-server.onrender.com)**
 
 Basalt is free for 7 days with everything unlocked, then a **one-time
-$4.99 purchase** — no subscription. Buying on the site issues a real licence
+$14.99 purchase** — no subscription. $14.99 is the early-adopter price (#442):
+it rises as features are added, and earlier buyers get those features free. Buying on the site issues a real licence
 key, and the installed app activates against the deployed server. Stripe is in **test mode** — see
 **[SELLING.md](SELLING.md)** for what's left before charging real customers.
 

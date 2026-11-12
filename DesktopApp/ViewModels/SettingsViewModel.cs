@@ -279,14 +279,14 @@ public class SettingsViewModel : ViewModelBase
         {
             var days = _main.TrialDaysLeft;
             LicenseStatusText = $"Free trial — {days} day{(days == 1 ? "" : "s")} left";
-            LicenseDetailText = "Everything is unlocked during the trial. Buy Basalt once for $4.99 "
+            LicenseDetailText = $"Everything is unlocked during the trial. Buy Basalt once for {Pricing.Price} "
                                 + "to keep it — no subscription.";
             DeviceText = "";
         }
         else
         {
             LicenseStatusText = "Trial ended";
-            LicenseDetailText = "Buy Basalt once for $4.99 to keep using it, or enter the license "
+            LicenseDetailText = $"Buy Basalt once for {Pricing.Price} to keep using it, or enter the license "
                                 + "key you received when you bought it.";
             DeviceText = "";
         }

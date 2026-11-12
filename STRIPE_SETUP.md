@@ -13,7 +13,7 @@ Stay in **test mode** throughout. Nothing here moves real money.
 | Thing | Value |
 | --- | --- |
 | Product | `FlowShield` (`prod_VFwfmfKcYpgI63`) |
-| Price | `$4.99`, one-time (`price_1UFQmZCcqk10eo83f6jDDOzp`) |
+| Price | `$4.99`, one-time (`price_1UFQmZCcqk10eo83f6jDDOzp`). Being replaced by the **$14.99** early-adopter price (#442): the next setup run creates it and a new Payment Link, retires the old link, and `STRIPE_PRICE_ID` on Render then needs the new id |
 | Tax code | `txcd_10202000` — Downloadable Software, personal use |
 | Payment Link | `https://buy.stripe.com/test_…` (in `Website/config.js`) |
 | Confirmation page | `https://seventycookies6-design.github.io/flowshield/success.html` |

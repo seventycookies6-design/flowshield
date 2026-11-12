@@ -1,7 +1,8 @@
 ﻿<UserControl x:Class="FlowShield.Views.SleepBlockingView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:inf="clr-namespace:FlowShield.Infrastructure">
+             xmlns:inf="clr-namespace:FlowShield.Infrastructure"
+             xmlns:models="clr-namespace:FlowShield.Models">
     <!-- DESIGN_SYSTEM.md §4: full width, like Today and Blocked Apps.
          The status and the schedule sit side by side when there is room and
          stack when there is not (#189); this used to be one 700px column
@@ -20,7 +21,7 @@
                     <StackPanel Grid.Column="0" Margin="0,0,16,0">
                         <TextBlock Text="Your free trial has ended" Style="{StaticResource H2}"/>
                         <TextBlock Style="{StaticResource Body}" Margin="0,4,0,0"
-                                   Text="Buy Basalt once for $4.99 to keep your nightly shield."/>
+                                   Text="{x:Static models:Pricing.KeepSleepShield}"/>
                     </StackPanel>
                     <Button Grid.Column="1" Style="{StaticResource BtnPrimary}" Content="Buy Basalt"
                             VerticalAlignment="Center" Command="{Binding GetProCommand}"

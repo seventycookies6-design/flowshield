@@ -893,7 +893,7 @@ class TestHonestLimitsAndPriceComparison:
 
     def test_the_price_claim_agrees_with_the_rest_of_the_site(self):
         site = " ".join(self._site().split())
-        assert "$4.99, once, for up to 3 devices" in site
+        assert "$14.99, once, for up to 3 devices" in site
         assert "up to 3 devices" in site
 
     def test_customer_seat_copy_uses_devices_instead_of_pcs_or_computers(self):
@@ -909,6 +909,81 @@ class TestHonestLimitsAndPriceComparison:
                 if stale_seat_copy.search(line):
                     matches.append(f"{path}:{line_number}: {line.strip()}")
         assert not matches, "stale PC/computer seat wording reached customer surfaces:\n" + "\n".join(matches)
+
+
+class TestOnePriceEverywhere:
+    """
+    #442 raised the price from $4.99 to $14.99, the early-adopter price, and
+    it will rise again as features are added. The price was typed out in 25
+    files, so a rise could easily leave a lock screen or a button quoting the
+    old amount: a customer charged more than the app told them. Each app now
+    states it once (Pricing.cs, Pricing.swift); these checks make every other
+    surface agree with that.
+    """
+
+    ROOT = Path(DESKTOP_DIR).parent
+    PRICE = re.compile(r"\$\d+\.\d{2}\b")
+    # The changelog records what each release said at the time; 1.0.4's
+    # "$4.99 purchase" is history, not an offer.
+    HISTORY = {Path(WEBSITE_DIR) / "changelog.html"}
+
+    def windows_price(self) -> str:
+        source = (Path(DESKTOP_DIR) / "Models" / "Pricing.cs").read_text(encoding="utf-8")
+        return re.search(r'const string Price = "(\$[\d.]+)";', source).group(1)
+
+    def mac_price(self) -> str:
+        source = (self.ROOT / "AppleApps" / "Basalt" / "Pricing.swift").read_text(encoding="utf-8")
+        return re.search(r'static let price = "(\$[\d.]+)"', source).group(1)
+
+    def test_the_windows_and_mac_apps_charge_the_same(self):
+        assert self.windows_price() == self.mac_price() == "$14.99"
+
+    def test_the_store_script_creates_the_price_the_apps_state(self):
+        script = (self.ROOT / "tools" / "setup_stripe_store.js").read_text(encoding="utf-8")
+        cents = int(re.search(r"const UNIT_AMOUNT = (\d+);", script).group(1))
+        assert f"${cents / 100:.2f}" == self.windows_price(), (
+            "checkout would charge a different amount from the one the app quotes"
+        )
+
+    def test_every_customer_surface_quotes_the_one_price(self):
+        price = self.windows_price()
+        paths = [*customer_copy_surface_paths(),
+                 *sorted((self.ROOT / "AppleApps" / "Basalt").rglob("*.swift"))]
+        stale = []
+        for path in paths:
+            if path in self.HISTORY:
+                continue
+            text = path.read_text(encoding="utf-8")
+            for line_number, line in enumerate(text.splitlines(), 1):
+                stale += [f"{path}:{line_number}: {line.strip()}"
+                          for found in self.PRICE.findall(line) if found != price]
+        assert not stale, f"a customer surface quotes a price other than {price}:\n" + "\n".join(stale)
+
+    def test_app_copy_reads_the_price_instead_of_typing_it(self):
+        """The next rise should be a one-line change in each app."""
+        typed = []
+        for path in [*Path(DESKTOP_DIR).rglob("*.xaml"), *Path(DESKTOP_DIR).rglob("*.cs"),
+                     *(self.ROOT / "AppleApps" / "Basalt").rglob("*.swift")]:
+            if path.name in ("Pricing.cs", "Pricing.swift") or "bin" in path.parts or "obj" in path.parts:
+                continue
+            if self.PRICE.search(path.read_text(encoding="utf-8")):
+                typed.append(str(path))
+        assert not typed, "price typed out instead of read from Pricing:\n" + "\n".join(typed)
+
+    def test_the_site_states_the_early_adopter_promise_beside_the_price(self):
+        """
+        The site promises early buyers every later feature at no extra cost.
+        That only holds while the app has one unlock: every feature behind
+        AppSettings.IsPro, with no second purchase to gate one behind.
+        """
+        site = " ".join((Path(WEBSITE_DIR) / "index.html").read_text(encoding="utf-8").split())
+        pricing = site.split('<section id="pricing">', 1)[1].split("</section>", 1)[0]
+        assert "early-adopter price" in pricing
+        assert "every feature we add to the app is yours at no extra cost" in pricing
+        settings = (Path(DESKTOP_DIR) / "Models" / "AppSettings.cs").read_text(encoding="utf-8")
+        assert "IsPro || IsTrialActiveAt(nowUtc)" in settings, (
+            "the promise assumes one unlock for everything; a tiered unlock needs the promise revisited"
+        )
 
 class TestThirdPartyNoticesShip:
     """

@@ -22,8 +22,8 @@ The visual side (colours, type, components, motion, copy) lives in
   roadmap item, it says **Roadmap x.y**. Build it once, to both descriptions, and
   tick both.
 - **Pricing has changed since the roadmap was written.** FlowShield is now a
-  7-day free trial with everything unlocked, then a one-time $4.99 purchase
-  (#29). Ignore "Pro only" labels in the roadmap; nothing is gated by tier any
+  7-day free trial with everything unlocked, then a one-time $14.99 purchase
+  (#29; the price, the early-adopter price, is from #442). Ignore "Pro only" labels in the roadmap; nothing is gated by tier any
   more.
 
 ### Where the competitor facts come from
@@ -193,7 +193,7 @@ A summary of the research, to explain the choices below.
 | Blocks websites | Cold Turkey, Freedom, FocusMe, LeechBlock NG, BlockSite | **Not at all** | F10 |
 | Progress that motivates | Forest (trees), RescueTime and Windows (streaks, goals) | Momentum score and day streak; no history, goals or summaries | F12–F17 |
 | Quick, guided first run | RescueTime (after simplifying), FocusMe (setup wizard) | None; the app opens on an empty Today page | F18 |
-| One-time price | Cold Turkey ($39), Forest (~$3.99 on iOS); most others are $30–$60 a year | **$4.99 once**, up to 3 devices | F24 |
+| One-time price | Cold Turkey ($39), Forest (~$3.99 on iOS); most others are $30–$60 a year | **$14.99 once** (early-adopter price, #442), up to 3 devices | F24 |
 | Privacy, no account | SelfControl, LeechBlock NG, SiteBlocker, DigitalZen | **Core strength**: local, encrypted, no account | F23 |
 | Trustworthy installer | Established, signed products | Unsigned; SmartScreen warns | F25 |
 
@@ -715,7 +715,7 @@ Build to Roadmap 4.2. As scheduling, profiles and notifications arrive (F5–F9,
 
 **Borrowed from:** Cold Turkey's "Pay once, own forever"; the subscription fatigue the report found in reviews of Freedom, BlockSite and Opal.
 
-**Why it fits:** $4.99 once is far below every paid competitor in the report, which charge $30–$60 a year or $39–$99 for lifetime licences. This is the most persuasive fact FlowShield has.
+**Why it fits:** $14.99 once (raised from $4.99 in #442) is far below every paid competitor in the report, which charge $30–$60 a year or $39–$99 for lifetime licences. This is the most persuasive fact FlowShield has.
 
 **How to build it**
 - **Site pricing:**

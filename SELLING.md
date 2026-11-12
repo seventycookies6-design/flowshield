@@ -15,7 +15,7 @@ accurate rather than encouraging.
 | Site | <https://seventycookies6-design.github.io/flowshield/> |
 | Licence server | <https://flowshield-license-server.onrender.com> |
 | Legal pages | `/legal.html` — terms, privacy, refunds (drafts, see below) |
-| Pricing | 7-day free trial with everything unlocked, then **$4.99 once** — no subscription (#29) |
+| Pricing | 7-day free trial with everything unlocked, then **$14.99 once** — no subscription (#29). The early-adopter price (#442): it rises as features are added, and earlier buyers get every new feature free |
 | Payments | Stripe, **test mode**, account named FlowShield |
 | Device limit | 3 machines per licence, with self-service seat release |
 
